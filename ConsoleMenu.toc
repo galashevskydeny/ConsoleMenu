@@ -1,0 +1,10 @@
+## Interface: 110005
+## Title: ConsoleMenu
+## Notes: Добавляет консольное меню в игру.
+## Author: Ден Галашевский
+## Version: 1.0
+## SavedVariables: ConsoleMenuDB
+## Dependencies: Ace3
+
+ConsoleMenu.lua
+CharacterFrame.lua

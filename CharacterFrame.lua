@@ -1,0 +1,508 @@
+-- CharacterFrame.lua
+
+local ConsoleMenu = LibStub("AceAddon-3.0"):GetAddon("ConsoleMenu")
+
+local offsetX = 40
+local offsetY = 40
+local paddingPaperDollTabs = -4
+local sizePaperDollTabs = 44
+local scale = 1
+
+function ConsoleMenu:SetCharacterFrame()
+
+    if scale then
+        CharacterFrame:SetScale(scale)
+    end
+
+    moveFrames()
+    hideFramesAndRegions()
+    updateTextures()
+
+end
+
+function moveFrames()
+    if CharacterFrameCloseButton then
+        CharacterFrameCloseButton:ClearAllPoints()
+        CharacterFrameCloseButton:SetPoint("TOPRIGHT", CharacterFrame, "TOPRIGHT", -3,-3)
+    end
+
+    -- Проверяем, существует ли PaperDollFrame
+    if PaperDollFrame then
+        -- Очищаем текущие привязки
+        PaperDollFrame:ClearAllPoints()
+        
+        -- Устанавливаем новые привязки с отступами по 32 пикселя
+        PaperDollFrame:SetPoint("TOPLEFT", CharacterFrame, "TOPLEFT", offsetX, -offsetY+2) -- Отступ слева и сверху
+        PaperDollFrame:SetPoint("BOTTOMRIGHT", CharacterFrame, "BOTTOMRIGHT", -offsetX, -offsetY+2) -- Отступ справа и снизу
+    end
+
+    -- Проверяем, существует ли CharacterHeadSlot
+    if CharacterHeadSlot then
+        -- Очищаем текущую привязку
+        CharacterHeadSlot:ClearAllPoints()
+        
+        -- Устанавливаем новую привязку со смещением вправо на 32 пикселя
+        CharacterHeadSlot:SetPoint("TOPLEFT", CharacterFrameInset, "TOPLEFT", offsetX+4, -offsetY) -- Смещение вправо на 32 пикселя
+    end
+
+
+    -- Проверяем, существует ли CharacterHandsSlot
+    if CharacterHandsSlot then
+        -- Очищаем текущую привязку
+        CharacterHandsSlot:ClearAllPoints()
+        
+        -- Устанавливаем новую привязку со смещением вправо на 32 пикселя
+        CharacterHandsSlot:SetPoint("TOPRIGHT", CharacterFrameInset, "TOPRIGHT", -4 + offsetX, -offsetY) -- Смещение вправо на 32 пикселя
+    end
+
+    if PaperDollInnerBorderTopLeft then
+        PaperDollInnerBorderTopLeft:ClearAllPoints()
+        PaperDollInnerBorderTopLeft:SetPoint("TOPLEFT", CharacterHeadSlot, "TOPRIGHT", 5, 0) -- Поднимаем на 32 
+    end
+
+    if PaperDollInnerBorderTopRight then
+        PaperDollInnerBorderTopRight:ClearAllPoints()
+        PaperDollInnerBorderTopRight:SetPoint("TOPRIGHT", CharacterHandsSlot, "TOPLEFT", -6, 0) -- Поднимаем на 32 
+    end
+
+    if PaperDollInnerBorderBottomLeft then
+        PaperDollInnerBorderBottomLeft:ClearAllPoints()
+        PaperDollInnerBorderBottomLeft:SetPoint("BOTTOMLEFT", CharacterWristSlot, "BOTTOMRIGHT", 5, 0) -- Поднимаем на 32 
+    end
+
+    if PaperDollInnerBorderBottomRight then
+        PaperDollInnerBorderBottomRight:ClearAllPoints()
+        PaperDollInnerBorderBottomRight:SetPoint("BOTTOMRIGHT", CharacterTrinket1Slot, "BOTTOMLEFT", -6, 0) -- Поднимаем на 32 
+    end
+
+    -- Проверяем, существует ли CharacterMainHandSlot
+    if CharacterMainHandSlot then
+        -- Очищаем текущие привязки
+        CharacterMainHandSlot:ClearAllPoints()
+        
+        -- Устанавливаем новую привязку, поднимая на 32 пикселя
+        CharacterMainHandSlot:SetPoint("RIGHT", PaperDollInnerBorderBottom, "CENTER", -8, 0) -- Поднимаем на 32 пикселя
+    end
+
+    -- Проверяем, существует ли PaperDollSidebarTab3
+    if PaperDollSidebarTab1 then
+        -- Очищаем текущие привязки
+        PaperDollSidebarTab1:ClearAllPoints()
+        
+        -- Устанавливаем новые привязки со смещением влево на 20 пикселей
+        PaperDollSidebarTab1:SetPoint("RIGHT", PaperDollSidebarTab2, "LEFT", -paddingPaperDollTabs, 0) -- Изменяем -30 на -50
+    end
+
+    -- Проверяем, существует ли PaperDollSidebarTab3
+    if PaperDollSidebarTab3 then
+        -- Очищаем текущие привязки
+        PaperDollSidebarTab3:ClearAllPoints()
+        
+        -- Устанавливаем новые привязки со смещением влево на 20 пикселей
+        PaperDollSidebarTab3:SetPoint("TOPRIGHT", CharacterFrameTitleText, "TOPRIGHT", 0, 0) -- Изменяем -30 на -50
+    end
+    
+    if PaperDollSidebarTab2 then
+        -- Очищаем текущие привязки
+        PaperDollSidebarTab2:ClearAllPoints()
+        
+        -- Устанавливаем новые привязки с смещением влево на 20 пикселей
+        PaperDollSidebarTab2:SetPoint("RIGHT", PaperDollSidebarTab3, "LEFT", -paddingPaperDollTabs, 0) -- Изменяем -30 на -50
+    end
+
+
+    -- Проверяем, существует ли CharacterStatsPane
+    if CharacterStatsPane then
+        -- Очищаем текущие привязки
+        CharacterStatsPane:ClearAllPoints()
+        
+        -- Устанавливаем новые привязки со смещением вправо на 32 пикселя
+        CharacterStatsPane:SetPoint("TOPLEFT", CharacterFrameInsetRight, "TOPLEFT", 3, -3 - offsetY) -- Смещаем верхний левый якорь вправо на 32 пикселя
+        CharacterStatsPane:SetPoint("BOTTOMRIGHT", CharacterFrameInsetRight, "BOTTOMRIGHT", -3, 2 - offsetY) -- Смещаем нижний правый якорь вправо на 32 пикселя
+    end
+
+    -- Проверяем, существует ли PaperDollFrame.TitleManagerPane.ScrollBox
+    if PaperDollFrame.TitleManagerPane.ScrollBox then
+        
+        --PaperDollFrame.TitleManagerPane.ScrollBox:SetWidth(172 + offsetX - 6)
+        PaperDollFrame.TitleManagerPane.ScrollBox:SetHeight(354 - offsetY + 4)
+        
+        -- Очищаем текущие привязки
+        PaperDollFrame.TitleManagerPane.ScrollBox:ClearAllPoints()
+        
+        -- Устанавливаем новые привязки с добавлением смещения
+        PaperDollFrame.TitleManagerPane.ScrollBox:SetPoint("TOPLEFT", CharacterFrameInsetRight, "TOPLEFT", 4 + offsetX + 4, - offsetY)
+    end
+
+    -- Проверяем, существует ли PaperDollFrame.TitleManagerPane.ScrollBox
+    if PaperDollFrame.EquipmentManagerPane then
+        
+        PaperDollFrame.EquipmentManagerPane:SetHeight(354 - offsetY + 4)
+        
+        -- Очищаем текущие привязки
+        PaperDollFrame.EquipmentManagerPane:ClearAllPoints()
+        
+        -- Устанавливаем новые привязки с добавлением смещения
+        PaperDollFrame.EquipmentManagerPane:SetPoint("TOPLEFT", CharacterFrameInsetRight, "TOPLEFT", 4 + offsetX + 8, - offsetY)
+        
+        PaperDollFrame.EquipmentManagerPane.ScrollBox:SetHeight(330)
+        
+        -- Очищаем текущие привязки
+        PaperDollFrame.EquipmentManagerPane.ScrollBox:ClearAllPoints()
+        
+        -- Устанавливаем новые привязки с добавлением смещения
+        PaperDollFrame.EquipmentManagerPane.ScrollBox:SetPoint("TOPLEFT", CharacterFrameInsetRight, "TOPLEFT", offsetX + 10, - offsetY-40)
+    end
+
+    -- Создаем хуки для отслеживания открытия окна персонажа, репутации и токенов
+    hooksecurefunc("ToggleCharacter", function()
+            if CharacterFrame:IsShown() then
+                CharacterFrame:SetWidth(540 + offsetX*2)
+                CharacterFrame:SetHeight(424 + offsetY*2-32)
+            end
+    end)
+
+    -- Проверяем, существует ли CharacterFrameTab1
+    if CharacterFrameTab1 then
+        -- Очищаем текущие привязки
+        CharacterFrameTab1:ClearAllPoints()
+        
+        -- Устанавливаем новую привязку с изменением смещения по X
+        CharacterFrameTab1:SetPoint("TOPLEFT", CharacterFrame, "BOTTOMLEFT", offsetX, 2) -- Заменяем 11 на 32
+    end
+
+    -- Проверяем, существует ли ReputationFrame.ScrollBox
+    if ReputationFrame and ReputationFrame.ScrollBox then
+        -- Очищаем текущие привязки
+        ReputationFrame.ScrollBox:ClearAllPoints()
+        
+        -- Устанавливаем новые привязки с добавлением отступов по 32 пикселя слева и справа
+        ReputationFrame.ScrollBox:SetPoint("TOPLEFT", CharacterFrameInset, "TOPLEFT", -20 + offsetX, -12) -- Отступ слева на 32 пикселя
+        ReputationFrame.ScrollBox:SetPoint("BOTTOMRIGHT", CharacterFrameInset, "BOTTOMRIGHT", -offsetX, 2) -- Отступ справа на 32 пикселя
+    end
+
+    -- Проверяем, существует ли ReputationFrame.filterDropdown
+    if ReputationFrame.filterDropdown then
+        -- Очищаем текущие привязки
+        ReputationFrame.filterDropdown:ClearAllPoints()
+        
+        -- Устанавливаем новые привязки с использованием -offsetX
+        ReputationFrame.filterDropdown:SetPoint("TOPRIGHT", ReputationFrame, "TOPRIGHT", -offsetX+10, -30)
+    end
+
+    if TokenFrame and TokenFrame.ScrollBox then
+        -- Очищаем текущие привязки
+        TokenFrame.ScrollBox:ClearAllPoints()
+        
+        -- Устанавливаем новые привязки с добавлением отступов по 32 пикселя слева и справа
+        TokenFrame.ScrollBox:SetPoint("TOPLEFT", CharacterFrameInset, "TOPLEFT", -20 + offsetX, -12) -- Отступ слева на 32 пикселя
+        TokenFrame.ScrollBox:SetPoint("BOTTOMRIGHT", CharacterFrameInset, "BOTTOMRIGHT", -offsetX, 2) -- Отступ справа на 32 пикселя
+    end
+
+    -- Проверяем, существуют ли TokenFrame.filterDropdown и TokenFrame.CurrencyTransferLogToggleButton
+    if TokenFrame and TokenFrame.filterDropdown and TokenFrame.CurrencyTransferLogToggleButton then
+        local filterDropdown = TokenFrame.filterDropdown
+        local toggleButton = TokenFrame.CurrencyTransferLogToggleButton
+        
+        -- Очищаем все привязки кнопки
+        toggleButton:ClearAllPoints()
+        
+        -- Устанавливаем привязку слева от filterDropdown с отступом 12 пикселей
+        toggleButton:SetPoint("RIGHT", filterDropdown, "LEFT", -12, 0)
+    end
+
+    -- Проверяем, существует ли TokenFrame.filterDropdown
+    if TokenFrame and TokenFrame.filterDropdown then
+        local filterDropdown = TokenFrame.filterDropdown
+        
+        -- Очищаем текущую привязку
+        filterDropdown:ClearAllPoints()
+        
+        -- Устанавливаем новую привязку с изменением xOffset
+        filterDropdown:SetPoint("TOPRIGHT", TokenFrame, "TOPRIGHT", -offsetX+10, -30) 
+    end
+
+    -- Проверяем, существует ли CharacterFrameTitleText
+    if CharacterFrameTitleText then
+        -- Устанавливаем новый размер шрифта и выравнивание
+        CharacterFrameTitleText:SetFont(CharacterFrameTitleText:GetFont(), 20) -- Меняем размер шрифта на 20
+        CharacterFrameTitleText:SetJustifyH("LEFT") -- Выравниваем по левому краю
+    end
+
+    if CharacterLevelText then
+        CharacterLevelText:SetJustifyH("LEFT") -- Выравниваем по левому краю
+        CharacterLevelText:ClearAllPoints()
+        
+        -- Устанавливаем новые привязки с отступом слева 24 пикселя и теми же значениями для других параметров
+        CharacterLevelText:SetPoint("TOPLEFT", CharacterFrame, "TOPLEFT", offsetX + 4, -22-offsetY)
+        CharacterLevelText:SetPoint("TOPRIGHT", CharacterFrame, "TOPRIGHT", -24, -22-offsetY)
+    end
+
+    -- Проверяем, существует ли CharacterFrameTitleText
+    if CharacterFrameTitleText then
+        -- Очищаем все привязки
+        CharacterFrameTitleText:ClearAllPoints()
+        
+        -- Устанавливаем новые привязки с отступом слева 24 пикселя и теми же значениями для других параметров
+        CharacterFrameTitleText:SetPoint("TOPLEFT", CharacterFrame, "TOPLEFT", offsetX + 4, -offsetY-4)
+        CharacterFrameTitleText:SetPoint("TOPRIGHT", CharacterFrame, "TOPRIGHT", -offsetX, -offsetY-4)
+    end
+
+    -- ФРЕЙМ -- 
+    -- Проверяем, существует ли уже фрейм
+    if not _G["CharacterFrameNewBG"] then
+        -- Создаем фрейм с использованием CPPopupFrameBaseTemplate
+        local frame = CreateFrame("Frame", "CharacterFrameNewBG", CharacterFrame, "CPPopupFrameBaseTemplate")
+        frame:SetPoint("TOPLEFT", CharacterFrame, "TOPLEFT") -- Привязываем верхнюю левую точку к CharacterFrame
+        frame:SetPoint("BOTTOMRIGHT", CharacterFrame, "BOTTOMRIGHT", 0, -21)
+        
+        
+        -- Устанавливаем уровень слоя фрейма ниже, чтобы текст CharacterLevelText был виден
+        frame:SetFrameStrata("MEDIUM")
+        frame:SetFrameLevel(CharacterFrame:GetFrameLevel() - 1)
+    end
+end
+
+function hideFramesAndRegions()
+    local elementsToHide = {
+        CharacterFrame.NineSlice,
+        CharacterFramePortrait,
+        CharacterFrameBg,
+        CharacterFrameInset.Bg,
+        CharacterFrameInset.NineSlice,
+        CharacterFrameInsetRight.NineSlice,
+        CharacterFrameInsetRight.Bg,
+        CharacterFrame.Background,
+        CharacterStatsPane.ClassBackground,
+        PaperDollSidebarTabs.DecorLeft,
+        PaperDollSidebarTabs.DecorRight,
+        CharacterFrame.TopTileStreaks,
+        PaperDollInnerBorderBottom2,
+        CharacterStatsPane.ItemLevelCategory.Background,
+        CharacterStatsPane.AttributesCategory.Background,
+        CharacterStatsPane.EnhancementsCategory.Background,
+        
+        PaperDollSidebarTab1.Hider,
+        PaperDollSidebarTab2.Hider,
+        PaperDollSidebarTab3.Hider,
+        
+        CharacterFinger0SlotFrame,
+        CharacterFinger1SlotFrame,
+        CharacterTrinket0SlotFrame,
+        CharacterTrinket1SlotFrame,
+        CharacterLegsSlotFrame,
+        CharacterFeetSlotFrame,
+        CharacterWaistSlotFrame,
+        CharacterHandsSlotFrame,
+        CharacterWristSlotFrame,
+        CharacterTabardSlotFrame,
+        CharacterShirtSlotFrame,
+        CharacterChestSlotFrame,
+        CharacterBackSlotFrame,
+        CharacterShoulderSlotFrame,
+        CharacterNeckSlotFrame,
+        CharacterHeadSlotFrame,
+        CharacterMainHandSlotFrame,
+        CharacterSecondaryHandSlotFrame,
+    }
+
+    -- Скрываем все элементы из списка
+    for _, element in ipairs(elementsToHide) do
+        if element then
+            element:Hide()
+            element:SetAlpha(0)
+        end
+    end
+
+    -- Функция для скрытия первого региона
+    local function HideRegion(frame)
+        local regions = {frame:GetRegions()}  -- Получаем все регионы
+        if #regions > 0 and regions[17] then
+            regions[17]:Hide()  -- Скрываем первый регион
+        end
+    end
+
+    if CharacterMainHandSlot then
+        -- Скрываем все регионы, которые не являются фреймами, в CharacterMainHandSlotFrame
+        HideRegion(CharacterMainHandSlot)
+    end
+
+    if CharacterSecondaryHandSlot then
+        -- Скрываем все регионы, которые не являются фреймами, в CharacterMainHandSlotFrame
+        HideRegion(CharacterSecondaryHandSlot)
+    end
+
+    -- Функция для скрытия конкретных регионов
+    local function HideSpecificRegions(frames)
+        -- Получаем все регионы, связанные с фреймом
+        for _, child in ipairs(frames) do
+            if child.BgBottom then
+                child.BgBottom:Hide()
+            end
+            
+            if child.BgMiddle then
+                
+                child.BgMiddle:Hide()
+            end
+            
+            if child.BgTop then
+                child.BgTop:Hide()
+            end
+            
+            if child.Stripe then
+                child.Stripe:Hide()
+            end
+        end
+    end
+
+    PaperDollFrame.TitleManagerPane.ScrollBox.ScrollTarget:HookScript("OnUpdate", function()
+            HideSpecificRegions({PaperDollFrame.TitleManagerPane.ScrollBox.ScrollTarget:GetChildren()})  
+    end)
+
+    PaperDollFrame.EquipmentManagerPane.ScrollBox.ScrollTarget:HookScript("OnUpdate", function()
+            HideSpecificRegions({PaperDollFrame.EquipmentManagerPane.ScrollBox.ScrollTarget:GetChildren()})  
+    end)
+end
+
+function updateTextures()
+    function ApplyMaskToTexture(texture)
+        -- Проверка, существует ли уже маска
+        if not texture.mask then
+            -- Создаем маску
+            local mask = texture:GetParent():CreateMaskTexture()
+            
+            -- Устанавливаем текстуру маски
+            mask:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\Mask")
+            mask:SetAllPoints(texture)  -- Маска будет размером с текстуру
+            
+            -- Применяем маску
+            texture:AddMaskTexture(mask)
+            
+            -- Сохраняем ссылку на маску, чтобы избежать повторного создания
+            texture.mask = mask
+        end
+    end
+
+    function SetAllPointsParent(frame)
+        local parent = frame:GetParent()
+        if frame and parent then
+            frame:ClearAllPoints()
+            frame:SetAllPoints(parent)
+        end
+    end
+
+    function UpdatePaperDollSidebarTab(frame)
+        frame:SetWidth(sizePaperDollTabs)
+        frame:SetHeight(sizePaperDollTabs)
+        
+        frame.Icon:ClearAllPoints()
+        frame.Icon:SetPoint("CENTER", frame, "CENTER", 0, 0)
+        frame.Icon:SetWidth(sizePaperDollTabs-14)
+        frame.Icon:SetHeight(sizePaperDollTabs-14)
+        
+        frame.TabBg:ClearAllPoints()
+        frame.TabBg:SetAllPoints(frame)
+        
+        frame.Highlight:ClearAllPoints()
+        frame.Highlight:SetAllPoints(frame)
+        
+        local atlasInfo = C_Texture.GetAtlasInfo("plunderstorm-actionbar-slot-border")
+        if atlasInfo then
+            -- Если текстура найдена в атласе, устанавливаем ее на фрейм
+            frame.TabBg:SetTexture(atlasInfo.file)
+            frame.TabBg:SetTexCoord(atlasInfo.leftTexCoord, atlasInfo.rightTexCoord, atlasInfo.topTexCoord, atlasInfo.bottomTexCoord)
+        else
+            -- Если текстура не найдена, выводим ошибку в лог
+            print("Текстура не найдена")
+        end
+        
+        atlasInfo = C_Texture.GetAtlasInfo("plunderstorm-actionbar-slot-border-swappable")
+        if atlasInfo then
+            -- Если текстура найдена в атласе, устанавливаем ее на фрейм
+            frame.Highlight:SetTexture(atlasInfo.file)
+            frame.Highlight:SetTexCoord(atlasInfo.leftTexCoord, atlasInfo.rightTexCoord, atlasInfo.topTexCoord, atlasInfo.bottomTexCoord)
+        else
+            -- Если текстура не найдена, выводим ошибку в лог
+            print("Текстура не найдена")
+        end
+        
+    end
+
+    if PaperDollSidebarTab1 then
+        PaperDollSidebarTab1:HookScript("OnUpdate", function()
+                UpdatePaperDollSidebarTab(PaperDollSidebarTab1)
+                
+        end)
+        
+        ApplyMaskToTexture(PaperDollSidebarTab1.Icon)
+    end
+
+    if PaperDollSidebarTab2 then
+        PaperDollSidebarTab2:HookScript("OnUpdate", function()
+                UpdatePaperDollSidebarTab(PaperDollSidebarTab2)
+        end)
+        
+        PaperDollSidebarTab2.Icon:SetTexture("Interface\\Icons\\UI_Profession_Inscription")
+        PaperDollSidebarTab2.Icon:SetTexCoord(0, 1, 0, 1)
+        
+        
+        ApplyMaskToTexture(PaperDollSidebarTab2.Icon)
+        
+    end
+
+    if PaperDollSidebarTab3 then
+        PaperDollSidebarTab3:HookScript("OnUpdate", function()
+                
+                PaperDollSidebarTab3.Icon:SetTexture("Interface\\Icons\\Trade_Archaeology_DruidPriestStatueSet")
+                PaperDollSidebarTab3.Icon:SetTexCoord(0, 1, 0, 1)
+                
+                UpdatePaperDollSidebarTab(PaperDollSidebarTab3)
+        end)
+        
+        
+        ApplyMaskToTexture(PaperDollSidebarTab3.Icon)
+        
+    end
+
+    local slotInfo = {
+        {frame = "CharacterMainHandSlot", textureID = 136518, newTexture = "Interface\\Icons\\INV_Sword_111"},
+        {frame = "CharacterSecondaryHandSlot", textureID = 136524, newTexture = "Interface\\Icons\\INV_Shield_09"},
+        {frame = "CharacterHeadSlot", textureID = 136516, newTexture = "Interface\\Icons\\INV_Helmet_22"},
+        {frame = "CharacterNeckSlot", textureID = 136519, newTexture = "Interface\\Icons\\INV_11_0_Arathor_Necklace_01_Color2"},
+        {frame = "CharacterShoulderSlot", textureID = 136526, newTexture = "Interface\\Icons\\INV_Shoulder_29"},
+        {frame = "CharacterBackSlot", textureID = 136512, newTexture = "Interface\\Icons\\INV_Misc_Cape_19"},
+        {frame = "CharacterChestSlot", textureID = 136512, newTexture = "Interface\\Icons\\INV_Chest_Armor_Dwarf_D_01"},
+        {frame = "CharacterShirtSlot", textureID = 136525, newTexture = "Interface\\Icons\\INV_Shirt_Basic_A_02_Dark"},
+        {frame = "CharacterTabardSlot", textureID = 136527, newTexture = "Interface\\Icons\\INV_Tabard_Basic_B_01_grey"},
+        {frame = "CharacterWristSlot", textureID = 136530, newTexture = "Interface\\Icons\\INV_Bracer_07"},
+        {frame = "CharacterHandsSlot", textureID = 136515, newTexture = "Interface\\Icons\\INV_Misc_Desecrated_ClothGlove"},
+        {frame = "CharacterWaistSlot", textureID = 136529, newTexture = "Interface\\Icons\\INV_Belt_04"},
+        {frame = "CharacterLegsSlot", textureID = 136517, newTexture = "Interface\\Icons\\INV_Pants_06"},
+        {frame = "CharacterFeetSlot", textureID = 136513, newTexture = "Interface\\Icons\\INV_Boots_07"},
+        {frame = "CharacterFinger0Slot", textureID = 136514, newTexture = "Interface\\Icons\\INV_Jewelry_Ring_03"},
+        {frame = "CharacterFinger1Slot", textureID = 136514, newTexture = "Interface\\Icons\\INV_Jewelry_Ring_03"},
+        {frame = "CharacterTrinket0Slot", textureID = 136528, newTexture = "Interface\\Icons\\INV_6_2Raid_Trinket_4c"},
+        {frame = "CharacterTrinket1Slot", textureID = 136528, newTexture = "Interface\\Icons\\INV_6_2Raid_Trinket_3b"}
+    }
+
+    for _, item in ipairs(slotInfo) do
+        local frame = _G[item.frame]
+        local icon = frame.icon
+        local border = frame.NormalTexture
+        
+        frame:HookScript("OnUpdate", function()
+                if icon:GetTexture() == item.textureID then
+                    icon:SetTexture(item.newTexture)
+                    icon:SetTexCoord(0, 1, 0, 1)
+                    icon:SetDesaturated(true)
+                end
+        end)
+        
+        
+        ApplyMaskToTexture(icon)
+        -- Получаем информацию об атласе один раз
+        border:SetAtlas("plunderstorm-actionbar-slot-border", false)
+        border:SetWidth(52)
+        border:SetHeight(52)
+    end
+end
