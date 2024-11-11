@@ -4,10 +4,11 @@ local ConsoleMenu = LibStub("AceAddon-3.0"):GetAddon("ConsoleMenu")
 
 local offsetX = 40
 local offsetY = 40
-local paddingPaperDollTabs = -4
-local sizePaperDollTabs = 44
 local scale = 1
-local g_selectedIndex = 1;
+local g_selectedIndex = 1
+local statsItems = {}
+local currentStatsIndex = nil
+local currentSlotIndex = nil
 
 local inventorySlots = {
     CharacterHeadSlot,
@@ -30,15 +31,7 @@ local inventorySlots = {
     CharacterTrinket1Slot,
 }
 
-local statsItems = {}
-local currentStatsIndex = nil
-local currentSlotIndex = nil
-
-function ConsoleMenu:SetCharacterFrame()
-
-    if scale then
-        CharacterFrame:SetScale(scale)
-    end
+function ConsoleMenu:SetPaperDollFrame()
 
     moveFrames()
     hideFramesAndRegions()
@@ -46,20 +39,7 @@ function ConsoleMenu:SetCharacterFrame()
     toggleController()
     addDropdown()
 
-    -- ФРЕЙМ -- 
-    -- Проверяем, существует ли уже фрейм
-    if not _G["CharacterFrameNewBG"] then
-        -- Создаем фрейм с использованием CPPopupFrameBaseTemplate
-        local frame = CreateFrame("Frame", "CharacterFrameNewBG", CharacterFrame, "CPPopupFrameBaseTemplate")
-        frame:SetPoint("TOPLEFT", CharacterFrame, "TOPLEFT") -- Привязываем верхнюю левую точку к CharacterFrame
-        frame:SetPoint("BOTTOMRIGHT", CharacterFrame, "BOTTOMRIGHT", 0, -21)
-        
-        
-        -- Устанавливаем уровень слоя фрейма ниже, чтобы текст CharacterLevelText был виден
-        frame:SetFrameStrata("MEDIUM")
-        frame:SetFrameLevel(CharacterFrame:GetFrameLevel() - 1)
-    end
-
+    -- Отслеживание изменений CharacterStatsPane
     CharacterStatsPane:HookScript("OnShow", function()
         InitializeStatsItems()
     end)
@@ -77,14 +57,11 @@ function ConsoleMenu:SetCharacterFrame()
             end
         end
     end)
+
 end
 
 -- Перемещение и изменение тточек привязки фреймов
 function moveFrames()
-    if CharacterFrameCloseButton then
-        CharacterFrameCloseButton:ClearAllPoints()
-        CharacterFrameCloseButton:SetPoint("TOPRIGHT", CharacterFrame, "TOPRIGHT", -3,-3)
-    end
 
     -- Проверяем, существует ли PaperDollFrame
     if PaperDollFrame then
@@ -104,7 +81,6 @@ function moveFrames()
         -- Устанавливаем новую привязку со смещением вправо на 32 пикселя
         CharacterHeadSlot:SetPoint("TOPLEFT", CharacterFrameInset, "TOPLEFT", offsetX+4, -offsetY) -- Смещение вправо на 32 пикселя
     end
-
 
     -- Проверяем, существует ли CharacterHandsSlot
     if CharacterHandsSlot then
@@ -143,33 +119,6 @@ function moveFrames()
         -- Устанавливаем новую привязку, поднимая на 32 пикселя
         CharacterMainHandSlot:SetPoint("RIGHT", PaperDollInnerBorderBottom, "CENTER", -8, 0) -- Поднимаем на 32 пикселя
     end
-
-    -- Проверяем, существует ли PaperDollSidebarTab3
-    if PaperDollSidebarTab1 then
-        -- Очищаем текущие привязки
-        PaperDollSidebarTab1:ClearAllPoints()
-        
-        -- Устанавливаем новые привязки со смещением влево на 20 пикселей
-        PaperDollSidebarTab1:SetPoint("RIGHT", PaperDollSidebarTab2, "LEFT", -paddingPaperDollTabs, 0) -- Изменяем -30 на -50
-    end
-
-    -- Проверяем, существует ли PaperDollSidebarTab3
-    if PaperDollSidebarTab3 then
-        -- Очищаем текущие привязки
-        PaperDollSidebarTab3:ClearAllPoints()
-        
-        -- Устанавливаем новые привязки со смещением влево на 20 пикселей
-        PaperDollSidebarTab3:SetPoint("TOPRIGHT", CharacterFrameTitleText, "TOPRIGHT", 0, 0) -- Изменяем -30 на -50
-    end
-    
-    if PaperDollSidebarTab2 then
-        -- Очищаем текущие привязки
-        PaperDollSidebarTab2:ClearAllPoints()
-        
-        -- Устанавливаем новые привязки с смещением влево на 20 пикселей
-        PaperDollSidebarTab2:SetPoint("RIGHT", PaperDollSidebarTab3, "LEFT", -paddingPaperDollTabs, 0) -- Изменяем -30 на -50
-    end
-
 
     -- Проверяем, существует ли CharacterStatsPane
     if CharacterStatsPane then

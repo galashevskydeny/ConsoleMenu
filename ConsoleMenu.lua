@@ -11,4 +11,5 @@ function ConsoleMenu:OnInitialize()
     LibSharedMedia:Register ("statusbar", "healthbar2", [[Interface\AddOns\ConsoleMenu\Assets\healthPlate.tga]])
 
     self:SetCharacterFrame()
+    self:SetPaperDollFrame()
 end
