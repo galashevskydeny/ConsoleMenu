@@ -81,6 +81,7 @@ local function hideFramesAndRegions()
     -- Привязываем события к CharacterFrameCloseButton
     CharacterFrameCloseButton:RegisterEvent("GAME_PAD_CONNECTED")
     CharacterFrameCloseButton:RegisterEvent("GAME_PAD_DISCONNECTED")
+    CharacterFrameCloseButton:RegisterEvent("PLAYER_ENTERING_WORLD")
 
     -- Обработчик событий
     CharacterFrameCloseButton:SetScript("OnEvent", function(self, event)
@@ -90,6 +91,12 @@ local function hideFramesAndRegions()
             end
         elseif event == "GAME_PAD_DISCONNECTED" then
             CharacterFrameCloseButton:Show()
+        elseif event == "PLAYER_ENTERING_WORLD" then
+            if C_GamePad and C_GamePad.GetAllDeviceIDs and #C_GamePad.GetAllDeviceIDs() > 0 then
+                CharacterFrameCloseButton:Hide()
+            else
+                CharacterFrameCloseButton:Show()
+            end
         end
     end)
 
