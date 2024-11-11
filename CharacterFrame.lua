@@ -60,7 +60,7 @@ function ConsoleMenu:SetCharacterFrame()
         frame:SetFrameLevel(CharacterFrame:GetFrameLevel() - 1)
     end
 
-    CharacterStatsPane:HookScript("OnUpdate", function()
+    CharacterStatsPane:HookScript("OnShow", function()
         InitializeStatsItems()
     end)
     -- Вызов функции инициализации
@@ -624,8 +624,7 @@ function toggleController()
         controllerHandler:SetScript("OnGamePadButtonDown", nil) -- Очищаем обработчик событий
         HideTooltipOnCurrentSlot()
         currentSlotIndex = nil
-        local statsItems = {}
-        local currentStatsIndex = nil
+        currentStatsIndex = nil
     end)
 
     -- Обработка нажатия кнопок геймпада
@@ -773,30 +772,59 @@ end
 
 -- Инициализация списка фреймов в statsItems только с анонимными фреймами
 function InitializeStatsItems()
-    statsItems = {}
+        -- Проверяем наличие CharacterStatsPane
+        if not CharacterStatsPane then
+            print("CharacterStatsPane не найден.")
+            return
+        end
 
-    -- Перебираем всех детей с использованием GetChildren()
-    local children = {CharacterStatsPane:GetChildren()}
-    for i, child in ipairs(children) do
-        if child.tooltip then
-            table.insert(statsItems, {index = i, frame = child})
-            -- Для отладки: выводим информацию, если у фрейма есть tooltip
-            if child.tooltip or child.tooltip2 then
-                print("Anonymous Child Frame Index:", i, "Tooltip:", child.tooltip or "N/A")
+        if #statsItems > 0 then
+            return
+        end
+    
+        -- Перебираем всех детей CharacterStatsPane, кроме 1, 3 и 4
+        for i, child in ipairs({CharacterStatsPane:GetChildren()}) do
+            if i ~= 1 and i ~= 3 and i ~= 4 then
+                -- Проверяем, имеет ли child поле Label и может ли Label получить текст
+                if child.Label and child.Label.GetText then
+                    local labelText = child.Label:GetText()
+                    if labelText then
+                        table.insert(statsItems, labelText)  -- Добавляем текст в таблицу statsItems
+                    end
+                end
             end
         end
-    end
-
-    -- Если необходимо, можно оставить только фреймы в statsItems
-    for i, item in ipairs(statsItems) do
-        statsItems[i] = item.frame
-    end
+    
+        -- Вывод для проверки
+        for i, label in ipairs(statsItems) do
+            print("Статистика #"..i..":", label)
+        end
 end
 
 
 -- Функция для отображения тултипа на текущем анонимном фрейме
 function ShowTooltipOnCurrentStat()
-    local currentFrame = statsItems[currentStatsIndex]
+    local targetLabel = statsItems[currentStatsIndex]
+    currentFrame = nil  -- Очистим currentFrame, если фрейм не найден
+
+    -- Проверяем наличие CharacterStatsPane
+    if not CharacterStatsPane then
+        print("CharacterStatsPane не найден.")
+        return
+    end
+
+    -- Перебираем всех детей CharacterStatsPane
+    for _, child in ipairs({CharacterStatsPane:GetChildren()}) do
+        -- Проверяем, имеет ли child поле Label и метод GetText для Label
+        if child.Label and child.Label.GetText then
+            local labelText = child.Label:GetText()
+            if labelText == targetLabel then
+                currentFrame = child  -- Устанавливаем найденный фрейм в currentFrame
+                break  -- Останавливаем поиск, так как фрейм найден
+            end
+        end
+    end
+
     if currentFrame and currentFrame:IsVisible() then
         GameTooltip:SetOwner(currentFrame, "ANCHOR_RIGHT")
         if currentFrame.tooltip then
@@ -804,8 +832,10 @@ function ShowTooltipOnCurrentStat()
             if currentFrame.tooltip2 then
                 GameTooltip:AddLine(currentFrame.tooltip2)
             end
-            GameTooltip:Show()
+        else
+            
         end
+        GameTooltip:Show()
     end
 end
 
