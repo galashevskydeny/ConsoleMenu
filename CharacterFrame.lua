@@ -63,7 +63,20 @@ function ConsoleMenu:SetCharacterFrame()
     CharacterStatsPane:HookScript("OnShow", function()
         InitializeStatsItems()
     end)
-    -- Вызов функции инициализации
+    CharacterStatsPane:HookScript("OnUpdate", function()
+        currentFrame = nil  -- Очистим currentFrame, если фрейм не найден
+        -- Перебираем всех детей CharacterStatsPane
+        for _, child in ipairs({CharacterStatsPane:GetChildren()}) do
+            -- Проверяем, имеет ли child поле Label и метод GetText для Label
+            if child.Label and child.Label.GetText then
+                local labelText = child.Label:GetText()
+                if labelText == "Искусность:" and labelText == statsItems[currentStatsIndex] then
+                    Mastery_OnEnter(child)                
+                    break  -- Останавливаем поиск, так как фрейм найден
+                end
+            end
+        end
+    end)
 end
 
 -- Перемещение и изменение тточек привязки фреймов
