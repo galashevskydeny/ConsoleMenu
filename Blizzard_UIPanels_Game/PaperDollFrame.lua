@@ -467,6 +467,30 @@ local function addDropdown()
     dropdown:SetupMenu(GeneratorFunction);
 end
 
+-- Функция для отображения подсказки на текущем слоте и скрытия выделения у других
+local function ShowTooltipOnCurrentSlot()
+    -- Перебираем все слоты и скрываем подсветку
+    for i, slot in ipairs(inventorySlots) do
+        if slot.AugmentBorderAnimTexture then
+            if i == currentSlotIndex then
+                -- Показываем выделение только для текущего слота
+                slot.AugmentBorderAnimTexture:Show()
+            else
+                -- Скрываем выделение для всех остальных слотов
+                slot.AugmentBorderAnimTexture:Hide()
+            end
+        end
+    end
+
+    -- Отображаем подсказку на текущем слоте
+    local currentSlot = inventorySlots[currentSlotIndex]
+    if currentSlot and currentSlot:IsVisible() then
+        GameTooltip:SetOwner(currentSlot, "ANCHOR_RIGHT")
+        GameTooltip:SetInventoryItem("player", currentSlot:GetID())
+        GameTooltip:Show()
+    end
+end
+
 -- Обработка нажатий кнопок D-pad
 local function PaperDollItemsOnDPadButtonPress(direction)
     if direction == "UP" then
@@ -503,6 +527,65 @@ local function PaperDollItemsOnDPadButtonPress(direction)
 
     -- Обновляем отображение подсказки
     ShowTooltipOnCurrentSlot()
+end
+
+-- Функция для отображения тултипа на текущем анонимном фрейме
+local function ShowTooltipOnCurrentStat()
+    local targetLabel = statsItems[currentStatsIndex]
+    currentFrame = nil  -- Очистим currentFrame, если фрейм не найден
+
+    -- Проверяем наличие CharacterStatsPane
+    if not CharacterStatsPane then
+        print("CharacterStatsPane не найден.")
+        return
+    end
+
+    -- Перебираем всех детей CharacterStatsPane
+    for _, child in ipairs({CharacterStatsPane:GetChildren()}) do
+        -- Проверяем, имеет ли child поле Label и метод GetText для Label
+        if child.Label and child.Label.GetText then
+            local labelText = child.Label:GetText()
+            if labelText == targetLabel then
+                currentFrame = child  -- Устанавливаем найденный фрейм в currentFrame
+                break  -- Останавливаем поиск, так как фрейм найден
+            end
+        end
+    end
+
+    if currentFrame and currentFrame:IsVisible() then
+        GameTooltip:SetOwner(currentFrame, "ANCHOR_RIGHT")
+        if currentFrame.tooltip then
+            GameTooltip:SetText(currentFrame.tooltip)
+            if currentFrame.tooltip2 then
+                GameTooltip:AddLine(currentFrame.tooltip2)
+            end
+        else
+            
+        end
+        GameTooltip:Show()
+    end
+end
+
+-- Обработка нажатий кнопок D-pad для перемещения между анонимными фреймами в statsItems
+local function StatsItemsOnDPadButtonPress(direction)
+    if direction == "UP" then
+        if currentStatsIndex == nil then currentStatsIndex = 1 else
+            currentStatsIndex = currentStatsIndex - 1
+            if currentStatsIndex < 1 then
+                currentStatsIndex = #statsItems
+            end 
+        end
+    elseif direction == "DOWN" then
+        if currentStatsIndex == nil then currentStatsIndex = 1 else
+            currentStatsIndex = currentStatsIndex + 1
+            if currentStatsIndex > #statsItems then
+                currentStatsIndex = 1
+            end
+        end
+    end
+
+    -- Обновляем отображение тултипа для текущего фрейма
+    ShowTooltipOnCurrentStat()
 end
 
 -- Подключение контроллера
@@ -565,30 +648,6 @@ local function toggleController()
 
 end
 
--- Функция для отображения подсказки на текущем слоте и скрытия выделения у других
-local function ShowTooltipOnCurrentSlot()
-    -- Перебираем все слоты и скрываем подсветку
-    for i, slot in ipairs(inventorySlots) do
-        if slot.AugmentBorderAnimTexture then
-            if i == currentSlotIndex then
-                -- Показываем выделение только для текущего слота
-                slot.AugmentBorderAnimTexture:Show()
-            else
-                -- Скрываем выделение для всех остальных слотов
-                slot.AugmentBorderAnimTexture:Hide()
-            end
-        end
-    end
-
-    -- Отображаем подсказку на текущем слоте
-    local currentSlot = inventorySlots[currentSlotIndex]
-    if currentSlot and currentSlot:IsVisible() then
-        GameTooltip:SetOwner(currentSlot, "ANCHOR_RIGHT")
-        GameTooltip:SetInventoryItem("player", currentSlot:GetID())
-        GameTooltip:Show()
-    end
-end
-
 -- Инициализация списка фреймов в statsItems только с анонимными фреймами
 local function InitializeStatsItems()
         -- Проверяем наличие CharacterStatsPane
@@ -613,72 +672,9 @@ local function InitializeStatsItems()
                 end
             end
         end
-    
-        -- Вывод для проверки
-        for i, label in ipairs(statsItems) do
-            print("Статистика #"..i..":", label)
-        end
 end
 
--- Функция для отображения тултипа на текущем анонимном фрейме
-local function ShowTooltipOnCurrentStat()
-    local targetLabel = statsItems[currentStatsIndex]
-    currentFrame = nil  -- Очистим currentFrame, если фрейм не найден
-
-    -- Проверяем наличие CharacterStatsPane
-    if not CharacterStatsPane then
-        print("CharacterStatsPane не найден.")
-        return
-    end
-
-    -- Перебираем всех детей CharacterStatsPane
-    for _, child in ipairs({CharacterStatsPane:GetChildren()}) do
-        -- Проверяем, имеет ли child поле Label и метод GetText для Label
-        if child.Label and child.Label.GetText then
-            local labelText = child.Label:GetText()
-            if labelText == targetLabel then
-                currentFrame = child  -- Устанавливаем найденный фрейм в currentFrame
-                break  -- Останавливаем поиск, так как фрейм найден
-            end
-        end
-    end
-
-    if currentFrame and currentFrame:IsVisible() then
-        GameTooltip:SetOwner(currentFrame, "ANCHOR_RIGHT")
-        if currentFrame.tooltip then
-            GameTooltip:SetText(currentFrame.tooltip)
-            if currentFrame.tooltip2 then
-                GameTooltip:AddLine(currentFrame.tooltip2)
-            end
-        else
-            
-        end
-        GameTooltip:Show()
-    end
-end
-
--- Обработка нажатий кнопок D-pad для перемещения между анонимными фреймами в statsItems
-local function StatsItemsOnDPadButtonPress(direction)
-    if direction == "UP" then
-        if currentStatsIndex == nil then currentStatsIndex = 1 else
-            currentStatsIndex = currentStatsIndex - 1
-            if currentStatsIndex < 1 then
-                currentStatsIndex = #statsItems
-            end 
-        end
-    elseif direction == "DOWN" then
-        if currentStatsIndex == nil then currentStatsIndex = 1 else
-            currentStatsIndex = currentStatsIndex + 1
-            if currentStatsIndex > #statsItems then
-                currentStatsIndex = 1
-            end
-        end
-    end
-
-    -- Обновляем отображение тултипа для текущего фрейма
-    ShowTooltipOnCurrentStat()
-end
-
+-- Применение модификаций
 function ConsoleMenu:SetPaperDollFrame()
 
     moveFrames()

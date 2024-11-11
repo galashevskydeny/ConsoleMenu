@@ -161,6 +161,7 @@ local function createBackground()
     end
 end
 
+-- Применение модификаций
 function ConsoleMenu:SetCharacterFrame()
 
     if scale then
