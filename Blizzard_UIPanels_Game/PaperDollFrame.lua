@@ -30,6 +30,27 @@ local inventorySlots = {
     CharacterTrinket1Slot,
 }
 
+local slotsIDs = {
+    [1] = CharacterHeadSlot,
+    [2] = CharacterNeckSlot,
+    [3] = CharacterShoulderSlot,
+    [15] = CharacterBackSlot,
+    [5] = CharacterChestSlot,
+    [4] = CharacterShirtSlot,
+    [19] = CharacterTabardSlot,
+    [9] = CharacterWristSlot,
+    [16] = CharacterMainHandSlot,
+    [17] = CharacterSecondaryHandSlot,
+    [10] = CharacterHandsSlot,
+    [6] = CharacterWaistSlot,
+    [7] = CharacterLegsSlot,
+    [8] = CharacterFeetSlot,
+    [11] = CharacterFinger0Slot,
+    [12] = CharacterFinger1Slot,
+    [13] = CharacterTrinket0Slot,
+    [14] = CharacterTrinket1Slot
+}
+
 -- Перемещение и изменение тточек привязки фреймов
 local function moveFrames()
 
@@ -391,9 +412,11 @@ local function updateTextures()
         
         ApplyMaskToTexture(icon)
         -- Получаем информацию об атласе один раз
+        border:ClearAllPoints()
+        border:SetPoint("CENTER", frame, "CENTER", 0, 0)
         border:SetAtlas("plunderstorm-actionbar-slot-border", false)
-        border:SetWidth(52)
-        border:SetHeight(52)
+        border:SetWidth(50)
+        border:SetHeight(50)
     end
 end
 
@@ -529,6 +552,23 @@ local function PaperDollItemsOnDPadButtonPress(direction)
     ShowTooltipOnCurrentSlot()
 end
 
+local function ShowSearchOverlayForMissingStat(stat)
+    for slotID = 1, 19 do  -- Перебираем все слоты персонажа
+        local itemLink = GetInventoryItemLink("player", slotID)
+        if itemLink then
+            local stats = C_Item.GetItemStats(itemLink)
+            local hasStat = stats and stats[stat] ~= nil
+            
+            -- Если характеристика отсутствует, показать overlay
+            if not hasStat then
+                slotsIDs[slotID].searchOverlay:Show()
+            else
+                slotsIDs[slotID].searchOverlay:Hide()
+            end
+        end
+    end
+end
+
 -- Функция для отображения тултипа на текущем анонимном фрейме
 local function ShowTooltipOnCurrentStat()
     local targetLabel = statsItems[currentStatsIndex]
@@ -564,6 +604,19 @@ local function ShowTooltipOnCurrentStat()
         end
         GameTooltip:Show()
     end
+
+    local labelText = currentFrame.Label:GetText()
+    if labelText == PRIMARY_STAT2_TOOLTIP_NAME..":" then ShowSearchOverlayForMissingStat("ITEM_MOD_AGILITY_SHORT")
+    elseif labelText == PRIMARY_STAT3_TOOLTIP_NAME..":" then ShowSearchOverlayForMissingStat("ITEM_MOD_STAMINA_SHORT")
+    elseif labelText == PRIMARY_STAT4_TOOLTIP_NAME..":" then ShowSearchOverlayForMissingStat("ITEM_MOD_INTELLECT_SHORT")
+    elseif labelText == STAT_MASTERY..":" then ShowSearchOverlayForMissingStat("ITEM_MOD_MASTERY_RATING_SHORT")
+    elseif labelText == STAT_CRITICAL_STRIKE..":" then ShowSearchOverlayForMissingStat("ITEM_MOD_CRIT_RATING_SHORT")
+    elseif labelText == STAT_HASTE..":" then ShowSearchOverlayForMissingStat("ITEM_MOD_HASTE_RATING_SHORT")
+    elseif labelText == STAT_VERSATILITY..":" then ShowSearchOverlayForMissingStat("ITEM_MOD_VERSATILITY")
+    elseif labelText == STAT_AVOIDANCE..":" then ShowSearchOverlayForMissingStat("ITEM_MOD_CR_AVOIDANCE_SHORT")
+    elseif labelText == STAT_ARMOR..":" then ShowSearchOverlayForMissingStat("RESISTANCE0_NAME")
+    end
+
 end
 
 -- Обработка нажатий кнопок D-pad для перемещения между анонимными фреймами в statsItems
@@ -616,7 +669,7 @@ local function toggleController()
                 g_selectedIndex = g_selectedIndex + 1
                 SelectDropdownValueFromOutside(g_selectedIndex)
             end
-
+            GameTooltip:Hide()
         elseif button == "PADLSHOULDER" then
             -- Если индекс больше 3, уменьшаем его на 1
             if g_selectedIndex > 1 then
@@ -625,6 +678,7 @@ local function toggleController()
                 g_selectedIndex = 4
             end
             SelectDropdownValueFromOutside(g_selectedIndex)
+            GameTooltip:Hide()
         end
 
         if g_selectedIndex == 1 then
@@ -694,7 +748,7 @@ function ConsoleMenu:SetPaperDollFrame()
             -- Проверяем, имеет ли child поле Label и метод GetText для Label
             if child.Label and child.Label.GetText then
                 local labelText = child.Label:GetText()
-                if labelText == "Искусность:" and labelText == statsItems[currentStatsIndex] then
+                if labelText == STAT_MASTERY..":" and labelText == statsItems[currentStatsIndex] then
                     Mastery_OnEnter(child)                
                     break  -- Останавливаем поиск, так как фрейм найден
                 end
