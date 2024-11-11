@@ -552,10 +552,12 @@ local function PaperDollItemsOnDPadButtonPress(direction)
     ShowTooltipOnCurrentSlot()
 end
 
+-- Отображение экипировки с указанной характеристикой
 local function ShowSearchOverlayForMissingStat(stat)
     for slotID = 1, 19 do  -- Перебираем все слоты персонажа
         local itemLink = GetInventoryItemLink("player", slotID)
         if itemLink then
+            -- TODO: Добавить получение характеристик камней и чар 
             local stats = C_Item.GetItemStats(itemLink)
             local hasStat = stats and stats[stat] ~= nil
             
@@ -569,7 +571,16 @@ local function ShowSearchOverlayForMissingStat(stat)
     end
 end
 
--- Функция для отображения тултипа на текущем анонимном фрейме
+-- Скрытие затемнений экипировки
+local function HideSearchOverlayForMissingStat()
+    for slotID = 1, 19 do  -- Перебираем все слоты персонажа
+        if slotsIDs[slotID] and slotsIDs[slotID].searchOverlay then
+            slotsIDs[slotID].searchOverlay:Hide()
+        end
+    end
+end
+
+-- Функция для отображения тултипа на строке характеристики
 local function ShowTooltipOnCurrentStat()
     local targetLabel = statsItems[currentStatsIndex]
     currentFrame = nil  -- Очистим currentFrame, если фрейм не найден
@@ -606,6 +617,8 @@ local function ShowTooltipOnCurrentStat()
     end
 
     local labelText = currentFrame.Label:GetText()
+
+    -- TODO: Добавить остальные отображаемые характеристики 
     if labelText == PRIMARY_STAT2_TOOLTIP_NAME..":" then ShowSearchOverlayForMissingStat("ITEM_MOD_AGILITY_SHORT")
     elseif labelText == PRIMARY_STAT3_TOOLTIP_NAME..":" then ShowSearchOverlayForMissingStat("ITEM_MOD_STAMINA_SHORT")
     elseif labelText == PRIMARY_STAT4_TOOLTIP_NAME..":" then ShowSearchOverlayForMissingStat("ITEM_MOD_INTELLECT_SHORT")
@@ -619,7 +632,7 @@ local function ShowTooltipOnCurrentStat()
 
 end
 
--- Обработка нажатий кнопок D-pad для перемещения между анонимными фреймами в statsItems
+-- Обработка нажатий кнопок D-pad для перемещения между хаарктеристиками
 local function StatsItemsOnDPadButtonPress(direction)
     if direction == "UP" then
         if currentStatsIndex == nil then currentStatsIndex = 1 else
@@ -670,6 +683,7 @@ local function toggleController()
                 SelectDropdownValueFromOutside(g_selectedIndex)
             end
             GameTooltip:Hide()
+            HideSearchOverlayForMissingStat()
         elseif button == "PADLSHOULDER" then
             -- Если индекс больше 3, уменьшаем его на 1
             if g_selectedIndex > 1 then
@@ -679,6 +693,7 @@ local function toggleController()
             end
             SelectDropdownValueFromOutside(g_selectedIndex)
             GameTooltip:Hide()
+            HideSearchOverlayForMissingStat()
         end
 
         if g_selectedIndex == 1 then
