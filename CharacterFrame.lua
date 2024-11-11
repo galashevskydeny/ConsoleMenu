@@ -7,6 +7,31 @@ local offsetY = 40
 local paddingPaperDollTabs = -4
 local sizePaperDollTabs = 44
 local scale = 1
+local g_selectedIndex = 1;
+
+local inventorySlots = {
+    CharacterHeadSlot,
+    CharacterNeckSlot,
+    CharacterShoulderSlot,
+    CharacterBackSlot,
+    CharacterChestSlot,
+    CharacterShirtSlot,
+    CharacterTabardSlot,
+    CharacterWristSlot,
+    CharacterMainHandSlot,
+    CharacterSecondaryHandSlot,
+    CharacterHandsSlot,
+    CharacterWaistSlot,
+    CharacterLegsSlot,
+    CharacterFeetSlot,
+    CharacterFinger0Slot,
+    CharacterFinger1Slot,
+    CharacterTrinket0Slot,
+    CharacterTrinket1Slot,
+}
+
+
+local currentSlotIndex = nil
 
 function ConsoleMenu:SetCharacterFrame()
 
@@ -17,9 +42,26 @@ function ConsoleMenu:SetCharacterFrame()
     moveFrames()
     hideFramesAndRegions()
     updateTextures()
+    toggleController()
+    addDropdown()
+    InitializeStatsItems()
 
+    -- ФРЕЙМ -- 
+    -- Проверяем, существует ли уже фрейм
+    if not _G["CharacterFrameNewBG"] then
+        -- Создаем фрейм с использованием CPPopupFrameBaseTemplate
+        local frame = CreateFrame("Frame", "CharacterFrameNewBG", CharacterFrame, "CPPopupFrameBaseTemplate")
+        frame:SetPoint("TOPLEFT", CharacterFrame, "TOPLEFT") -- Привязываем верхнюю левую точку к CharacterFrame
+        frame:SetPoint("BOTTOMRIGHT", CharacterFrame, "BOTTOMRIGHT", 0, -21)
+        
+        
+        -- Устанавливаем уровень слоя фрейма ниже, чтобы текст CharacterLevelText был виден
+        frame:SetFrameStrata("MEDIUM")
+        frame:SetFrameLevel(CharacterFrame:GetFrameLevel() - 1)
+    end
 end
 
+-- Перемещение и изменение тточек привязки фреймов
 function moveFrames()
     if CharacterFrameCloseButton then
         CharacterFrameCloseButton:ClearAllPoints()
@@ -247,22 +289,9 @@ function moveFrames()
         CharacterFrameTitleText:SetPoint("TOPLEFT", CharacterFrame, "TOPLEFT", offsetX + 4, -offsetY-4)
         CharacterFrameTitleText:SetPoint("TOPRIGHT", CharacterFrame, "TOPRIGHT", -offsetX, -offsetY-4)
     end
-
-    -- ФРЕЙМ -- 
-    -- Проверяем, существует ли уже фрейм
-    if not _G["CharacterFrameNewBG"] then
-        -- Создаем фрейм с использованием CPPopupFrameBaseTemplate
-        local frame = CreateFrame("Frame", "CharacterFrameNewBG", CharacterFrame, "CPPopupFrameBaseTemplate")
-        frame:SetPoint("TOPLEFT", CharacterFrame, "TOPLEFT") -- Привязываем верхнюю левую точку к CharacterFrame
-        frame:SetPoint("BOTTOMRIGHT", CharacterFrame, "BOTTOMRIGHT", 0, -21)
-        
-        
-        -- Устанавливаем уровень слоя фрейма ниже, чтобы текст CharacterLevelText был виден
-        frame:SetFrameStrata("MEDIUM")
-        frame:SetFrameLevel(CharacterFrame:GetFrameLevel() - 1)
-    end
 end
 
+-- Скрытие ненужных фреймов, регионов и текстур
 function hideFramesAndRegions()
     local elementsToHide = {
         CharacterFrame.NineSlice,
@@ -282,9 +311,9 @@ function hideFramesAndRegions()
         CharacterStatsPane.AttributesCategory.Background,
         CharacterStatsPane.EnhancementsCategory.Background,
         
-        PaperDollSidebarTab1.Hider,
-        PaperDollSidebarTab2.Hider,
-        PaperDollSidebarTab3.Hider,
+        PaperDollSidebarTab1,
+        PaperDollSidebarTab2,
+        PaperDollSidebarTab3,
         
         CharacterFinger0SlotFrame,
         CharacterFinger1SlotFrame,
@@ -364,6 +393,7 @@ function hideFramesAndRegions()
     end)
 end
 
+-- Обновление текстур фрейсов и регионов
 function updateTextures()
     function ApplyMaskToTexture(texture)
         -- Проверка, существует ли уже маска
@@ -505,4 +535,229 @@ function updateTextures()
         border:SetWidth(52)
         border:SetHeight(52)
     end
+end
+
+function addDropdown()
+    
+    local items;
+
+    local function IsSelected(index) return index == g_selectedIndex; end
+
+    local function SetSelected(index)
+        g_selectedIndex = index;
+
+        -- Применяем действия в зависимости от выбранного значения
+        if index == 1 then
+            PaperDollFrame_SetSidebar(PaperDollFrame, 1)
+            HideTooltipOnCurrentSlot()
+        elseif index == 2 then
+            PaperDollFrame_SetSidebar(PaperDollFrame, 3)
+            HideTooltipOnCurrentSlot()
+        elseif index == 3 then
+            PaperDollFrame_SetSidebar(PaperDollFrame, 2)
+            HideTooltipOnCurrentSlot()
+        elseif index == 4 then
+            PaperDollFrame_SetSidebar(PaperDollFrame, 1)
+            HideTooltipOnCurrentSlot()
+        end
+
+        -- Обновление текста дропдауна
+        if dropdown then
+            dropdown:Hide()  -- Закрываем дропдаун
+            dropdown:Show()  -- Открываем дропдаун
+        end
+    end
+
+    function SelectDropdownValueFromOutside(index)
+        if index >= 1 and index <= #items then  -- Проверяем, чтобы индекс был в пределах допустимого диапазона
+            SetSelected(index)
+        else
+            print("Неверный индекс")
+        end
+    end
+
+    local function GeneratorFunction(dropdown, rootDescription)
+        items = {"Экипировка", "Комплекты экипировки", "Звания"}
+
+        -- Добавляем "Характеристики" только если подключен геймпад
+        if #C_GamePad.GetAllDeviceIDs() > 1 then
+            table.insert(items, 4, "Характеристики")  -- Вставляем на вторую позицию
+        end
+
+        for index, name in ipairs(items) do
+            rootDescription:CreateRadio(name, IsSelected, SetSelected, index);
+        end
+    end
+
+    -- Создание дропдауна и сохранение глобальной ссылки
+    dropdown = CreateFrame("DropdownButton", nil, PaperDollFrame, "WowStyle1DropdownTemplate");
+    dropdown:SetWidth(180);
+    dropdown:SetDefaultText("Окно персонажа");
+    dropdown:SetPoint("TOPRIGHT", PaperDollFrame, "TOPRIGHT", 0, 0);
+    dropdown:SetupMenu(GeneratorFunction);
+end
+
+-- Подключение контроллера
+function toggleController()
+    -- Создаем фрейм для обработки событий геймпада
+    local controllerHandler = CreateFrame("Frame", "ControllerHandlerFrame", CharacterFrame)
+
+    CharacterFrame:HookScript("OnShow", function()
+        -- Включаем обработку геймпада
+        controllerHandler:EnableGamePadButton(true)
+
+        -- Добавляем обработчик событий геймпада
+        controllerHandler:SetScript("OnGamePadButtonDown", function(_, button)
+            --print("Button pressed:", button)
+            controllerHandler:OnGamePadButtonDown(button)
+        end)
+    end)
+
+    CharacterFrame:HookScript("OnHide", function()
+        -- Отключаем обработку геймпада
+        controllerHandler:EnableGamePadButton(false)
+        controllerHandler:SetScript("OnGamePadButtonDown", nil) -- Очищаем обработчик событий
+        HideTooltipOnCurrentSlot()
+        currentSlotIndex = nil
+    end)
+
+    -- Обработка нажатия кнопок геймпада
+    function controllerHandler:OnGamePadButtonDown(button)
+        -- print("Inside OnGamePadButtonDown function:", button)
+        -- Закрываем меню при нажатии на кнопку "Круг" (Circle)
+        if button == "PAD2" then
+            HideUIPanel(CharacterFrame)
+        -- Переключаем вкладки Character Frame
+        elseif button == "PADRTRIGGER" then
+            if CharacterFrame.selectedTab == 1 then ToggleCharacter("ReputationFrame")
+            elseif CharacterFrame.selectedTab == 2 then ToggleCharacter("TokenFrame")
+            elseif CharacterFrame.selectedTab == 3 then ToggleCharacter("PaperDollFrame")
+            end
+            HideTooltipOnCurrentSlot()
+        elseif button == "PADLTRIGGER" then
+            if CharacterFrame.selectedTab == 1 then ToggleCharacter("TokenFrame")
+            elseif CharacterFrame.selectedTab == 2 then ToggleCharacter("PaperDollFrame")
+            elseif CharacterFrame.selectedTab == 3 then ToggleCharacter("ReputationFrame")
+            end
+            HideTooltipOnCurrentSlot()
+        end
+
+        if CharacterFrame.selectedTab == 1 then
+            -- Настройка кнопок в PaperDollFrame
+            if button == "PADRSHOULDER" then
+                -- Если индекс больше 3, сбрасываем его на 1
+                if g_selectedIndex == 4 then
+                    g_selectedIndex = 1
+                    SelectDropdownValueFromOutside(g_selectedIndex)
+                else
+                    g_selectedIndex = g_selectedIndex + 1
+                    SelectDropdownValueFromOutside(g_selectedIndex)
+                end
+
+            elseif button == "PADLSHOULDER" then
+                -- Если индекс больше 3, уменьшаем его на 1
+                if g_selectedIndex > 1 then
+                    g_selectedIndex = g_selectedIndex - 1
+                else
+                    g_selectedIndex = 4
+                end
+                SelectDropdownValueFromOutside(g_selectedIndex)
+            end
+
+            if g_selectedIndex == 1 then
+                -- Настройка для PaperDollItems
+                if button == "PADDUP" then PaperDollItemsOnDPadButtonPress("UP")
+                elseif button == "PADDDOWN" then PaperDollItemsOnDPadButtonPress("DOWN")
+                elseif button == "PADDRIGHT" then PaperDollItemsOnDPadButtonPress("RIGHT")
+                elseif button == "PADDLEFT" then PaperDollItemsOnDPadButtonPress("LEFT")
+                end
+
+            elseif g_selectedIndex == 2 then
+                -- Настройка для TitleManagerPane (PaperDollItems блокируется)
+            elseif g_selectedIndex == 3 then
+                -- Настройка для StatsPane
+            elseif g_selectedIndex == 4 then
+                
+            end
+
+        elseif CharacterFrame.selectedTab == 2 then
+            -- Настройка кнопок в ReputationFrame
+        elseif CharacterFrame.selectedTab == 3 then
+            -- Настройка кнопок в TokenFrame
+
+        end
+    end
+
+end
+
+-- Функция для отображения подсказки на текущем слоте и скрытия выделения у других
+function ShowTooltipOnCurrentSlot()
+    -- Перебираем все слоты и скрываем подсветку
+    for i, slot in ipairs(inventorySlots) do
+        if slot.AugmentBorderAnimTexture then
+            if i == currentSlotIndex then
+                -- Показываем выделение только для текущего слота
+                slot.AugmentBorderAnimTexture:Show()
+            else
+                -- Скрываем выделение для всех остальных слотов
+                slot.AugmentBorderAnimTexture:Hide()
+            end
+        end
+    end
+
+    -- Отображаем подсказку на текущем слоте
+    local currentSlot = inventorySlots[currentSlotIndex]
+    if currentSlot and currentSlot:IsVisible() then
+        GameTooltip:SetOwner(currentSlot, "ANCHOR_RIGHT")
+        GameTooltip:SetInventoryItem("player", currentSlot:GetID())
+        GameTooltip:Show()
+    end
+end
+
+function HideTooltipOnCurrentSlot()
+    -- Перебираем все слоты и скрываем подсветку
+    for i, slot in ipairs(inventorySlots) do
+        if slot.AugmentBorderAnimTexture then
+            slot.AugmentBorderAnimTexture:Hide()
+            GameTooltip:Hide()
+        end
+    end
+end
+
+-- Обработка нажатий кнопок D-pad
+function PaperDollItemsOnDPadButtonPress(direction)
+    if direction == "UP" then
+        currentSlotIndex = currentSlotIndex - 1
+        if currentSlotIndex < 1 then
+            currentSlotIndex = #inventorySlots
+        end
+    elseif direction == "DOWN" then
+        if currentSlotIndex == nil then currentSlotIndex = 1 else
+            currentSlotIndex = currentSlotIndex + 1
+            if currentSlotIndex > #inventorySlots then
+                currentSlotIndex = 1
+            end
+        end
+    elseif direction == "RIGHT" then
+        if currentSlotIndex == nil then currentSlotIndex = 1 end
+        if currentSlotIndex > 0 and currentSlotIndex < 8 then
+            currentSlotIndex = currentSlotIndex + 10
+        elseif currentSlotIndex == 8 or currentSlotIndex == 9 then
+            currentSlotIndex = currentSlotIndex + 1
+        elseif currentSlotIndex == 10 then
+            currentSlotIndex = 18
+        end
+    elseif direction == "LEFT" then
+        if currentSlotIndex == nil then currentSlotIndex = 1 end
+        if (currentSlotIndex < 18 and currentSlotIndex > 10) then
+            currentSlotIndex = currentSlotIndex- 10
+        elseif currentSlotIndex == 10 or currentSlotIndex == 9 then
+            currentSlotIndex = currentSlotIndex - 1
+        elseif currentSlotIndex == 18 then
+            currentSlotIndex = 10
+        end
+    end
+
+    -- Обновляем отображение подсказки
+    ShowTooltipOnCurrentSlot()
 end
