@@ -30,7 +30,8 @@ local inventorySlots = {
     CharacterTrinket1Slot,
 }
 
-
+local statsItems = {}
+local currentStatsIndex = nil
 local currentSlotIndex = nil
 
 function ConsoleMenu:SetCharacterFrame()
@@ -44,7 +45,6 @@ function ConsoleMenu:SetCharacterFrame()
     updateTextures()
     toggleController()
     addDropdown()
-    InitializeStatsItems()
 
     -- ФРЕЙМ -- 
     -- Проверяем, существует ли уже фрейм
@@ -59,6 +59,11 @@ function ConsoleMenu:SetCharacterFrame()
         frame:SetFrameStrata("MEDIUM")
         frame:SetFrameLevel(CharacterFrame:GetFrameLevel() - 1)
     end
+
+    CharacterStatsPane:HookScript("OnUpdate", function()
+        InitializeStatsItems()
+    end)
+    -- Вызов функции инициализации
 end
 
 -- Перемещение и изменение тточек привязки фреймов
@@ -579,7 +584,7 @@ function addDropdown()
     local function GeneratorFunction(dropdown, rootDescription)
         items = {"Экипировка", "Комплекты экипировки", "Звания"}
 
-        -- Добавляем "Характеристики" только если подключен геймпад
+            -- Добавляем "Характеристики" только если подключен геймпад
         if #C_GamePad.GetAllDeviceIDs() > 1 then
             table.insert(items, 4, "Характеристики")  -- Вставляем на вторую позицию
         end
@@ -619,6 +624,8 @@ function toggleController()
         controllerHandler:SetScript("OnGamePadButtonDown", nil) -- Очищаем обработчик событий
         HideTooltipOnCurrentSlot()
         currentSlotIndex = nil
+        local statsItems = {}
+        local currentStatsIndex = nil
     end)
 
     -- Обработка нажатия кнопок геймпада
@@ -677,7 +684,9 @@ function toggleController()
             elseif g_selectedIndex == 3 then
                 -- Настройка для StatsPane
             elseif g_selectedIndex == 4 then
-                
+                if button == "PADDUP" then StatsItemsOnDPadButtonPress("UP")
+                elseif button == "PADDDOWN" then StatsItemsOnDPadButtonPress("DOWN")
+                end
             end
 
         elseif CharacterFrame.selectedTab == 2 then
@@ -760,4 +769,64 @@ function PaperDollItemsOnDPadButtonPress(direction)
 
     -- Обновляем отображение подсказки
     ShowTooltipOnCurrentSlot()
+end
+
+-- Инициализация списка фреймов в statsItems только с анонимными фреймами
+function InitializeStatsItems()
+    statsItems = {}
+
+    -- Перебираем всех детей с использованием GetChildren()
+    local children = {CharacterStatsPane:GetChildren()}
+    for i, child in ipairs(children) do
+        if child.tooltip then
+            table.insert(statsItems, {index = i, frame = child})
+            -- Для отладки: выводим информацию, если у фрейма есть tooltip
+            if child.tooltip or child.tooltip2 then
+                print("Anonymous Child Frame Index:", i, "Tooltip:", child.tooltip or "N/A")
+            end
+        end
+    end
+
+    -- Если необходимо, можно оставить только фреймы в statsItems
+    for i, item in ipairs(statsItems) do
+        statsItems[i] = item.frame
+    end
+end
+
+
+-- Функция для отображения тултипа на текущем анонимном фрейме
+function ShowTooltipOnCurrentStat()
+    local currentFrame = statsItems[currentStatsIndex]
+    if currentFrame and currentFrame:IsVisible() then
+        GameTooltip:SetOwner(currentFrame, "ANCHOR_RIGHT")
+        if currentFrame.tooltip then
+            GameTooltip:SetText(currentFrame.tooltip)
+            if currentFrame.tooltip2 then
+                GameTooltip:AddLine(currentFrame.tooltip2)
+            end
+            GameTooltip:Show()
+        end
+    end
+end
+
+-- Обработка нажатий кнопок D-pad для перемещения между анонимными фреймами в statsItems
+function StatsItemsOnDPadButtonPress(direction)
+    if direction == "UP" then
+        if currentStatsIndex == nil then currentStatsIndex = 1 else
+            currentStatsIndex = currentStatsIndex - 1
+            if currentStatsIndex < 1 then
+                currentStatsIndex = #statsItems
+            end 
+        end
+    elseif direction == "DOWN" then
+        if currentStatsIndex == nil then currentStatsIndex = 1 else
+            currentStatsIndex = currentStatsIndex + 1
+            if currentStatsIndex > #statsItems then
+                currentStatsIndex = 1
+            end
+        end
+    end
+
+    -- Обновляем отображение тултипа для текущего фрейма
+    ShowTooltipOnCurrentStat()
 end
