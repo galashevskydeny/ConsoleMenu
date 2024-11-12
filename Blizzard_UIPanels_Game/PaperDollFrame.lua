@@ -422,16 +422,6 @@ local function updateTextures()
     end
 end
 
-local function HideTooltipOnCurrentSlot()
-    -- Перебираем все слоты и скрываем подсветку
-    for i, slot in ipairs(inventorySlots) do
-        if slot.AugmentBorderAnimTexture then
-            slot.AugmentBorderAnimTexture:Hide()
-            GameTooltip:Hide()
-        end
-    end
-end
-
 local function addDropdown()
     
     local items;
@@ -444,16 +434,10 @@ local function addDropdown()
         -- Применяем действия в зависимости от выбранного значения
         if index == 1 then
             PaperDollFrame_SetSidebar(PaperDollFrame, 1)
-            HideTooltipOnCurrentSlot()
         elseif index == 2 then
             PaperDollFrame_SetSidebar(PaperDollFrame, 3)
-            HideTooltipOnCurrentSlot()
         elseif index == 3 then
             PaperDollFrame_SetSidebar(PaperDollFrame, 2)
-            HideTooltipOnCurrentSlot()
-        elseif index == 4 then
-            PaperDollFrame_SetSidebar(PaperDollFrame, 1)
-            HideTooltipOnCurrentSlot()
         end
 
         -- Обновление текста дропдауна
@@ -472,12 +456,7 @@ local function addDropdown()
     end
 
     local function GeneratorFunction(dropdown, rootDescription)
-        items = {"Экипировка", "Комплекты экипировки", "Звания"}
-
-            -- Добавляем "Характеристики" только если подключен геймпад
-        if #C_GamePad.GetAllDeviceIDs() > 1 then
-            table.insert(items, 4, "Характеристики")  -- Вставляем на вторую позицию
-        end
+        items = {PAPERDOLL_SIDEBAR_STATS, PAPERDOLL_EQUIPMENTMANAGER, PAPERDOLL_SIDEBAR_TITLES}
 
         for index, name in ipairs(items) do
             rootDescription:CreateRadio(name, IsSelected, SetSelected, index);
@@ -499,10 +478,12 @@ local function ShowTooltipOnCurrentSlot()
         if slot.AugmentBorderAnimTexture then
             if i == currentSlotIndex then
                 -- Показываем выделение только для текущего слота
-                slot.AugmentBorderAnimTexture:Show()
+                --slot.AugmentBorderAnimTexture:Show()
+                slot:LockHighlight()
             else
                 -- Скрываем выделение для всех остальных слотов
-                slot.AugmentBorderAnimTexture:Hide()
+                --slot.AugmentBorderAnimTexture:Hide()
+                slot:UnlockHighlight()
             end
         end
     end
@@ -513,6 +494,13 @@ local function ShowTooltipOnCurrentSlot()
         GameTooltip:SetOwner(currentSlot, "ANCHOR_RIGHT")
         GameTooltip:SetInventoryItem("player", currentSlot:GetID())
         GameTooltip:Show()
+    end
+end
+
+-- Скрытие highlight у всех слотов экипировки
+local function HideAnySlotHighlight()
+    for i, slot in ipairs(inventorySlots) do
+        slot:UnlockHighlight()
     end
 end
 
@@ -702,6 +690,13 @@ local function SetCurrentTitle()
     PaperDollTitlesPane_UpdateScrollBox()
 end
 
+-- Служебная функция для скрытия специфичных фреймов для вкладки PaperRollFrame
+local function HideSpecificPaperDollTabsFrames()
+    GameTooltip:Hide()
+    HideSearchOverlayForMissingStat()
+    HideAnySlotHighlight()
+end
+
 -- Подключение контроллера
 local function toggleController()
     -- Создаем фрейм для обработки событий геймпада
@@ -713,7 +708,7 @@ local function toggleController()
     end)
 
     PaperDollFrame:HookScript("OnHide", function()
-        HideTooltipOnCurrentSlot()
+        HideSpecificPaperDollTabsFrames()
         g_selectedIndex = 1
         currentSlotIndex = nil
         currentTitleIndex = 1
@@ -725,48 +720,42 @@ local function toggleController()
         -- Настройка кнопок в PaperDollFrame
         if button == "PADRSHOULDER" then
             -- Если индекс больше 3, сбрасываем его на 1
-            if g_selectedIndex == 4 then
+            if g_selectedIndex == 3 then
                 g_selectedIndex = 1
             else
                 g_selectedIndex = g_selectedIndex + 1
             end
-            GameTooltip:Hide()
-            HideSearchOverlayForMissingStat()
+            HideSpecificPaperDollTabsFrames()
             SelectDropdownValueFromOutside(g_selectedIndex)
-
         elseif button == "PADLSHOULDER" then
             -- Если индекс больше 3, уменьшаем его на 1
             if g_selectedIndex > 1 then
                 g_selectedIndex = g_selectedIndex - 1
             else
-                g_selectedIndex = 4
+                g_selectedIndex = 3
             end
-            GameTooltip:Hide()
-            HideSearchOverlayForMissingStat()
+            HideSpecificPaperDollTabsFrames()
             SelectDropdownValueFromOutside(g_selectedIndex)
-
         end
 
         if g_selectedIndex == 1 then
-            -- Настройка для PaperDollItems
-            if button == "PADDUP" then PaperDollItemsOnDPadButtonPress("UP")
-            elseif button == "PADDDOWN" then PaperDollItemsOnDPadButtonPress("DOWN")
-            elseif button == "PADDRIGHT" then PaperDollItemsOnDPadButtonPress("RIGHT")
-            elseif button == "PADDLEFT" then PaperDollItemsOnDPadButtonPress("LEFT")
-            end
-
-        elseif g_selectedIndex == 2 then
             -- Настройка для StatsPane
-
+            if button == "PADDUP" then CharacterStatPaneOnDPadButtonPress("UP")
+            elseif button == "PADDDOWN" then CharacterStatPaneOnDPadButtonPress("DOWN")
+            end
+        elseif g_selectedIndex == 2 then
+            -- Настройка для EquipmentManagerPane
+                       -- Настройка для PaperDollItems
+                       if button == "PADDUP" then PaperDollItemsOnDPadButtonPress("UP")
+                       elseif button == "PADDDOWN" then PaperDollItemsOnDPadButtonPress("DOWN")
+                       elseif button == "PADDRIGHT" then PaperDollItemsOnDPadButtonPress("RIGHT")
+                       elseif button == "PADDLEFT" then PaperDollItemsOnDPadButtonPress("LEFT")
+                       end
         elseif g_selectedIndex == 3 then
-            -- Настройка для TitleManagerPane (PaperDollItems блокируется)
+            -- Настройка для TitleManagerPane
             if button == "PADDUP" then TitleManagerPaneOnDPadButtonPress("UP")
             elseif button == "PADDDOWN" then TitleManagerPaneOnDPadButtonPress("DOWN")
             elseif button == "PAD1" then SetCurrentTitle()
-            end
-        elseif g_selectedIndex == 4 then
-            if button == "PADDUP" then CharacterStatPaneOnDPadButtonPress("UP")
-            elseif button == "PADDDOWN" then CharacterStatPaneOnDPadButtonPress("DOWN")
             end
         end
     end
@@ -814,7 +803,7 @@ function ConsoleMenu:SetPaperDollFrame()
     end)
 
     CharacterStatsPane:HookScript("OnUpdate", function()
-        if g_selectedIndex == 4 then
+        if g_selectedIndex == 2 then
             currentFrame = nil  -- Очистим currentFrame, если фрейм не найден
             -- Перебираем всех детей CharacterStatsPane
             for _, child in ipairs({CharacterStatsPane:GetChildren()}) do
