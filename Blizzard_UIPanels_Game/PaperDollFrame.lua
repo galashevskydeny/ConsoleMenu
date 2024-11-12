@@ -8,7 +8,7 @@ local g_selectedIndex = 1
 local statItems = {}
 local titleItems = {}
 local currentSlotIndex = nil
-local currentTitleIndex = 0
+local currentTitleIndex = 1
 local currentStatIndex = nil
 
 local inventorySlots = {
@@ -690,6 +690,16 @@ local function TitleManagerPaneOnDPadButtonPress(direction)
     end
 end
 
+-- Применение звания
+local function SetCurrentTitle()
+    local titlePane = PaperDollFrame.TitleManagerPane
+    local titleItems = titlePane.titles
+
+    PaperDollFrame.TitleManagerPane.selected = currentId
+    SetTitleByName(titleItems[currentTitleIndex].name)
+    PaperDollTitlesPane_UpdateScrollBox()
+end
+
 -- Подключение контроллера
 local function toggleController()
     -- Создаем фрейм для обработки событий геймпада
@@ -748,6 +758,7 @@ local function toggleController()
             -- Настройка для TitleManagerPane (PaperDollItems блокируется)
             if button == "PADDUP" then TitleManagerPaneOnDPadButtonPress("UP")
             elseif button == "PADDDOWN" then TitleManagerPaneOnDPadButtonPress("DOWN")
+            elseif button == "PAD1" then SetCurrentTitle()
             end
         elseif g_selectedIndex == 4 then
             if button == "PADDUP" then CharacterStatPaneOnDPadButtonPress("UP")
