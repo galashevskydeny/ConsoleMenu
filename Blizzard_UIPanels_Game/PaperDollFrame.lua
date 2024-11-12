@@ -10,6 +10,7 @@ local titleItems = {}
 local currentSlotIndex = nil
 local currentTitleIndex = 1
 local currentStatIndex = nil
+local showSlotsWithStat = false
 
 local inventorySlots = {
     CharacterHeadSlot,
@@ -608,20 +609,33 @@ local function ShowTooltipOnCurrentStat()
         GameTooltip:Show()
     end
 
-    local labelText = currentFrame.Label:GetText()
+    if showSlotsWithStat then
+        local labelText = currentFrame.Label:GetText()
 
-    -- TODO: Добавить остальные отображаемые характеристики 
-    if labelText == PRIMARY_STAT2_TOOLTIP_NAME..":" then ShowSearchOverlayForMissingStat("ITEM_MOD_AGILITY_SHORT")
-    elseif labelText == PRIMARY_STAT3_TOOLTIP_NAME..":" then ShowSearchOverlayForMissingStat("ITEM_MOD_STAMINA_SHORT")
-    elseif labelText == PRIMARY_STAT4_TOOLTIP_NAME..":" then ShowSearchOverlayForMissingStat("ITEM_MOD_INTELLECT_SHORT")
-    elseif labelText == STAT_MASTERY..":" then ShowSearchOverlayForMissingStat("ITEM_MOD_MASTERY_RATING_SHORT")
-    elseif labelText == STAT_CRITICAL_STRIKE..":" then ShowSearchOverlayForMissingStat("ITEM_MOD_CRIT_RATING_SHORT")
-    elseif labelText == STAT_HASTE..":" then ShowSearchOverlayForMissingStat("ITEM_MOD_HASTE_RATING_SHORT")
-    elseif labelText == STAT_VERSATILITY..":" then ShowSearchOverlayForMissingStat("ITEM_MOD_VERSATILITY")
-    elseif labelText == STAT_AVOIDANCE..":" then ShowSearchOverlayForMissingStat("ITEM_MOD_CR_AVOIDANCE_SHORT")
-    elseif labelText == STAT_ARMOR..":" then ShowSearchOverlayForMissingStat("RESISTANCE0_NAME")
+        -- TODO: Добавить остальные отображаемые характеристики 
+        if labelText == PRIMARY_STAT2_TOOLTIP_NAME..":" then ShowSearchOverlayForMissingStat("ITEM_MOD_AGILITY_SHORT")
+        elseif labelText == PRIMARY_STAT3_TOOLTIP_NAME..":" then ShowSearchOverlayForMissingStat("ITEM_MOD_STAMINA_SHORT")
+        elseif labelText == PRIMARY_STAT4_TOOLTIP_NAME..":" then ShowSearchOverlayForMissingStat("ITEM_MOD_INTELLECT_SHORT")
+        elseif labelText == STAT_MASTERY..":" then ShowSearchOverlayForMissingStat("ITEM_MOD_MASTERY_RATING_SHORT")
+        elseif labelText == STAT_CRITICAL_STRIKE..":" then ShowSearchOverlayForMissingStat("ITEM_MOD_CRIT_RATING_SHORT")
+        elseif labelText == STAT_HASTE..":" then ShowSearchOverlayForMissingStat("ITEM_MOD_HASTE_RATING_SHORT")
+        elseif labelText == STAT_VERSATILITY..":" then ShowSearchOverlayForMissingStat("ITEM_MOD_VERSATILITY")
+        elseif labelText == STAT_AVOIDANCE..":" then ShowSearchOverlayForMissingStat("ITEM_MOD_CR_AVOIDANCE_SHORT")
+        elseif labelText == STAT_ARMOR..":" then ShowSearchOverlayForMissingStat("RESISTANCE0_NAME")
+        end
     end
 
+end
+
+-- Включение / выключение функции затемнения слотов, предметы в которых не имеют выбранную характеристику
+local function ToggleSearchOverlayForMissingStat()
+    showSlotsWithStat = not showSlotsWithStat
+
+    if showSlotsWithStat then
+        ShowTooltipOnCurrentStat()
+    else
+        HideSearchOverlayForMissingStat()
+    end
 end
 
 -- Обработка нажатий кнопок D-pad для перемещения между характеристиками
@@ -742,6 +756,7 @@ local function toggleController()
             -- Настройка для StatsPane
             if button == "PADDUP" then CharacterStatPaneOnDPadButtonPress("UP")
             elseif button == "PADDDOWN" then CharacterStatPaneOnDPadButtonPress("DOWN")
+            elseif button == "PAD3" then ToggleSearchOverlayForMissingStat()
             end
         elseif g_selectedIndex == 2 then
             -- Настройка для EquipmentManagerPane
@@ -803,7 +818,7 @@ function ConsoleMenu:SetPaperDollFrame()
     end)
 
     CharacterStatsPane:HookScript("OnUpdate", function()
-        if g_selectedIndex == 2 then
+        if g_selectedIndex == 1 then
             currentFrame = nil  -- Очистим currentFrame, если фрейм не найден
             -- Перебираем всех детей CharacterStatsPane
             for _, child in ipairs({CharacterStatsPane:GetChildren()}) do
