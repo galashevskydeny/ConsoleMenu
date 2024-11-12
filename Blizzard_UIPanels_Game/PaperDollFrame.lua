@@ -5,9 +5,11 @@ local ConsoleMenu = LibStub("AceAddon-3.0"):GetAddon("ConsoleMenu")
 local offsetX = 40
 local offsetY = 40
 local g_selectedIndex = 1
-local statsItems = {}
-local currentStatsIndex = nil
+local statItems = {}
+local titleItems = {}
 local currentSlotIndex = nil
+local currentTitleIndex = 0
+local currentStatIndex = nil
 
 local inventorySlots = {
     CharacterHeadSlot,
@@ -582,7 +584,7 @@ end
 
 -- Функция для отображения тултипа на строке характеристики
 local function ShowTooltipOnCurrentStat()
-    local targetLabel = statsItems[currentStatsIndex]
+    local targetLabel = statItems[currentStatIndex]
     currentFrame = nil  -- Очистим currentFrame, если фрейм не найден
 
     -- Проверяем наличие CharacterStatsPane
@@ -632,26 +634,60 @@ local function ShowTooltipOnCurrentStat()
 
 end
 
--- Обработка нажатий кнопок D-pad для перемещения между хаарктеристиками
-local function StatsItemsOnDPadButtonPress(direction)
+-- Обработка нажатий кнопок D-pad для перемещения между характеристиками
+local function CharacterStatPaneOnDPadButtonPress(direction)
     if direction == "UP" then
-        if currentStatsIndex == nil then currentStatsIndex = 1 else
-            currentStatsIndex = currentStatsIndex - 1
-            if currentStatsIndex < 1 then
-                currentStatsIndex = #statsItems
+        if currentStatIndex == nil then currentStatIndex = 1 else
+            currentStatIndex = currentStatIndex - 1
+            if currentStatIndex < 1 then
+                currentStatIndex = #statItems
             end 
         end
     elseif direction == "DOWN" then
-        if currentStatsIndex == nil then currentStatsIndex = 1 else
-            currentStatsIndex = currentStatsIndex + 1
-            if currentStatsIndex > #statsItems then
-                currentStatsIndex = 1
+        if currentStatIndex == nil then currentStatIndex = 1 else
+            currentStatIndex = currentStatIndex + 1
+            if currentStatIndex > #statItems then
+                currentStatIndex = 1
             end
         end
     end
 
     -- Обновляем отображение тултипа для текущего фрейма
     ShowTooltipOnCurrentStat()
+end
+
+-- Обработка нажатий кнопок D-pad для перемещения между характеристиками
+local function TitleManagerPaneOnDPadButtonPress(direction)
+
+    local titlePane = PaperDollFrame.TitleManagerPane
+    local titleItems = titlePane.titles
+
+    -- Обновление индекса текущего звания на основе направления
+    if direction == "UP" then
+        currentTitleIndex = currentTitleIndex - 1
+        if currentTitleIndex < 1 then
+            currentTitleIndex = #titleItems  -- Переход к последнему элементу
+        end 
+    elseif direction == "DOWN" then
+        currentTitleIndex = currentTitleIndex + 1
+        if currentTitleIndex > #titleItems then
+            currentTitleIndex = 1  -- Переход к первому элементу
+        end
+    end
+
+    -- Прокрутка к элементу в ScrollBox
+    titlePane.ScrollBox:ScrollToElementDataIndex(currentTitleIndex)
+
+    -- Получение фрейма элемента, на который нужно "навести курсор"
+    local targetTitleId = titleItems[currentTitleIndex].id
+
+    for i, frame in ipairs({titlePane.ScrollBox.ScrollTarget:GetChildren()}) do
+        if frame.titleId == targetTitleId then
+            frame:LockHighlight()
+        else
+            frame:UnlockHighlight()
+        end
+    end
 end
 
 -- Подключение контроллера
@@ -666,8 +702,9 @@ local function toggleController()
 
     PaperDollFrame:HookScript("OnHide", function()
         HideTooltipOnCurrentSlot()
+        g_selectedIndex = 1
         currentSlotIndex = nil
-        currentStatsIndex = nil
+        currentStatIndex = nil
     end)
 
     -- Обработка нажатия кнопок геймпада
@@ -705,27 +742,31 @@ local function toggleController()
             end
 
         elseif g_selectedIndex == 2 then
-            -- Настройка для TitleManagerPane (PaperDollItems блокируется)
-        elseif g_selectedIndex == 3 then
             -- Настройка для StatsPane
+
+        elseif g_selectedIndex == 3 then
+            -- Настройка для TitleManagerPane (PaperDollItems блокируется)
+            if button == "PADDUP" then TitleManagerPaneOnDPadButtonPress("UP")
+            elseif button == "PADDDOWN" then TitleManagerPaneOnDPadButtonPress("DOWN")
+            end
         elseif g_selectedIndex == 4 then
-            if button == "PADDUP" then StatsItemsOnDPadButtonPress("UP")
-            elseif button == "PADDDOWN" then StatsItemsOnDPadButtonPress("DOWN")
+            if button == "PADDUP" then CharacterStatPaneOnDPadButtonPress("UP")
+            elseif button == "PADDDOWN" then CharacterStatPaneOnDPadButtonPress("DOWN")
             end
         end
     end
 
 end
 
--- Инициализация списка фреймов в statsItems только с анонимными фреймами
-local function InitializeStatsItems()
+-- Инициализация списка фреймов в statItems только с анонимными фреймами
+local function InitializestatItems()
         -- Проверяем наличие CharacterStatsPane
         if not CharacterStatsPane then
             print("CharacterStatsPane не найден.")
             return
         end
 
-        if #statsItems > 0 then
+        if #statItems > 0 then
             return
         end
     
@@ -736,7 +777,7 @@ local function InitializeStatsItems()
                 if child.Label and child.Label.GetText then
                     local labelText = child.Label:GetText()
                     if labelText then
-                        table.insert(statsItems, labelText)  -- Добавляем текст в таблицу statsItems
+                        table.insert(statItems, labelText)  -- Добавляем текст в таблицу statItems
                     end
                 end
             end
@@ -754,7 +795,7 @@ function ConsoleMenu:SetPaperDollFrame()
 
     -- Отслеживание изменений CharacterStatsPane
     CharacterStatsPane:HookScript("OnShow", function()
-        InitializeStatsItems()
+        InitializestatItems()
     end)
     CharacterStatsPane:HookScript("OnUpdate", function()
         currentFrame = nil  -- Очистим currentFrame, если фрейм не найден
@@ -763,7 +804,7 @@ function ConsoleMenu:SetPaperDollFrame()
             -- Проверяем, имеет ли child поле Label и метод GetText для Label
             if child.Label and child.Label.GetText then
                 local labelText = child.Label:GetText()
-                if labelText == STAT_MASTERY..":" and labelText == statsItems[currentStatsIndex] then
+                if labelText == STAT_MASTERY..":" and labelText == statItems[currentStatIndex] then
                     Mastery_OnEnter(child)                
                     break  -- Останавливаем поиск, так как фрейм найден
                 end
