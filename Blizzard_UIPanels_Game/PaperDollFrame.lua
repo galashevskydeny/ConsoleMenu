@@ -519,9 +519,11 @@ end
 -- Обработка нажатий кнопок D-pad
 local function PaperDollItemsOnDPadButtonPress(direction)
     if direction == "UP" then
-        currentSlotIndex = currentSlotIndex - 1
-        if currentSlotIndex < 1 then
-            currentSlotIndex = #inventorySlots
+        if currentSlotIndex == nil then currentSlotIndex = 1 else
+            currentSlotIndex = currentSlotIndex - 1
+            if currentSlotIndex < 1 then
+                currentSlotIndex = #inventorySlots
+            end
         end
     elseif direction == "DOWN" then
         if currentSlotIndex == nil then currentSlotIndex = 1 else
@@ -707,13 +709,14 @@ local function toggleController()
     PaperDollFrame.ControllerHandler = controllerHandler
 
     PaperDollFrame:HookScript("OnShow", function()
-
+        SelectDropdownValueFromOutside(g_selectedIndex)
     end)
 
     PaperDollFrame:HookScript("OnHide", function()
         HideTooltipOnCurrentSlot()
         g_selectedIndex = 1
         currentSlotIndex = nil
+        currentTitleIndex = 1
         currentStatIndex = nil
     end)
 
@@ -724,13 +727,13 @@ local function toggleController()
             -- Если индекс больше 3, сбрасываем его на 1
             if g_selectedIndex == 4 then
                 g_selectedIndex = 1
-                SelectDropdownValueFromOutside(g_selectedIndex)
             else
                 g_selectedIndex = g_selectedIndex + 1
-                SelectDropdownValueFromOutside(g_selectedIndex)
             end
             GameTooltip:Hide()
             HideSearchOverlayForMissingStat()
+            SelectDropdownValueFromOutside(g_selectedIndex)
+
         elseif button == "PADLSHOULDER" then
             -- Если индекс больше 3, уменьшаем его на 1
             if g_selectedIndex > 1 then
@@ -738,9 +741,10 @@ local function toggleController()
             else
                 g_selectedIndex = 4
             end
-            SelectDropdownValueFromOutside(g_selectedIndex)
             GameTooltip:Hide()
             HideSearchOverlayForMissingStat()
+            SelectDropdownValueFromOutside(g_selectedIndex)
+
         end
 
         if g_selectedIndex == 1 then
@@ -808,16 +812,19 @@ function ConsoleMenu:SetPaperDollFrame()
     CharacterStatsPane:HookScript("OnShow", function()
         InitializestatItems()
     end)
+
     CharacterStatsPane:HookScript("OnUpdate", function()
-        currentFrame = nil  -- Очистим currentFrame, если фрейм не найден
-        -- Перебираем всех детей CharacterStatsPane
-        for _, child in ipairs({CharacterStatsPane:GetChildren()}) do
-            -- Проверяем, имеет ли child поле Label и метод GetText для Label
-            if child.Label and child.Label.GetText then
-                local labelText = child.Label:GetText()
-                if labelText == STAT_MASTERY..":" and labelText == statItems[currentStatIndex] then
-                    Mastery_OnEnter(child)                
-                    break  -- Останавливаем поиск, так как фрейм найден
+        if g_selectedIndex == 4 then
+            currentFrame = nil  -- Очистим currentFrame, если фрейм не найден
+            -- Перебираем всех детей CharacterStatsPane
+            for _, child in ipairs({CharacterStatsPane:GetChildren()}) do
+                -- Проверяем, имеет ли child поле Label и метод GetText для Label
+                if child.Label and child.Label.GetText then
+                    local labelText = child.Label:GetText()
+                    if labelText == STAT_MASTERY..":" and labelText == statItems[currentStatIndex] then
+                        Mastery_OnEnter(child)                
+                        break  -- Останавливаем поиск, так как фрейм найден
+                    end
                 end
             end
         end
