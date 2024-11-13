@@ -717,6 +717,28 @@ local function PaperDollItemsOnDPadButtonPress(direction)
     end
 end
 
+-- Создание фона EquipmentFlyoutFrameButtons
+local function createBackground()
+    if not _G["EquipmentFlyoutFrameButtonsBackground"] then
+        -- Создаем фрейм с использованием CPPopupFrameBaseTemplate
+        local frame = CreateFrame("Frame", "EquipmentFlyoutFrameButtonsBackground", EquipmentFlyoutFrameButtons, "CPPopupFrameBaseTemplate")
+        frame:SetPoint("TOPLEFT", EquipmentFlyoutFrameButtons, "TOPLEFT", -12,12) -- Привязываем верхнюю левую точку к CharacterFrame
+        frame:SetPoint("BOTTOMRIGHT", EquipmentFlyoutFrameButtons, "BOTTOMRIGHT", 14,-32)
+        
+        
+        -- Устанавливаем уровень слоя фрейма ниже, чтобы текст CharacterLevelText был виден
+        frame:SetFrameLevel(EquipmentFlyoutFrameButtons:GetFrameLevel())
+    end
+end
+
+-- Замена фона EquipmentFlyoutFrame
+local function UpdateEquipmentFlyoutFrameBackground()
+    createBackground()
+    for i, frame in ipairs({EquipmentFlyoutFrameButtons:GetRegions()}) do
+        frame:Hide()
+    end
+end
+
 -- Показать / скрыть EquipmentFlyoutFrame
 local function ToggleEquipmentFlyoutFrame()
     if currentSlotIndex then
@@ -748,6 +770,7 @@ local function HideAnyEquipementFlyoutButtonHighlight(direction)
         button:UnlockHighlight()
     end
     currentEquipmentFlyoutIndex = nil
+    GameTooltip:Hide()
 end
 
 local function ShowTooltipOnCurrentEquipementFlyoutButton(direction)
@@ -907,7 +930,7 @@ local function toggleController()
             if not paperDollSidebarFocus then
                 -- Когда фокус на PaperDollItemsFrame
                 if not EquipmentFlyoutFrame:IsVisible() then
-                    -- Настройка для EquipmentManagerPane, когда EquipmentFlyoutFrame не отображается
+                    -- Настройка для PaperDollItemsFrame, когда EquipmentFlyoutFrame не отображается
                     if button == "PADDUP" then PaperDollItemsOnDPadButtonPress("UP")
                     elseif button == "PADDDOWN" then PaperDollItemsOnDPadButtonPress("DOWN")
                     elseif button == "PADDRIGHT" then PaperDollItemsOnDPadButtonPress("RIGHT")
@@ -916,7 +939,7 @@ local function toggleController()
                     elseif button == "PAD4" then UnequipItemInCurrentSlot()
                     end
                 else
-                    -- Настройка для EquipmentManagerPane, когда EquipmentFlyoutFrame отображается
+                    -- Настройка для PaperDollItemsFrame, когда EquipmentFlyoutFrame отображается
                     if button == "PADDUP" then PaperDollItemsOnDPadButtonPress("UP")
                     elseif button == "PADDDOWN" then PaperDollItemsOnDPadButtonPress("DOWN")
                     elseif button == "PADDRIGHT" then EquipmentFlyoutOnDPadButtonPress("RIGHT")
@@ -945,12 +968,17 @@ local function toggleController()
                     elseif button == "PADDRIGHT" then PaperDollItemsOnDPadButtonPress("RIGHT")
                     elseif button == "PADDLEFT" then PaperDollItemsOnDPadButtonPress("LEFT")
                     elseif button == "PAD3" then ToggleEquipmentFlyoutFrame()
+                    elseif button == "PAD4" then UnequipItemInCurrentSlot()
                     end
                 else
                     -- Настройка для EquipmentManagerPane, когда EquipmentFlyoutFrame отображается
                     if button == "PADDUP" then PaperDollItemsOnDPadButtonPress("UP")
                     elseif button == "PADDDOWN" then PaperDollItemsOnDPadButtonPress("DOWN")
+                    elseif button == "PADDRIGHT" then EquipmentFlyoutOnDPadButtonPress("RIGHT")
+                    elseif button == "PADDLEFT" then EquipmentFlyoutOnDPadButtonPress("LEFT")
                     elseif button == "PAD3" then ToggleEquipmentFlyoutFrame()
+                    elseif button == "PAD1" then CurrentEquipementFlyoutButtonOnClick()
+                    elseif button == "PAD4" then UnequipItemInCurrentSlot()
                     end
                 end
             else
@@ -1044,6 +1072,11 @@ function ConsoleMenu:SetPaperDollFrame()
     -- Отслеживание изменений CharacterStatsPane
     CharacterStatsPane:HookScript("OnShow", function()
         InitializestatItems()
+    end)
+
+    -- Отслеживание изменений CharacterStatsPane
+    EquipmentFlyoutFrameButtons:HookScript("OnShow", function()
+        UpdateEquipmentFlyoutFrameBackground()
     end)
 
     CharacterStatsPane:HookScript("OnUpdate", function()
