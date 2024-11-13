@@ -5,6 +5,7 @@ local ConsoleMenu = LibStub("AceAddon-3.0"):GetAddon("ConsoleMenu")
 local offsetX = 40
 local offsetY = 40
 local g_selectedIndex = 1
+local paperDollSidebarFocus = false
 local statItems = {}
 local titleItems = {}
 local currentSlotIndex = nil
@@ -490,16 +491,14 @@ end
 local function ShowTooltipOnCurrentSlot()
     -- Перебираем все слоты и скрываем подсветку
     for i, slot in ipairs(inventorySlots) do
-        if slot.AugmentBorderAnimTexture then
-            if i == currentSlotIndex then
-                -- Показываем выделение только для текущего слота
-                --slot.AugmentBorderAnimTexture:Show()
-                slot:LockHighlight()
-            else
-                -- Скрываем выделение для всех остальных слотов
-                --slot.AugmentBorderAnimTexture:Hide()
-                slot:UnlockHighlight()
-            end
+        if i == currentSlotIndex then
+            -- Показываем выделение только для текущего слота
+            --slot.AugmentBorderAnimTexture:Show()
+            slot:LockHighlight()
+        else
+            -- Скрываем выделение для всех остальных слотов
+            --slot.AugmentBorderAnimTexture:Hide()
+            slot:UnlockHighlight()
         end
     end
 
@@ -533,6 +532,8 @@ local function PaperDollItemsOnDPadButtonPress(direction)
             EquipmentFlyout_Hide()
         end
 
+        ShowTooltipOnCurrentSlot()
+
     elseif direction == "DOWN" then
         if currentSlotIndex == nil then currentSlotIndex = 1 else
             currentSlotIndex = currentSlotIndex + 1
@@ -545,14 +546,23 @@ local function PaperDollItemsOnDPadButtonPress(direction)
             EquipmentFlyout_Hide()
         end
 
+        ShowTooltipOnCurrentSlot()
+
     elseif direction == "RIGHT" then
         if currentSlotIndex == nil then currentSlotIndex = 1 end
         if currentSlotIndex > 0 and currentSlotIndex < 8 then
             currentSlotIndex = currentSlotIndex + 10
+            ShowTooltipOnCurrentSlot()
         elseif currentSlotIndex == 8 or currentSlotIndex == 9 then
             currentSlotIndex = currentSlotIndex + 1
+            ShowTooltipOnCurrentSlot()
         elseif currentSlotIndex == 10 then
             currentSlotIndex = 18
+            ShowTooltipOnCurrentSlot()
+        elseif currentSlotIndex > 10 and currentSlotIndex <= 18 then
+            inventorySlots[currentSlotIndex]:UnlockHighlight()
+            GameTooltip:Hide()
+            paperDollSidebarFocus = true
         end
     elseif direction == "LEFT" then
         if currentSlotIndex == nil then currentSlotIndex = 1 end
@@ -563,10 +573,9 @@ local function PaperDollItemsOnDPadButtonPress(direction)
         elseif currentSlotIndex == 18 then
             currentSlotIndex = 10
         end
-    end
 
-    -- Обновляем отображение подсказки
-    ShowTooltipOnCurrentSlot()
+        ShowTooltipOnCurrentSlot()
+    end
 end
 
 -- Отображение экипировки с указанной характеристикой
@@ -599,6 +608,7 @@ end
 
 -- Функция для отображения тултипа на строке характеристики
 local function ShowTooltipOnCurrentStat()
+    -- TODO: Добавить визуальный маркер фокуса
     local targetLabel = statItems[currentStatIndex]
     currentFrame = nil  -- Очистим currentFrame, если фрейм не найден
 
@@ -671,6 +681,7 @@ local function CharacterStatPaneOnDPadButtonPress(direction)
                 currentStatIndex = #statItems
             end 
         end
+        ShowTooltipOnCurrentStat()
     elseif direction == "DOWN" then
         if currentStatIndex == nil then currentStatIndex = 1 else
             currentStatIndex = currentStatIndex + 1
@@ -678,10 +689,11 @@ local function CharacterStatPaneOnDPadButtonPress(direction)
                 currentStatIndex = 1
             end
         end
+        ShowTooltipOnCurrentStat()
+    elseif direction == "LEFT" then 
+        paperDollSidebarFocus = false
+        ShowTooltipOnCurrentSlot()
     end
-
-    -- Обновляем отображение тултипа для текущего фрейма
-    ShowTooltipOnCurrentStat()
 end
 
 -- Показать / скрыть EquipmentFlyoutFrame
@@ -802,26 +814,52 @@ local function toggleController()
         end
 
         if g_selectedIndex == 1 then
-            -- Настройка для StatsPane
-            if button == "PADDUP" then CharacterStatPaneOnDPadButtonPress("UP")
-            elseif button == "PADDDOWN" then CharacterStatPaneOnDPadButtonPress("DOWN")
-            elseif button == "PAD3" then ToggleSearchOverlayForMissingStat()
-            end
-        elseif g_selectedIndex == 2 then
-            if not EquipmentFlyoutFrame:IsVisible() then
-                -- Настройка для EquipmentManagerPane, когда EquipmentFlyoutFrame не отображается
-                if button == "PADDUP" then PaperDollItemsOnDPadButtonPress("UP")
-                elseif button == "PADDDOWN" then PaperDollItemsOnDPadButtonPress("DOWN")
-                elseif button == "PADDRIGHT" then PaperDollItemsOnDPadButtonPress("RIGHT")
-                elseif button == "PADDLEFT" then PaperDollItemsOnDPadButtonPress("LEFT")
-                elseif button == "PAD3" then ToggleEquipmentFlyoutFrame()
+            if not paperDollSidebarFocus then
+                -- Когда фокус на PaperDollItemsFrame
+                if not EquipmentFlyoutFrame:IsVisible() then
+                    -- Настройка для EquipmentManagerPane, когда EquipmentFlyoutFrame не отображается
+                    if button == "PADDUP" then PaperDollItemsOnDPadButtonPress("UP")
+                    elseif button == "PADDDOWN" then PaperDollItemsOnDPadButtonPress("DOWN")
+                    elseif button == "PADDRIGHT" then PaperDollItemsOnDPadButtonPress("RIGHT")
+                    elseif button == "PADDLEFT" then PaperDollItemsOnDPadButtonPress("LEFT")
+                    elseif button == "PAD3" then ToggleEquipmentFlyoutFrame()
+                    end
+                else
+                    -- Настройка для EquipmentManagerPane, когда EquipmentFlyoutFrame отображается
+                    if button == "PADDUP" then PaperDollItemsOnDPadButtonPress("UP")
+                    elseif button == "PADDDOWN" then PaperDollItemsOnDPadButtonPress("DOWN")
+                    elseif button == "PAD3" then ToggleEquipmentFlyoutFrame()
+                    end
                 end
             else
-                -- Настройка для EquipmentManagerPane, когда EquipmentFlyoutFrame отображается
-                if button == "PADDUP" then PaperDollItemsOnDPadButtonPress("UP")
-                elseif button == "PADDDOWN" then PaperDollItemsOnDPadButtonPress("DOWN")
-                elseif button == "PAD3" then ToggleEquipmentFlyoutFrame()
+                -- Когда фокус на CharacterStatsPane
+                if button == "PADDUP" then CharacterStatPaneOnDPadButtonPress("UP")
+                elseif button == "PADDDOWN" then CharacterStatPaneOnDPadButtonPress("DOWN")
+                elseif button == "PADDLEFT" then CharacterStatPaneOnDPadButtonPress("LEFT")
+                elseif button == "PAD3" then ToggleSearchOverlayForMissingStat()
                 end
+            end
+        
+        elseif g_selectedIndex == 2 then
+            if not paperDollSidebarFocus then
+                -- Когда фокус на PaperDollItemsFrame
+                if not EquipmentFlyoutFrame:IsVisible() then
+                    -- Настройка для EquipmentManagerPane, когда EquipmentFlyoutFrame не отображается
+                    if button == "PADDUP" then PaperDollItemsOnDPadButtonPress("UP")
+                    elseif button == "PADDDOWN" then PaperDollItemsOnDPadButtonPress("DOWN")
+                    elseif button == "PADDRIGHT" then PaperDollItemsOnDPadButtonPress("RIGHT")
+                    elseif button == "PADDLEFT" then PaperDollItemsOnDPadButtonPress("LEFT")
+                    elseif button == "PAD3" then ToggleEquipmentFlyoutFrame()
+                    end
+                else
+                    -- Настройка для EquipmentManagerPane, когда EquipmentFlyoutFrame отображается
+                    if button == "PADDUP" then PaperDollItemsOnDPadButtonPress("UP")
+                    elseif button == "PADDDOWN" then PaperDollItemsOnDPadButtonPress("DOWN")
+                    elseif button == "PAD3" then ToggleEquipmentFlyoutFrame()
+                    end
+                end
+            else
+                -- Когда фокус на EquipmentManagerPane
             end
         elseif g_selectedIndex == 3 then
             -- Настройка для TitleManagerPane
@@ -914,7 +952,7 @@ function ConsoleMenu:SetPaperDollFrame()
     end)
 
     CharacterStatsPane:HookScript("OnUpdate", function()
-        if g_selectedIndex == 1 then
+        if g_selectedIndex == 1 and paperDollSidebarFocus then
             currentFrame = nil  -- Очистим currentFrame, если фрейм не найден
             -- Перебираем всех детей CharacterStatsPane
             for _, child in ipairs({CharacterStatsPane:GetChildren()}) do
