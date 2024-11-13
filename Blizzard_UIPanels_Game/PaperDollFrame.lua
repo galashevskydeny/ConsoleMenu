@@ -423,7 +423,21 @@ local function updateTextures()
     end
 end
 
-local function addDropdown()
+-- Функция для скрытия PopoutButton кнопок у всех слотов
+local function HideSlotsPopoutButton()
+    for i, slot in ipairs(inventorySlots) do
+        slot.popoutButton:Hide()
+    end
+end
+
+-- Функция для отображения PopoutButton кнопок у всех слотов
+local function ShowSlotsPopoutButton()
+    for i, slot in ipairs(inventorySlots) do
+        slot.popoutButton:Show()
+    end
+end
+
+local function AddPaperDollTabsDropdown()
     
     local items;
 
@@ -514,6 +528,11 @@ local function PaperDollItemsOnDPadButtonPress(direction)
                 currentSlotIndex = #inventorySlots
             end
         end
+
+        if EquipmentFlyoutFrame:IsVisible() then
+            EquipmentFlyout_Hide()
+        end
+
     elseif direction == "DOWN" then
         if currentSlotIndex == nil then currentSlotIndex = 1 else
             currentSlotIndex = currentSlotIndex + 1
@@ -521,6 +540,11 @@ local function PaperDollItemsOnDPadButtonPress(direction)
                 currentSlotIndex = 1
             end
         end
+
+        if EquipmentFlyoutFrame:IsVisible() then
+            EquipmentFlyout_Hide()
+        end
+
     elseif direction == "RIGHT" then
         if currentSlotIndex == nil then currentSlotIndex = 1 end
         if currentSlotIndex > 0 and currentSlotIndex < 8 then
@@ -609,7 +633,7 @@ local function ShowTooltipOnCurrentStat()
         GameTooltip:Show()
     end
 
-    if showSlotsWithStat then
+    if showSlotsWithStat and currentFrame then
         local labelText = currentFrame.Label:GetText()
 
         -- TODO: Добавить остальные отображаемые характеристики 
@@ -658,6 +682,21 @@ local function CharacterStatPaneOnDPadButtonPress(direction)
 
     -- Обновляем отображение тултипа для текущего фрейма
     ShowTooltipOnCurrentStat()
+end
+
+-- Показать / скрыть EquipmentFlyoutFrame
+local function ToggleEquipmentFlyoutFrame()
+    if not EquipmentFlyoutFrame:IsVisible() then
+        local slot = inventorySlots[currentSlotIndex]
+        EquipmentFlyoutPopoutButton_OnClick(slot.popoutButton)
+    else
+        EquipmentFlyout_Hide()
+    end
+    ShowTooltipOnCurrentSlot()
+end
+
+-- Обработка нажатий кнопок D-pad для перемещения наборами экипировки
+local function EquipmentManagerPaneOnDPadButtonPress(direction)
 end
 
 -- Обработка нажатий кнопок D-pad для перемещения между характеристиками
@@ -759,13 +798,21 @@ local function toggleController()
             elseif button == "PAD3" then ToggleSearchOverlayForMissingStat()
             end
         elseif g_selectedIndex == 2 then
-            -- Настройка для EquipmentManagerPane
-                       -- Настройка для PaperDollItems
-                       if button == "PADDUP" then PaperDollItemsOnDPadButtonPress("UP")
-                       elseif button == "PADDDOWN" then PaperDollItemsOnDPadButtonPress("DOWN")
-                       elseif button == "PADDRIGHT" then PaperDollItemsOnDPadButtonPress("RIGHT")
-                       elseif button == "PADDLEFT" then PaperDollItemsOnDPadButtonPress("LEFT")
-                       end
+            if not EquipmentFlyoutFrame:IsVisible() then
+                -- Настройка для EquipmentManagerPane, когда EquipmentFlyoutFrame не отображается
+                if button == "PADDUP" then PaperDollItemsOnDPadButtonPress("UP")
+                elseif button == "PADDDOWN" then PaperDollItemsOnDPadButtonPress("DOWN")
+                elseif button == "PADDRIGHT" then PaperDollItemsOnDPadButtonPress("RIGHT")
+                elseif button == "PADDLEFT" then PaperDollItemsOnDPadButtonPress("LEFT")
+                elseif button == "PAD3" then ToggleEquipmentFlyoutFrame()
+                end
+            else
+                -- Настройка для EquipmentManagerPane, когда EquipmentFlyoutFrame отображается
+                if button == "PADDUP" then PaperDollItemsOnDPadButtonPress("UP")
+                elseif button == "PADDDOWN" then PaperDollItemsOnDPadButtonPress("DOWN")
+                elseif button == "PAD3" then ToggleEquipmentFlyoutFrame()
+                end
+            end
         elseif g_selectedIndex == 3 then
             -- Настройка для TitleManagerPane
             if button == "PADDUP" then TitleManagerPaneOnDPadButtonPress("UP")
@@ -803,6 +850,36 @@ local function InitializestatItems()
         end
 end
 
+-- Замена настроек EquipmentFlayoutFrame
+local function ChangeFlyoutSettings()
+    if C_GamePad and C_GamePad.GetAllDeviceIDs and #C_GamePad.GetAllDeviceIDs() > 0 then
+        -- Скрываем кнопку "Переместить в сумку", т.к. это действие будет перемещено на кнопку
+        PaperDollItemsFrame.flyoutSettings = {
+            onClickFunc = PaperDollFrameItemFlyoutButton_OnClick,
+            getItemsFunc = PaperDollFrameItemFlyout_GetItems,
+            postGetItemsFunc = PostGetItems,
+            hasPopouts = true,
+            parent = PaperDollFrame,
+            anchorX = 0,
+            anchorY = 0,
+            verticalAnchorX = 0,
+            verticalAnchorY = 0,
+        }
+    else
+        PaperDollItemsFrame.flyoutSettings = {
+            onClickFunc = PaperDollFrameItemFlyoutButton_OnClick,
+            getItemsFunc = PaperDollFrameItemFlyout_GetItems,
+            postGetItemsFunc = PaperDollFrameItemFlyout_PostGetItems,
+            hasPopouts = true,
+            parent = PaperDollFrame,
+            anchorX = 0,
+            anchorY = 0,
+            verticalAnchorX = 0,
+            verticalAnchorY = 0,
+        }
+    end
+end
+
 -- Применение модификаций
 function ConsoleMenu:SetPaperDollFrame()
 
@@ -810,7 +887,16 @@ function ConsoleMenu:SetPaperDollFrame()
     hideFramesAndRegions()
     updateTextures()
     toggleController()
-    addDropdown()
+    AddPaperDollTabsDropdown()
+
+    -- Отображение / скрытие PopoutButton слотов в зависмости от подключенности геймпада
+    -- TODO: Добавить отображение / скрытие при подключении / отключении геймпада (события)
+    PaperDollFrame.EquipmentManagerPane:HookScript("OnShow", function()
+        ChangeFlyoutSettings()
+        if C_GamePad and C_GamePad.GetAllDeviceIDs and #C_GamePad.GetAllDeviceIDs() > 0 then
+            HideSlotsPopoutButton()  
+        end
+    end)
 
     -- Отслеживание изменений CharacterStatsPane
     CharacterStatsPane:HookScript("OnShow", function()
@@ -834,4 +920,16 @@ function ConsoleMenu:SetPaperDollFrame()
         end
     end)
 
+end
+
+function PostGetItems(itemSlotButton, itemDisplayTable, numItems)
+	if (PaperDollFrame.EquipmentManagerPane:IsShown() and (PaperDollFrame.EquipmentManagerPane.selectedSetID or GearManagerPopupFrame:IsShown())) then
+		if ( not itemSlotButton.ignored ) then
+			tinsert(itemDisplayTable, 1, EQUIPMENTFLYOUT_IGNORESLOT_LOCATION);
+		else
+			tinsert(itemDisplayTable, 1, EQUIPMENTFLYOUT_UNIGNORESLOT_LOCATION);
+		end
+		numItems = numItems + 1;
+	end
+	return numItems;
 end
