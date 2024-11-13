@@ -686,13 +686,23 @@ end
 
 -- Показать / скрыть EquipmentFlyoutFrame
 local function ToggleEquipmentFlyoutFrame()
-    if not EquipmentFlyoutFrame:IsVisible() then
-        local slot = inventorySlots[currentSlotIndex]
+    local slot = inventorySlots[currentSlotIndex]
+    local availableItems = {}
+    local itemCount = 0
+    GetInventoryItemsForSlot(slot:GetID(), availableItems)
+
+    -- Подсчёт количества элементов в availableItems
+    for _ in pairs(availableItems) do
+        itemCount = itemCount + 1
+    end
+
+    if not EquipmentFlyoutFrame:IsVisible() and itemCount > 1 then
         EquipmentFlyoutPopoutButton_OnClick(slot.popoutButton)
+        GameTooltip:Hide()
     else
         EquipmentFlyout_Hide()
+        ShowTooltipOnCurrentSlot()
     end
-    ShowTooltipOnCurrentSlot()
 end
 
 -- Обработка нажатий кнопок D-pad для перемещения наборами экипировки
