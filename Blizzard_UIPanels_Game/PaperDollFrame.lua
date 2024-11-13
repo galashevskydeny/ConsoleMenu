@@ -12,6 +12,7 @@ local currentSlotIndex = nil
 local currentTitleIndex = 1
 local currentStatIndex = nil
 local showSlotsWithStat = false
+local currentEquipmentFlyoutIndex = nil
 
 local inventorySlots = {
     CharacterHeadSlot,
@@ -615,6 +616,21 @@ local function CharacterStatPaneOnDPadButtonPress(direction)
     end
 end
 
+-- Снять предмет экипировки
+local function UnequipItemInCurrentSlot()
+    if currentSlotIndex then
+        if ( UnitAffectingCombat("player") and not INVSLOTS_EQUIPABLE_IN_COMBAT[slot:GetID()] ) then
+            UIErrorsFrame:AddMessage(ERR_CLIENT_LOCKED_OUT, 1.0, 0.1, 0.1, 1.0);
+            return;
+        end
+        local slot = inventorySlots[currentSlotIndex]
+        local action = EquipmentManager_UnequipItemInSlot(slot:GetID())
+        if action then
+            EquipmentManager_RunAction(action)
+        end
+    end
+end
+
 -- Функция для скрытия PopoutButton кнопок у всех слотов
 local function HideSlotsPopoutButton()
     for i, slot in ipairs(inventorySlots) do
@@ -648,6 +664,7 @@ local function PaperDollItemsOnDPadButtonPress(direction)
 
         if EquipmentFlyoutFrame:IsVisible() then
             EquipmentFlyout_Hide()
+            currentEquipmentFlyoutIndex = nil
         end
 
         ShowTooltipOnCurrentSlot()
@@ -662,6 +679,7 @@ local function PaperDollItemsOnDPadButtonPress(direction)
 
         if EquipmentFlyoutFrame:IsVisible() then
             EquipmentFlyout_Hide()
+            currentEquipmentFlyoutIndex = nil
         end
 
         ShowTooltipOnCurrentSlot()
@@ -701,23 +719,92 @@ end
 
 -- Показать / скрыть EquipmentFlyoutFrame
 local function ToggleEquipmentFlyoutFrame()
-    local slot = inventorySlots[currentSlotIndex]
-    local availableItems = {}
-    local itemCount = 0
-    GetInventoryItemsForSlot(slot:GetID(), availableItems)
+    if currentSlotIndex then
+        currentEquipmentFlyoutIndex = nil
+        local slot = inventorySlots[currentSlotIndex]
+        local availableItems = {}
+        local itemCount = 0
+        GetInventoryItemsForSlot(slot:GetID(), availableItems)
 
-    -- Подсчёт количества элементов в availableItems
-    for _ in pairs(availableItems) do
-        itemCount = itemCount + 1
+        -- Подсчёт количества элементов в availableItems
+        for _ in pairs(availableItems) do
+            itemCount = itemCount + 1
+        end
+
+        if not EquipmentFlyoutFrame:IsVisible() and itemCount > 0 then
+            EquipmentFlyoutPopoutButton_OnClick(slot.popoutButton)
+            GameTooltip:Hide()
+        else
+            EquipmentFlyout_Hide()
+            ShowTooltipOnCurrentSlot()
+        end
+    end
+end
+
+-- Фунукнция для отображения подсказке на текущем слоте (кнопке) EquipmentFlyoutFrame
+local function HideAnyEquipementFlyoutButtonHighlight(direction)
+    -- Перебираем все слоты и скрываем подсветку
+    for i, button in ipairs(EquipmentFlyoutFrame.buttons) do
+        button:UnlockHighlight()
+    end
+    currentEquipmentFlyoutIndex = nil
+end
+
+local function ShowTooltipOnCurrentEquipementFlyoutButton(direction)
+    -- Перебираем все слоты и скрываем подсветку
+    for i, button in ipairs(EquipmentFlyoutFrame.buttons) do
+        if i == currentEquipmentFlyoutIndex then
+            -- Показываем выделение только для текущего слота
+            button:LockHighlight()
+            local onEnterFunc = button:GetScript("OnEnter");
+			if ( onEnterFunc ) then
+				onEnterFunc(button);
+			end
+        else
+            -- Скрываем выделение для всех остальных слотов
+            button:UnlockHighlight()
+        end
+    end
+end
+
+-- Фунукнция для нажатия на текущую кнопку EquipmentFlyoutFrame
+local function CurrentEquipementFlyoutButtonOnClick()
+    if currentEquipmentFlyoutIndex then
+        -- Перебираем все слоты и скрываем подсветку
+        for i, button in ipairs(EquipmentFlyoutFrame.buttons) do
+            if i == currentEquipmentFlyoutIndex then
+                -- Показываем выделение только для текущего слота
+                local onClick = button:GetScript("OnClick");
+                if ( onClick ) then
+                    onClick(button);
+                end
+            end
+        end
+        HideAnyEquipementFlyoutButtonHighlight()
+    end
+end
+
+-- Обработка нажатий кнопок D-pad для перемещения наборами экипировки
+local function EquipmentFlyoutOnDPadButtonPress(direction)
+    local buttonsNum = EquipmentFlyoutFrame.totalItems
+    if direction == "RIGHT" then
+        if currentEquipmentFlyoutIndex == nil then currentEquipmentFlyoutIndex = 1 
+        elseif currentEquipmentFlyoutIndex > 0 and currentEquipmentFlyoutIndex < buttonsNum then
+            currentEquipmentFlyoutIndex = currentEquipmentFlyoutIndex + 1
+        elseif currentEquipmentFlyoutIndex == buttonsNum and buttonsNum > 1 then
+            currentEquipmentFlyoutIndex = 1
+        end
+        
+    elseif direction == "LEFT" then
+        if currentEquipmentFlyoutIndex == nil then currentEquipmentFlyoutIndex = 1
+        elseif (currentEquipmentFlyoutIndex <= buttonsNum and currentEquipmentFlyoutIndex > 1) then
+            currentEquipmentFlyoutIndex = currentEquipmentFlyoutIndex - 1
+        elseif currentEquipmentFlyoutIndex == 1 and buttonsNum > 1  then
+            currentEquipmentFlyoutIndex = buttonsNum
+        end
     end
 
-    if not EquipmentFlyoutFrame:IsVisible() and itemCount > 1 then
-        EquipmentFlyoutPopoutButton_OnClick(slot.popoutButton)
-        GameTooltip:Hide()
-    else
-        EquipmentFlyout_Hide()
-        ShowTooltipOnCurrentSlot()
-    end
+    ShowTooltipOnCurrentEquipementFlyoutButton()
 end
 
 -- Обработка нажатий кнопок D-pad для перемещения наборами экипировки
@@ -826,12 +913,17 @@ local function toggleController()
                     elseif button == "PADDRIGHT" then PaperDollItemsOnDPadButtonPress("RIGHT")
                     elseif button == "PADDLEFT" then PaperDollItemsOnDPadButtonPress("LEFT")
                     elseif button == "PAD3" then ToggleEquipmentFlyoutFrame()
+                    elseif button == "PAD4" then UnequipItemInCurrentSlot()
                     end
                 else
                     -- Настройка для EquipmentManagerPane, когда EquipmentFlyoutFrame отображается
                     if button == "PADDUP" then PaperDollItemsOnDPadButtonPress("UP")
                     elseif button == "PADDDOWN" then PaperDollItemsOnDPadButtonPress("DOWN")
+                    elseif button == "PADDRIGHT" then EquipmentFlyoutOnDPadButtonPress("RIGHT")
+                    elseif button == "PADDLEFT" then EquipmentFlyoutOnDPadButtonPress("LEFT")
                     elseif button == "PAD3" then ToggleEquipmentFlyoutFrame()
+                    elseif button == "PAD1" then CurrentEquipementFlyoutButtonOnClick()
+                    elseif button == "PAD4" then UnequipItemInCurrentSlot()
                     end
                 end
             else
@@ -901,7 +993,7 @@ local function InitializestatItems()
         end
 end
 
--- Замена настроек EquipmentFlayoutFrame
+-- Замена настроек EquipmentFlyoutFrame
 local function ChangeFlyoutSettings()
     if C_GamePad and C_GamePad.GetAllDeviceIDs and #C_GamePad.GetAllDeviceIDs() > 0 then
         -- Скрываем кнопку "Переместить в сумку", т.к. это действие будет перемещено на кнопку
@@ -912,7 +1004,7 @@ local function ChangeFlyoutSettings()
             hasPopouts = true,
             parent = PaperDollFrame,
             anchorX = 0,
-            anchorY = 0,
+            anchorY = 2,
             verticalAnchorX = 0,
             verticalAnchorY = 0,
         }
@@ -924,7 +1016,7 @@ local function ChangeFlyoutSettings()
             hasPopouts = true,
             parent = PaperDollFrame,
             anchorX = 0,
-            anchorY = 0,
+            anchorY = 2,
             verticalAnchorX = 0,
             verticalAnchorY = 0,
         }
