@@ -936,11 +936,11 @@ function ConsoleMenu:SetPaperDollFrame()
     updateTextures()
     toggleController()
     AddPaperDollTabsDropdown()
+    ChangeFlyoutSettings()
 
     -- Отображение / скрытие PopoutButton слотов в зависмости от подключенности геймпада
     -- TODO: Добавить отображение / скрытие при подключении / отключении геймпада (события)
     PaperDollFrame.EquipmentManagerPane:HookScript("OnShow", function()
-        ChangeFlyoutSettings()
         if C_GamePad and C_GamePad.GetAllDeviceIDs and #C_GamePad.GetAllDeviceIDs() > 0 then
             HideSlotsPopoutButton()  
         end
