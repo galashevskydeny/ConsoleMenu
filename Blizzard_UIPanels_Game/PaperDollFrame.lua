@@ -718,7 +718,7 @@ local function PaperDollItemsOnDPadButtonPress(direction)
 end
 
 -- Создание фона EquipmentFlyoutFrameButtons
-local function createBackground()
+local function CreateEquipmentFlyoutFrameBackground()
     if not _G["EquipmentFlyoutFrameButtonsBackground"] then
         -- Создаем фрейм с использованием CPPopupFrameBaseTemplate
         local frame = CreateFrame("Frame", "EquipmentFlyoutFrameButtonsBackground", EquipmentFlyoutFrameButtons, "CPPopupFrameBaseTemplate")
@@ -733,10 +733,20 @@ end
 
 -- Замена фона EquipmentFlyoutFrame
 local function UpdateEquipmentFlyoutFrameBackground()
-    createBackground()
+    CreateEquipmentFlyoutFrameBackground()
     for i, frame in ipairs({EquipmentFlyoutFrameButtons:GetRegions()}) do
         frame:Hide()
     end
+end
+
+-- Фунукнция для отображения подсказке на текущем слоте (кнопке) EquipmentFlyoutFrame
+local function HideAnyEquipementFlyoutButtonHighlight()
+    -- Перебираем все слоты и скрываем подсветку
+    for i, button in ipairs(EquipmentFlyoutFrame.buttons) do
+        button:UnlockHighlight()
+    end
+    currentEquipmentFlyoutIndex = nil
+    GameTooltip:Hide()
 end
 
 -- Показать / скрыть EquipmentFlyoutFrame
@@ -760,17 +770,10 @@ local function ToggleEquipmentFlyoutFrame()
             EquipmentFlyout_Hide()
             ShowTooltipOnCurrentSlot()
         end
-    end
-end
 
--- Фунукнция для отображения подсказке на текущем слоте (кнопке) EquipmentFlyoutFrame
-local function HideAnyEquipementFlyoutButtonHighlight(direction)
-    -- Перебираем все слоты и скрываем подсветку
-    for i, button in ipairs(EquipmentFlyoutFrame.buttons) do
-        button:UnlockHighlight()
+
+        HideAnyEquipementFlyoutButtonHighlight()
     end
-    currentEquipmentFlyoutIndex = nil
-    GameTooltip:Hide()
 end
 
 local function ShowTooltipOnCurrentEquipementFlyoutButton(direction)
