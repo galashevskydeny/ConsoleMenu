@@ -424,20 +424,6 @@ local function updateTextures()
     end
 end
 
--- Функция для скрытия PopoutButton кнопок у всех слотов
-local function HideSlotsPopoutButton()
-    for i, slot in ipairs(inventorySlots) do
-        slot.popoutButton:Hide()
-    end
-end
-
--- Функция для отображения PopoutButton кнопок у всех слотов
-local function ShowSlotsPopoutButton()
-    for i, slot in ipairs(inventorySlots) do
-        slot.popoutButton:Show()
-    end
-end
-
 local function AddPaperDollTabsDropdown()
     
     local items;
@@ -485,97 +471,6 @@ local function AddPaperDollTabsDropdown()
     dropdown:SetDefaultText("Окно персонажа");
     dropdown:SetPoint("TOPRIGHT", PaperDollFrame, "TOPRIGHT", 0, 0);
     dropdown:SetupMenu(GeneratorFunction);
-end
-
--- Функция для отображения подсказки на текущем слоте и скрытия выделения у других
-local function ShowTooltipOnCurrentSlot()
-    -- Перебираем все слоты и скрываем подсветку
-    for i, slot in ipairs(inventorySlots) do
-        if i == currentSlotIndex then
-            -- Показываем выделение только для текущего слота
-            --slot.AugmentBorderAnimTexture:Show()
-            slot:LockHighlight()
-        else
-            -- Скрываем выделение для всех остальных слотов
-            --slot.AugmentBorderAnimTexture:Hide()
-            slot:UnlockHighlight()
-        end
-    end
-
-    -- Отображаем подсказку на текущем слоте
-    local currentSlot = inventorySlots[currentSlotIndex]
-    if currentSlot and currentSlot:IsVisible() then
-        GameTooltip:SetOwner(currentSlot, "ANCHOR_RIGHT")
-        GameTooltip:SetInventoryItem("player", currentSlot:GetID())
-        GameTooltip:Show()
-    end
-end
-
--- Скрытие highlight у всех слотов экипировки
-local function HideAnySlotHighlight()
-    for i, slot in ipairs(inventorySlots) do
-        slot:UnlockHighlight()
-    end
-end
-
--- Обработка нажатий кнопок D-pad
-local function PaperDollItemsOnDPadButtonPress(direction)
-    if direction == "UP" then
-        if currentSlotIndex == nil then currentSlotIndex = 1 else
-            currentSlotIndex = currentSlotIndex - 1
-            if currentSlotIndex < 1 then
-                currentSlotIndex = #inventorySlots
-            end
-        end
-
-        if EquipmentFlyoutFrame:IsVisible() then
-            EquipmentFlyout_Hide()
-        end
-
-        ShowTooltipOnCurrentSlot()
-
-    elseif direction == "DOWN" then
-        if currentSlotIndex == nil then currentSlotIndex = 1 else
-            currentSlotIndex = currentSlotIndex + 1
-            if currentSlotIndex > #inventorySlots then
-                currentSlotIndex = 1
-            end
-        end
-
-        if EquipmentFlyoutFrame:IsVisible() then
-            EquipmentFlyout_Hide()
-        end
-
-        ShowTooltipOnCurrentSlot()
-
-    elseif direction == "RIGHT" then
-        if currentSlotIndex == nil then currentSlotIndex = 1 end
-        if currentSlotIndex > 0 and currentSlotIndex < 8 then
-            currentSlotIndex = currentSlotIndex + 10
-            ShowTooltipOnCurrentSlot()
-        elseif currentSlotIndex == 8 or currentSlotIndex == 9 then
-            currentSlotIndex = currentSlotIndex + 1
-            ShowTooltipOnCurrentSlot()
-        elseif currentSlotIndex == 10 then
-            currentSlotIndex = 18
-            ShowTooltipOnCurrentSlot()
-        elseif currentSlotIndex > 10 and currentSlotIndex <= 18 then
-            inventorySlots[currentSlotIndex]:UnlockHighlight()
-            GameTooltip:Hide()
-            paperDollSidebarFocus = true
-        end
-    elseif direction == "LEFT" then
-        if currentSlotIndex == nil then currentSlotIndex = 1 end
-        if (currentSlotIndex < 18 and currentSlotIndex > 10) then
-            currentSlotIndex = currentSlotIndex- 10
-        elseif currentSlotIndex == 10 or currentSlotIndex == 9 then
-            currentSlotIndex = currentSlotIndex - 1
-        elseif currentSlotIndex == 18 then
-            currentSlotIndex = 10
-        end
-
-        ShowTooltipOnCurrentSlot()
-    end
 end
 
 -- Отображение экипировки с указанной характеристикой
@@ -672,6 +567,30 @@ local function ToggleSearchOverlayForMissingStat()
     end
 end
 
+-- Функция для отображения подсказки на текущем слоте и скрытия выделения у других
+local function ShowTooltipOnCurrentSlot()
+    -- Перебираем все слоты и скрываем подсветку
+    for i, slot in ipairs(inventorySlots) do
+        if i == currentSlotIndex then
+            -- Показываем выделение только для текущего слота
+            --slot.AugmentBorderAnimTexture:Show()
+            slot:LockHighlight()
+        else
+            -- Скрываем выделение для всех остальных слотов
+            --slot.AugmentBorderAnimTexture:Hide()
+            slot:UnlockHighlight()
+        end
+    end
+
+    -- Отображаем подсказку на текущем слоте
+    local currentSlot = inventorySlots[currentSlotIndex]
+    if currentSlot and currentSlot:IsVisible() then
+        GameTooltip:SetOwner(currentSlot, "ANCHOR_RIGHT")
+        GameTooltip:SetInventoryItem("player", currentSlot:GetID())
+        GameTooltip:Show()
+    end
+end
+
 -- Обработка нажатий кнопок D-pad для перемещения между характеристиками
 local function CharacterStatPaneOnDPadButtonPress(direction)
     if direction == "UP" then
@@ -692,6 +611,90 @@ local function CharacterStatPaneOnDPadButtonPress(direction)
         ShowTooltipOnCurrentStat()
     elseif direction == "LEFT" then 
         paperDollSidebarFocus = false
+        ShowTooltipOnCurrentSlot()
+    end
+end
+
+-- Функция для скрытия PopoutButton кнопок у всех слотов
+local function HideSlotsPopoutButton()
+    for i, slot in ipairs(inventorySlots) do
+        slot.popoutButton:Hide()
+    end
+end
+
+-- Функция для отображения PopoutButton кнопок у всех слотов
+local function ShowSlotsPopoutButton()
+    for i, slot in ipairs(inventorySlots) do
+        slot.popoutButton:Show()
+    end
+end
+
+-- Скрытие highlight у всех слотов экипировки
+local function HideAnySlotHighlight()
+    for i, slot in ipairs(inventorySlots) do
+        slot:UnlockHighlight()
+    end
+end
+
+-- Обработка нажатий кнопок D-pad
+local function PaperDollItemsOnDPadButtonPress(direction)
+    if direction == "UP" then
+        if currentSlotIndex == nil then currentSlotIndex = 1 else
+            currentSlotIndex = currentSlotIndex - 1
+            if currentSlotIndex < 1 then
+                currentSlotIndex = #inventorySlots
+            end
+        end
+
+        if EquipmentFlyoutFrame:IsVisible() then
+            EquipmentFlyout_Hide()
+        end
+
+        ShowTooltipOnCurrentSlot()
+
+    elseif direction == "DOWN" then
+        if currentSlotIndex == nil then currentSlotIndex = 1 else
+            currentSlotIndex = currentSlotIndex + 1
+            if currentSlotIndex > #inventorySlots then
+                currentSlotIndex = 1
+            end
+        end
+
+        if EquipmentFlyoutFrame:IsVisible() then
+            EquipmentFlyout_Hide()
+        end
+
+        ShowTooltipOnCurrentSlot()
+
+    elseif direction == "RIGHT" then
+        if currentSlotIndex == nil then currentSlotIndex = 1 end
+        if currentSlotIndex > 0 and currentSlotIndex < 8 then
+            currentSlotIndex = currentSlotIndex + 10
+            ShowTooltipOnCurrentSlot()
+        elseif currentSlotIndex == 8 or currentSlotIndex == 9 then
+            currentSlotIndex = currentSlotIndex + 1
+            ShowTooltipOnCurrentSlot()
+        elseif currentSlotIndex == 10 then
+            currentSlotIndex = 18
+            ShowTooltipOnCurrentSlot()
+        elseif currentSlotIndex > 10 and currentSlotIndex <= 18 then
+            inventorySlots[currentSlotIndex]:UnlockHighlight()
+            GameTooltip:Hide()
+            paperDollSidebarFocus = true
+            if currentStatIndex then
+                ShowTooltipOnCurrentStat()
+            end
+        end
+    elseif direction == "LEFT" then
+        if currentSlotIndex == nil then currentSlotIndex = 1 end
+        if (currentSlotIndex < 18 and currentSlotIndex > 10) then
+            currentSlotIndex = currentSlotIndex- 10
+        elseif currentSlotIndex == 10 or currentSlotIndex == 9 then
+            currentSlotIndex = currentSlotIndex - 1
+        elseif currentSlotIndex == 18 then
+            currentSlotIndex = 10
+        end
+
         ShowTooltipOnCurrentSlot()
     end
 end
