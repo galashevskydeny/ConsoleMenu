@@ -9,3 +9,5 @@
 ConsoleMenu.lua
 Blizzard_UIPanels_Game/CharacterFrame.lua
 Blizzard_UIPanels_Game/PaperDollFrame.lua
+Blizzard_UIPanels_Game/ReputationFrame.lua
+Blizzard_UIPanels_Game/TokenFrame.lua

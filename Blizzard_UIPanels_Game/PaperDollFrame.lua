@@ -66,7 +66,7 @@ local function moveFrames()
         
         -- Устанавливаем новые привязки с отступами по 32 пикселя
         PaperDollFrame:SetPoint("TOPLEFT", CharacterFrame, "TOPLEFT", offsetX, -offsetY+2) -- Отступ слева и сверху
-        PaperDollFrame:SetPoint("BOTTOMRIGHT", CharacterFrame, "BOTTOMRIGHT", -offsetX, -offsetY+2) -- Отступ справа и снизу
+        PaperDollFrame:SetPoint("BOTTOMRIGHT", CharacterFrame, "BOTTOMRIGHT", -offsetX, 2) -- Отступ справа и снизу
     end
 
     -- Проверяем, существует ли CharacterHeadSlot

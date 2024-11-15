@@ -12,4 +12,6 @@ function ConsoleMenu:OnInitialize()
 
     self:SetCharacterFrame()
     self:SetPaperDollFrame()
+    self:SetReputationFrame()
+    self:SetTokenFrame()
 end
