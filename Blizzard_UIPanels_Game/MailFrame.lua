@@ -88,6 +88,9 @@ local function hideFramesAndRegions()
         MailFramePortrait,
         MailFrameBg,
         InboxFrameBg,
+        OpenAllMail,
+        InboxPrevPageButton,
+        InboxNextPageButton,
     }
 
     -- Скрываем все элементы из списка
@@ -98,6 +101,111 @@ local function hideFramesAndRegions()
         end
     end
 
+end
+
+-- Функция для создания кнопки "Открыть все"
+local function CreateOpenAllMailButton()
+    local button = CreateFrame("Button", "MyGoldRedButton", InboxFrame, "SharedGoldRedButtonTemplate")
+    button:SetSize(128, 32) -- Устанавливаем размер кнопки
+    button:SetPoint("BOTTOM", InboxFrame, "BOTTOM", 0,0) -- Устанавливаем позицию кнопки в центре экрана
+    button:SetText("Открыть все") -- Устанавливаем текст на кнопке
+
+    Mixin(button, OpenAllMailMixin)
+    button:SetScript("OnLoad", function(self)
+        button:OnLoad()
+    end)
+
+    button:SetScript("OnClick", function(self)
+        button:OnClick()
+    end)
+
+    button:SetScript("OnUpdate", function(self, dt)
+        button:OnUpdate(dt)
+    end)    
+
+    button:SetScript("OnEvent", function(self)
+        button:OnEvent()
+    end)
+
+    button:SetScript("OnHide", function(self)
+        button:OnHide()
+    end)
+end
+
+-- Функция для созданяи кнопки "Далее"
+local function CreateNextPageButton()
+    -- Создаем кнопку с шаблоном CommonSquareIconButtonTemplate
+    local button = CreateFrame("Button", "InboxNextPageButtonNew", InboxFrame, "CommonSquareIconButtonTemplate")
+    button:SetPoint("BOTTOMRIGHT") -- Устанавливаем позицию кнопки
+    button:SetSize(32, 32) -- Устанавливаем размер кнопки
+    
+    local buttonText = parentFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    buttonText:SetText("Далее") -- Замените на ваш текст
+    buttonText:SetPoint("RIGHT", button, "LEFT", -4, 0)
+
+    -- Устанавливаем иконку из атласа
+    button.Icon:SetAtlas("common-icon-forwardarrow")
+
+    -- Уменьшаем размер иконки
+    button.Icon:SetScale(0.7)
+
+    -- Центрируем иконку внутри кнопки (на случай, если она сместилась)
+    button.Icon:SetPoint("CENTER", button, "CENTER", 0, 0)
+
+    -- Добавляем обработчик события клика
+    button:SetScript("OnClick", function(self)
+        if InboxNextPageButton:IsEnabled() then
+            InboxNextPage()
+        end
+    end)
+
+    InboxFrame:HookScript("OnUpdate", function()
+        if InboxNextPageButton:IsEnabled() then
+            button:Enable()
+            button.Icon:SetDesaturated(false)
+        else
+            button:Disable()
+            button.Icon:SetDesaturated(true)
+        end
+    end)
+end
+
+-- Функция для созданяи кнопки "Далее"
+local function CreatePrevPageButton()
+    -- Создаем кнопку с шаблоном CommonSquareIconButtonTemplate
+    local button = CreateFrame("Button", "InboxPrevPageButtonNew", InboxFrame, "CommonSquareIconButtonTemplate")
+    button:SetPoint("BOTTOMLEFT") -- Устанавливаем позицию кнопки
+    button:SetSize(32, 32) -- Устанавливаем размер кнопки
+    
+    local buttonText = parentFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    buttonText:SetText("Назад") -- Замените на ваш текст
+    buttonText:SetPoint("LEFT", button, "RIGHT", 4, 0)
+
+    -- Устанавливаем иконку из атласа
+    button.Icon:SetAtlas("common-icon-backarrow")
+
+    -- Уменьшаем размер иконки
+    button.Icon:SetScale(0.7)
+
+    -- Центрируем иконку внутри кнопки (на случай, если она сместилась)
+    button.Icon:SetPoint("CENTER", button, "CENTER", 0, 0)
+
+    -- Добавляем обработчик события клика
+    button:SetScript("OnClick", function(self)
+        if InboxPrevPageButton:IsEnabled() then
+            InboxPrevPage()
+        end
+    end)
+
+    InboxFrame:HookScript("OnUpdate", function()
+        if InboxPrevPageButton:IsEnabled() then
+            button:Enable()
+            button.Icon:SetDesaturated(false)
+        else
+            button:Disable()
+            button.Icon:SetDesaturated(true)
+        end
+    end)
 end
 
 -- Обновление текстур фрейсов и регионов
@@ -154,7 +262,12 @@ local function updateTextures()
             slot:SetAtlas("plunderstorm-actionbar-slot-border")
             slot:SetTexCoord(0, 1, 0, 1)
         end
-    end         
+    end    
+    
+    CreateOpenAllMailButton()
+    CreateNextPageButton()
+    CreatePrevPageButton()
+
 end
 
 -- Подключение контроллера
