@@ -108,7 +108,7 @@ local function CreateOpenAllMailButton()
     local button = CreateFrame("Button", "MyGoldRedButton", InboxFrame, "SharedGoldRedButtonTemplate")
     button:SetSize(128, 32) -- Устанавливаем размер кнопки
     button:SetPoint("BOTTOM", InboxFrame, "BOTTOM", 0,0) -- Устанавливаем позицию кнопки в центре экрана
-    button:SetText("Открыть все") -- Устанавливаем текст на кнопке
+    button:SetText(OPEN_ALL_MAIL_BUTTON) -- Устанавливаем текст на кнопке
 
     Mixin(button, OpenAllMailMixin)
     button:SetScript("OnLoad", function(self)
@@ -140,7 +140,7 @@ local function CreateNextPageButton()
     button:SetSize(32, 32) -- Устанавливаем размер кнопки
     
     local buttonText = parentFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    buttonText:SetText("Далее") -- Замените на ваш текст
+    buttonText:SetText(NEXT) -- Замените на ваш текст
     buttonText:SetPoint("RIGHT", button, "LEFT", -4, 0)
 
     -- Устанавливаем иконку из атласа
@@ -178,7 +178,7 @@ local function CreatePrevPageButton()
     button:SetSize(32, 32) -- Устанавливаем размер кнопки
     
     local buttonText = parentFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    buttonText:SetText("Назад") -- Замените на ваш текст
+    buttonText:SetText(PREV) -- Замените на ваш текст
     buttonText:SetPoint("LEFT", button, "RIGHT", 4, 0)
 
     -- Устанавливаем иконку из атласа
