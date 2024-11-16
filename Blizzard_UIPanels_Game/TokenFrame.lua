@@ -1,6 +1,7 @@
--- CharacterFrame.lua
+-- TokenFrame.lua
 
 local ConsoleMenu = LibStub("AceAddon-3.0"):GetAddon("ConsoleMenu")
+local parentFrame = TokenFrame
 
 local offsetX = 40
 local offsetY = 40
@@ -10,39 +11,39 @@ local scale = 1
 local function moveFrames()
 
     -- Очищаем текущие привязки
-    TokenFrame:ClearAllPoints()
+    parentFrame:ClearAllPoints()
         
     -- Устанавливаем новые привязки
-    TokenFrame:SetPoint("TOPLEFT", CharacterFrame, "TOPLEFT", offsetX, -offsetY+2) -- Отступ слева и сверху
-    TokenFrame:SetPoint("BOTTOMRIGHT", CharacterFrame, "BOTTOMRIGHT", -offsetX, 2) -- Отступ справа и снизу
+    parentFrame:SetPoint("TOPLEFT", CharacterFrame, "TOPLEFT", offsetX, -offsetY+2) -- Отступ слева и сверху
+    parentFrame:SetPoint("BOTTOMRIGHT", CharacterFrame, "BOTTOMRIGHT", -offsetX, 2) -- Отступ справа и снизу
 
     -- Очищаем текущие привязки
-    TokenFrame.ScrollBar:ClearAllPoints()
+    parentFrame.ScrollBar:ClearAllPoints()
     
     -- Устанавливаем новые привязки
-    TokenFrame.ScrollBar:SetPoint("TOPLEFT", TokenFrame, "TOPRIGHT", 12, -offsetY) -- Отступ справа и снизу
-    TokenFrame.ScrollBar:SetPoint("BOTTOMLEFT", TokenFrame, "BOTTOMRIGHT", 12, offsetY) -- Отступ справа и снизу
+    parentFrame.ScrollBar:SetPoint("TOPLEFT", parentFrame, "TOPRIGHT", 12, -offsetY) -- Отступ справа и снизу
+    parentFrame.ScrollBar:SetPoint("BOTTOMLEFT", parentFrame, "BOTTOMRIGHT", 12, offsetY) -- Отступ справа и снизу
 
     -- Очищаем текущие привязки
-    TokenFrame.ScrollBox:ClearAllPoints()
+    parentFrame.ScrollBox:ClearAllPoints()
     
     -- Устанавливаем новые привязки
-    TokenFrame.ScrollBox:SetPoint("TOPLEFT", TokenFrame, "TOPLEFT", -offsetX+24, -offsetY) -- Отступ слева и сверху
-    TokenFrame.ScrollBox:SetPoint("BOTTOMRIGHT", TokenFrame, "BOTTOMRIGHT", 10, 2) -- Отступ слева и сверху
+    parentFrame.ScrollBox:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", -offsetX+24, -offsetY) -- Отступ слева и сверху
+    parentFrame.ScrollBox:SetPoint("BOTTOMRIGHT", parentFrame, "BOTTOMRIGHT", 10, 2) -- Отступ слева и сверху
 
     -- Проверяем, существует ли ReputationFrame.filterDropdown
-    if TokenFrame.filterDropdown then
+    if parentFrame.filterDropdown then
         -- Очищаем текущие привязки
-        TokenFrame.filterDropdown:ClearAllPoints()
+        parentFrame.filterDropdown:ClearAllPoints()
         
         -- Устанавливаем новые привязки с использованием -offsetX
-        TokenFrame.filterDropdown:SetPoint("TOPRIGHT", TokenFrame, "TOPRIGHT", 0, 0)
+        parentFrame.filterDropdown:SetPoint("TOPRIGHT", TokenFrame, "TOPRIGHT", 0, 0)
     end
 
     -- Проверяем, существуют ли TokenFrame.filterDropdown и TokenFrame.CurrencyTransferLogToggleButton
-    if TokenFrame and TokenFrame.filterDropdown and TokenFrame.CurrencyTransferLogToggleButton then
-        local filterDropdown = TokenFrame.filterDropdown
-        local toggleButton = TokenFrame.CurrencyTransferLogToggleButton
+    if parentFrame and parentFrame.filterDropdown and parentFrame.CurrencyTransferLogToggleButton then
+        local filterDropdown = parentFrame.filterDropdown
+        local toggleButton = parentFrame.CurrencyTransferLogToggleButton
         
         -- Очищаем все привязки кнопки
         toggleButton:ClearAllPoints()
@@ -79,7 +80,7 @@ end
 -- Подключение контроллера
 local function toggleController()
     -- Создаем фрейм для обработки событий геймпада
-    local controllerHandler = CreateFrame("Frame", "ControllerHandlerFrame", TokenFrame)
+    local controllerHandler = CreateFrame("Frame", "ControllerHandlerFrame", parentFrame)
 
     -- Обработка нажатия кнопок геймпада
     function controllerHandler:OnGamePadButtonDown(button)

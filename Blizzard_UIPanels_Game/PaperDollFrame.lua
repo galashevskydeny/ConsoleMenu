@@ -1,4 +1,4 @@
--- CharacterFrame.lua
+-- PaperDollFrame.lua
 
 local ConsoleMenu = LibStub("AceAddon-3.0"):GetAddon("ConsoleMenu")
 
@@ -279,25 +279,26 @@ local function hideFramesAndRegions()
     end)
 end
 
+function ApplyMaskToTexture(texture)
+    -- Проверка, существует ли уже маска
+    if not texture.mask then
+        -- Создаем маску
+        local mask = texture:GetParent():CreateMaskTexture()
+        
+        -- Устанавливаем текстуру маски
+        mask:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\Mask")
+        mask:SetAllPoints(texture)  -- Маска будет размером с текстуру
+        
+        -- Применяем маску
+        texture:AddMaskTexture(mask)
+        
+        -- Сохраняем ссылку на маску, чтобы избежать повторного создания
+        texture.mask = mask
+    end
+end
+
 -- Обновление текстур фрейсов и регионов
 local function updateTextures()
-    function ApplyMaskToTexture(texture)
-        -- Проверка, существует ли уже маска
-        if not texture.mask then
-            -- Создаем маску
-            local mask = texture:GetParent():CreateMaskTexture()
-            
-            -- Устанавливаем текстуру маски
-            mask:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\Mask")
-            mask:SetAllPoints(texture)  -- Маска будет размером с текстуру
-            
-            -- Применяем маску
-            texture:AddMaskTexture(mask)
-            
-            -- Сохраняем ссылку на маску, чтобы избежать повторного создания
-            texture.mask = mask
-        end
-    end
 
     function SetAllPointsParent(frame)
         local parent = frame:GetParent()

@@ -52,7 +52,7 @@ local function moveFrames()
         CharacterFrameTab1:ClearAllPoints()
         
         -- Устанавливаем новую привязку с изменением смещения по X
-        CharacterFrameTab1:SetPoint("TOPLEFT", CharacterFrame, "BOTTOMLEFT", offsetX, 2) -- Заменяем 11 на 32
+        CharacterFrameTab1:SetPoint("TOPLEFT", CharacterFrame, "BOTTOMLEFT", offsetX, 2)
     end
 end
 

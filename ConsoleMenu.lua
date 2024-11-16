@@ -14,4 +14,6 @@ function ConsoleMenu:OnInitialize()
     self:SetPaperDollFrame()
     self:SetReputationFrame()
     self:SetTokenFrame()
+    self:SetMailFrame()
+    self:SetMerchantFrame()
 end

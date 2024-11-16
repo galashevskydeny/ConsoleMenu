@@ -1,6 +1,7 @@
--- CharacterFrame.lua
+-- ReputationFrame.lua
 
 local ConsoleMenu = LibStub("AceAddon-3.0"):GetAddon("ConsoleMenu")
+local parentFrame = ReputationFrame
 
 local offsetX = 40
 local offsetY = 40
@@ -9,37 +10,37 @@ local scale = 1
 -- Перемещение и изменение тточек привязки фреймов
 local function moveFrames()
     -- Проверяем, существует ли ReputationFrame.ScrollBox
-    if ReputationFrame then
+    if parentFrame then
         -- Очищаем текущие привязки
-        ReputationFrame:ClearAllPoints()
+        parentFrame:ClearAllPoints()
         
         -- Устанавливаем новые привязки
-        ReputationFrame:SetPoint("TOPLEFT", CharacterFrame, "TOPLEFT", offsetX, -offsetY+2) -- Отступ слева и сверху
-        ReputationFrame:SetPoint("BOTTOMRIGHT", CharacterFrame, "BOTTOMRIGHT", -offsetX, 2) -- Отступ справа и снизу
+        parentFrame:SetPoint("TOPLEFT", CharacterFrame, "TOPLEFT", offsetX, -offsetY+2) -- Отступ слева и сверху
+        parentFrame:SetPoint("BOTTOMRIGHT", CharacterFrame, "BOTTOMRIGHT", -offsetX, 2) -- Отступ справа и снизу
 
         -- Очищаем текущие привязки
-        ReputationFrame.ScrollBar:ClearAllPoints()
+        parentFrame.ScrollBar:ClearAllPoints()
         
         -- Устанавливаем новые привязки
-        ReputationFrame.ScrollBar:SetPoint("TOPLEFT", ReputationFrame, "TOPRIGHT", 12, -offsetY) -- Отступ справа и снизу
-        ReputationFrame.ScrollBar:SetPoint("BOTTOMLEFT", ReputationFrame, "BOTTOMRIGHT", 12, offsetY) -- Отступ справа и снизу
+        parentFrame.ScrollBar:SetPoint("TOPLEFT", parentFrame, "TOPRIGHT", 12, -offsetY) -- Отступ справа и снизу
+        parentFrame.ScrollBar:SetPoint("BOTTOMLEFT", parentFrame, "BOTTOMRIGHT", 12, offsetY) -- Отступ справа и снизу
 
         -- Очищаем текущие привязки
-        ReputationFrame.ScrollBox:ClearAllPoints()
+        parentFrame.ScrollBox:ClearAllPoints()
         
         -- Устанавливаем новые привязки
-        ReputationFrame.ScrollBox:SetPoint("TOPLEFT", ReputationFrame, "TOPLEFT", -offsetX+24, -offsetY) -- Отступ слева и сверху
-        ReputationFrame.ScrollBox:SetPoint("BOTTOMRIGHT", ReputationFrame, "BOTTOMRIGHT", 10, 2) -- Отступ слева и сверху
+        parentFrame.ScrollBox:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", -offsetX+24, -offsetY) -- Отступ слева и сверху
+        parentFrame.ScrollBox:SetPoint("BOTTOMRIGHT", parentFrame, "BOTTOMRIGHT", 10, 2) -- Отступ слева и сверху
 
     end
 
     -- Проверяем, существует ли ReputationFrame.filterDropdown
-    if ReputationFrame.filterDropdown then
+    if parentFrame.filterDropdown then
         -- Очищаем текущие привязки
-        ReputationFrame.filterDropdown:ClearAllPoints()
+        parentFrame.filterDropdown:ClearAllPoints()
         
         -- Устанавливаем новые привязки с использованием -offsetX
-        ReputationFrame.filterDropdown:SetPoint("TOPRIGHT", ReputationFrame, "TOPRIGHT", 0, 0)
+        parentFrame.filterDropdown:SetPoint("TOPRIGHT", parentFrame, "TOPRIGHT", 0, 0)
     end
 
 end
@@ -68,7 +69,7 @@ end
 -- Подключение контроллера
 local function toggleController()
     -- Создаем фрейм для обработки событий геймпада
-    local controllerHandler = CreateFrame("Frame", "ControllerHandlerFrame", TokenFrame)
+    local controllerHandler = CreateFrame("Frame", "ControllerHandlerFrame", parentFrame)
 
     -- Обработка нажатия кнопок геймпада
     function controllerHandler:OnGamePadButtonDown(button)
