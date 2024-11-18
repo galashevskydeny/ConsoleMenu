@@ -16,4 +16,5 @@ function ConsoleMenu:OnInitialize()
     self:SetTokenFrame()
     self:SetMailFrame()
     self:SetMerchantFrame()
+    self:SetOpenMailFrame()
 end

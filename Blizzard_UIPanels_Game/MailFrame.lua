@@ -81,6 +81,7 @@ end
 
 -- Скрытие ненужных фреймов, регионов и текстур
 local function hideFramesAndRegions()
+    
     local elementsToHide = {
         MailFrame.NineSlice,
         MailFrame.TopTileStreaks,
@@ -139,7 +140,7 @@ local function CreateNextPageButton()
     button:SetPoint("BOTTOMRIGHT") -- Устанавливаем позицию кнопки
     button:SetSize(32, 32) -- Устанавливаем размер кнопки
     
-    local buttonText = parentFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    local buttonText = InboxFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     buttonText:SetText(NEXT) -- Замените на ваш текст
     buttonText:SetPoint("RIGHT", button, "LEFT", -4, 0)
 
@@ -147,7 +148,7 @@ local function CreateNextPageButton()
     button.Icon:SetAtlas("common-icon-forwardarrow")
 
     -- Уменьшаем размер иконки
-    button.Icon:SetScale(0.7)
+    button.Icon:SetScale(0.6)
 
     -- Центрируем иконку внутри кнопки (на случай, если она сместилась)
     button.Icon:SetPoint("CENTER", button, "CENTER", 0, 0)
@@ -177,7 +178,7 @@ local function CreatePrevPageButton()
     button:SetPoint("BOTTOMLEFT") -- Устанавливаем позицию кнопки
     button:SetSize(32, 32) -- Устанавливаем размер кнопки
     
-    local buttonText = parentFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    local buttonText = InboxFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     buttonText:SetText(PREV) -- Замените на ваш текст
     buttonText:SetPoint("LEFT", button, "RIGHT", 4, 0)
 
@@ -185,7 +186,7 @@ local function CreatePrevPageButton()
     button.Icon:SetAtlas("common-icon-backarrow")
 
     -- Уменьшаем размер иконки
-    button.Icon:SetScale(0.7)
+    button.Icon:SetScale(0.6)
 
     -- Центрируем иконку внутри кнопки (на случай, если она сместилась)
     button.Icon:SetPoint("CENTER", button, "CENTER", 0, 0)
