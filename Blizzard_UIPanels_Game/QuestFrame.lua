@@ -9,6 +9,21 @@ local detailPanel = QuestFrameDetailPanel
 local offsetX = 40
 local offsetY = 40
 local scale = 1
+local headerText = 24
+
+-- Функция для обновления видимости ScrollBar
+ function UpdateScrollBarVisibility(scrollFrame)
+    local scrollBar = scrollFrame.ScrollBar  -- Замените на правильный путь к вашему ScrollBar
+
+    local contentHeight = scrollFrame:GetVerticalScrollRange() + scrollFrame:GetHeight()
+    local containerHeight = scrollFrame:GetHeight()
+    
+    if contentHeight <= containerHeight then
+        scrollBar:Hide()
+    else
+        scrollBar:Show()
+    end
+end
 
 -- Перемещение и изменение тточек привязки фреймов
 local function moveFrames()
@@ -21,23 +36,13 @@ local function moveFrames()
     parentFrame:HookScript("OnShow", function()
         if parentFrame:IsShown() then
             parentFrame:SetWidth(296 + offsetX*2)
-            parentFrame:SetHeight(424 + offsetY*2)
+            parentFrame:SetHeight(424 + offsetY*2+8)
         end
     end)
 
     if QuestDetailScrollFrame then
         QuestDetailScrollFrame:ClearAllPoints()
         QuestDetailScrollFrame:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", offsetX-10, -offsetY+10)
-    end
-
-    if QuestFrameAcceptButton then
-        QuestFrameAcceptButton:ClearAllPoints()
-        QuestFrameAcceptButton:SetPoint("BOTTOMLEFT", parentFrame, "BOTTOMLEFT", offsetX, offsetY)
-    end
-
-    if QuestFrameDeclineButton then
-        QuestFrameDeclineButton:ClearAllPoints()
-        QuestFrameDeclineButton:SetPoint("BOTTOMRIGHT", parentFrame, "BOTTOMRIGHT", -offsetX, offsetY)
     end
 
     if QuestProgressScrollFrame then
@@ -59,11 +64,6 @@ local function moveFrames()
         QuestFrameGoodbyeButton:ClearAllPoints()
         QuestFrameGoodbyeButton:SetPoint("BOTTOMRIGHT", parentFrame, "BOTTOMRIGHT", -offsetX, offsetY)
     end
-
-    if QuestFrameCompleteQuestButton then
-        QuestFrameCompleteQuestButton:ClearAllPoints()
-        QuestFrameCompleteQuestButton:SetPoint("BOTTOMLEFT", parentFrame, "BOTTOMLEFT", offsetX, offsetY)
-    end
     
 end
 
@@ -82,8 +82,13 @@ local function hideFramesAndRegions()
         progressPanel.Bg,
         detailPanel.SealMaterialBG,
         detailPanel.Bg,
+        QuestFrameAcceptButton,
+        QuestFrameDeclineButton,
+        QuestFrameCompleteQuestButton,
+        QuestFrameCompleteButton,
+        QuestFrameGoodbyeButton,
     }
-
+        
     -- Скрываем все элементы из списка
     for _, element in ipairs(elementsToHide) do
         if element then
@@ -94,9 +99,74 @@ local function hideFramesAndRegions()
 
 end
 
+-- Функция для создания кнопки "Принять"
+local function CreateAcceptQuestButton()
+    local button = CreateFrame("Button", "AccebtQuestButton", detailPanel, "SharedButtonLargeTemplate")
+    button:SetSize(128, 32) -- Устанавливаем размер кнопки
+    button:SetPoint("BOTTOMLEFT", detailPanel, "BOTTOMLEFT", offsetX-2, offsetY/2) -- Устанавливаем позицию кнопки в центре экрана
+    button:SetText(ACCEPT) -- Устанавливаем текст на кнопке
+
+    button:SetScript("OnClick", function(self)
+        QuestDetailAcceptButton_OnClick()
+    end)
+end
+
+-- Функция для создания кнопки "Отказаться"
+local function CreateDeclineQuestButton()
+    local button = CreateFrame("Button", "AcceptQuestButton", detailPanel, "SharedButtonLargeTemplate")
+    button:SetSize(128, 32) -- Устанавливаем размер кнопки
+    button:SetPoint("BOTTOMRIGHT", detailPanel, "BOTTOMRIGHT", 2, offsetY/2) -- Устанавливаем позицию кнопки в центре экрана
+    button:SetText(DECLINE) -- Устанавливаем текст на кнопке
+
+    button:SetScript("OnClick", function(self)
+        QuestDetailDeclineButton_OnClick()
+    end)
+end
+
+-- Функция для создания кнопки "Завершить"
+local function CreateCompleteQuestButton()
+    local button = CreateFrame("Button", "CompleteQuestButton", rewardPanel, "SharedButtonLargeTemplate")
+    button:SetSize(128, 32) -- Устанавливаем размер кнопки
+    button:SetPoint("BOTTOMLEFT", rewardPanel, "BOTTOMLEFT", offsetX-2, offsetY) -- Устанавливаем позицию кнопки в центре экрана
+    button:SetText(COMPLETE_QUEST) -- Устанавливаем текст на кнопке
+
+    button:SetScript("OnClick", function(self)
+        QuestRewardCompleteButton_OnClick()
+    end)
+end
+
+-- Функция для создания кнопки "Завершить"
+local function CreateContinueQuestButton()
+    local button = CreateFrame("Button", "ContinueQuestButton", progressPanel, "SharedButtonLargeTemplate")
+    button:SetSize(128, 32) -- Устанавливаем размер кнопки
+    button:SetPoint("BOTTOMLEFT", progressPanel, "BOTTOMLEFT", offsetX-2, offsetY) -- Устанавливаем позицию кнопки в центре экрана
+    button:SetText(CONTINUE) -- Устанавливаем текст на кнопке
+
+    button:SetScript("OnClick", function(self)
+        QuestProgressCompleteButton_OnClick()
+    end)
+end
+
+-- Функция для создания кнопки "Отказаться"
+local function CreateGoodbyeQuestButton()
+    local button = CreateFrame("Button", "GoodbyeQuestButton", progressPanel, "SharedButtonLargeTemplate")
+    button:SetSize(128, 32) -- Устанавливаем размер кнопки
+    button:SetPoint("BOTTOMRIGHT", progressPanel, "BOTTOMRIGHT", -offsetX-2, offsetY) -- Устанавливаем позицию кнопки в центре экрана
+    button:SetText(CANCEL) -- Устанавливаем текст на кнопке
+
+    button:SetScript("OnClick", function(self)
+        QuestGoodbyeButton_OnClick()
+    end)
+end
+
 -- Обновление текстур фрейсов и регионов
 local function updateTextures()
     QuestDetailScrollChildFrame:HookScript("OnUpdate", function()
+        UpdateScrollBarVisibility(detailPanel.ScrollFrame)
+        if QuestInfoTitleHeader then
+            QuestInfoTitleHeader:SetFont(QuestInfoTitleHeader:GetFont(), headerText)
+        end
+    
         for _, region in ipairs({QuestDetailScrollChildFrame  :GetRegions()}) do
             if region:IsObjectType("FontString") then
                 region:SetTextColor(1, 1, 1)
@@ -127,7 +197,19 @@ local function updateTextures()
         
     end)
 
+    CreateAcceptQuestButton()
+    CreateDeclineQuestButton()
+    CreateCompleteQuestButton()
+    CreateContinueQuestButton()
+    CreateGoodbyeQuestButton()
+
     QuestProgressScrollChildFrame:HookScript("OnUpdate", function()
+        UpdateScrollBarVisibility(QuestProgressScrollFrame)
+
+        if QuestProgressTitleText then
+            QuestProgressTitleText:SetFont(QuestInfoTitleHeader:GetFont(), headerText)
+        end
+
         for _, region in ipairs({QuestProgressScrollChildFrame  :GetRegions()}) do
             if region:IsObjectType("FontString") then
                 region:SetTextColor(1, 1, 1)
@@ -136,6 +218,12 @@ local function updateTextures()
     end)
 
     QuestRewardScrollChildFrame:HookScript("OnUpdate", function()
+        UpdateScrollBarVisibility(QuestRewardScrollFrame)
+
+        if QuestInfoTitleHeader then
+            QuestInfoTitleHeader:SetFont(QuestInfoTitleHeader:GetFont(), headerText)
+        end
+
         for _, region in ipairs({QuestRewardScrollChildFrame:GetRegions()}) do
             if region:IsObjectType("FontString") then
                 region:SetTextColor(1, 1, 1)
