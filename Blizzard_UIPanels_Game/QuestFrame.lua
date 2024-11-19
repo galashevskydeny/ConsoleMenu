@@ -30,7 +30,6 @@ end
 -- Функция для замены анимационной текстуры с возможностью изменения параметров
 local function ReplaceAnimatedTextureInString(text, oldTextureName, newTextureName, newWidth, newHeight, newOffsetX, newOffsetY)
     if not text or not oldTextureName or not newTextureName then
-        print("Ошибка: Отсутствуют необходимые параметры.")
         return text
     end
 
@@ -61,10 +60,6 @@ local function ReplaceAnimatedTextureInString(text, oldTextureName, newTextureNa
         -- Формируем новую последовательность
         return startTag .. newTextureName .. ":" .. finalWidth .. ":" .. finalHeight .. ":" .. finalOffsetX .. ":" .. finalOffsetY .. endTag
     end)
-
-    if count == 0 then
-        print("Предупреждение: Анимационная текстура с именем '" .. oldTextureName .. "' не найдена в строке.")
-    end
 
     return newText
 end
@@ -249,21 +244,22 @@ local function updateTextures()
 
     QuestDetailScrollChildFrame:HookScript("OnUpdate", function()
         UpdateScrollBarVisibility(detailPanel.ScrollFrame)
-    
-        for _, region in ipairs({QuestDetailScrollChildFrame  :GetRegions()}) do
-            if region:IsObjectType("FontString") then
-                region:SetTextColor(1, 1, 1)
-            end
-        end
 
         if QuestInfoTitleHeader then
             QuestInfoTitleHeader:SetFont(QuestInfoTitleHeader:GetFont(), headerText)
             QuestInfoTitleHeader:SetText(ReplaceAnimatedTextureInString(QuestInfoTitleHeader:GetText(), "CampaignAvailableQuestIcon", "Crosshair_campaignquest_128", 14,14,-20,2))
+            QuestInfoTitleHeader:SetText(ReplaceAnimatedTextureInString(QuestInfoTitleHeader:GetText(), "Recurringavailablequesticon", "Crosshair_Recurring_128", 14,14,0,0))
         end
 
         if QuestInfoDescriptionText then
             QuestInfoDescriptionText:ClearAllPoints()
             QuestInfoDescriptionText:SetPoint("TOPLEFT", QuestInfoTitleHeader, "BOTTOMLEFT", 0, -offsetY/2+4)
+        end
+    
+        for _, region in ipairs({QuestDetailScrollChildFrame  :GetRegions()}) do
+            if region:IsObjectType("FontString") then
+                region:SetTextColor(1, 1, 1)
+            end
         end
 
         for _, region in ipairs({QuestInfoRewardsFrame:GetRegions()}) do

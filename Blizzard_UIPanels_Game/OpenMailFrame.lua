@@ -109,6 +109,8 @@ local function moveFrames()
     end)
 
     OpenMailFrame:HookScript("OnUpdate", function()
+        UpdateScrollBarVisibility(OpenMailScrollFrame)
+
         if OpenMailAttachmentText then
             OpenMailAttachmentText:ClearAllPoints()
             OpenMailAttachmentText:SetPoint("TOPLEFT", OpenMailScrollFrame, "BOTTOMLEFT", 0, -offsetY/2)
