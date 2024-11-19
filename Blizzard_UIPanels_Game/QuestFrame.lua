@@ -5,11 +5,13 @@ local parentFrame = QuestFrame
 local progressPanel = QuestFrameProgressPanel
 local rewardPanel = QuestFrameRewardPanel
 local detailPanel = QuestFrameDetailPanel
+local greetingPanel = QuestFrameGreetingPanel
 
 local offsetX = 40
 local offsetY = 40
 local scale = 1
 local headerText = 24
+local regularText = 14
 
 -- Функция для обновления видимости ScrollBar
  function UpdateScrollBarVisibility(scrollFrame)
@@ -55,14 +57,9 @@ local function moveFrames()
         QuestRewardScrollFrame:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", offsetX-10, -offsetY+10)
     end
 
-    if QuestFrameCompleteButton then
-        QuestFrameCompleteButton:ClearAllPoints()
-        QuestFrameCompleteButton:SetPoint("BOTTOMLEFT", parentFrame, "BOTTOMLEFT", offsetX, offsetY)
-    end
-
-    if QuestFrameGoodbyeButton then
-        QuestFrameGoodbyeButton:ClearAllPoints()
-        QuestFrameGoodbyeButton:SetPoint("BOTTOMRIGHT", parentFrame, "BOTTOMRIGHT", -offsetX, offsetY)
+    if QuestGreetingScrollFrame then
+        QuestGreetingScrollFrame:ClearAllPoints()
+        QuestGreetingScrollFrame:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", offsetX-10, -offsetY+10)
     end
     
 end
@@ -87,6 +84,8 @@ local function hideFramesAndRegions()
         QuestFrameCompleteQuestButton,
         QuestFrameCompleteButton,
         QuestFrameGoodbyeButton,
+        greetingPanel.SealMaterialBG,
+        greetingPanel.Bg,
     }
         
     -- Скрываем все элементы из списка
@@ -161,16 +160,62 @@ end
 
 -- Обновление текстур фрейсов и регионов
 local function updateTextures()
+    CreateAcceptQuestButton()
+    CreateDeclineQuestButton()
+    CreateCompleteQuestButton()
+    CreateContinueQuestButton()
+    CreateGoodbyeQuestButton()
+
+    QuestGreetingScrollChildFrame:HookScript("OnUpdate", function()
+        UpdateScrollBarVisibility(QuestGreetingScrollFrame)
+    
+        for _, region in ipairs({QuestGreetingScrollChildFrame:GetRegions()}) do
+            if region:IsObjectType("FontString") then
+                region:SetTextColor(1, 1, 1)
+            end
+        end
+
+        -- Функция для удаления цветовых кодов из текста
+        local function RemoveColorCodes(text)
+            if not text then return "" end
+            text = text:gsub("|c%x%x%x%x%x%x%x%x", "")  -- Удаляем цветовые коды начала
+            text = text:gsub("|r", "")  -- Удаляем код окончания цвета
+            return text
+        end
+
+        -- Перебираем все дочерние элементы greetingPanel
+        for _, child in ipairs({greetingPanel:GetChildren()}) do
+            if child.Icon then  -- Проверяем, содержит ли дочерний элемент свойство Icon
+                -- Перебираем все регионы дочернего элемента
+                for _, reg in ipairs({child:GetRegions()}) do
+                    if reg:IsObjectType("FontString") then  -- Ищем регионы типа FontString
+                        -- Получаем текущий текст региона
+                        local text = reg:GetText()
+                        -- Удаляем цветовые коды из текста
+                        local cleanText = RemoveColorCodes(text)
+                        -- Устанавливаем очищенный текст обратно в регион
+                        reg:SetText(cleanText)
+                        -- Устанавливаем желаемый цвет текста
+                        reg:SetTextColor(1, 1, 1, 1)  -- Белый цвет с полной непрозрачностью
+                    end
+                end
+            end
+        end
+        
+    end)
+
+
     QuestDetailScrollChildFrame:HookScript("OnUpdate", function()
         UpdateScrollBarVisibility(detailPanel.ScrollFrame)
-        if QuestInfoTitleHeader then
-            QuestInfoTitleHeader:SetFont(QuestInfoTitleHeader:GetFont(), headerText)
-        end
     
         for _, region in ipairs({QuestDetailScrollChildFrame  :GetRegions()}) do
             if region:IsObjectType("FontString") then
                 region:SetTextColor(1, 1, 1)
             end
+        end
+
+        if QuestInfoTitleHeader then
+            QuestInfoTitleHeader:SetFont(QuestInfoTitleHeader:GetFont(), headerText)
         end
 
         for _, region in ipairs({QuestInfoRewardsFrame:GetRegions()}) do
@@ -196,12 +241,6 @@ local function updateTextures()
         end 
         
     end)
-
-    CreateAcceptQuestButton()
-    CreateDeclineQuestButton()
-    CreateCompleteQuestButton()
-    CreateContinueQuestButton()
-    CreateGoodbyeQuestButton()
 
     QuestProgressScrollChildFrame:HookScript("OnUpdate", function()
         UpdateScrollBarVisibility(QuestProgressScrollFrame)
