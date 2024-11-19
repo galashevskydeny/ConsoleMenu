@@ -14,7 +14,7 @@ local headerText = 24
 local regularText = 14
 
 -- Функция для обновления видимости ScrollBar
- function UpdateScrollBarVisibility(scrollFrame)
+function UpdateScrollBarVisibility(scrollFrame)
     local scrollBar = scrollFrame.ScrollBar  -- Замените на правильный путь к вашему ScrollBar
 
     local contentHeight = scrollFrame:GetVerticalScrollRange() + scrollFrame:GetHeight()
@@ -25,6 +25,48 @@ local regularText = 14
     else
         scrollBar:Show()
     end
+end
+
+-- Функция для замены анимационной текстуры с возможностью изменения параметров
+local function ReplaceAnimatedTextureInString(text, oldTextureName, newTextureName, newWidth, newHeight, newOffsetX, newOffsetY)
+    if not text or not oldTextureName or not newTextureName then
+        print("Ошибка: Отсутствуют необходимые параметры.")
+        return text
+    end
+
+    -- Экранируем специальные символы в имени старой текстуры
+    local function EscapePattern(str)
+        return str:gsub("([%%%^%$%(%)%%%.%[%]%*%+%-%?])", "%%%1")
+    end
+
+    local escapedOldTextureName = EscapePattern(oldTextureName)
+
+    -- Шаблон для поиска анимационной текстуры с параметрами
+    local pattern = "(|A:)" .. escapedOldTextureName .. ":(%d+):(%d+):([%-%d]+):([%-%d]+)(|a)"
+
+    -- Функция замены, позволяющая изменить параметры
+    local newText, count = text:gsub(pattern, function(startTag, width, height, offsetX, offsetY, endTag)
+        -- Преобразуем параметры в числа
+        width = tonumber(width)
+        height = tonumber(height)
+        offsetX = tonumber(offsetX)
+        offsetY = tonumber(offsetY)
+
+        -- Используем новые значения параметров, если они предоставлены
+        local finalWidth = newWidth or width
+        local finalHeight = newHeight or height
+        local finalOffsetX = newOffsetX or offsetX
+        local finalOffsetY = newOffsetY or offsetY
+
+        -- Формируем новую последовательность
+        return startTag .. newTextureName .. ":" .. finalWidth .. ":" .. finalHeight .. ":" .. finalOffsetX .. ":" .. finalOffsetY .. endTag
+    end)
+
+    if count == 0 then
+        print("Предупреждение: Анимационная текстура с именем '" .. oldTextureName .. "' не найдена в строке.")
+    end
+
+    return newText
 end
 
 -- Перемещение и изменение тточек привязки фреймов
@@ -216,6 +258,12 @@ local function updateTextures()
 
         if QuestInfoTitleHeader then
             QuestInfoTitleHeader:SetFont(QuestInfoTitleHeader:GetFont(), headerText)
+            QuestInfoTitleHeader:SetText(ReplaceAnimatedTextureInString(QuestInfoTitleHeader:GetText(), "CampaignAvailableQuestIcon", "Crosshair_campaignquest_128", 14,14,-20,2))
+        end
+
+        if QuestInfoDescriptionText then
+            QuestInfoDescriptionText:ClearAllPoints()
+            QuestInfoDescriptionText:SetPoint("TOPLEFT", QuestInfoTitleHeader, "BOTTOMLEFT", 0, -offsetY/2+4)
         end
 
         for _, region in ipairs({QuestInfoRewardsFrame:GetRegions()}) do
@@ -261,6 +309,12 @@ local function updateTextures()
 
         if QuestInfoTitleHeader then
             QuestInfoTitleHeader:SetFont(QuestInfoTitleHeader:GetFont(), headerText)
+            QuestInfoTitleHeader:SetText(ReplaceAnimatedTextureInString(QuestInfoTitleHeader:GetText(), "CampaignAvailableQuestIcon", "Crosshair_campaignquest_128", 14,14,-20,2))
+        end
+
+        if QuestInfoRewardText then
+            QuestInfoRewardText:ClearAllPoints()
+            QuestInfoRewardText:SetPoint("TOPLEFT", QuestInfoTitleHeader, "BOTTOMLEFT", 0, -offsetY/2+4)
         end
 
         for _, region in ipairs({QuestRewardScrollChildFrame:GetRegions()}) do
