@@ -123,6 +123,7 @@ local function hideFramesAndRegions()
         QuestFrameGoodbyeButton,
         greetingPanel.SealMaterialBG,
         greetingPanel.Bg,
+        QuestFrameGreetingGoodbyeButton,
     }
         
     -- Скрываем все элементы из списка
@@ -195,6 +196,17 @@ local function CreateGoodbyeQuestButton()
     end)
 end
 
+local function CreateGreetingGoodbyeButton()
+    local button = CreateFrame("Button", "GoodbyeGreetingButton", parentFrame, "SharedButtonLargeTemplate")
+    button:SetSize(128, 32) -- Устанавливаем размер кнопки
+    button:SetPoint("BOTTOMRIGHT", parentFrame, "BOTTOMRIGHT", -offsetX-2, offsetY) -- Устанавливаем позицию кнопки в центре экрана
+    button:SetText(GOODBYE) -- Устанавливаем текст на кнопке
+
+    button:SetScript("OnClick", function(self)
+        HideUIPanel(QuestFrame)
+    end)
+end
+
 -- Обновление текстур фрейсов и регионов
 local function updateTextures()
     CreateAcceptQuestButton()
@@ -202,6 +214,7 @@ local function updateTextures()
     CreateCompleteQuestButton()
     CreateContinueQuestButton()
     CreateGoodbyeQuestButton()
+    CreateGreetingGoodbyeButton()
 
     QuestGreetingScrollChildFrame:HookScript("OnUpdate", function()
         UpdateScrollBarVisibility(QuestGreetingScrollFrame)
@@ -249,6 +262,7 @@ local function updateTextures()
             QuestInfoTitleHeader:SetFont(QuestInfoTitleHeader:GetFont(), headerText)
             QuestInfoTitleHeader:SetText(ReplaceAnimatedTextureInString(QuestInfoTitleHeader:GetText(), "CampaignAvailableQuestIcon", "Crosshair_campaignquest_128", 14,14,-20,2))
             QuestInfoTitleHeader:SetText(ReplaceAnimatedTextureInString(QuestInfoTitleHeader:GetText(), "Recurringavailablequesticon", "Crosshair_Recurring_128", 14,14,0,0))
+            QuestInfoTitleHeader:SetText(ReplaceAnimatedTextureInString(QuestInfoTitleHeader:GetText(), "questlog-questtypeicon-dungeon", "Dungeon", 16,16,-4,0))
         end
 
         if QuestInfoDescriptionText then
@@ -286,11 +300,20 @@ local function updateTextures()
         
     end)
 
+    QuestModelScene:HookScript("OnShow", function()
+        UpdateScrollBarVisibility(QuestNPCModelTextScrollFrame)
+    end)
+
     QuestProgressScrollChildFrame:HookScript("OnUpdate", function()
         UpdateScrollBarVisibility(QuestProgressScrollFrame)
 
         if QuestProgressTitleText then
             QuestProgressTitleText:SetFont(QuestInfoTitleHeader:GetFont(), headerText)
+        end
+
+        if QuestProgressText then
+            QuestProgressText:ClearAllPoints()
+            QuestProgressText:SetPoint("TOPLEFT", QuestProgressTitleText, "BOTTOMLEFT", 0, -offsetY/2+4)
         end
 
         for _, region in ipairs({QuestProgressScrollChildFrame  :GetRegions()}) do
@@ -306,6 +329,9 @@ local function updateTextures()
         if QuestInfoTitleHeader then
             QuestInfoTitleHeader:SetFont(QuestInfoTitleHeader:GetFont(), headerText)
             QuestInfoTitleHeader:SetText(ReplaceAnimatedTextureInString(QuestInfoTitleHeader:GetText(), "CampaignAvailableQuestIcon", "Crosshair_campaignquest_128", 14,14,-20,2))
+            QuestInfoTitleHeader:SetText(ReplaceAnimatedTextureInString(QuestInfoTitleHeader:GetText(), "Recurringavailablequesticon", "Crosshair_Recurring_128", 14,14,0,0))
+            QuestInfoTitleHeader:SetText(ReplaceAnimatedTextureInString(QuestInfoTitleHeader:GetText(), "questlog-questtypeicon-dungeon", "Dungeon", 16,16,-4,0))
+
         end
 
         if QuestInfoRewardText then
@@ -332,6 +358,15 @@ local function updateTextures()
                 end
             end
         end
+
+        for i = 1, 10 do
+            local item = _G["QuestInfoRewardsFrameQuestInfoItem" .. i]
+            if item then
+                item.NameFrame:Hide()
+                ApplyMaskToTexture(item.Icon)
+            end
+        end 
+
     end)
 
     for i = 1, 6 do
