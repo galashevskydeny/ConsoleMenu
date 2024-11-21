@@ -197,7 +197,7 @@ local function CreateGoodbyeQuestButton()
 end
 
 local function CreateGreetingGoodbyeButton()
-    local button = CreateFrame("Button", "GoodbyeGreetingButton", parentFrame, "SharedButtonLargeTemplate")
+    local button = CreateFrame("Button", "GoodbyeGreetingButton", greetingPanel, "SharedButtonLargeTemplate")
     button:SetSize(128, 32) -- Устанавливаем размер кнопки
     button:SetPoint("BOTTOMRIGHT", parentFrame, "BOTTOMRIGHT", -offsetX-2, offsetY) -- Устанавливаем позицию кнопки в центре экрана
     button:SetText(GOODBYE) -- Устанавливаем текст на кнопке
@@ -263,6 +263,7 @@ local function updateTextures()
             QuestInfoTitleHeader:SetText(ReplaceAnimatedTextureInString(QuestInfoTitleHeader:GetText(), "CampaignAvailableQuestIcon", "Crosshair_campaignquest_128", 14,14,-20,2))
             QuestInfoTitleHeader:SetText(ReplaceAnimatedTextureInString(QuestInfoTitleHeader:GetText(), "Recurringavailablequesticon", "Crosshair_Recurring_128", 14,14,0,0))
             QuestInfoTitleHeader:SetText(ReplaceAnimatedTextureInString(QuestInfoTitleHeader:GetText(), "questlog-questtypeicon-dungeon", "Dungeon", 16,16,-4,0))
+            QuestInfoTitleHeader:SetText(ReplaceAnimatedTextureInString(QuestInfoTitleHeader:GetText(), "legendaryavailablequesticon", "Crosshair_legendaryquest_64", 14,14,0,0))
         end
 
         if QuestInfoDescriptionText then
@@ -331,7 +332,7 @@ local function updateTextures()
             QuestInfoTitleHeader:SetText(ReplaceAnimatedTextureInString(QuestInfoTitleHeader:GetText(), "CampaignAvailableQuestIcon", "Crosshair_campaignquest_128", 14,14,-20,2))
             QuestInfoTitleHeader:SetText(ReplaceAnimatedTextureInString(QuestInfoTitleHeader:GetText(), "Recurringavailablequesticon", "Crosshair_Recurring_128", 14,14,0,0))
             QuestInfoTitleHeader:SetText(ReplaceAnimatedTextureInString(QuestInfoTitleHeader:GetText(), "questlog-questtypeicon-dungeon", "Dungeon", 16,16,-4,0))
-
+            QuestInfoTitleHeader:SetText(ReplaceAnimatedTextureInString(QuestInfoTitleHeader:GetText(), "legendaryavailablequesticon", "Crosshair_legendaryquest_64", 14,14,0,0))
         end
 
         if QuestInfoRewardText then
