@@ -20,7 +20,7 @@ function UpdateScrollBarVisibility(scrollFrame)
     local contentHeight = scrollFrame:GetVerticalScrollRange() + scrollFrame:GetHeight()
     local containerHeight = scrollFrame:GetHeight()
     
-    if contentHeight <= containerHeight then
+    if contentHeight-1 < containerHeight then
         scrollBar:Hide()
     else
         scrollBar:Show()
@@ -264,6 +264,8 @@ local function updateTextures()
             QuestInfoTitleHeader:SetText(ReplaceAnimatedTextureInString(QuestInfoTitleHeader:GetText(), "Recurringavailablequesticon", "Crosshair_Recurring_128", 14,14,0,0))
             QuestInfoTitleHeader:SetText(ReplaceAnimatedTextureInString(QuestInfoTitleHeader:GetText(), "questlog-questtypeicon-dungeon", "Dungeon", 16,16,-4,0))
             QuestInfoTitleHeader:SetText(ReplaceAnimatedTextureInString(QuestInfoTitleHeader:GetText(), "legendaryavailablequesticon", "Crosshair_legendaryquest_64", 14,14,0,0))
+            QuestInfoTitleHeader:SetText(ReplaceAnimatedTextureInString(QuestInfoTitleHeader:GetText(), "questlog-questtypeicon-raid", "Raid", 14,14,0,0))
+
         end
 
         if QuestInfoDescriptionText then
@@ -333,6 +335,7 @@ local function updateTextures()
             QuestInfoTitleHeader:SetText(ReplaceAnimatedTextureInString(QuestInfoTitleHeader:GetText(), "Recurringavailablequesticon", "Crosshair_Recurring_128", 14,14,0,0))
             QuestInfoTitleHeader:SetText(ReplaceAnimatedTextureInString(QuestInfoTitleHeader:GetText(), "questlog-questtypeicon-dungeon", "Dungeon", 16,16,-4,0))
             QuestInfoTitleHeader:SetText(ReplaceAnimatedTextureInString(QuestInfoTitleHeader:GetText(), "legendaryavailablequesticon", "Crosshair_legendaryquest_64", 14,14,0,0))
+            QuestInfoTitleHeader:SetText(ReplaceAnimatedTextureInString(QuestInfoTitleHeader:GetText(), "questlog-questtypeicon-raid", "Raid", 14,14,0,0))
         end
 
         if QuestInfoRewardText then
