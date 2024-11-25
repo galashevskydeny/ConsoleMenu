@@ -10,10 +10,6 @@ local scale = 1
 
 -- Перемещение и изменение тточек привязки фреймов
 local function moveFrames()
-    if parentFrame.CloseButton then
-        parentFrame.CloseButton:ClearAllPoints()
-        parentFrame.CloseButton:SetPoint("TOPRIGHT", parentFrame, "TOPRIGHT", -3,-3)
-    end
 
     parentFrame:HookScript("OnShow", function()
         if parentFrame:IsShown() then
@@ -21,6 +17,11 @@ local function moveFrames()
             parentFrame:SetHeight(424 + offsetY*2-32+titleSize)
         end
     end)
+
+    if parentFrame.CloseButton then
+        parentFrame.CloseButton:ClearAllPoints()
+        parentFrame.CloseButton:SetPoint("TOPRIGHT", parentFrame, "TOPRIGHT", -3,-3)
+    end
 
     if parentFrame.TitleContainer.TitleText then
         -- Устанавливаем новый размер шрифта и выравнивание
@@ -77,6 +78,90 @@ local function moveFrames()
         MailFrameTab1:SetWidth(136)
         MailFrameTab1.Text:SetWidth(128)
     end)
+
+    if SendMailFrame then
+        SendMailFrame:ClearAllPoints()
+        SendMailFrame:SetPoint("TOPLEFT", parentFrame.TitleContainer, "BOTTOMLEFT", 0, -offsetY+16)
+        SendMailFrame:SetPoint("BOTTOMRIGHT", parentFrame, "BOTTOMRIGHT", -offsetX, offsetY)
+    end
+
+    if SendMailNameEditBox then
+        SendMailNameEditBox:ClearAllPoints()
+        SendMailNameEditBox:SetPoint("TOPLEFT", SendMailFrame, "TOPLEFT", offsetX, 0)
+    end
+
+    if SendMailCostMoneyFrame then
+        SendMailCostMoneyFrame:ClearAllPoints()
+        SendMailCostMoneyFrame:SetPoint("TOPRIGHT", SendMailFrame, "TOPRIGHT", 0, -6)
+    end
+
+    if SendMailScrollFrame then
+        SendMailScrollFrame:ClearAllPoints()
+        SendMailScrollFrame:SetPoint("LEFT", SendMailFrame, "LEFT", 0, 0)
+        SendMailScrollFrame:SetPoint("TOP", SendMailSubjectEditBox, "BOTTOM", 0, -offsetY/2)
+        SendMailScrollFrame:SetPoint("RIGHT", SendMailFrame, "RIGHT", 0, 0)
+        SendMailScrollFrame:SetPoint("BOTTOM", SendMailAttachment1, "TOP", 0, offsetY/2)
+    end
+
+    if SendMailScrollChildFrame then
+        SendMailScrollChildFrame:ClearAllPoints()
+        SendMailScrollChildFrame:SetPoint("TOPLEFT", SendMailScrollFrame, "TOPLEFT", 0, 0)
+        SendMailScrollChildFrame:SetPoint("BOTTOMRIGHT", SendMailScrollFrame, "BOTTOMRIGHT", 0, 0)
+    end
+
+    if SendMailBodyEditBox then
+        SendMailBodyEditBox:ClearAllPoints()
+        SendMailBodyEditBox:SetPoint("TOPLEFT", SendMailScrollChildFrame, "TOPLEFT", 0, 0)
+        SendMailBodyEditBox:SetPoint("BOTTOMRIGHT", SendMailScrollChildFrame, "BOTTOMRIGHT", 0, 0)
+    end
+
+    if SendMailCancelButton then
+        SendMailCancelButton:ClearAllPoints()
+        SendMailCancelButton:SetPoint("BOTTOMRIGHT", SendMailFrame, "BOTTOMRIGHT", 0, 0)
+    end
+
+    if SendMailMoneyFrame then
+        SendMailMoneyFrame:ClearAllPoints()
+        SendMailMoneyFrame:SetPoint("BOTTOMLEFT", SendMailFrame, "BOTTOMLEFT", 0, 4)
+    end
+
+    if SendMailMoneyButton then
+        SendMailMoneyButton:ClearAllPoints()
+        SendMailMoneyButton:SetPoint("BOTTOMLEFT", SendMailMoneyFrame, "TOPLEFT", 0, offsetY/2)
+    end
+
+    SendMailFrame:HookScript("OnUpdate", function()
+
+        if SendMailAttachment1 then
+            SendMailAttachment1:ClearAllPoints()
+            SendMailAttachment1:SetPoint("BOTTOMLEFT", SendMailAttachment9, "TOPLEFT", 0, 4)
+        end
+
+        for i = 2, 8 do
+            local item = _G["SendMailAttachment" .. i]
+            if item then
+                item:ClearAllPoints()
+                item:SetPoint("TOPLEFT", _G["SendMailAttachment" .. i-1], "TOPRIGHT", 4, 0)
+                item:Show()
+            end
+        end
+
+        if SendMailAttachment9 then
+            SendMailAttachment9:ClearAllPoints()
+            SendMailAttachment9:SetPoint("BOTTOMLEFT", SendMailMoneyButton, "TOPLEFT", 0, offsetY/4)
+            SendMailAttachment9:Show()
+        end
+
+        for i = 10, 12 do
+            local item = _G["SendMailAttachment" .. i]
+            if item then
+                item:ClearAllPoints()
+                item:SetPoint("TOPLEFT", _G["SendMailAttachment" .. i-1], "TOPRIGHT", 4, 0)
+                item:Show()
+            end
+        end
+    end)
+
 end
 
 -- Скрытие ненужных фреймов, регионов и текстур
@@ -92,6 +177,10 @@ local function hideFramesAndRegions()
         OpenAllMail,
         InboxPrevPageButton,
         InboxNextPageButton,
+        SendMailMoneyInset,
+        SendMailMoneyBg,
+        SendMailHorizontalBarLeft,
+        SendMailHorizontalBarLeft2,
     }
 
     -- Скрываем все элементы из списка
@@ -99,6 +188,18 @@ local function hideFramesAndRegions()
         if element then
             element:Hide()
             element:SetAlpha(0)
+        end
+    end
+
+    for _, region in ipairs({SendMailFrame:GetRegions()}) do
+        if region:IsObjectType("Texture") then
+            region:Hide()
+        end
+    end
+
+    for _, region in ipairs({SendMailScrollFrame:GetRegions()}) do
+        if region:IsObjectType("Texture") then
+            region:Hide()
         end
     end
 
@@ -268,6 +369,16 @@ local function updateTextures()
     CreateOpenAllMailButton()
     CreateNextPageButton()
     CreatePrevPageButton()
+
+    SendMailScrollFrame:HookScript("OnUpdate", function()
+        UpdateScrollBarVisibility(SendMailScrollFrame)
+    end)
+
+    for _, region in ipairs({SendMailBodyEditBox:GetRegions()}) do
+        if region:IsObjectType("FontString") then
+            region:SetTextColor(1, 1, 1)
+        end
+    end
 
 end
 
