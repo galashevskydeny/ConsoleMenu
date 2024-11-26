@@ -92,7 +92,7 @@ local function moveFrames()
 
     if SendMailCostMoneyFrame then
         SendMailCostMoneyFrame:ClearAllPoints()
-        SendMailCostMoneyFrame:SetPoint("TOPRIGHT", SendMailFrame, "TOPRIGHT", 0, -6)
+        SendMailCostMoneyFrame:SetPoint("TOPRIGHT", MailFrameTitleText, "TOPRIGHT", 0, -4)
     end
 
     if SendMailScrollFrame then
@@ -181,6 +181,8 @@ local function hideFramesAndRegions()
         SendMailMoneyBg,
         SendMailHorizontalBarLeft,
         SendMailHorizontalBarLeft2,
+        -- SendMailSendMoneyButton,
+        -- SendMailCODButton,
     }
 
     -- Скрываем все элементы из списка
@@ -330,7 +332,7 @@ local function updateTextures()
                 itemSlot:SetSize(56, 56)
                 itemSlot:SetAtlas("plunderstorm-actionbar-slot-border")
                 itemSlot:SetTexCoord(0, 1, 0, 1)
-                itemSlot:SetPoint("CENTER", regions[1], "CENTER", 0,0)
+                itemSlot:SetPoint("CENTER", regions[1], "CENTER", 1,0)
                 itemSlot:SetAlpha(0.75)
             end
     
