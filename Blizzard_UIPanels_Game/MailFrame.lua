@@ -399,8 +399,7 @@ end
 -- Создание фона
 local function createBackground()
     if not _G["MailFrameNewBG"] and parentFrame then
-        -- Создаем фрейм с использованием CPPopupFrameBaseTemplate
-        local frame = CreateFrame("Frame", "MailFrameNewBG", parentFrame, "CPPopupFrameBaseTemplate")
+        local frame = CreateFrame("Frame", "MailFrameNewBG", parentFrame, "BackdropTemplate")
         frame:SetPoint("TOPLEFT", parentFrame, "TOPLEFT") -- Привязываем верхнюю левую точку к CharacterFrame
         frame:SetPoint("BOTTOMRIGHT", parentFrame, "BOTTOMRIGHT", 0, -21)
         
@@ -408,6 +407,10 @@ local function createBackground()
         -- Устанавливаем уровень слоя фрейма ниже, чтобы текст CharacterLevelText был виден
         frame:SetFrameStrata("MEDIUM")
         frame:SetFrameLevel(CharacterFrame:GetFrameLevel() - 1)
+
+        -- Применяем стиль
+        NineSliceUtil.ApplyLayoutByName(frame, "CharacterCreateDropdown")
+        frame:SetAlpha(0.75)
     end
 end
 

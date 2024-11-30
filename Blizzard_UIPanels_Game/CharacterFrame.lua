@@ -156,17 +156,21 @@ end
 -- Создание фона
 local function createBackground()
     if not _G["CharacterFrameNewBG"] then
-        -- Создаем фрейм с использованием CPPopupFrameBaseTemplate
-        local frame = CreateFrame("Frame", "CharacterFrameNewBG", CharacterFrame, "CPPopupFrameBaseTemplate")
-        frame:SetPoint("TOPLEFT", CharacterFrame, "TOPLEFT") -- Привязываем верхнюю левую точку к CharacterFrame
+        -- Создаем фрейм и применяем шаблон PerksProgramProductsPanelTemplate
+        local frame = CreateFrame("Frame", "CharacterFrameNewBG", CharacterFrame, "BackdropTemplate")
+        frame:SetPoint("TOPLEFT", CharacterFrame, "TOPLEFT")
         frame:SetPoint("BOTTOMRIGHT", CharacterFrame, "BOTTOMRIGHT", 0, -21)
-        
         
         -- Устанавливаем уровень слоя фрейма ниже, чтобы текст CharacterLevelText был виден
         frame:SetFrameStrata("MEDIUM")
         frame:SetFrameLevel(CharacterFrame:GetFrameLevel() - 1)
+
+        -- Применяем стиль
+        NineSliceUtil.ApplyLayoutByName(frame, "CharacterCreateDropdown")
+        frame:SetAlpha(0.75)
     end
 end
+
 
 -- Применение модификаций
 function ConsoleMenu:SetCharacterFrame()
