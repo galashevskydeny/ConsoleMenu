@@ -15,3 +15,4 @@ Blizzard_UIPanels_Game/MailFrame.lua
 Blizzard_UIPanels_Game/OpenMailFrame.lua
 Blizzard_UIPanels_Game/MerchantFrame.lua
 Blizzard_UIPanels_Game/QuestFrame.lua
+Blizzard_UIPanels_Game/GossipFrame.lua

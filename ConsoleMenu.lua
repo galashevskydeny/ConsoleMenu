@@ -18,4 +18,5 @@ function ConsoleMenu:OnInitialize()
     self:SetMerchantFrame()
     self:SetOpenMailFrame()
     self:SetQuestFrame()
+    self:SetGossipFrame()
 end
