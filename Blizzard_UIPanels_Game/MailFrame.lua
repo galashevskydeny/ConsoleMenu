@@ -168,11 +168,11 @@ end
 local function hideFramesAndRegions()
     
     local elementsToHide = {
-        MailFrame.NineSlice,
-        MailFrame.TopTileStreaks,
-        MailFrameInset,
-        MailFramePortrait,
-        MailFrameBg,
+        parentFrame.NineSlice,
+        parentFrame.TopTileStreaks,
+        parentFrame.Inset,
+        parentFrame.PortraitContainer.portrait,
+        parentFrame.Bg,
         InboxFrameBg,
         OpenAllMail,
         InboxPrevPageButton,
