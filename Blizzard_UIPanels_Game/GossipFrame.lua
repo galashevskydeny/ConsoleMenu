@@ -13,7 +13,7 @@ local function moveFrames()
 
     parentFrame:HookScript("OnShow", function()
         if parentFrame:IsShown() then
-            -- parentFrame:SetWidth()
+            parentFrame:SetWidth(280+offsetX*2)
             -- parentFrame:SetHeight()
         end
     end)
@@ -37,13 +37,19 @@ local function moveFrames()
 
     if parentFrame.CloseButton then
         parentFrame.CloseButton:ClearAllPoints()
-        parentFrame.CloseButton:SetPoint("TOPRIGHT", parentFrame, "TOPRIGHT", -3,-3)
+        parentFrame.CloseButton:SetPoint("TOPRIGHT", parentFrame, "TOPRIGHT", 2,2)
     end
 
     if parentFrame.TitleContainer.TitleText then
         -- Устанавливаем новый размер шрифта и выравнивание
         parentFrame.TitleContainer.TitleText:SetFont(parentFrame.TitleContainer.TitleText:GetFont(), titleSize) -- Меняем размер шрифта на 20
         parentFrame.TitleContainer.TitleText:SetJustifyH("LEFT") -- Выравниваем по левому краю
+
+         -- Включаем перенос слов
+         parentFrame.TitleContainer.TitleText:SetWordWrap(true)
+
+         -- Опционально, устанавливаем максимальное количество строк (0 означает неограниченное количество)
+         parentFrame.TitleContainer.TitleText:SetMaxLines(0)
     end
 
     if parentFrame.TitleContainer then
@@ -65,8 +71,8 @@ local function moveFrames()
 
     if parentFrame.GreetingPanel.ScrollBox then
         parentFrame.GreetingPanel.ScrollBox:ClearAllPoints()
-        parentFrame.GreetingPanel.ScrollBox:SetPoint("TOPLEFT", parentFrame.GreetingPanel, "TOPLEFT", -12, 12)
-        parentFrame.GreetingPanel.ScrollBox:SetPoint("BOTTOMRIGHT", parentFrame.GreetingPanel, "BOTTOMRIGHT", 12, 0)
+        parentFrame.GreetingPanel.ScrollBox:SetPoint("TOPLEFT", parentFrame.GreetingPanel, "TOPLEFT", -10, 10)
+        parentFrame.GreetingPanel.ScrollBox:SetPoint("BOTTOMRIGHT", parentFrame.GreetingPanel, "BOTTOMRIGHT", 0, 0)
     end
 end
 
@@ -126,7 +132,7 @@ local function updateTextures()
                         reg:SetAtlas("crosshair_speak_64")
                         -- gossip
                     elseif reg:GetTexture() == 132049 then
-                        --quest
+                        -- quest
                         reg:SetAtlas("Crosshair_Quest_64")
                     elseif reg:GetTexture() == 132060 then
                         --vendor
@@ -141,8 +147,14 @@ local function updateTextures()
                             reg:SetAtlas("Quest-Campaign-Available")
                         elseif reg:GetAtlas() == "" then
                         end
+                    elseif reg:GetTexture() == 136458 then
+                        -- innkeeper
+                        reg:SetAtlas("Crosshair_innkeeper_128")
+                    elseif reg:GetTexture() == 132048 then
+                        -- activequesticon
+                        reg:SetAtlas("Crosshair_Questturnin_128")
                     end
-                    print(reg:GetTexture())
+                    --print(reg:GetTexture())
                 end
             end
         end

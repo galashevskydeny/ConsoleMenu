@@ -69,7 +69,7 @@ local function moveFrames()
 
     if parentFrame.CloseButton then
         parentFrame.CloseButton:ClearAllPoints()
-        parentFrame.CloseButton:SetPoint("TOPRIGHT", parentFrame, "TOPRIGHT", -3,-3)
+        parentFrame.CloseButton:SetPoint("TOPRIGHT", parentFrame, "TOPRIGHT", 2,2)
     end
 
     parentFrame:HookScript("OnShow", function()
@@ -265,6 +265,8 @@ local function updateTextures()
             QuestInfoTitleHeader:SetText(ReplaceAnimatedTextureInString(QuestInfoTitleHeader:GetText(), "questlog-questtypeicon-dungeon", "Dungeon", 16,16,-4,0))
             QuestInfoTitleHeader:SetText(ReplaceAnimatedTextureInString(QuestInfoTitleHeader:GetText(), "legendaryavailablequesticon", "Crosshair_legendaryquest_64", 14,14,0,0))
             QuestInfoTitleHeader:SetText(ReplaceAnimatedTextureInString(QuestInfoTitleHeader:GetText(), "questlog-questtypeicon-raid", "Raid", 14,14,0,0))
+            QuestInfoTitleHeader:SetText(ReplaceAnimatedTextureInString(QuestInfoTitleHeader:GetText(), "importantavailablequesticon", "Crosshair_important_128", 14,14,-10,8))
+            QuestInfoTitleHeader:SetText(ReplaceAnimatedTextureInString(QuestInfoTitleHeader:GetText(), "Wrapperavailablequesticon", "Crosshair_Wrapper_128", 14,14,0,4))
 
         end
 
@@ -292,15 +294,22 @@ local function updateTextures()
                 end
             end
         end
+        
+    end)
 
+    QuestFrame:HookScript("OnShow", function()
         for i = 1, 10 do
             local item = _G["QuestInfoRewardsFrameQuestInfoItem" .. i]
             if item then
                 item.NameFrame:Hide()
                 ApplyMaskToTexture(item.Icon)
+                item.IconBorder:SetAtlas("plunderstorm-actionbar-slot-border")
+                item.IconBorder:Show()
+                item.IconBorder:ClearAllPoints()
+                item.IconBorder:SetPoint("CENTER", item.Icon, "CENTER")
+                item.IconBorder:SetSize(56, 56)
             end
-        end 
-        
+        end
     end)
 
     QuestModelScene:HookScript("OnShow", function()
@@ -336,6 +345,9 @@ local function updateTextures()
             QuestInfoTitleHeader:SetText(ReplaceAnimatedTextureInString(QuestInfoTitleHeader:GetText(), "questlog-questtypeicon-dungeon", "Dungeon", 16,16,-4,0))
             QuestInfoTitleHeader:SetText(ReplaceAnimatedTextureInString(QuestInfoTitleHeader:GetText(), "legendaryavailablequesticon", "Crosshair_legendaryquest_64", 14,14,0,0))
             QuestInfoTitleHeader:SetText(ReplaceAnimatedTextureInString(QuestInfoTitleHeader:GetText(), "questlog-questtypeicon-raid", "Raid", 14,14,0,0))
+            QuestInfoTitleHeader:SetText(ReplaceAnimatedTextureInString(QuestInfoTitleHeader:GetText(), "importantavailablequesticon", "Crosshair_important_128", 14,14,-10,8))
+            QuestInfoTitleHeader:SetText(ReplaceAnimatedTextureInString(QuestInfoTitleHeader:GetText(), "Wrapperavailablequesticon", "Crosshair_Wrapper_128", 14,14,0,0))
+
         end
 
         if QuestInfoRewardText then
@@ -363,26 +375,7 @@ local function updateTextures()
             end
         end
 
-        for i = 1, 10 do
-            local item = _G["QuestInfoRewardsFrameQuestInfoItem" .. i]
-            if item then
-                item.NameFrame:Hide()
-                ApplyMaskToTexture(item.Icon)
-            end
-        end 
-
     end)
-
-    for i = 1, 6 do
-        local item = _G["QuestProgressItem" .. i]
-        item.NameFrame:Hide()
-        ApplyMaskToTexture(item.Icon)
-        item.IconBorder:SetAtlas("plunderstorm-actionbar-slot-border")
-        item.IconBorder:Show()
-        item.IconBorder:ClearAllPoints()
-        item.IconBorder:SetPoint("CENTER", item.Icon, "CENTER")
-        item.IconBorder:SetSize(56, 56)
-    end
 
 end
 

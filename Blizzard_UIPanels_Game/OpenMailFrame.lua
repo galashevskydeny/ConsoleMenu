@@ -18,7 +18,7 @@ local function moveFrames()
 
     if parentFrame.CloseButton then
         parentFrame.CloseButton:ClearAllPoints()
-        parentFrame.CloseButton:SetPoint("TOPRIGHT", parentFrame, "TOPRIGHT", -3,-3)
+        parentFrame.CloseButton:SetPoint("TOPRIGHT", parentFrame, "TOPRIGHT", 2,2)
     end
 
     parentFrame:HookScript("OnShow", function()

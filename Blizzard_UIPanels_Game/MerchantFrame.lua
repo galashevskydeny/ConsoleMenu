@@ -20,7 +20,7 @@ local function moveFrames()
 
     if parentFrame.CloseButton then
         parentFrame.CloseButton:ClearAllPoints()
-        parentFrame.CloseButton:SetPoint("TOPRIGHT", parentFrame, "TOPRIGHT", -3,-3)
+        parentFrame.CloseButton:SetPoint("TOPRIGHT", parentFrame, "TOPRIGHT", 2,2)
     end
 
     if MerchantFrameTab1 then
@@ -37,7 +37,7 @@ local function moveFrames()
         parentFrame.TitleContainer.TitleText:SetWordWrap(true)
 
         -- Опционально, устанавливаем максимальное количество строк (0 означает неограниченное количество)
-        parentFrame.TitleContainer.TitleText:SetMaxLines(2)
+        parentFrame.TitleContainer.TitleText:SetMaxLines(0)
     end
 
     if parentFrame.TitleContainer then

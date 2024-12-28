@@ -1,4 +1,4 @@
-## Interface: 110005
+## Interface: 110007
 ## Title: ConsoleMenu
 ## Notes: Добавляет консольное меню в игру.
 ## Author: Ден Галашевский
@@ -16,3 +16,4 @@ Blizzard_UIPanels_Game/OpenMailFrame.lua
 Blizzard_UIPanels_Game/MerchantFrame.lua
 Blizzard_UIPanels_Game/QuestFrame.lua
 Blizzard_UIPanels_Game/GossipFrame.lua
+Blizzard_UIPanels_Game/PVEFrame.lua

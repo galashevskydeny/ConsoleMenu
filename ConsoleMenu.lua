@@ -19,4 +19,5 @@ function ConsoleMenu:OnInitialize()
     self:SetOpenMailFrame()
     self:SetQuestFrame()
     self:SetGossipFrame()
+    self:SetPVEFrame()
 end
