@@ -138,7 +138,7 @@ end
 
 -- Функция для создания кнопки "Принять"
 local function CreateAcceptQuestButton()
-    local button = CreateFrame("Button", "AccebtQuestButton", detailPanel, "SharedButtonLargeTemplate")
+    local button = CreateFrame("Button", "AccebtQuestButton", detailPanel, "SharedGoldRedButtonTemplate")
     button:SetSize(128, 32) -- Устанавливаем размер кнопки
     button:SetPoint("BOTTOMLEFT", detailPanel, "BOTTOMLEFT", offsetX-2, offsetY/2) -- Устанавливаем позицию кнопки в центре экрана
     button:SetText(ACCEPT) -- Устанавливаем текст на кнопке
@@ -150,7 +150,7 @@ end
 
 -- Функция для создания кнопки "Отказаться"
 local function CreateDeclineQuestButton()
-    local button = CreateFrame("Button", "AcceptQuestButton", detailPanel, "SharedButtonLargeTemplate")
+    local button = CreateFrame("Button", "AcceptQuestButton", detailPanel, "SharedGoldRedButtonTemplate")
     button:SetSize(128, 32) -- Устанавливаем размер кнопки
     button:SetPoint("BOTTOMRIGHT", detailPanel, "BOTTOMRIGHT", 2, offsetY/2) -- Устанавливаем позицию кнопки в центре экрана
     button:SetText(DECLINE) -- Устанавливаем текст на кнопке
@@ -162,7 +162,7 @@ end
 
 -- Функция для создания кнопки "Завершить"
 local function CreateCompleteQuestButton()
-    local button = CreateFrame("Button", "CompleteQuestButton", rewardPanel, "SharedButtonLargeTemplate")
+    local button = CreateFrame("Button", "CompleteQuestButton", rewardPanel, "SharedGoldRedButtonTemplate")
     button:SetSize(128, 32) -- Устанавливаем размер кнопки
     button:SetPoint("BOTTOMLEFT", rewardPanel, "BOTTOMLEFT", offsetX-2, offsetY) -- Устанавливаем позицию кнопки в центре экрана
     button:SetText(COMPLETE_QUEST) -- Устанавливаем текст на кнопке
@@ -174,7 +174,7 @@ end
 
 -- Функция для создания кнопки "Завершить"
 local function CreateContinueQuestButton()
-    local button = CreateFrame("Button", "ContinueQuestButton", progressPanel, "SharedButtonLargeTemplate")
+    local button = CreateFrame("Button", "ContinueQuestButton", progressPanel, "SharedGoldRedButtonTemplate")
     button:SetSize(128, 32) -- Устанавливаем размер кнопки
     button:SetPoint("BOTTOMLEFT", progressPanel, "BOTTOMLEFT", offsetX-2, offsetY) -- Устанавливаем позицию кнопки в центре экрана
     button:SetText(CONTINUE) -- Устанавливаем текст на кнопке
@@ -186,7 +186,7 @@ end
 
 -- Функция для создания кнопки "Отказаться"
 local function CreateGoodbyeQuestButton()
-    local button = CreateFrame("Button", "GoodbyeQuestButton", progressPanel, "SharedButtonLargeTemplate")
+    local button = CreateFrame("Button", "GoodbyeQuestButton", progressPanel, "SharedGoldRedButtonTemplate")
     button:SetSize(128, 32) -- Устанавливаем размер кнопки
     button:SetPoint("BOTTOMRIGHT", progressPanel, "BOTTOMRIGHT", -offsetX-2, offsetY) -- Устанавливаем позицию кнопки в центре экрана
     button:SetText(CANCEL) -- Устанавливаем текст на кнопке
@@ -247,6 +247,34 @@ local function updateTextures()
                         reg:SetText(cleanText)
                         -- Устанавливаем желаемый цвет текста
                         reg:SetTextColor(1, 1, 1, 1)  -- Белый цвет с полной непрозрачностью
+                    elseif reg:IsObjectType("Texture") then
+                        if reg:GetTexture() == 132053 then
+                            reg:SetAtlas("crosshair_speak_64")
+                            -- gossip
+                        elseif reg:GetTexture() == 132049 then
+                            -- quest
+                            reg:SetAtlas("Crosshair_Quest_64")
+                        elseif reg:GetTexture() == 132060 then
+                            --vendor
+                            reg:SetAtlas("Crosshair_buy_64")
+                        elseif reg:GetTexture() == 5666025 then
+                            if reg:GetAtlas() == "WrapperInProgressquesticon" then
+                            elseif reg:GetAtlas() == "SideInProgressquesticon" then
+                            end
+                        elseif reg:GetTexture() == 3595324 then
+                            if reg:GetAtlas() == "CampaignAvailableQuestIcon" then
+                                --campaign quest
+                                reg:SetAtlas("Quest-Campaign-Available")
+                            elseif reg:GetAtlas() == "" then
+                            end
+                        elseif reg:GetTexture() == 136458 then
+                            -- innkeeper
+                            reg:SetAtlas("Crosshair_innkeeper_128")
+                        elseif reg:GetTexture() == 132048 then
+                            -- activequesticon
+                            reg:SetAtlas("Crosshair_Questturnin_128")
+                        end
+                        --print(reg:GetTexture())
                     end
                 end
             end
@@ -294,6 +322,19 @@ local function updateTextures()
                 end
             end
         end
+
+        for i = 1, 10 do
+            local item = _G["QuestInfoRewardsFrameQuestInfoItem" .. i]
+            if item then
+                item.NameFrame:Hide()
+                ApplyMaskToTexture(item.Icon)
+                item.IconBorder:SetAtlas("plunderstorm-actionbar-slot-border")
+                item.IconBorder:Show()
+                item.IconBorder:ClearAllPoints()
+                item.IconBorder:SetPoint("CENTER", item.Icon, "CENTER")
+                item.IconBorder:SetSize(56, 56)
+            end
+        end
         
     end)
 
@@ -310,7 +351,21 @@ local function updateTextures()
                 item.IconBorder:SetSize(56, 56)
             end
         end
+
+        for i = 1, 6 do
+            local item = _G["QuestProgressItem" .. i]
+            if item then
+                item.NameFrame:Hide()
+                ApplyMaskToTexture(item.Icon)
+                item.IconBorder:SetAtlas("plunderstorm-actionbar-slot-border")
+                item.IconBorder:Show()
+                item.IconBorder:ClearAllPoints()
+                item.IconBorder:SetPoint("CENTER", item.Icon, "CENTER")
+                item.IconBorder:SetSize(56, 56)
+            end
+        end
     end)
+    
 
     QuestModelScene:HookScript("OnShow", function()
         UpdateScrollBarVisibility(QuestNPCModelTextScrollFrame)
@@ -372,6 +427,19 @@ local function updateTextures()
                 if reg:IsObjectType("FontString") then
                     reg:SetTextColor(1, 1, 1)
                 end
+            end
+        end
+
+        for i = 1, 10 do
+            local item = _G["QuestInfoRewardsFrameQuestInfoItem" .. i]
+            if item then
+                item.NameFrame:Hide()
+                ApplyMaskToTexture(item.Icon)
+                item.IconBorder:SetAtlas("plunderstorm-actionbar-slot-border")
+                item.IconBorder:Show()
+                item.IconBorder:ClearAllPoints()
+                item.IconBorder:SetPoint("CENTER", item.Icon, "CENTER")
+                item.IconBorder:SetSize(56, 56)
             end
         end
 

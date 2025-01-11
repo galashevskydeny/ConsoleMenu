@@ -20,4 +20,6 @@ function ConsoleMenu:OnInitialize()
     self:SetQuestFrame()
     self:SetGossipFrame()
     self:SetPVEFrame()
+    self:SetWorldMapFrame()
+
 end

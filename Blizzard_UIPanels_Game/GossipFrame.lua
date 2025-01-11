@@ -138,9 +138,20 @@ local function updateTextures()
                         --vendor
                         reg:SetAtlas("Crosshair_buy_64")
                     elseif reg:GetTexture() == 5666025 then
-                        if reg:GetAtlas() == "WrapperInProgressquesticon" then
-                        elseif reg:GetAtlas() == "SideInProgressquesticon" then
-                        end
+                        -- inprogressgossipicons
+                        -- if reg:GetAtlas() == "WrapperInProgressquesticon" then
+                        --     reg:SetAtlas("Crosshair_unableWrapper_128")
+                        -- elseif reg:GetAtlas() == "SideInProgressquesticon" then
+                        --     reg:SetAtlas("Crosshair_unableQuest_128")
+                        -- elseif reg:GetAtlas() == "CampaignInProgressQuestIcon" then
+                        --     reg:SetAtlas("Crosshair_unablecampaignquest_128")
+                        -- elseif reg:GetAtlas() == "RepeatableInProgressquesticon" then
+                        --     reg:SetAtlas("Crosshair_unableRecurring_128")
+                        -- elseif reg:GetAtlas() == "importantInProgressquesticon" then
+                        --     reg:SetAtlas("Crosshair_unableimportant_128")
+                        -- elseif reg:GetAtlas() == "legendaryInProgressquesticon" then
+                        --     reg:SetAtlas("Crosshair_unablelegendaryquest_128")
+                        -- end
                     elseif reg:GetTexture() == 3595324 then
                         if reg:GetAtlas() == "CampaignAvailableQuestIcon" then
                             --campaign quest
