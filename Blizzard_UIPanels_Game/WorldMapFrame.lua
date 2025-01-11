@@ -10,13 +10,6 @@ local function ResizeWorldMapToScreen()
         return;
     end
 
-    -- Получаем размеры экрана
-    local screenWidth = UIParent:GetWidth();
-    local screenHeight = UIParent:GetHeight();
-
-    -- Устанавливаем новый размер WorldMapFrame
-    parentFrame:SetSize(screenWidth, screenHeight);
-
     -- Центрируем фрейм
     parentFrame:ClearAllPoints();
     parentFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT");
@@ -26,7 +19,7 @@ local function ResizeWorldMapToScreen()
     -- Центрируем ScrollFrame внутри родительского фрейма
     parentFrame.ScrollContainer:ClearAllPoints();
     parentFrame.ScrollContainer:SetPoint("TOPLEFT", parentFrame, "TOPLEFT");
-    parentFrame.ScrollContainer:SetPoint("BOTTOMRIGHT", parentFrame, "BOTTOMRIGHT", 0 ,-32);
+    parentFrame.ScrollContainer:SetPoint("BOTTOMRIGHT", parentFrame, "BOTTOMRIGHT", 0 ,-36);
 
 end
 
@@ -123,12 +116,18 @@ end
 
 function ConsoleMenu:SetWorldMapFrame()
 
-    parentFrame:HookScript("OnShow", function()
+    parentFrame:HookScript("OnShow", function()    
         ResizeWorldMapToScreen()
+        parentFrame:SetFrameStrata("FULLSCREEN")
     end)
 
     parentFrame:HookScript("OnUpdate", function()
-        parentFrame.BlackoutFrame:Show()
+
+        ResizeWorldMapToScreen()
+        if parentFrame:IsMinimized() then
+            parentFrame.BorderFrame.MaximizeMinimizeFrame.MaximizeButton:Click()
+        end
+
     end)
 
     moveFrames()
