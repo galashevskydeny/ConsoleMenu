@@ -7,7 +7,7 @@ local function CreateGossipScrollBox()
     -- Главный фрейм
     local GossipScrollBox = CreateFrame("Frame", "GossipScroll", UIParent)
     GossipScrollBox:SetSize(640, 48*3)
-    GossipScrollBox:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 64)
+    GossipScrollBox:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 96)
     
     -- Создаем ScrollBox
     local ScrollBox = CreateFrame("Frame", "GossipScrollBox", GossipScrollBox, "WowScrollBoxList")
@@ -17,7 +17,7 @@ local function CreateGossipScrollBox()
 
     -- Создаем ScrollBar
     local ScrollBar = CreateFrame("EventFrame", "GossipScrollBar", GossipScrollBox, "MinimalScrollBar")
-    GossipScrollBox.ScrollBar = ScrollBar
+    GossipScrollBox.ScrollBox.ScrollBar = ScrollBar
 
     ScrollBar:SetPoint("TOPLEFT", ScrollBox, "TOPRIGHT")
     ScrollBar:SetPoint("BOTTOMLEFT", ScrollBox, "BOTTOMRIGHT")
@@ -73,6 +73,22 @@ local function CreateGossipScrollBox()
             end
         end
 
+        -- -- Фокус (изменение подложки при наведении)
+        -- frame:SetScript("OnEnter", function()
+        --     frame:SetFocused(true)
+        -- end)
+        -- frame:SetScript("OnLeave", function()
+        --     frame:SetFocused(false)
+        -- end)
+
+        frame:SetScript("OnMouseDown", function()
+            C_GossipInfo.SelectOption(data.gossipOptionID)
+        end)
+
+        function frame:SelectOption()
+            C_GossipInfo.SelectOption(data.gossipOptionID)
+        end
+
     end
 
     -- Устанавливаем кастомный элемент как шаблон
@@ -81,9 +97,13 @@ local function CreateGossipScrollBox()
 
     -- Обновление фокуса
     local function UpdateFocus(newIndex)
-        if frames[focusedIndex] then
-            frames[focusedIndex]:SetFocused(false)
+        -- Сброс фокуса для всех элементов
+        for _, frame in ipairs(frames) do
+            if frame and frame.SetFocused then
+                frame:SetFocused(false)
+            end
         end
+
         focusedIndex = newIndex
         if frames[focusedIndex] then
             frames[focusedIndex]:SetFocused(true)
@@ -100,6 +120,7 @@ local function CreateGossipScrollBox()
 
     EventFrame:SetScript("OnEvent", function(self, event)
         if event == "GOSSIP_SHOW" then
+            
             -- Получаем данные госсипа
             local options = C_GossipInfo.GetOptions()
 
@@ -110,8 +131,17 @@ local function CreateGossipScrollBox()
                 DataProvider:Insert(option)
             end
 
+            
             GossipScrollBox:Show()
             UpdateFocus(1) -- Устанавливаем фокус на первый элемент
+
+            local totalHeight = ScrollView:GetElementExtent() * DataProvider:GetSize()
+            print(totalHeight)
+            if totalHeight < GossipScroll:GetHeight() then
+                GossipScrollBar:Hide()
+            else
+                GossipScrollBar:Show()
+            end
             
         elseif event == "GOSSIP_CLOSED" then
             GossipScrollBox:Hide()
@@ -124,12 +154,13 @@ local function CreateGossipScrollBox()
     return GossipScrollBox, UpdateFocus
 end
 
+local function MoveFocus(delta)
+    local newIndex = math.max(1, math.min(focusedIndex + delta, #frames))
+    updateFocus(newIndex)
+end
+
 -- Подключение контроллера
 local function toggleController(updateFocus)
-    local function MoveFocus(delta)
-        local newIndex = math.max(1, math.min(focusedIndex + delta, #frames))
-        updateFocus(newIndex)
-    end
 
     -- Создаем фрейм для обработки событий геймпада
     local controllerHandler = CreateFrame("Frame", "ControllerHandlerFrame", parentFrame)
@@ -142,8 +173,11 @@ local function toggleController(updateFocus)
             elseif button == "PADDDOWN" then
                 MoveFocus(1)
             elseif button == "PAD1" then
-                
+                if frames[focusedIndex] then
+                    frames[focusedIndex]:SelectOption()
+                end
             elseif button == "PAD2" then
+                C_GossipInfo.CloseGossip()
             end
         end)
     end)
