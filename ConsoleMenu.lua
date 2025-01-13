@@ -21,5 +21,7 @@ function ConsoleMenu:OnInitialize()
     self:SetGossipFrame()
     self:SetPVEFrame()
     self:SetWorldMapFrame()
+    
+    self:SetCustomGossipFrame()
 
 end

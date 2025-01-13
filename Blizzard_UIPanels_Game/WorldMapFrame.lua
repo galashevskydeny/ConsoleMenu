@@ -41,6 +41,23 @@ local function moveFrames()
 
     parentFrame.QuestLog.DetailsFrame:ClearAllPoints();
     parentFrame.QuestLog.DetailsFrame:SetPoint("TOPLEFT", parentFrame.QuestLog, "TOPLEFT", 0, -26);
+
+    for i, child in ipairs({parentFrame:GetChildren()}) do
+        if child.Eye and child.Background then
+            child:ClearAllPoints();
+            child:SetPoint("BOTTOMLEFT", parentFrame, "BOTTOMLEFT", 0, 0);
+        elseif child.BountyName then
+            child:ClearAllPoints();
+            child:SetPoint("BOTTOMLEFT", parentFrame, "BOTTOMLEFT", 64, 100);
+        end
+    end
+
+    for i, child in ipairs({parentFrame.ScrollContainer:GetChildren()}) do
+        if child ~= parentFrame.ScrollContainer.Child then
+            child:ClearAllPoints();
+            child:SetPoint("TOP", parentFrame.ScrollContainer, "TOP", 0, -74);
+        end
+    end
     
 end
 
@@ -100,9 +117,12 @@ local function toggleController()
 
     -- Обработка нажатия кнопок геймпада
     function controllerHandler:OnGamePadButtonDown(button)
-        -- Закрываем меню при нажатии на кнопку "Круг" (Circle)
-        if button == "PAD2" then
-            parentFrame:Hide()
+        -- Получаем текущую привязку команды TOGGLEWORLDMAP
+        local toggleWorldMapBinding = GetBindingKey("TOGGLEWORLDMAP")
+        
+        -- Проверяем нажатую кнопку или привязку команды TOGGLEWORLDMAP
+        if button == "PAD2" or (toggleWorldMapBinding and button == toggleWorldMapBinding) then
+            ToggleWorldMap()
         elseif button == "PAD4" then
             if parentFrame.QuestLog:IsShown() then
                 parentFrame.QuestLog:Hide()
@@ -118,14 +138,24 @@ function ConsoleMenu:SetWorldMapFrame()
 
     parentFrame:HookScript("OnShow", function()    
         ResizeWorldMapToScreen()
-        parentFrame:SetFrameStrata("FULLSCREEN")
     end)
 
     parentFrame:HookScript("OnUpdate", function()
 
         ResizeWorldMapToScreen()
+        
         if parentFrame:IsMinimized() then
             parentFrame.BorderFrame.MaximizeMinimizeFrame.MaximizeButton:Click()
+        end
+
+        for i, child in ipairs({parentFrame:GetChildren()}) do
+            if child.BountyName then
+                child:ClearAllPoints();
+                child:SetPoint("BOTTOMLEFT", parentFrame, "BOTTOMLEFT", 64, 64);
+            elseif child.bounties then
+                child:ClearAllPoints();
+                child:SetPoint("BOTTOMLEFT", parentFrame, "BOTTOMLEFT", 64, 64);
+            end
         end
 
     end)
