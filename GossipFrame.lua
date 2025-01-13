@@ -1,10 +1,12 @@
 local ConsoleMenu = LibStub("AceAddon-3.0"):GetAddon("ConsoleMenu")
 local parentFrame
+local frames = {} -- Хранение всех созданных элементов
+local focusedIndex = 1 -- Индекс текущего элемента в фокусе
 
 local function CreateGossipScrollBox()
     -- Главный фрейм
     local GossipScrollBox = CreateFrame("Frame", "GossipScroll", UIParent)
-    GossipScrollBox:SetSize(640, 196)
+    GossipScrollBox:SetSize(640, 48*3)
     GossipScrollBox:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 64)
     
     -- Создаем ScrollBox
@@ -30,6 +32,8 @@ local function CreateGossipScrollBox()
 
     -- Кастомный инициализатор
     local function Initializer(frame, data)
+        table.insert(frames, frame) -- Добавляем элемент в массив
+
         -- Иконка
         if not frame.icon then
             frame.icon = frame:CreateTexture(nil, "ARTWORK")
@@ -46,37 +50,48 @@ local function CreateGossipScrollBox()
             frame.text:SetJustifyH("LEFT")
         end
 
-        frame.text:SetFont("Fonts\\FRIZQT___CYR.TTF", 20, "OUTLINE") -- Шрифт, размер, флаги
+        frame.text:SetFont("Fonts\\FRIZQT___CYR.TTF", 20, "OUTLINE")
         frame.text:SetText(data.name)
         frame.text:SetTextColor(1, 0.976, 0.855) -- Цвет текста FFF9DA
 
-        -- Фокус (изменение текста и фона при наведении)
-        frame:SetScript("OnEnter", function()
-            frame.text:SetTextColor(1, 0.768, 0.071) -- Цвет текста FFC412
-            if not frame.bg then
-                frame.bg = frame:CreateTexture(nil, "BACKGROUND")
-                frame.bg:SetAllPoints()
-                frame.bg:SetAtlas("Garr_BuildingInfoShadow") -- Прозрачный фон при наведении
-            end
-            frame.bg:Show()
-        end)
-        frame:SetScript("OnLeave", function()
-            frame.text:SetTextColor(1, 0.976, 0.855) -- Цвет текста FFF9DA
-            if frame.bg then
-                frame.bg:Hide()
-            end
-        end)
+        -- Тень (фон)
+        if not frame.bg then
+            frame.bg = frame:CreateTexture(nil, "BACKGROUND")
+            frame.bg:SetAllPoints()
+            frame.bg:SetAtlas("Garr_BuildingInfoShadow") -- Прозрачный фон при наведении
+            frame.bg:Hide() -- Скрываем фон по умолчанию
+        end
 
-        -- Действие при клике
-        frame:SetScript("OnMouseDown", function()
-            C_GossipInfo.SelectOption(data.gossipOptionID)
-            print("Выбрано:", data.name)
-        end)
+        -- Обновление фокуса
+        function frame:SetFocused(isFocused)
+            if isFocused then
+                frame.text:SetTextColor(1, 0.768, 0.071) -- Цвет текста FFC412
+                frame.bg:Show() -- Показываем тень
+            else
+                frame.text:SetTextColor(1, 0.976, 0.855) -- Цвет текста FFF9DA
+                frame.bg:Hide() -- Скрываем тень
+            end
+        end
+
     end
 
     -- Устанавливаем кастомный элемент как шаблон
-    ScrollView:SetElementExtent(48) -- Высота каждого элемента
+    ScrollView:SetElementExtent(48)
     ScrollView:SetElementInitializer("Frame", Initializer)
+
+    -- Обновление фокуса
+    local function UpdateFocus(newIndex)
+        if frames[focusedIndex] then
+            frames[focusedIndex]:SetFocused(false)
+        end
+        focusedIndex = newIndex
+        if frames[focusedIndex] then
+            frames[focusedIndex]:SetFocused(true)
+
+            -- Смещаем скролл до текущего элемента
+            parentFrame.ScrollBox:ScrollToElementDataIndex(newIndex)
+        end
+    end
 
     -- Обработка событий GOSSIP_SHOW и GOSSIP_CLOSED
     local EventFrame = CreateFrame("Frame", nil, GossipScrollBox)
@@ -90,11 +105,13 @@ local function CreateGossipScrollBox()
 
             -- Очищаем DataProvider и добавляем новые данные
             DataProvider:Flush()
+            frames = {} -- Сбрасываем список фреймов
             for _, option in ipairs(options) do
                 DataProvider:Insert(option)
             end
 
             GossipScrollBox:Show()
+            UpdateFocus(1) -- Устанавливаем фокус на первый элемент
             
         elseif event == "GOSSIP_CLOSED" then
             GossipScrollBox:Hide()
@@ -104,44 +121,43 @@ local function CreateGossipScrollBox()
     -- Изначально скрываем GossipScrollBox
     GossipScrollBox:Hide()
 
-    return GossipScrollBox
+    return GossipScrollBox, UpdateFocus
 end
 
 -- Подключение контроллера
-local function toggleController()
+local function toggleController(updateFocus)
+    local function MoveFocus(delta)
+        local newIndex = math.max(1, math.min(focusedIndex + delta, #frames))
+        updateFocus(newIndex)
+    end
+
     -- Создаем фрейм для обработки событий геймпада
     local controllerHandler = CreateFrame("Frame", "ControllerHandlerFrame", parentFrame)
 
     parentFrame:HookScript("OnShow", function()
-        -- Включаем обработку геймпада
         controllerHandler:EnableGamePadButton(true)
-
-        -- Добавляем обработчик событий геймпада
         controllerHandler:SetScript("OnGamePadButtonDown", function(_, button)
-            controllerHandler:OnGamePadButtonDown(button)
+            if button == "PADDUP" then
+                MoveFocus(-1)
+            elseif button == "PADDDOWN" then
+                MoveFocus(1)
+            elseif button == "PAD1" then
+                
+            elseif button == "PAD2" then
+            end
         end)
     end)
 
     parentFrame:HookScript("OnHide", function()
-        -- Отключаем обработку геймпада
         controllerHandler:EnableGamePadButton(false)
-        controllerHandler:SetScript("OnGamePadButtonDown", nil) -- Очищаем обработчик событий
+        controllerHandler:SetScript("OnGamePadButtonDown", nil)
     end)
-
-    -- Обработка нажатия кнопок геймпада
-    function controllerHandler:OnGamePadButtonDown(button)
-        if button == "PADDUP" then
-        elseif button == "PADDDOWN" then
-        elseif button == "PAD2" then
-            C_GossipInfo.CloseGossip()
-        end
-    end
 end
 
 function ConsoleMenu:SetCustomGossipFrame()
     -- Создаем основной фрейм
-    parentFrame = CreateGossipScrollBox()
+    parentFrame, updateFocus = CreateGossipScrollBox()
 
     -- Добавляем обработку геймпада
-    toggleController()
+    toggleController(updateFocus)
 end
