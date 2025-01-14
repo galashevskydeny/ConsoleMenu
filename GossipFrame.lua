@@ -3,6 +3,57 @@ local parentFrame
 local frames = {} -- Хранение всех созданных элементов
 local focusedIndex = 1 -- Индекс текущего элемента в фокусе
 
+local function setIcon(frame, data)
+    if not frame.icon.texture then
+        frame.icon.texture = frame.icon:CreateTexture(nil, "ARTWORK")
+    end
+
+    if data.type == "gossip" then
+        print("file: " .. data.icon)
+        if data.icon == 132053 then
+            frame.icon.texture:SetPoint("TOPLEFT", frame.icon, "TOPLEFT", -2, 4)
+            frame.icon.texture:SetPoint("BOTTOMRIGHT", frame.icon, "BOTTOMRIGHT", -2, 4)
+            frame.icon.texture:SetAtlas("crosshair_speak_128")
+        elseif data.icon == 136458 then
+            frame.icon.texture:SetAllPoints()
+            frame.icon.texture:SetAtlas("Crosshair_innkeeper_128")
+        elseif data.icon == 132060 then
+            frame.icon.texture:SetPoint("TOPLEFT", frame.icon, "TOPLEFT", -2, 2)
+            frame.icon.texture:SetPoint("BOTTOMRIGHT", frame.icon, "BOTTOMRIGHT", -2, 0)
+            frame.icon.texture:SetAtlas("Crosshair_pickup_128")
+        elseif data.icon == 1673939 then
+            frame.icon.texture:SetPoint("TOPLEFT", frame.icon, "TOPLEFT", -2, 0)
+            frame.icon.texture:SetPoint("BOTTOMRIGHT", frame.icon, "BOTTOMRIGHT", -2, 0)
+            frame.icon.texture:SetAtlas("Crosshair_Transmogrify_128")
+        elseif data.icon == 132057 then
+            frame.icon.texture:SetPoint("TOPLEFT", frame.icon, "TOPLEFT", 0, 4)
+            frame.icon.texture:SetPoint("BOTTOMRIGHT", frame.icon, "BOTTOMRIGHT", 0, 4)
+            frame.icon.texture:SetAtlas("Crosshair_Taxi_128")
+        end
+    elseif data.type == "availableQuest" then
+        print("quest classification: " .. C_QuestInfoSystem.GetQuestClassification(data.questID))
+
+        local classification = C_QuestInfoSystem.GetQuestClassification(data.questID)
+        if classification == 1 then
+        elseif classification == 4 then
+            frame.icon.texture:SetPoint("TOPLEFT", frame.icon, "TOPLEFT", -1, 2)
+            frame.icon.texture:SetPoint("BOTTOMRIGHT", frame.icon, "BOTTOMRIGHT", -1, 2)
+            frame.icon.texture:SetAtlas("Crosshair_Wrapper_128")
+        elseif classification == 7 then
+            frame.icon.texture:SetAllPoints()
+            frame.icon.texture:SetAtlas("Crosshair_Quest_128")
+        end
+
+    elseif data.type == "activeQuest" then
+    elseif data.type == "goodbye" then
+        frame.icon.texture:SetPoint("TOPLEFT", frame.icon, "TOPLEFT", -2, 2)
+        frame.icon.texture:SetPoint("BOTTOMRIGHT", frame.icon, "BOTTOMRIGHT", -2, 2)
+        frame.icon.texture:SetAtlas("crosshair_speak_128")
+    else
+        print("Unknown data type:", data.type)
+    end
+end
+
 local function CreateGossipScrollBox()
     -- Главный фрейм
     local GossipScrollBox = CreateFrame("Frame", "GossipScroll", UIParent)
@@ -36,11 +87,11 @@ local function CreateGossipScrollBox()
 
         -- Иконка
         if not frame.icon then
-            frame.icon = frame:CreateTexture(nil, "ARTWORK")
+            frame.icon = CreateFrame("Frame", nil, frame)
             frame.icon:SetSize(32, 32)
             frame.icon:SetPoint("LEFT", 10, 0)
         end
-        frame.icon:SetTexture(data.icon or "Interface\\Icons\\INV_Misc_QuestionMark")
+        setIcon(frame, data)
 
         -- Текст
         if not frame.text then
@@ -73,6 +124,20 @@ local function CreateGossipScrollBox()
             end
         end
 
+        function frame:SelectOption()
+            if data.type == "gossip" then
+                C_GossipInfo.SelectOption(data.gossipOptionID)
+            elseif data.type == "availableQuest" then
+                C_GossipInfo.SelectAvailableQuest(data.questID)
+            elseif data.type == "activeQuest" then
+                C_GossipInfo.SelectActiveQuest(data.questID)
+            elseif data.type == "goodbye" then
+                C_GossipInfo.CloseGossip()
+            else
+                print("Unknown data type:", data.type)
+            end
+        end
+
         -- -- Фокус (изменение подложки при наведении)
         -- frame:SetScript("OnEnter", function()
         --     frame:SetFocused(true)
@@ -82,12 +147,8 @@ local function CreateGossipScrollBox()
         -- end)
 
         frame:SetScript("OnMouseDown", function()
-            C_GossipInfo.SelectOption(data.gossipOptionID)
+            frame:SelectOption()
         end)
-
-        function frame:SelectOption()
-            C_GossipInfo.SelectOption(data.gossipOptionID)
-        end
 
     end
 
@@ -120,24 +181,68 @@ local function CreateGossipScrollBox()
 
     EventFrame:SetScript("OnEvent", function(self, event)
         if event == "GOSSIP_SHOW" then
-            
             -- Получаем данные госсипа
             local options = C_GossipInfo.GetOptions()
+            local activeQuests = C_GossipInfo.GetActiveQuests()
+            local availableQuests = C_GossipInfo.GetAvailableQuests()
 
             -- Очищаем DataProvider и добавляем новые данные
             DataProvider:Flush()
             frames = {} -- Сбрасываем список фреймов
-            for _, option in ipairs(options) do
-                DataProvider:Insert(option)
+
+            -- Добавляем активные квесты
+            for _, quest in ipairs(activeQuests) do
+                DataProvider:Insert({
+                    type = "activeQuest",
+                    name = quest.title,
+                    questLevel = quest.questLevel,
+                    isTrivial = quest.isTrivial,
+                    frequency = quest.frequency,
+                    repeatable = quest.repeatable,
+                    isComplete = quest.isComplete,
+                    isLegendary = quest.isLegendary,
+                    isIgnored = quest.isIgnored,
+                    questID = quest.questID
+                })
             end
 
-            
+            -- Добавляем доступные квесты
+            for _, quest in ipairs(availableQuests) do
+                DataProvider:Insert({
+                    type = "availableQuest",
+                    name = quest.title,
+                    questLevel = quest.questLevel,
+                    isTrivial = quest.isTrivial,
+                    frequency = quest.frequency,
+                    repeatable = quest.repeatable,
+                    isComplete = quest.isComplete,
+                    isLegendary = quest.isLegendary,
+                    isIgnored = quest.isIgnored,
+                    questID = quest.questID
+                })
+            end
+
+            -- Добавляем опции госсипа
+            for _, option in ipairs(options) do
+                DataProvider:Insert({
+                    type = "gossip",
+                    name = option.name,
+                    icon = option.icon,
+                    gossipOptionID = option.gossipOptionID,
+                })
+            end
+
+            -- Добавить опцию выхода
+            DataProvider:Insert({
+                type = "goodbye",
+                name = GOODBYE,
+            })
+
             GossipScrollBox:Show()
             UpdateFocus(1) -- Устанавливаем фокус на первый элемент
 
             local totalHeight = ScrollView:GetElementExtent() * DataProvider:GetSize()
-            print(totalHeight)
-            if totalHeight < GossipScroll:GetHeight() then
+            if totalHeight <= GossipScroll:GetHeight() then
                 GossipScrollBar:Hide()
             else
                 GossipScrollBar:Show()
