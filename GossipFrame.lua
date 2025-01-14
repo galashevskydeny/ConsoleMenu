@@ -35,6 +35,10 @@ local function setIcon(frame, data)
 
         local classification = C_QuestInfoSystem.GetQuestClassification(data.questID)
         if classification == 1 then
+        elseif classification == 2 then
+            frame.icon.texture:SetPoint("TOPLEFT", frame.icon, "TOPLEFT", -6, 0)
+            frame.icon.texture:SetPoint("BOTTOMRIGHT", frame.icon, "BOTTOMRIGHT", -6, 0)
+            frame.icon.texture:SetAtlas("Crosshair_campaignquest_128")
         elseif classification == 4 then
             frame.icon.texture:SetPoint("TOPLEFT", frame.icon, "TOPLEFT", -1, 2)
             frame.icon.texture:SetPoint("BOTTOMRIGHT", frame.icon, "BOTTOMRIGHT", -1, 2)
@@ -44,7 +48,21 @@ local function setIcon(frame, data)
             frame.icon.texture:SetAtlas("Crosshair_Quest_128")
         end
 
-    elseif data.type == "activeQuest" then
+    elseif data.type == "activeQuest" and data.isComplete then
+        local classification = C_QuestInfoSystem.GetQuestClassification(data.questID)
+        if classification == 1 then
+        elseif classification == 2 then
+            frame.icon.texture:SetPoint("TOPLEFT", frame.icon, "TOPLEFT", -6, 0)
+            frame.icon.texture:SetPoint("BOTTOMRIGHT", frame.icon, "BOTTOMRIGHT", -6, 0)
+            frame.icon.texture:SetAtlas("Crosshair_campaignquestturnin_128")
+        elseif classification == 4 then
+            frame.icon.texture:SetPoint("TOPLEFT", frame.icon, "TOPLEFT", -1, 2)
+            frame.icon.texture:SetPoint("BOTTOMRIGHT", frame.icon, "BOTTOMRIGHT", -1, 2)
+            frame.icon.texture:SetAtlas("Crosshair_Wrapperturnin_128")
+        elseif classification == 7 then
+            frame.icon.texture:SetAllPoints()
+            frame.icon.texture:SetAtlas("Crosshair_Questturnin_128")
+        end
     elseif data.type == "goodbye" then
         frame.icon.texture:SetPoint("TOPLEFT", frame.icon, "TOPLEFT", -2, 2)
         frame.icon.texture:SetPoint("BOTTOMRIGHT", frame.icon, "BOTTOMRIGHT", -2, 2)
