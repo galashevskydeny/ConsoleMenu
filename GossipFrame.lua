@@ -2,8 +2,90 @@ local ConsoleMenu = LibStub("AceAddon-3.0"):GetAddon("ConsoleMenu")
 local parentFrame
 local frames = {} -- Хранение всех созданных элементов
 local focusedIndex = 1 -- Индекс текущего элемента в фокусе
-local showedLineIDs = {}
+local questsInQuestLine = {}
+local questsWithoutQuestline = {}
 
+-- Провкрка элемента на вхождение в массив
+local function isElementInTable(element, table)
+    for _, value in ipairs(table) do
+        if value == element then
+            return true
+        end
+    end
+    return false
+end
+
+-- Получение данных квестов при открытии Gossip
+local function GetGossipQuests()
+    -- Загружаем данные квестов
+    local activeQuests = C_GossipInfo.GetActiveQuests()
+    local availableQuests = C_GossipInfo.GetAvailableQuests()
+
+    -- Объединяем таблицы
+    for _, quest in ipairs(activeQuests) do
+        local info = C_QuestLine.GetQuestLineInfo(quest.questID)
+        if info then
+            info.isComplete = quest.isComplete
+            table.insert(questsInQuestLine, info)
+        else
+            local quest = {
+                questName = QuestUtils_GetQuestName(quest.questID),
+                questID = quest.questID,
+                inProgress = true,
+                isQuestStart = false,
+                isComplete = quest.isComplete
+            }
+            table.insert(questsWithoutQuestline, quest)
+        end
+    end
+    for _, quest in ipairs(availableQuests) do
+        local info = C_QuestLine.GetQuestLineInfo(quest.questID)
+        if info then
+            info.isComplete = quest.isComplete
+            table.insert(questsInQuestLine, info)
+        else
+            local quest = {
+                questName = QuestUtils_GetQuestName(quest.questID),
+                questID = quest.questID,
+                inProgress = false,
+                isQuestStart = true,
+                isComplete = quest.isComplete
+            }
+            table.insert(questsWithoutQuestline, quest)
+        end
+    end
+end
+
+-- Получение Questline по множеству увестов
+local function GetUniqueQuestLineInfoArray(quests)
+    local result = {}
+    local seenQuestLineIDs = {}
+
+    for _, quest in ipairs(quests) do
+        if not seenQuestLineIDs[quest.questLineID] then
+            table.insert(result, {
+                questLineID = quest.questLineID,
+                questLineName = quest.questLineName
+            })
+            seenQuestLineIDs[quest.questLineID] = true
+        end
+    end
+
+    return result
+end
+
+-- Посчитать количество квестов с QuestLineID
+local function CountByQuestLineID(quests, targetQuestLineID)
+    local count = 0
+    for _, quest in ipairs(quests) do
+        if quest.questLineID == targetQuestLineID then
+            count = count + 1
+        end
+    end
+    return count
+end
+
+-- Установка иконки пункту списка
 local function setIcon(frame, data)
     if not frame.icon.texture then
         frame.icon.texture = frame.icon:CreateTexture(nil, "ARTWORK")
@@ -31,7 +113,7 @@ local function setIcon(frame, data)
             frame.icon.texture:SetPoint("BOTTOMRIGHT", frame.icon, "BOTTOMRIGHT", 0, 4)
             frame.icon.texture:SetAtlas("Crosshair_Taxi_128")
         end
-    elseif data.type == "availableQuest" or data.type == "acceptQuest" then
+    elseif (data.type == "gossipQuest" and data.isQuestStart) or data.type == "acceptQuest" then
         print("quest classification: " .. C_QuestInfoSystem.GetQuestClassification(data.questID))
 
         local classification = C_QuestInfoSystem.GetQuestClassification(data.questID)
@@ -49,7 +131,7 @@ local function setIcon(frame, data)
             frame.icon.texture:SetAtlas("Crosshair_Quest_128")
         end
 
-    elseif (data.type == "activeQuest" and data.isComplete) or data.type == "completeQuest" then
+    elseif (data.type == "gossipQuest" and data.isComplete) or data.type == "completeQuest" then
         local classification = C_QuestInfoSystem.GetQuestClassification(data.questID)
         if classification == 1 then
         elseif classification == 2 then
@@ -64,11 +146,11 @@ local function setIcon(frame, data)
             frame.icon.texture:SetAllPoints()
             frame.icon.texture:SetAtlas("Crosshair_Questturnin_128")
         end
-    elseif (data.type == "activeQuest" and not data.isComplete) or data.type == "activeQuestInStoryline" or data.type == "availableQuestInStoryline" or data.type == "completeQuestInStoryline" then
+    elseif (data.type == "gossipQuest" and not data.isComplete and data.inProgress) then
         frame.icon.texture:SetPoint("TOPLEFT", frame.icon, "TOPLEFT", -4, 4)
         frame.icon.texture:SetPoint("BOTTOMRIGHT", frame.icon, "BOTTOMRIGHT", 4, -4)
         frame.icon.texture:SetAtlas("Quest-In-Progress-Icon-yellow")
-    elseif data.type == "goodbye" or data.type == "acceptQuestInStoryline" then
+    elseif data.type == "goodbye" then
         frame.icon.texture:SetPoint("TOPLEFT", frame.icon, "TOPLEFT", -2, 2)
         frame.icon.texture:SetPoint("BOTTOMRIGHT", frame.icon, "BOTTOMRIGHT", -2, 2)
         frame.icon.texture:SetAtlas("crosshair_speak_128")
@@ -103,6 +185,120 @@ local function CreateGossipScrollBox()
 
     -- Инициализируем ScrollBox с ScrollBar
     ScrollUtil.InitScrollBoxListWithScrollBar(ScrollBox, ScrollBar, ScrollView)
+
+    -- Получение Gossip меню
+    local function GetGossip()
+        -- Очищаем DataProvider и хранимые данные
+        DataProvider:Flush()
+        frames = {}
+        questsWithoutQuestline = {}
+        questsInQuestLine = {}
+
+        -- Получаем данные квестов
+        GetGossipQuests()
+        
+        -- Добавляем одиночные квесты
+        for _, quest in ipairs(questsWithoutQuestline) do
+            DataProvider:Insert({
+                type = "gossipQuest",
+                name = quest.questName,
+                isQuestStart = quest.isQuestStart,
+                inProgress = quest.inProgress,
+                isComplete = quest.isComplete,
+                questID = quest.questID
+            })
+        end
+
+        -- Добавляем цепочки квестов
+        local lines = GetUniqueQuestLineInfoArray(questsInQuestLine)
+        for _, line in ipairs(lines) do
+            if CountByQuestLineID(questsInQuestLine, line.questLineID) > 1 then
+                -- Цепочки с несколькими квестами в Gossip
+                DataProvider:Insert({
+                    type = "gossipQuestLine",
+                    name = line.questLineName,
+                    questLineID = line.questLineID,
+                })
+            else
+                -- Цепочка с одним квестом в Gossip
+                for _, quest in ipairs(questsInQuestLine) do
+                    if quest.questLineID == line.questLineID then
+                        DataProvider:Insert({
+                            type = "gossipQuest",
+                            name = quest.questLineName,
+                            isQuestStart = quest.isQuestStart,
+                            inProgress = quest.inProgress,
+                            isComplete = quest.isComplete,
+                            questID = quest.questID
+                        })
+                    end
+                end
+            end
+        end
+
+        -- Добавляем опции госсипа
+        local options = C_GossipInfo.GetOptions()
+        for _, option in ipairs(options) do
+            DataProvider:Insert({
+                type = "gossip",
+                name = option.name,
+                icon = option.icon,
+                gossipOptionID = option.gossipOptionID,
+            })
+        end
+
+        -- Добавить опцию выхода
+        DataProvider:Insert({
+            type = "goodbye",
+            name = GOODBYE,
+        })
+    end
+
+    -- Обновление фокуса
+    local function UpdateFocus(newIndex)
+        -- Сброс фокуса для всех элементов
+        for _, frame in ipairs(frames) do
+            if frame and frame.SetFocused then
+                frame:SetFocused(false)
+            end
+        end
+
+        focusedIndex = newIndex
+        if frames[focusedIndex] then
+            frames[focusedIndex]:SetFocused(true)
+
+            -- Смещаем скролл до текущего элемента
+            parentFrame.ScrollBox:ScrollToElementDataIndex(newIndex)
+        end
+    end
+
+    -- Отобразить меню цепочки цвестов
+    local function GetLineQuestGossip(questLineID)
+        -- Очищаем DataProvider и хранимые данные
+        DataProvider:Flush()
+        frames = {}
+
+        for _, quest in ipairs(questsInQuestLine) do
+            if quest.questLineID == questLineID then
+                DataProvider:Insert({
+                    type = "gossipQuest",
+                    name = quest.questName,
+                    isQuestStart = quest.isQuestStart,
+                    inProgress = quest.inProgress,
+                    isComplete = quest.isComplete,
+                    questID = quest.questID
+                })
+            end
+        end
+
+        -- Добавить опцию возврата к Gossip
+        DataProvider:Insert({
+            type = "backToGossip",
+            name = BACK,
+        })
+
+        UpdateFocus(1) -- Устанавливаем фокус на первый элемент
+    end
 
     -- Кастомный инициализатор
     local function Initializer(frame, data)
@@ -150,16 +346,20 @@ local function CreateGossipScrollBox()
         function frame:SelectOption()
             if data.type == "gossip" then
                 C_GossipInfo.SelectOption(data.gossipOptionID)
-            elseif data.type == "availableQuest" or data.type == "availableQuestInStoryline"  then
+            elseif (data.type == "gossipQuest" and data.isQuestStart)  then
                 C_GossipInfo.SelectAvailableQuest(data.questID)
-            elseif data.type == "activeQuest" or data.type == "activeQuestInStoryline" then
+            elseif (data.type == "gossipQuest" and not data.isQuestStart) then
                 C_GossipInfo.SelectActiveQuest(data.questID)
+            elseif data.type == "gossipQuestLine" then
+                GetLineQuestGossip(data.questLineID)
+            elseif data.type == "backToGossip" then
+                GetGossip()
             elseif data.type == "goodbye" then
                 C_GossipInfo.CloseGossip()
                 CloseQuest()
-            elseif data.type == "acceptQuest" or data.type == "acceptQuestInStoryline" then
+            elseif data.type == "acceptQuest" then
                 AcceptQuest()
-            elseif data.type == "completeQuest" or data.type == "completeQuestInStoryline" then
+            elseif data.type == "completeQuest" then
                 if data.numChoices < 2 then
                     GetQuestReward(1)
                 end
@@ -186,34 +386,6 @@ local function CreateGossipScrollBox()
     ScrollView:SetElementExtent(48)
     ScrollView:SetElementInitializer("Frame", Initializer)
 
-    -- Обновление фокуса
-    local function UpdateFocus(newIndex)
-        -- Сброс фокуса для всех элементов
-        for _, frame in ipairs(frames) do
-            if frame and frame.SetFocused then
-                frame:SetFocused(false)
-            end
-        end
-
-        focusedIndex = newIndex
-        if frames[focusedIndex] then
-            frames[focusedIndex]:SetFocused(true)
-
-            -- Смещаем скролл до текущего элемента
-            parentFrame.ScrollBox:ScrollToElementDataIndex(newIndex)
-        end
-    end
-    
-    -- Провкрка элемента на вхождение в массив
-    local function isElementInTable(element, table)
-        for _, value in ipairs(table) do
-            if value == element then
-                return true
-            end
-        end
-        return false
-    end
-
     -- Обработка событий GOSSIP_SHOW и GOSSIP_CLOSED
     local EventFrame = CreateFrame("Frame", nil, GossipScrollBox)
     EventFrame:RegisterEvent("GOSSIP_SHOW")
@@ -222,145 +394,12 @@ local function CreateGossipScrollBox()
     EventFrame:RegisterEvent("QUEST_PROGRESS")
     EventFrame:RegisterEvent("QUEST_COMPLETE")
     EventFrame:RegisterEvent("QUEST_FINISHED")
-    EventFrame:RegisterEvent("QUESTLINE_UPDATE")
+    EventFrame:RegisterEvent("QUEST_TURNED_IN")
 
     EventFrame:SetScript("OnEvent", function(self, event)
-        if event == "GOSSIP_SHOW" or event == "QUESTLINE_UPDATE" then
+        if event == "GOSSIP_SHOW" or event == "QUEST_TURNED_IN" then
 
-            -- Очищаем DataProvider и добавляем новые данные
-            DataProvider:Flush()
-            frames = {} -- Сбрасываем список фреймов
-            showedLineIDs = {}
-
-            -- Загружаем данные квестов
-            local activeQuests = C_GossipInfo.GetActiveQuests()
-            local availableQuests = C_GossipInfo.GetAvailableQuests()
-
-            -- Добавляем активные квесты
-            
-            for _, quest in ipairs(activeQuests) do
-                local questLineInfo = C_QuestLine.GetQuestLineInfo(quest.questID)
-
-                if questLineInfo then
-                    local questIDs = C_QuestLine.GetQuestLineQuests(questLineInfo.questLineID)
-                    if questIDs[1] == quest.questID then
-                        -- Добавить опцию начала Storyline
-                        DataProvider:Insert({
-                            type = "activeQuest",
-                            name = isElementInTable(questLineInfo.questLineID, showedLineIDs) and questLineInfo.questLineName .. ": " .. questLineInfo.questName or questLineInfo.questLineName,
-                            questLevel = quest.questLevel,
-                            isTrivial = quest.isTrivial,
-                            frequency = quest.frequency,
-                            repeatable = quest.repeatable,
-                            isComplete = quest.isComplete,
-                            isLegendary = quest.isLegendary,
-                            isIgnored = quest.isIgnored,
-                            questID = quest.questID
-                        })
-                        table.insert(showedLineIDs, questLineInfo.questLineID)
-                    else
-                        -- Добавить опцию продолжения Storyline
-                        DataProvider:Insert({
-                            type = "activeQuestInStoryline",
-                            name = isElementInTable(questLineInfo.questLineID, showedLineIDs) and questLineInfo.questLineName .. ": " .. questLineInfo.questName or questLineInfo.questLineName,
-                            questLevel = quest.questLevel,
-                            isTrivial = quest.isTrivial,
-                            frequency = quest.frequency,
-                            repeatable = quest.repeatable,
-                            isComplete = quest.isComplete,
-                            isLegendary = quest.isLegendary,
-                            isIgnored = quest.isIgnored,
-                            questID = quest.questID
-                        })
-                        table.insert(showedLineIDs, questLineInfo.questLineID)
-                    end
-                else
-                    DataProvider:Insert({
-                        type = "activeQuest",
-                        name = quest.title,
-                        questLevel = quest.questLevel,
-                        isTrivial = quest.isTrivial,
-                        frequency = quest.frequency,
-                        repeatable = quest.repeatable,
-                        isComplete = quest.isComplete,
-                        isLegendary = quest.isLegendary,
-                        isIgnored = quest.isIgnored,
-                        questID = quest.questID
-                    })  
-                end
-
-            end
-
-            -- Добавляем доступные квесты
-            
-            for _, quest in ipairs(availableQuests) do
-                local questLineInfo = C_QuestLine.GetQuestLineInfo(quest.questID)
-
-                if questLineInfo then
-                    local questIDs = C_QuestLine.GetQuestLineQuests(questLineInfo.questLineID)
-                    if questIDs[1] == quest.questID then
-                        -- Добавить опцию начала Storyline
-                        DataProvider:Insert({
-                            type = "availableQuest",
-                            name = isElementInTable(questLineInfo.questLineID, showedLineIDs) and questLineInfo.questLineName .. ": " .. questLineInfo.questName or questLineInfo.questLineName,
-                            questLevel = quest.questLevel,
-                            isTrivial = quest.isTrivial,
-                            frequency = quest.frequency,
-                            repeatable = quest.repeatable,
-                            isComplete = quest.isComplete,
-                            isLegendary = quest.isLegendary,
-                            isIgnored = quest.isIgnored,
-                            questID = quest.questID
-                        })
-                        table.insert(showedLineIDs, questLineInfo.questLineID)
-                    else
-                        -- Добавить опцию продолжения Storyline
-                        DataProvider:Insert({
-                            type = "availableQuestInStoryline",
-                            name = isElementInTable(questLineInfo.questLineID, showedLineIDs) and questLineInfo.questLineName .. ": " .. questLineInfo.questName or questLineInfo.questLineName,
-                            questLevel = quest.questLevel,
-                            isTrivial = quest.isTrivial,
-                            frequency = quest.frequency,
-                            repeatable = quest.repeatable,
-                            isComplete = quest.isComplete,
-                            isLegendary = quest.isLegendary,
-                            isIgnored = quest.isIgnored,
-                            questID = quest.questID
-                        })
-                        table.insert(showedLineIDs, questLineInfo.questLineID)
-                    end
-                else
-                    DataProvider:Insert({
-                        type = "availableQuest",
-                        name = quest.title,
-                        questLevel = quest.questLevel,
-                        isTrivial = quest.isTrivial,
-                        frequency = quest.frequency,
-                        repeatable = quest.repeatable,
-                        isComplete = quest.isComplete,
-                        isLegendary = quest.isLegendary,
-                        isIgnored = quest.isIgnored,
-                        questID = quest.questID
-                    })  
-                end
-            end
-
-            -- Добавляем опции госсипа
-            local options = C_GossipInfo.GetOptions()
-            for _, option in ipairs(options) do
-                DataProvider:Insert({
-                    type = "gossip",
-                    name = option.name,
-                    icon = option.icon,
-                    gossipOptionID = option.gossipOptionID,
-                })
-            end
-
-            -- Добавить опцию выхода
-            DataProvider:Insert({
-                type = "goodbye",
-                name = GOODBYE,
-            })
+            GetGossip()
 
             if event == "GOSSIP_SHOW" then
                 GossipScrollBox:Show()
