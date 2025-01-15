@@ -71,8 +71,8 @@ local function GetGreetingQuests()
     local result = {}
 
     -- Загружаем данные квестов
-    local numActiveQuests = GetNumActiveQuests();
-    local numAvailableQuests = GetNumAvailableQuests();
+    local numActiveQuests = GetNumActiveQuests()
+    local numAvailableQuests = GetNumAvailableQuests()
 
     if numActiveQuests == 0 and numAvailableQuests == 0 then
         return result
@@ -81,16 +81,15 @@ local function GetGreetingQuests()
     if numActiveQuests > 0 then
         -- Работа с активными квестами
         for i = 1, numActiveQuests do
-            local title = GetActiveTitle(i);
-            local questID = GetActiveQuestID(i);
+            local title, isComplete = GetActiveTitle(i);
+            local questID = GetActiveQuestID(i)
             local quest = {
                 title = title,
                 inProgress = true,
-                isComplete = C_QuestLog.IsComplete(questID),
+                isComplete = isComplete,
                 index = i,
                 questID = questID,
             }
-
             table.insert(result, quest)
         end
     end
@@ -230,12 +229,12 @@ local function setIcon(frame, data)
             print("file: " .. data.icon)
         end
     elseif (data.type == "gossipQuest" or data.type == "greetingQuest") then
-        if not data.inProgress and not data.isComplete then
-            SetQuestIcon()
-        elseif data.isComplete then
-            SetQestTurnInIcon()
-        elseif (data.type == "gossipQuest" and not data.isComplete and data.inProgress) or data.type == "completeQuestInStoryline" then
+        if data.isComplete then
+            SetQuestTurnInIcon()
+        elseif data.inProgress then
             SetQuestInProgressIcon()
+        else
+            SetQuestIcon()
         end
 
     elseif data.type == "acceptQuest" then
@@ -351,6 +350,7 @@ local function CreateGossipScrollBox()
                 index = quest.index
             })
         end
+        
 
         -- Добавить опцию выхода
         DataProvider:Insert({
@@ -371,6 +371,7 @@ local function CreateGossipScrollBox()
         end
 
         focusedIndex = newIndex
+        
         if frames[focusedIndex] then
             frames[focusedIndex]:SetFocused(true)
 
@@ -497,7 +498,7 @@ local function CreateGossipScrollBox()
                 CloseQuest()
             elseif data.type == "acceptQuest" then
                 AcceptQuest()
-            elseif data.type == "completeQuest" or "completeQuestInStoryline" then
+            elseif data.type == "completeQuest" then
                 if data.numChoices < 2 then
                     GetQuestReward(1)
                 end
@@ -552,10 +553,11 @@ local function CreateGossipScrollBox()
             elseif event == "QUEST_GREETING" then
 
                 GetGreeting()
+
                 GossipScrollBox:Show()
                 previousGossip = false
 
-                UpdateFocus(1) -- Устанавливаем фокус на первый элемент
+                UpdateFocus(1)
                 
             elseif event == "QUEST_DETAIL" then
 
