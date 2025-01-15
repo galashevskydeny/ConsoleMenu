@@ -4,6 +4,7 @@ local frames = {} -- Хранение всех созданных элемент
 local focusedIndex = 1 -- Индекс текущего элемента в фокусе
 local questsInQuestLine = {}
 local questsWithoutQuestline = {}
+local previousGossip = false
 
 -- Провкрка элемента на вхождение в массив
 local function isElementInTable(element, table)
@@ -88,10 +89,10 @@ end
 -- Получение статуса цепочки
 local function GetQuestLineStatus(questLineID)
     local quests = C_QuestLine.GetQuestLineQuests(questLineID)
-    local firstComplete = C_QuestLog.IsQuestFlaggedCompleted(quests[1])
-    local lastComplete = C_QuestLog.IsQuestFlaggedCompleted(quests[#quests])
+    local firstComplete = C_QuestLog.IsQuestFlaggedCompleted(quests[1]) or C_QuestLog.IsOnQuest(quests[1])
+    local lastComplete = C_QuestLog.IsQuestFlaggedCompleted(quests[#quests]) or C_QuestLog.IsOnQuest(quests[#quests])
 
-    if not (firstComplete and not lastComplete) then
+    if not firstComplete then
         return "start"
     elseif firstComplete and lastComplete then
         return "complete"
@@ -217,7 +218,11 @@ local function setIcon(frame, data)
         end
 
     elseif data.type == "acceptQuest" then
-        SetSpeakIcon()
+        if previousGossip then
+            SetSpeakIcon()
+        else
+            SetQuestIcon()
+        end
     elseif data.type == "completeQuest" then
         SetQestTurnInIcon()
     elseif data.type == "goodbye" then
@@ -387,6 +392,29 @@ local function CreateGossipScrollBox()
         UpdateScrollBarVisibility()
     end
 
+    -- Обновить меню квеста
+    local function UpdateQuestDetail()
+        -- Очищаем DataProvider и добавляем новые данные
+        DataProvider:Flush()
+        frames = {} -- Сбрасываем список фреймов
+
+        local questID = GetQuestID()
+        local questLineInfo = C_QuestLine.GetQuestLineInfo(questID)
+
+        -- Добавить опцию принятия квеста
+        DataProvider:Insert({
+            type = "acceptQuest",
+            name = "Я этим займусь.",
+            questID = questID,
+        })
+
+        -- Добавить опцию выхода
+        DataProvider:Insert({
+            type = "goodbye",
+            name = GOODBYE,
+        })
+    end
+
     -- Кастомный инициализатор
     local function Initializer(frame, data)
         table.insert(frames, frame) -- Добавляем элемент в массив
@@ -473,127 +501,115 @@ local function CreateGossipScrollBox()
     ScrollView:SetElementExtent(48)
     ScrollView:SetElementInitializer("Frame", Initializer)
 
-    -- Обработка событий GOSSIP_SHOW и GOSSIP_CLOSED
-    local EventFrame = CreateFrame("Frame", nil, GossipScrollBox)
-    EventFrame:RegisterEvent("GOSSIP_SHOW")
-    EventFrame:RegisterEvent("GOSSIP_CLOSED")
-    EventFrame:RegisterEvent("QUEST_DETAIL")
-    EventFrame:RegisterEvent("QUEST_PROGRESS")
-    EventFrame:RegisterEvent("QUEST_COMPLETE")
-    EventFrame:RegisterEvent("QUEST_FINISHED")
-    EventFrame:RegisterEvent("QUEST_TURNED_IN")
+        -- Обработка событий GOSSIP_SHOW и GOSSIP_CLOSED
+        local EventFrame = CreateFrame("Frame", nil, GossipScrollBox)
+        EventFrame:RegisterEvent("GOSSIP_SHOW")
+        EventFrame:RegisterEvent("GOSSIP_CLOSED")
+        EventFrame:RegisterEvent("QUEST_GREETING")
+        EventFrame:RegisterEvent("QUEST_DETAIL")
+        EventFrame:RegisterEvent("QUEST_PROGRESS")
+        EventFrame:RegisterEvent("QUEST_COMPLETE")
+        EventFrame:RegisterEvent("QUEST_FINISHED")
+        EventFrame:RegisterEvent("QUEST_TURNED_IN")
+        EventFrame:RegisterEvent("QUEST_ACCEPTED")
+        EventFrame:RegisterEvent("QUESTLINE_UPDATE")
 
-    EventFrame:SetScript("OnEvent", function(self, event)
-        if event == "GOSSIP_SHOW" then
 
-            GetGossip()
-
+        EventFrame:SetScript("OnEvent", function(self, event)
+            
             if event == "GOSSIP_SHOW" then
+                
+                GetGossip()
+
                 GossipScrollBox:Show()
-            end
+                previousGossip = false
 
-            UpdateFocus(1) -- Устанавливаем фокус на первый элемент
-            
-        elseif event == "QUEST_DETAIL" then
-            -- Очищаем DataProvider и добавляем новые данные
-            DataProvider:Flush()
-            frames = {} -- Сбрасываем список фреймов
+                UpdateFocus(1) -- Устанавливаем фокус на первый элемент
+                
+            elseif event == "QUEST_DETAIL" then
+                UpdateQuestDetail()
 
-            local questID = GetQuestID()
-            local questLineInfo = C_QuestLine.GetQuestLineInfo(questID)
+                GossipScrollBox:Show()
+                UpdateFocus(1) -- Устанавливаем фокус на первый элемент
+                
+            elseif event == "QUEST_PROGRESS" then
+                -- Очищаем DataProvider и добавляем новые данные
+                DataProvider:Flush()
+                frames = {} -- Сбрасываем список фреймов
 
-            -- Добавить опцию принятия квеста
-            DataProvider:Insert({
-                type = "acceptQuest",
-                name = "Я этим займусь.",
-                questID = questID,
-            })
+                -- Добавить опцию выхода
+                DataProvider:Insert({
+                    type = "goodbye",
+                    name = GOODBYE,
+                })
 
-            -- Добавить опцию выхода
-            DataProvider:Insert({
-                type = "goodbye",
-                name = GOODBYE,
-            })
+                GossipScrollBox:Show()
+                UpdateFocus(1) -- Устанавливаем фокус на первый элемент
 
-            GossipScrollBox:Show()
-            UpdateFocus(1) -- Устанавливаем фокус на первый элемент
-            
-        elseif event == "QUEST_PROGRESS" then
-            -- Очищаем DataProvider и добавляем новые данные
-            DataProvider:Flush()
-            frames = {} -- Сбрасываем список фреймов
+            elseif event == "QUEST_COMPLETE" then
+                -- Очищаем DataProvider и добавляем новые данные
+                DataProvider:Flush()
+                frames = {} -- Сбрасываем список фреймов
 
-            -- Добавить опцию выхода
-            DataProvider:Insert({
-                type = "goodbye",
-                name = GOODBYE,
-            })
+                local questID = GetQuestID()
+                local questLineInfo = C_QuestLine.GetQuestLineInfo(questID)
 
-            GossipScrollBox:Show()
-            UpdateFocus(1) -- Устанавливаем фокус на первый элемент
-
-        elseif event == "QUEST_COMPLETE" then
-            -- Очищаем DataProvider и добавляем новые данные
-            DataProvider:Flush()
-            frames = {} -- Сбрасываем список фреймов
-
-            local questID = GetQuestID()
-            local questLineInfo = C_QuestLine.GetQuestLineInfo(questID)
-
-            if questLineInfo then
-                local questIDs = C_QuestLine.GetQuestLineQuests(questLineInfo.questLineID)
-                if questIDs[#questIDs] == questID then
-                    -- Добавить опцию завершения Storyline
-                    DataProvider:Insert({
-                        type = "completeQuestInStoryline",
-                        name = COMPLETE_QUEST .. " " .. questLineInfo.questLineName,
-                        numChoices = GetNumQuestChoices(),
-                        questID = questID,
-                        isQuestStart = questLineInfo.isQuestStart,
-                        inProgress = questLineInfo.inProgress,
-                        isComplete = true,
-                        questLineStatus = GetQuestLineStatus(questLineInfo.questLineID),
-                    })
-                    
+                if questLineInfo then
+                    local questIDs = C_QuestLine.GetQuestLineQuests(questLineInfo.questLineID)
+                    if questIDs[#questIDs] == questID then
+                        -- Добавить опцию завершения Storyline
+                        DataProvider:Insert({
+                            type = "completeQuestInStoryline",
+                            name = COMPLETE_QUEST .. " " .. questLineInfo.questLineName,
+                            numChoices = GetNumQuestChoices(),
+                            questID = questID,
+                            isQuestStart = questLineInfo.isQuestStart,
+                            inProgress = questLineInfo.inProgress,
+                            isComplete = true,
+                            questLineStatus = GetQuestLineStatus(questLineInfo.questLineID),
+                        })
+                        
+                    else
+                        -- Добавить опцию продолжения Storyline
+                        DataProvider:Insert({
+                            type = "completeQuestInStoryline",
+                            name = "Что дальше?",
+                            numChoices = GetNumQuestChoices(),
+                            questID = questID,
+                            questLineStatus = GetQuestLineStatus(questLineInfo.questLineID),
+                        })
+                    end
                 else
-                    -- Добавить опцию продолжения Storyline
+                    -- Добавить опцию завершения квеста
                     DataProvider:Insert({
-                        type = "completeQuestInStoryline",
-                        name = "Что дальше?",
+                        type = "completeQuest",
+                        name = COMPLETE_QUEST .. " " .. C_QuestLog.GetTitleForQuestID(questID),
                         numChoices = GetNumQuestChoices(),
                         questID = questID,
-                        questLineStatus = GetQuestLineStatus(questLineInfo.questLineID),
                     })
                 end
-            else
-                -- Добавить опцию завершения квеста
+
+                -- Добавить опцию выхода
                 DataProvider:Insert({
-                    type = "completeQuest",
-                    name = COMPLETE_QUEST .. " " .. C_QuestLog.GetTitleForQuestID(questID),
-                    numChoices = GetNumQuestChoices(),
-                    questID = questID,
+                    type = "goodbye",
+                    name = GOODBYE,
                 })
+
+                GossipScrollBox:Show()
+                UpdateFocus(1) -- Устанавливаем фокус на первый элемент
+
+            elseif event == "GOSSIP_CLOSED" then
+                previousGossip = true
+                GossipScrollBox:Hide()
+            elseif event == "QUEST_FINISHED" then
+                GossipScrollBox:Hide()
+            elseif event == "QUEST_ACCEPTED" or "QUEST_TURNED_IN" then
+                previousGossip = false
             end
 
-            -- Добавить опцию выхода
-            DataProvider:Insert({
-                type = "goodbye",
-                name = GOODBYE,
-            })
+            UpdateScrollBarVisibility()
 
-            GossipScrollBox:Show()
-            UpdateFocus(1) -- Устанавливаем фокус на первый элемент
-
-        elseif event == "GOSSIP_CLOSED" or event == "QUEST_FINISHED" then
-            GossipScrollBox:Hide()
-        elseif event == "QUEST_TURNED_IN" then
-            GetGossip()
-            UpdateFocus(1)
-        end
-
-        UpdateScrollBarVisibility()
-
-    end)
+        end)
 
     -- Изначально скрываем GossipScrollBox
     GossipScrollBox:Hide()
