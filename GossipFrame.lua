@@ -145,6 +145,9 @@ local function setIcon(frame, data)
             frame.icon.texture:SetPoint("TOPLEFT", frame.icon, "TOPLEFT", -1, 2)
             frame.icon.texture:SetPoint("BOTTOMRIGHT", frame.icon, "BOTTOMRIGHT", -1, 2)
             frame.icon.texture:SetAtlas("Crosshair_Wrapper_128")
+        elseif classification == 5 then
+            frame.icon.texture:SetAllPoints()
+            frame.icon.texture:SetAtlas("Crosshair_Recurring_128")
         elseif classification == 7 then
             frame.icon.texture:SetAllPoints()
             frame.icon.texture:SetAtlas("Crosshair_Quest_128")
@@ -159,7 +162,6 @@ local function setIcon(frame, data)
         local classification = C_QuestInfoSystem.GetQuestClassification(data.questID)
         if classification == 1 then
         elseif classification == 2 then
-            
             frame.icon.texture:SetPoint("TOPLEFT", frame.icon, "TOPLEFT", -6, 0)
             frame.icon.texture:SetPoint("BOTTOMRIGHT", frame.icon, "BOTTOMRIGHT", -6, 0)
             frame.icon.texture:SetAtlas("Crosshair_campaignquestturnin_128")
@@ -167,6 +169,9 @@ local function setIcon(frame, data)
             frame.icon.texture:SetPoint("TOPLEFT", frame.icon, "TOPLEFT", -1, 2)
             frame.icon.texture:SetPoint("BOTTOMRIGHT", frame.icon, "BOTTOMRIGHT", -1, 2)
             frame.icon.texture:SetAtlas("Crosshair_Wrapperturnin_128")
+        elseif classification == 5 then
+            frame.icon.texture:SetAllPoints()
+            frame.icon.texture:SetAtlas("Crosshair_Recurringturnin_128")
         elseif classification == 7 then
             frame.icon.texture:SetAllPoints()
             frame.icon.texture:SetAtlas("Crosshair_Questturnin_128")
@@ -244,7 +249,7 @@ local function setIcon(frame, data)
             SetQuestIcon()
         end
     elseif data.type == "completeQuest" then
-        SetQestTurnInIcon()
+        SetQuestTurnInIcon()
     elseif data.type == "goodbye" then
         SetSpeakIcon()
     else
@@ -498,7 +503,7 @@ local function CreateGossipScrollBox()
                 CloseQuest()
             elseif data.type == "acceptQuest" then
                 AcceptQuest()
-            elseif data.type == "completeQuest" then
+            elseif data.type == "completeQuest" or data.type == "completeQuestInStoryline" then
                 if data.numChoices < 2 then
                     GetQuestReward(1)
                 end
@@ -587,7 +592,11 @@ local function CreateGossipScrollBox()
 
                 local questID = GetQuestID()
                 local questLineInfo = C_QuestLine.GetQuestLineInfo(questID)
-                local questIDs = C_QuestLine.GetQuestLineQuests(questLineInfo.questLineID)
+                local questIDs
+
+                if questLineInfo then
+                    questIDs = C_QuestLine.GetQuestLineQuests(questLineInfo.questLineID)
+                end
 
                 if questLineInfo and not (questIDs[#questIDs] == questID) then
                     -- Добавить опцию продолжения Storyline
@@ -596,7 +605,8 @@ local function CreateGossipScrollBox()
                         name = "Что дальше?",
                         numChoices = GetNumQuestChoices(),
                         questID = questID,
-                        questLineStatus = GetQuestLineStatus(questLineInfo.questLineID),
+                        isComplete = true,
+                        inProgress = false,
                     })
                 else
                     -- Добавить опцию завершения квеста
@@ -605,6 +615,8 @@ local function CreateGossipScrollBox()
                         name = COMPLETE_QUEST,
                         numChoices = GetNumQuestChoices(),
                         questID = questID,
+                        isComplete = true,
+                        inProgress = false,
                     })
                 end
 
