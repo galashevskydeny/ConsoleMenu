@@ -136,7 +136,10 @@ local function setIcon(frame, data)
     ---- Иконка квеста в зависимости от его класса
     local function SetQuestIcon()
         local classification = C_QuestInfoSystem.GetQuestClassification(data.questID)
-        if classification == 1 then
+        if classification == 0 then
+            frame.icon.texture:SetPoint("TOPLEFT", frame.icon, "TOPLEFT", -2, 2)
+            frame.icon.texture:SetPoint("BOTTOMRIGHT", frame.icon, "BOTTOMRIGHT", -2, 2)
+            frame.icon.texture:SetAtlas("Crosshair_important_128")
         elseif classification == 2 then
             frame.icon.texture:SetPoint("TOPLEFT", frame.icon, "TOPLEFT", -6, 0)
             frame.icon.texture:SetPoint("BOTTOMRIGHT", frame.icon, "BOTTOMRIGHT", -6, 0)
@@ -151,6 +154,8 @@ local function setIcon(frame, data)
         elseif classification == 7 then
             frame.icon.texture:SetAllPoints()
             frame.icon.texture:SetAtlas("Crosshair_Quest_128")
+        else
+            print("classification" .. classification)
         end
 
         frame.icon.texture:Show()
@@ -160,7 +165,10 @@ local function setIcon(frame, data)
     local function SetQuestTurnInIcon()
         
         local classification = C_QuestInfoSystem.GetQuestClassification(data.questID)
-        if classification == 1 then
+        if classification == 0 then
+            frame.icon.texture:SetPoint("TOPLEFT", frame.icon, "TOPLEFT", -2, 2)
+            frame.icon.texture:SetPoint("BOTTOMRIGHT", frame.icon, "BOTTOMRIGHT", -2, 2)
+            frame.icon.texture:SetAtlas("Crosshair_importantturnin_128")
         elseif classification == 2 then
             frame.icon.texture:SetPoint("TOPLEFT", frame.icon, "TOPLEFT", -6, 0)
             frame.icon.texture:SetPoint("BOTTOMRIGHT", frame.icon, "BOTTOMRIGHT", -6, 0)
@@ -175,6 +183,8 @@ local function setIcon(frame, data)
         elseif classification == 7 then
             frame.icon.texture:SetAllPoints()
             frame.icon.texture:SetAtlas("Crosshair_Questturnin_128")
+        else
+            print("classification" .. classification)
         end
 
         frame.icon.texture:Show()
@@ -248,8 +258,12 @@ local function setIcon(frame, data)
         else
             SetQuestIcon()
         end
+    elseif data.type == "progressQuest" then
+        SetSpeakIcon()
     elseif data.type == "completeQuest" then
         SetQuestTurnInIcon()
+    elseif data.type == "completeQuestInStoryline" then
+        SetQuestInProgressIcon()
     elseif data.type == "goodbye" then
         SetSpeakIcon()
     else
@@ -423,7 +437,6 @@ local function CreateGossipScrollBox()
         frames = {} -- Сбрасываем список фреймов
 
         local questID = GetQuestID()
-        local questLineInfo = C_QuestLine.GetQuestLineInfo(questID)
 
         -- Добавить опцию принятия квеста
         DataProvider:Insert({
@@ -503,6 +516,8 @@ local function CreateGossipScrollBox()
                 CloseQuest()
             elseif data.type == "acceptQuest" then
                 AcceptQuest()
+            elseif data.type == "progressQuest" then
+                CompleteQuest()
             elseif data.type == "completeQuest" or data.type == "completeQuestInStoryline" then
                 if data.numChoices < 2 then
                     GetQuestReward(1)
@@ -575,6 +590,42 @@ local function CreateGossipScrollBox()
                 -- Очищаем DataProvider и добавляем новые данные
                 DataProvider:Flush()
                 frames = {} -- Сбрасываем список фреймов
+
+                local questID = GetQuestID()
+                local isComplete = C_QuestLog.IsComplete(questID)
+
+                if isComplete then
+                    local numRequiredItems = GetNumQuestItems()
+
+                    if numRequiredItems == 0 then
+                        -- Добавить опцию выхода
+                        DataProvider:Insert({
+                            type = "progressQuest",
+                            name = "Что дальше?",
+                        })
+                    elseif numRequiredItems == 1 then
+                        local itemLink = GetQuestItemLink("required", 1)
+                        local itemName, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = C_Item.GetItemInfo(itemLink)
+
+                        -- Добавить опцию выхода
+                        DataProvider:Insert({
+                            type = "progressQuest",
+                            name = itemName .. " при мне.",
+                        })
+                    else
+                        -- Добавить опцию выхода
+                        DataProvider:Insert({
+                            type = "progressQuest",
+                            name = "Готово!",
+                        })
+                    end
+                else
+                    -- Добавить опцию выхода
+                    DataProvider:Insert({
+                        type = "goodbye",
+                        name = "Мне нужно больше времени",
+                    })
+                end
 
                 -- Добавить опцию выхода
                 DataProvider:Insert({
