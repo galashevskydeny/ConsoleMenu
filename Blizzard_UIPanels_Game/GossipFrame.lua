@@ -85,6 +85,10 @@ local function hideFramesAndRegions()
         parentFrame.PortraitContainer.portrait,
         parentFrame.Bg,
         parentFrame.Background,
+
+        parentFrame.GreetingPanel,
+        parentFrame.CloseButton,
+        parentFrame.TitleContainer,
     }
 
     -- Скрываем все элементы из списка
@@ -203,10 +207,10 @@ end
 
 function ConsoleMenu:SetGossipFrame()
 
-    moveFrames()
+    --moveFrames()
     hideFramesAndRegions()
-    updateTextures()
+    --updateTextures()
     --toggleController()
-    createBackground()
+    --createBackground()
 
 end

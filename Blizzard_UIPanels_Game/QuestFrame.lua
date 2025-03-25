@@ -104,25 +104,31 @@ end
 -- Скрытие ненужных фреймов, регионов и текстур
 local function hideFramesAndRegions()
     local elementsToHide = {
+        parentFrame.CloseButton,
         parentFrame.NineSlice,
         parentFrame.TopTileStreaks,
         parentFrame.Inset,
         parentFrame.PortraitContainer.portrait,
         parentFrame.Bg,
         parentFrame.TitleContainer,
+        parentFrame.AccountCompletedNotice,
+        parentFrame.AccountCompletedNotice.Text,
         rewardPanel.SealMaterialBG,
         rewardPanel.Bg,
-        progressPanel.SealMaterialBG,
-        progressPanel.Bg,
-        detailPanel.SealMaterialBG,
-        detailPanel.Bg,
+        progressPanel,
+        --progressPanel.SealMaterialBG,
+        --progressPanel.Bg,
+        detailPanel,
+        --detailPanel.SealMaterialBG,
+        --detailPanel.Bg,
         QuestFrameAcceptButton,
         QuestFrameDeclineButton,
         QuestFrameCompleteQuestButton,
         QuestFrameCompleteButton,
         QuestFrameGoodbyeButton,
-        greetingPanel.SealMaterialBG,
-        greetingPanel.Bg,
+        greetingPanel,
+        --greetingPanel.SealMaterialBG,
+        --greetingPanel.Bg,
         QuestFrameGreetingGoodbyeButton,
     }
         
@@ -133,6 +139,29 @@ local function hideFramesAndRegions()
             element:SetAlpha(0)
         end
     end
+
+    detailPanel:HookScript("OnUpdate", function()
+        detailPanel:Hide()
+        parentFrame.AccountCompletedNotice:Hide()
+    end)
+
+    progressPanel:HookScript("OnUpdate", function()
+        progressPanel:Hide()
+        parentFrame.AccountCompletedNotice:Hide()
+    end)
+
+    greetingPanel:HookScript("OnUpdate", function()
+        greetingPanel:Hide()
+    end)
+
+    rewardPanel:HookScript("OnUpdate", function()
+        rewardPanel:Hide()
+        parentFrame.AccountCompletedNotice:Hide()
+    end)
+
+    QuestFrameDeclineButton:HookScript("OnUpdate", function()
+        QuestFrameDeclineButton:Hide()
+    end)
 
 end
 
@@ -479,10 +508,10 @@ end
 
 function ConsoleMenu:SetQuestFrame()
 
-    moveFrames()
+    --moveFrames()
     hideFramesAndRegions()
-    updateTextures()
-    toggleController()
-    createBackground()
+    --updateTextures()
+    --toggleController()
+    --createBackground()
 
 end

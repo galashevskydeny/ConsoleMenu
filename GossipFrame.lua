@@ -16,24 +16,6 @@ local function isElementInTable(element, table)
     return false
 end
 
--- DEPRECATED: Получение Questline по множеству квестов
-local function GetUniqueQuestLineInfoArray(quests)
-    local result = {}
-    local seenQuestLineIDs = {}
-
-    for _, quest in ipairs(quests) do
-        if not seenQuestLineIDs[quest.questLineID] then
-            table.insert(result, {
-                questLineID = quest.questLineID,
-                questLineName = quest.questLineName
-            })
-            seenQuestLineIDs[quest.questLineID] = true
-        end
-    end
-
-    return result
-end
-
 -- Посчитать количество квестов с QuestLineID
 local function CountByQuestLineID(quests, targetQuestLineID)
     local count = 0
@@ -112,21 +94,6 @@ local function GetGreetingQuests()
     end
 
     return result
-end
-
--- DEPRECATED: Получение статуса цепочки
-local function GetQuestLineStatus(questLineID)
-    local quests = C_QuestLine.GetQuestLineQuests(questLineID)
-    local firstComplete = C_QuestLog.IsQuestFlaggedCompleted(quests[1]) or C_QuestLog.IsOnQuest(quests[1])
-    local lastComplete = C_QuestLog.IsQuestFlaggedCompleted(quests[#quests]) or C_QuestLog.IsOnQuest(quests[#quests])
-
-    if not firstComplete then
-        return "start"
-    elseif firstComplete and lastComplete then
-        return "complete"
-    else
-        return "progress"
-    end
 end
 
 -- Установка иконки пункту списка
@@ -215,6 +182,19 @@ local function setIcon(frame, data)
         frame.icon.texture:Hide()
     end
 
+    if not frame.icon.border then
+        frame.icon.border = frame.icon:CreateTexture(nil, "OVERLAY")
+
+        frame.icon.border:SetPoint("TOPLEFT", frame.icon.texture, "TOPLEFT", -6,6)
+        frame.icon.border:SetPoint("BOTTOMRIGHT", frame.icon.texture, "BOTTOMRIGHT", 6, -6)
+        frame.icon.border:SetAtlas("plunderstorm-actionbar-slot-border")
+
+        frame.icon.border:Hide()
+    else
+        frame.icon.border:Hide()
+    end
+    
+
     if data.type == "gossip" then
         if data.icon == 132053 then
             frame.icon.texture:Show()
@@ -264,6 +244,14 @@ local function setIcon(frame, data)
         SetQuestTurnInIcon()
     elseif data.type == "completeQuestInStoryline" then
         SetQuestInProgressIcon()
+    elseif data.type == "completeQuestWithReward" then
+        print(data.texture)
+        frame.icon.texture:SetAllPoints()
+        frame.icon.texture:SetTexture(data.texture)
+        ApplyMaskToTexture(frame.icon.texture)
+        
+        frame.icon.border:Show()
+        frame.icon.texture:Show()
     elseif data.type == "goodbye" then
         SetSpeakIcon()
     else
@@ -518,10 +506,8 @@ local function CreateGossipScrollBox()
                 AcceptQuest()
             elseif data.type == "progressQuest" then
                 CompleteQuest()
-            elseif data.type == "completeQuest" or data.type == "completeQuestInStoryline" then
-                if data.numChoices < 2 then
-                    GetQuestReward(1)
-                end
+            elseif data.type == "completeQuest" or data.type == "completeQuestInStoryline" or data.type == "completeQuestWithReward" then
+                GetQuestReward(data.index)
             else
                 print("Unknown data type:", data.type)
             end
@@ -560,7 +546,7 @@ local function CreateGossipScrollBox()
 
 
         EventFrame:SetScript("OnEvent", function(self, event)
-            
+            print(event)
             if event == "GOSSIP_SHOW" then
                 
                 GetGossip()
@@ -582,7 +568,6 @@ local function CreateGossipScrollBox()
             elseif event == "QUEST_DETAIL" then
 
                 UpdateQuestDetail()
-
                 GossipScrollBox:Show()
                 UpdateFocus(1) -- Устанавливаем фокус на первый элемент
                 
@@ -644,27 +629,44 @@ local function CreateGossipScrollBox()
                 local questID = GetQuestID()
                 local questLineInfo = C_QuestLine.GetQuestLineInfo(questID)
                 local questIDs
+                local numChoices = GetNumQuestChoices()
 
                 if questLineInfo then
                     questIDs = C_QuestLine.GetQuestLineQuests(questLineInfo.questLineID)
                 end
 
-                if questLineInfo and not (questIDs[#questIDs] == questID) then
+                if questLineInfo and not (questIDs[#questIDs] == questID) and (numChoices <= 1) then
                     -- Добавить опцию продолжения Storyline
                     DataProvider:Insert({
                         type = "completeQuestInStoryline",
                         name = "Что дальше?",
-                        numChoices = GetNumQuestChoices(),
+                        numChoices = numChoices,
                         questID = questID,
                         isComplete = true,
                         inProgress = false,
                     })
+                elseif numChoices > 1 then
+                    -- Выбор награды
+                    for i = 1, numChoices do
+                        local name, texture, count, quality, isUsable, itemID = GetQuestItemInfo("choice", i)
+                        DataProvider:Insert({
+                            type = "completeQuestWithReward",
+                            name = name,
+                            numChoices = numChoices,
+                            index = i,
+                            questID = questID,
+                            isComplete = true,
+                            inProgress = false,
+                            texture = texture,
+                        })
+                    end
                 else
                     -- Добавить опцию завершения квеста
                     DataProvider:Insert({
                         type = "completeQuest",
                         name = COMPLETE_QUEST,
-                        numChoices = GetNumQuestChoices(),
+                        numChoices = numChoices,
+                        index = 1,
                         questID = questID,
                         isComplete = true,
                         inProgress = false,
@@ -685,7 +687,7 @@ local function CreateGossipScrollBox()
                 GossipScrollBox:Hide()
             elseif event == "QUEST_FINISHED" then
                 GossipScrollBox:Hide()
-            elseif event == "QUEST_ACCEPTED" or "QUEST_TURNED_IN" then
+            elseif event == "QUEST_ACCEPTED" or event == "QUEST_TURNED_IN" then
                 previousGossip = false
             end
 
@@ -739,4 +741,5 @@ function ConsoleMenu:SetCustomGossipFrame()
 
     -- Добавляем обработку геймпада
     toggleController(updateFocus)
+
 end
