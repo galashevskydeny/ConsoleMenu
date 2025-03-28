@@ -26,7 +26,7 @@ local function setIcon(frame, data)
         frame.icon.border:Hide()
     end
 
-    if data.type == "stone" then
+    if data.type == "item" or data.type == "spell" then
         frame.icon.texture:SetAllPoints()
         frame.icon.texture:SetTexture(data.texture)
         ApplyMaskToTexture(frame.icon.texture)
@@ -40,8 +40,8 @@ end
 -- Создание ScrollBox
 local function CreateFastTravelScrollBox()
     local FastTravelScrollBox = CreateFrame("Frame", "FastTravelScroll", UIParent)
-    FastTravelScrollBox:SetSize(480, 48 * 3)
-    FastTravelScrollBox:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 48, 96)
+    FastTravelScrollBox:SetSize(480, 48 * 6)
+    FastTravelScrollBox:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 48, 48)
 
     local ScrollBox = CreateFrame("Frame", "FastTravelScrollBox", FastTravelScrollBox, "WowScrollBoxList")
     FastTravelScrollBox.ScrollBox = ScrollBox
@@ -57,6 +57,7 @@ local function CreateFastTravelScrollBox()
     local DataProvider = CreateDataProvider()
     local ScrollView = CreateScrollBoxListLinearView()
     ScrollView:SetDataProvider(DataProvider)
+
     ScrollUtil.InitScrollBoxListWithScrollBar(ScrollBox, ScrollBar, ScrollView)
 
     local function UpdateScrollBarVisibility()
@@ -88,18 +89,26 @@ local function CreateFastTravelScrollBox()
             -- Устанавливаем бинд: при нажатии PAD1 будет использоваться предмет, 
             -- соответствующий текущему элементу (через SetOverrideBindingItem)
             local item = frames[focusedIndex]:GetData()
-            SetOverrideBindingItem(
-                FastTravelScrollBox, -- владелец бинда
-                true, 
-                "PAD1", 
-                item.name
-            )
+            if item.type == "item" then
+                SetOverrideBindingItem(
+                    FastTravelScrollBox, -- владелец бинда
+                    true, 
+                    "PAD1", 
+                    item.name
+                )
+            elseif item.type == "spell" then
+                SetOverrideBindingSpell(
+                    FastTravelScrollBox, -- владелец бинда
+                    true, 
+                    "PAD1", 
+                    item.name
+                )
+            end
         end
     end
 
     -- Инициализатор для элемента списка
     local function Initializer(frame, data)
-        table.insert(frames, frame)
 
         local hearthstoneButton = CreateFrame("Button", nil, frame, "SecureActionButtonTemplate")
         frame.SecureActionButton = hearthstoneButton
@@ -108,12 +117,30 @@ local function CreateFastTravelScrollBox()
         hearthstoneButton:SetPoint("CENTER", 0, 0)
         hearthstoneButton:RegisterForClicks("AnyDown")
 
-        hearthstoneButton:SetAttribute("type1", "item")
-        hearthstoneButton:SetAttribute("item1", data.name)
+        -- Необходимо для клика мышкой
+        --hearthstoneButton:SetAttribute("type1", data.type)
+        --hearthstoneButton:SetAttribute("item1", data.name)
 
-        local texture = hearthstoneButton:CreateTexture(nil, "BACKGROUND")
-        texture:SetAllPoints(hearthstoneButton)
-        texture:SetTexture(data.texture)
+        -- Иконка
+        if not frame.icon then
+            frame.icon = CreateFrame("Frame", nil, frame)
+            frame.icon:SetSize(32, 32)
+            frame.icon:SetPoint("LEFT", 10, 0)
+        end
+
+        setIcon(frame, data)
+
+        -- Текст
+        if not frame.text then
+            frame.text = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+            frame.text:SetPoint("LEFT", frame.icon, "RIGHT", 10, 0)
+            frame.text:SetPoint("RIGHT", -10, 0)
+            frame.text:SetJustifyH("LEFT")
+        end
+
+        frame.text:SetFont("Fonts\\FRIZQT___CYR.TTF", 20, "OUTLINE")
+        frame.text:SetText(data.name)
+        frame.text:SetTextColor(1, 0.976, 0.855) -- Цвет текста FFF9DA
 
         -- Тень (фон)
         if not frame.bg then
@@ -136,6 +163,8 @@ local function CreateFastTravelScrollBox()
         function frame:GetData()
             return self.data
         end
+
+        table.insert(frames, frame)
     end
 
     ScrollView:SetElementExtent(48)
@@ -148,22 +177,78 @@ local function CreateFastTravelScrollBox()
     local itemName, _, _, _, _, _, _, _, _, itemTexture = C_Item.GetItemInfo(itemInfo)
     DataProvider:Insert({
         id = itemInfo,
-        type = "stone",
-        name = itemName or "Камень возвращения",
+        type = "item",
+        name = itemName,
         texture = itemTexture,
     })
 
-    DataProvider:Insert({
-        type = "stone",
-        name = "stone1",
-        texture = "Interface\\Icons\\INV_Misc_Rune_01",
-    })
+    -- Проверяем, что игрок - маг
+    local className, classFile = UnitClass("player")
+    if classFile == "MAGE" then
+        -- Список ID телепортов (Teleport / Portal). Можно дополнять нужными вам вариантами
+        -- Ниже для примера несколько основных заклинаний (Teleport: Stormwind, Ironforge, Orgrimmar и т.д.).
+        -- Для Порталов (Portal: XXX) используйте соответствующие ID.
+        local mageTeleports = {
+                    
+            -- War Within
+            446540,
+                    
+            -- Dragonflight
+            395277, -- Teleport: Valdrakken
+                    
+            -- Shadowlands
+            344587, -- Teleport: Oribos
+            
+            -- Battle for Azeroth
+            281403, -- Teleport: Boralus (Alliance)
+            281404, -- Teleport: Dazar'alor (Horde)
 
-    DataProvider:Insert({
-        type = "stone",
-        name = "stone2",
-        texture = "Interface\\Icons\\INV_Misc_Rune_01",
-    })
+            -- Legion
+            224869, -- Teleport: Dalaran (Broken Isles)
+
+            -- Warlords of Draenor
+            176248, -- Teleport: Stormshield (Alliance)
+            176242, -- Teleport: Warspear (Horde)
+
+            -- Mists of Pandaria
+            132621, -- Teleport: Vale of Eternal Blossoms (Alliance, Shrine of Seven Stars)
+            132627, -- Teleport: Vale of Eternal Blossoms (Horde, Shrine of Two Moons)
+
+            -- Классические города
+            3561,   -- Teleport: Stormwind
+            3567,   -- Teleport: Orgrimmar
+            3562,   -- Teleport: Ironforge
+            3563,   -- Teleport: Undercity
+            3565,   -- Teleport: Darnassus
+            3566,   -- Teleport: Thunder Bluff
+            
+            -- Прочие старые телепорты
+            49359,  -- Teleport: Stonard (Horde)
+            49358,  -- Teleport: Theramore (Alliance)
+            33690,  -- Teleport: Silvermoon
+            35715,  -- Teleport: Shattrath (Outland)
+            53140,  -- Teleport: Dalaran (Northrend)
+            88342,  -- Teleport: Tol Barad (Alliance)
+            88344,  -- Teleport: Tol Barad (Horde)
+    
+        }
+        
+
+        for _, spellID in ipairs(mageTeleports) do
+            if IsSpellKnown(spellID) then
+                -- Получаем инфо о заклинании
+                local spellInfo = C_Spell.GetSpellInfo(spellID)
+
+                DataProvider:Insert({
+                    id = spellInfo.spellID,
+                    type = "spell",
+                    name = spellInfo.name,
+                    texture = spellInfo.iconID,
+                })
+            end
+        end
+    end
+
 
     UpdateScrollBarVisibility()
 
