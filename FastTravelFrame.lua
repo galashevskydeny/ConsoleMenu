@@ -40,7 +40,7 @@ end
 -- Создание ScrollBox
 local function CreateFastTravelScrollBox()
     local FastTravelScrollBox = CreateFrame("Frame", "FastTravelScroll", UIParent)
-    FastTravelScrollBox:SetSize(480, 48 * 6)
+    FastTravelScrollBox:SetSize(480, 48 * 4)
     FastTravelScrollBox:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 48, 48)
 
     local ScrollBox = CreateFrame("Frame", "FastTravelScrollBox", FastTravelScrollBox, "WowScrollBoxList")
@@ -110,11 +110,17 @@ local function CreateFastTravelScrollBox()
     -- Инициализатор для элемента списка
     local function Initializer(frame, data)
 
+        if not data then
+            -- Если по какой-то причине data == nil, не вставляем во frames
+            return
+        end
+
+        table.insert(frames, frame)
+
         local hearthstoneButton = CreateFrame("Button", nil, frame, "SecureActionButtonTemplate")
         frame.SecureActionButton = hearthstoneButton
 
-        hearthstoneButton:SetSize(64, 64)
-        hearthstoneButton:SetPoint("CENTER", 0, 0)
+        hearthstoneButton:SetAllPoints()
         hearthstoneButton:RegisterForClicks("AnyDown")
 
         -- Необходимо для клика мышкой
@@ -163,8 +169,6 @@ local function CreateFastTravelScrollBox()
         function frame:GetData()
             return self.data
         end
-
-        table.insert(frames, frame)
     end
 
     ScrollView:SetElementExtent(48)
