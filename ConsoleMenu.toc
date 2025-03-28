@@ -19,3 +19,4 @@ Blizzard_UIPanels_Game/GossipFrame.lua
 Blizzard_UIPanels_Game/PVEFrame.lua
 Blizzard_UIPanels_Game/WorldMapFrame.lua
 GossipFrame.lua
+FastTravelFrame.lua

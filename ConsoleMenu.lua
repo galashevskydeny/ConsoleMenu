@@ -23,5 +23,6 @@ function ConsoleMenu:OnInitialize()
     --self:SetWorldMapFrame()
     
     self:SetCustomGossipFrame()
+    self:SetFastTravelFrame()
 
 end
