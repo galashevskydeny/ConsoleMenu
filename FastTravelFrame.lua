@@ -68,46 +68,54 @@ local function CreateFastTravelScrollBox()
         end
     end
 
+    -- Обновление фокуса
     local function UpdateFocus(newIndex)
+        -- Сброс фокуса для всех элементов
         for _, frame in ipairs(frames) do
             if frame and frame.SetFocused then
                 frame:SetFocused(false)
             end
         end
+
         focusedIndex = newIndex
+        
         if frames[focusedIndex] then
             frames[focusedIndex]:SetFocused(true)
+
+            -- Прокрутить ScrollBox до текущего элемента
             parentFrame.ScrollBox:ScrollToElementDataIndex(newIndex)
+
+            -- Устанавливаем бинд: при нажатии PAD1 будет использоваться предмет, 
+            -- соответствующий текущему элементу (через SetOverrideBindingItem)
+            local item = frames[focusedIndex]:GetData()
+            SetOverrideBindingItem(
+                FastTravelScrollBox, -- владелец бинда
+                true, 
+                "PAD1", 
+                item.name
+            )
         end
     end
 
-    -- Инициализатор для кнопки
+    -- Инициализатор для элемента списка
     local function Initializer(frame, data)
         table.insert(frames, frame)
 
-        -- Привязка действия "использовать предмет"
-        if data.type == "stone" and data.id then
-            local item = Item:CreateFromItemID(data.id)
-            item:ContinueOnItemLoad(function()
-                local name = item:GetItemName()
-                frame:SetAttribute("type", "item")
-                frame:SetAttribute("item", name)
-            end)
-        end
+        local hearthstoneButton = CreateFrame("Button", nil, frame, "SecureActionButtonTemplate")
+        frame.SecureActionButton = hearthstoneButton
 
-        setIcon(frame, data)
+        hearthstoneButton:SetSize(64, 64)
+        hearthstoneButton:SetPoint("CENTER", 0, 0)
+        hearthstoneButton:RegisterForClicks("AnyDown")
 
-        if not frame.text then
-            frame.text = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-            frame.text:SetPoint("LEFT", frame.icon, "RIGHT", 10, 0)
-            frame.text:SetPoint("RIGHT", -10, 0)
-            frame.text:SetJustifyH("LEFT")
-        end
+        hearthstoneButton:SetAttribute("type1", "item")
+        hearthstoneButton:SetAttribute("item1", data.name)
 
-        frame.text:SetFont("Fonts\\FRIZQT___CYR.TTF", 20, "OUTLINE")
-        frame.text:SetText(data.name or "???")
-        frame.text:SetTextColor(1, 0.976, 0.855)
+        local texture = hearthstoneButton:CreateTexture(nil, "BACKGROUND")
+        texture:SetAllPoints(hearthstoneButton)
+        texture:SetTexture(data.texture)
 
+        -- Тень (фон)
         if not frame.bg then
             frame.bg = frame:CreateTexture(nil, "BACKGROUND")
             frame.bg:SetAllPoints()
@@ -117,29 +125,27 @@ local function CreateFastTravelScrollBox()
 
         function frame:SetFocused(isFocused)
             if isFocused then
-                frame.text:SetTextColor(1, 0.768, 0.071)
                 frame.bg:Show()
             else
-                frame.text:SetTextColor(1, 0.976, 0.855)
                 frame.bg:Hide()
             end
         end
 
-        frame:SetAttribute("type", "item")
-        frame:SetAttribute("item", data.name)
-
+        -- Сохраняем данные, чтобы потом получить их через frame:GetData()
+        frame.data = data
+        function frame:GetData()
+            return self.data
+        end
     end
 
-    -- Используем кнопки как элементы
     ScrollView:SetElementExtent(48)
-    ScrollView:SetElementInitializer("Button", Initializer, "InsecureActionButtonTemplate,SecureActionButtonTemplate")
+    ScrollView:SetElementInitializer("Button", Initializer, "SecureActionButtonTemplate")
 
     DataProvider:Flush()
     frames = {}
 
     local itemInfo = 6948
     local itemName, _, _, _, _, _, _, _, _, itemTexture = C_Item.GetItemInfo(itemInfo)
-
     DataProvider:Insert({
         id = itemInfo,
         type = "stone",
@@ -150,63 +156,74 @@ local function CreateFastTravelScrollBox()
     DataProvider:Insert({
         type = "stone",
         name = "stone1",
+        texture = "Interface\\Icons\\INV_Misc_Rune_01",
     })
 
     DataProvider:Insert({
         type = "stone",
         name = "stone2",
-    })
-
-    DataProvider:Insert({
-        type = "stone",
-        name = "stone3",
+        texture = "Interface\\Icons\\INV_Misc_Rune_01",
     })
 
     UpdateScrollBarVisibility()
 
-    -- Изначально скрываем GossipScrollBox
     FastTravelScrollBox:Hide()
-
     return FastTravelScrollBox, UpdateFocus
 end
 
+-- Функция переключения фокуса
 local function MoveFocus(delta)
     local newIndex = math.max(1, math.min(focusedIndex + delta, #frames))
     updateFocus(newIndex)
 end
 
-local function toggleController(updateFocus)
-    local controllerHandler = CreateFrame("Frame", "ControllerHandlerFrame", parentFrame)
-
-    parentFrame:HookScript("OnShow", function()
-        
-        controllerHandler:EnableGamePadButton(true)
-        controllerHandler:SetScript("OnGamePadButtonDown", function(_, button)
-            if button == "PADDUP" then
-                MoveFocus(-1)
-            elseif button == "PADDDOWN" then
-                MoveFocus(1)
-            elseif button == "PAD1" then
-                if frames[focusedIndex] then
-                    frames[focusedIndex]:Click()
-                end
-            elseif button == "PAD2" then
-                FastTravelScroll:Hide()
-            end
-        end)
-    end)
-
-    parentFrame:HookScript("OnHide", function()
-        controllerHandler:EnableGamePadButton(false)
-        controllerHandler:SetScript("OnGamePadButtonDown", nil)
-    end)
-end
-
 function ConsoleMenu:SetFastTravelFrame()
     parentFrame, updateFocus = CreateFastTravelScrollBox()
-    toggleController(updateFocus)
+
+    -- Создаём «невидимые» кнопки для перемещения фокуса и скрытия окна:
+    local focusUpButton = CreateFrame("Button", "FocusUpButton", parentFrame)
+    focusUpButton:SetSize(1,1)  -- крошечная, невидимая
+    focusUpButton:SetPoint("TOPLEFT", parentFrame, "TOPLEFT")
+    focusUpButton:SetScript("OnClick", function()
+        MoveFocus(-1)
+    end)
+
+    local focusDownButton = CreateFrame("Button", "FocusDownButton", parentFrame)
+    focusDownButton:SetSize(1,1)
+    focusDownButton:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 0, 20)
+    focusDownButton:SetScript("OnClick", function()
+        MoveFocus(1)
+    end)
+
+    local hideButton = CreateFrame("Button", "FastTravelHideButton", parentFrame)
+    hideButton:SetSize(1,1)
+    hideButton:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 0, 40)
+    hideButton:SetScript("OnClick", function()
+        parentFrame:Hide()
+    end)
+
+    -- Вешаем бинды, когда окно показывается:
+    parentFrame:HookScript("OnShow", function()
+        -- Привязываем PADDUP к клику по FocusUpButton
+        SetOverrideBindingClick(parentFrame, true, "PADDUP", "FocusUpButton", "LeftButton")
+        -- Привязываем PADDDOWN к клику по FocusDownButton
+        SetOverrideBindingClick(parentFrame, true, "PADDDOWN", "FocusDownButton", "LeftButton")
+        -- Привязываем PAD2 к клику по FastTravelHideButton (чтобы закрывать окно)
+        SetOverrideBindingClick(parentFrame, true, "PAD2", "FastTravelHideButton", "LeftButton")
+
+        -- Устанавливаем фокус на первый элемент (по желанию)
+        if updateFocus then
+            updateFocus(1)
+        end
+    end)
+
+    -- Очищаем бинды, когда окно скрывается:
+    parentFrame:HookScript("OnHide", function()
+        ClearOverrideBindings(parentFrame)
+    end)
 end
 
+-- Слеш-команда
 SLASH_FASTTRAVEL1 = "/fasttravel"
 SlashCmdList["FASTTRAVEL"] = function()
     if parentFrame and parentFrame:IsShown() then
@@ -220,9 +237,5 @@ SlashCmdList["FASTTRAVEL"] = function()
 
     if parentFrame then
         parentFrame:Show()
-    end
-
-    if updateFocus then
-        updateFocus(1)
     end
 end
