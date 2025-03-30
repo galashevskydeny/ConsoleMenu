@@ -1,7 +1,51 @@
 local ConsoleMenu = LibStub("AceAddon-3.0"):GetAddon("ConsoleMenu")
 local parentFrame
+local setItemList
 local frames = {}
 local focusedIndex = 1
+
+local mageTeleports = {
+    -- War Within
+    446540,
+
+    -- Dragonflight
+    395277, -- Teleport: Valdrakken
+
+    -- Shadowlands
+    344587, -- Teleport: Oribos
+
+    -- Battle for Azeroth
+    281403, -- Teleport: Boralus (Alliance)
+    281404, -- Teleport: Dazar'alor (Horde)
+
+    -- Legion
+    224869, -- Teleport: Dalaran (Broken Isles)
+
+    -- Warlords of Draenor
+    176248, -- Teleport: Stormshield (Alliance)
+    176242, -- Teleport: Warspear (Horde)
+
+    -- Mists of Pandaria
+    132621, -- Teleport: Vale of Eternal Blossoms (Alliance, Shrine of Seven Stars)
+    132627, -- Teleport: Vale of Eternal Blossoms (Horde, Shrine of Two Moons)
+
+    -- Классические города
+    3561,   -- Teleport: Stormwind
+    3567,   -- Teleport: Orgrimmar
+    3562,   -- Teleport: Ironforge
+    3563,   -- Teleport: Undercity
+    3565,   -- Teleport: Darnassus
+    3566,   -- Teleport: Thunder Bluff
+    
+    -- Прочие старые телепорты
+    49359,  -- Teleport: Stonard (Horde)
+    49358,  -- Teleport: Theramore (Alliance)
+    33690,  -- Teleport: Silvermoon
+    35715,  -- Teleport: Shattrath (Outland)
+    53140,  -- Teleport: Dalaran (Northrend)
+    88342,  -- Teleport: Tol Barad (Alliance)
+    88344,  -- Teleport: Tol Barad (Horde)
+}
 
 -- Установка иконки пункту списка
 local function setIcon(frame, data)
@@ -90,11 +134,12 @@ local function CreateFastTravelScrollBox()
             -- соответствующий текущему элементу (через SetOverrideBindingItem)
             local item = frames[focusedIndex]:GetData()
             if item.type == "item" then
+                local bindString = "item:" .. item.id
                 SetOverrideBindingItem(
                     FastTravelScrollBox, -- владелец бинда
                     true, 
                     "PAD1", 
-                    item.name
+                    bindString
                 )
             elseif item.type == "spell" then
                 SetOverrideBindingSpell(
@@ -171,93 +216,48 @@ local function CreateFastTravelScrollBox()
         end
     end
 
+    -- 
+    local function SetItemList()
+        DataProvider:Flush()
+        frames = {}
+    
+        local itemInfo = 6948
+        local itemName, _, _, _, _, _, _, _, _, itemTexture = C_Item.GetItemInfo(itemInfo)
+        DataProvider:Insert({
+            id = itemInfo,
+            type = "item",
+            name = itemName,
+            texture = itemTexture,
+        })
+    
+        -- Проверяем, что игрок - маг
+        local className, classFile = UnitClass("player")
+        if classFile == "MAGE" then
+    
+            for _, spellID in ipairs(mageTeleports) do
+                if IsSpellKnown(spellID) then
+                    -- Получаем инфо о заклинании
+                    local spellInfo = C_Spell.GetSpellInfo(spellID)
+    
+                    DataProvider:Insert({
+                        id = spellInfo.spellID,
+                        type = "spell",
+                        name = spellInfo.name,
+                        texture = spellInfo.iconID,
+                    })
+                end
+            end
+        end
+    
+    
+        UpdateScrollBarVisibility()
+    end
+
     ScrollView:SetElementExtent(48)
     ScrollView:SetElementInitializer("Button", Initializer, "SecureActionButtonTemplate")
 
-    DataProvider:Flush()
-    frames = {}
-
-    local itemInfo = 6948
-    local itemName, _, _, _, _, _, _, _, _, itemTexture = C_Item.GetItemInfo(itemInfo)
-    DataProvider:Insert({
-        id = itemInfo,
-        type = "item",
-        name = itemName,
-        texture = itemTexture,
-    })
-
-    -- Проверяем, что игрок - маг
-    local className, classFile = UnitClass("player")
-    if classFile == "MAGE" then
-        -- Список ID телепортов (Teleport / Portal). Можно дополнять нужными вам вариантами
-        -- Ниже для примера несколько основных заклинаний (Teleport: Stormwind, Ironforge, Orgrimmar и т.д.).
-        -- Для Порталов (Portal: XXX) используйте соответствующие ID.
-        local mageTeleports = {
-                    
-            -- War Within
-            446540,
-                    
-            -- Dragonflight
-            395277, -- Teleport: Valdrakken
-                    
-            -- Shadowlands
-            344587, -- Teleport: Oribos
-            
-            -- Battle for Azeroth
-            281403, -- Teleport: Boralus (Alliance)
-            281404, -- Teleport: Dazar'alor (Horde)
-
-            -- Legion
-            224869, -- Teleport: Dalaran (Broken Isles)
-
-            -- Warlords of Draenor
-            176248, -- Teleport: Stormshield (Alliance)
-            176242, -- Teleport: Warspear (Horde)
-
-            -- Mists of Pandaria
-            132621, -- Teleport: Vale of Eternal Blossoms (Alliance, Shrine of Seven Stars)
-            132627, -- Teleport: Vale of Eternal Blossoms (Horde, Shrine of Two Moons)
-
-            -- Классические города
-            3561,   -- Teleport: Stormwind
-            3567,   -- Teleport: Orgrimmar
-            3562,   -- Teleport: Ironforge
-            3563,   -- Teleport: Undercity
-            3565,   -- Teleport: Darnassus
-            3566,   -- Teleport: Thunder Bluff
-            
-            -- Прочие старые телепорты
-            49359,  -- Teleport: Stonard (Horde)
-            49358,  -- Teleport: Theramore (Alliance)
-            33690,  -- Teleport: Silvermoon
-            35715,  -- Teleport: Shattrath (Outland)
-            53140,  -- Teleport: Dalaran (Northrend)
-            88342,  -- Teleport: Tol Barad (Alliance)
-            88344,  -- Teleport: Tol Barad (Horde)
-    
-        }
-        
-
-        for _, spellID in ipairs(mageTeleports) do
-            if IsSpellKnown(spellID) then
-                -- Получаем инфо о заклинании
-                local spellInfo = C_Spell.GetSpellInfo(spellID)
-
-                DataProvider:Insert({
-                    id = spellInfo.spellID,
-                    type = "spell",
-                    name = spellInfo.name,
-                    texture = spellInfo.iconID,
-                })
-            end
-        end
-    end
-
-
-    UpdateScrollBarVisibility()
-
     FastTravelScrollBox:Hide()
-    return FastTravelScrollBox, UpdateFocus
+    return FastTravelScrollBox, UpdateFocus, SetItemList
 end
 
 -- Функция переключения фокуса
@@ -267,7 +267,25 @@ local function MoveFocus(delta)
 end
 
 function ConsoleMenu:SetFastTravelFrame()
-    parentFrame, updateFocus = CreateFastTravelScrollBox()
+    -- Предзагрузка данных
+    local itemsToPreload = {
+        6948,    -- Hearthstone
+    }
+
+    for _, itemID in ipairs(itemsToPreload) do
+        -- Создаём объект Item
+        local itemObj = Item:CreateFromItemID(itemID)
+        -- Запрашиваем загрузку данных
+        itemObj:ContinueOnItemLoad(function()
+           
+        end)
+    end
+
+    for _, spellID in ipairs(mageTeleports) do
+        C_Spell.RequestLoadSpellData(spellID)
+    end
+
+    parentFrame, updateFocus, setItemList = CreateFastTravelScrollBox()
 
     -- Создаём «невидимые» кнопки для перемещения фокуса и скрытия окна:
     local focusUpButton = CreateFrame("Button", "FocusUpButton", parentFrame)
@@ -325,6 +343,7 @@ SlashCmdList["FASTTRAVEL"] = function()
     end
 
     if parentFrame then
+        setItemList()
         parentFrame:Show()
     end
 end
