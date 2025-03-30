@@ -1,3 +1,5 @@
+-- GossipFrame.lua
+
 local ConsoleMenu = LibStub("AceAddon-3.0"):GetAddon("ConsoleMenu")
 local parentFrame
 local frames = {} -- Хранение всех созданных элементов

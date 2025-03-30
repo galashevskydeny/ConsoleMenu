@@ -1,3 +1,5 @@
+-- FastTravelFrame.lua
+
 local ConsoleMenu = LibStub("AceAddon-3.0"):GetAddon("ConsoleMenu")
 local parentFrame
 local setItemList
@@ -136,15 +138,15 @@ local function CreateFastTravelScrollBox()
             if item.type == "item" then
                 local bindString = "item:" .. item.id
                 SetOverrideBindingItem(
-                    FastTravelScrollBox, -- владелец бинда
-                    true, 
+                    parentFrame, -- владелец бинда
+                    false, 
                     "PAD1", 
                     bindString
                 )
             elseif item.type == "spell" then
                 SetOverrideBindingSpell(
-                    FastTravelScrollBox, -- владелец бинда
-                    true, 
+                    parentFrame, -- владелец бинда
+                    false, 
                     "PAD1", 
                     item.name
                 )
@@ -312,11 +314,11 @@ function ConsoleMenu:SetFastTravelFrame()
     -- Вешаем бинды, когда окно показывается:
     parentFrame:HookScript("OnShow", function()
         -- Привязываем PADDUP к клику по FocusUpButton
-        SetOverrideBindingClick(parentFrame, true, "PADDUP", "FocusUpButton", "LeftButton")
+        SetOverrideBindingClick(focusUpButton, false, "PADDUP", "FocusUpButton", "LeftButton")
         -- Привязываем PADDDOWN к клику по FocusDownButton
-        SetOverrideBindingClick(parentFrame, true, "PADDDOWN", "FocusDownButton", "LeftButton")
+        SetOverrideBindingClick(focusDownButton, false, "PADDDOWN", "FocusDownButton", "LeftButton")
         -- Привязываем PAD2 к клику по FastTravelHideButton (чтобы закрывать окно)
-        SetOverrideBindingClick(parentFrame, true, "PAD2", "FastTravelHideButton", "LeftButton")
+        SetOverrideBindingClick(hideButton, false, "PAD2", "FastTravelHideButton", "LeftButton")
 
         -- Устанавливаем фокус на первый элемент (по желанию)
         if updateFocus then
@@ -326,8 +328,14 @@ function ConsoleMenu:SetFastTravelFrame()
 
     -- Очищаем бинды, когда окно скрывается:
     parentFrame:HookScript("OnHide", function()
+        print("FastTravelScroll OnHide called", InCombatLockdown())
         ClearOverrideBindings(parentFrame)
+        ClearOverrideBindings(focusUpButton)
+        ClearOverrideBindings(focusDownButton)
+        ClearOverrideBindings(hideButton)
+        print("Tried clearing override bindings.")
     end)
+    
 end
 
 -- Слеш-команда
