@@ -2,6 +2,7 @@
 
 local ConsoleMenu = LibStub("AceAddon-3.0"):GetAddon("ConsoleMenu")
 local parentFrame
+local updateFocus
 local setItemList
 local frames = {}
 local focusedIndex = 1
