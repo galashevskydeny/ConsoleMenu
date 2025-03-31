@@ -90,6 +90,17 @@ local function CreateFastTravelScrollBox()
     FastTravelScrollBox:SetSize(480, 48 * 4)
     FastTravelScrollBox:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 48, 48)
 
+    -- Скрытие при начале боя или начале произнесения заклинания
+    FastTravelScrollBox:RegisterEvent("PLAYER_REGEN_DISABLED") -- Начало боя
+    FastTravelScrollBox:RegisterUnitEvent("UNIT_SPELLCAST_START", "player") -- Игрок начал каст
+
+    FastTravelScrollBox:SetScript("OnEvent", function(_, event)
+        if FastTravelScrollBox:IsShown() then
+            print("FastTravel скрыт из-за события:", event)
+            FastTravelScrollBox:Hide()
+        end
+    end)
+
     local ScrollBox = CreateFrame("Frame", "FastTravelScrollBox", FastTravelScrollBox, "WowScrollBoxList")
     FastTravelScrollBox.ScrollBox = ScrollBox
     ScrollBox:SetPoint("TOPLEFT", FastTravelScrollBox, "TOPLEFT", 0, 0)
@@ -107,6 +118,7 @@ local function CreateFastTravelScrollBox()
 
     ScrollUtil.InitScrollBoxListWithScrollBar(ScrollBox, ScrollBar, ScrollView)
 
+    -- Обновление видимости скролл бара
     local function UpdateScrollBarVisibility()
         local totalHeight = ScrollView:GetElementExtent() * DataProvider:GetSize() - 1
         if totalHeight <= FastTravelScrollBox:GetHeight() then
@@ -219,7 +231,7 @@ local function CreateFastTravelScrollBox()
         end
     end
 
-    -- 
+    -- Наполнение списка элементами
     local function SetItemList()
         DataProvider:Flush()
         frames = {}
@@ -260,6 +272,7 @@ local function CreateFastTravelScrollBox()
     ScrollView:SetElementInitializer("Button", Initializer, "SecureActionButtonTemplate")
 
     FastTravelScrollBox:Hide()
+
     return FastTravelScrollBox, UpdateFocus, SetItemList
 end
 
