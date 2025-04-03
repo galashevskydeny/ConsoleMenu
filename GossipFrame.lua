@@ -248,7 +248,7 @@ local function setIcon(frame, data)
     elseif data.type == "completeQuestInStoryline" then
         SetQuestInProgressIcon()
     elseif data.type == "completeQuestWithReward" then
-        print(data.texture)
+        --print(data.texture)
         frame.icon.texture:SetAllPoints()
         frame.icon.texture:SetTexture(data.texture)
         ApplyMaskToTexture(frame.icon.texture)
@@ -388,37 +388,6 @@ local function CreateGossipScrollBox()
             -- Смещаем скролл до текущего элемента
             parentFrame.ScrollBox:ScrollToElementDataIndex(newIndex)
         end
-    end
-
-    -- DEPRECATED: Отобразить меню цепочки цвестов
-    local function GetLineQuestGossip(questLineID)
-        -- Очищаем DataProvider и хранимые данные
-        DataProvider:Flush()
-        frames = {}
-
-        for _, quest in ipairs(questsInQuestLine) do
-            if quest.questLineID == questLineID then
-                DataProvider:Insert({
-                    type = "gossipQuestInQuestLine",
-                    name = quest.questName,
-                    isQuestStart = quest.isQuestStart,
-                    inProgress = quest.inProgress,
-                    isComplete = quest.isComplete,
-                    questID = quest.questID,
-                    questLineStatus = GetQuestLineStatus(questLineID),
-                })
-            end
-        end
-
-        -- Добавить опцию возврата к Gossip
-        DataProvider:Insert({
-            type = "backToGossip",
-            name = BACK,
-        })
-
-        UpdateFocus(1) -- Устанавливаем фокус на первый элемент
-
-        UpdateScrollBarVisibility()
     end
 
     -- Обновить меню квеста
@@ -654,18 +623,56 @@ local function CreateGossipScrollBox()
             elseif numChoices > 1 then
                 -- Выбор награды
                 for i = 1, numChoices do
-                    local name, texture, count, quality, isUsable, itemID = GetQuestItemInfo("choice", i)
-                    DataProvider:Insert({
-                        type = "completeQuestWithReward",
-                        name = name,
-                        numChoices = numChoices,
-                        index = i,
-                        questID = questID,
-                        isComplete = true,
-                        inProgress = false,
-                        texture = texture,
-                    })
+                    local lootType = GetQuestItemInfoLootType("choice", i)
+                    if lootType == 0 then
+                        local itemLink = GetQuestItemLink("choice", i)
+                        if itemLink then
+                            local item = Item:CreateFromItemLink(itemLink)
+                            item:ContinueOnItemLoad(function()
+                                local name = item:GetItemName()
+                                local texture = item:GetItemIcon()
+                                DataProvider:Insert({
+                                    type = "completeQuestWithReward",
+                                    name = name,
+                                    numChoices = numChoices,
+                                    index = i,
+                                    questID = questID,
+                                    isComplete = true,
+                                    inProgress = false,
+                                    texture = texture,
+                                })
+                                UpdateScrollBarVisibility()
+                            end)
+                        end
+                
+                    elseif lootType == 1 then
+                        local currencyInfo = C_QuestLog.GetQuestRewardCurrencyInfo(questID, i, true) or C_QuestOffer.GetQuestRewardCurrencyInfo("choice", i);
+                        if currencyInfo then
+                            -- Преобразуем данные, если это контейнер валюты
+                            local name, texture, amount, quality = CurrencyContainerUtil.GetCurrencyContainerInfo(
+                                currencyInfo.currencyID,
+                                currencyInfo.totalRewardAmount,
+                                currencyInfo.name,
+                                currencyInfo.texture,
+                                currencyInfo.quality
+                            )
+                    
+                            -- Добавляем в DataProvider
+                            DataProvider:Insert({
+                                type = "completeQuestWithReward",
+                                name = name,
+                                numChoices = numChoices,
+                                index = i,
+                                questID = questID,
+                                isComplete = true,
+                                inProgress = false,
+                                texture = texture,
+                            })
+                        end
+                    end
+                    
                 end
+                
             else
                 -- Добавить опцию завершения квеста
                 DataProvider:Insert({

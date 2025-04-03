@@ -23,6 +23,7 @@ local mageTeleports = {
 
     -- Legion
     224869, -- Teleport: Dalaran (Broken Isles)
+    193759, -- Телепортация: Оплот Хранителя
 
     -- Warlords of Draenor
     176248, -- Teleport: Stormshield (Alliance)
