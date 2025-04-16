@@ -6,6 +6,7 @@ local updateFocus
 local setItemList
 local frames = {}
 local focusedIndex = 1
+local PAD1_COMMON_BINDING
 
 local mageTeleports = {
     -- War Within
@@ -149,6 +150,11 @@ local function CreateFastTravelScrollBox()
             -- Устанавливаем бинд: при нажатии PAD1 будет использоваться предмет, 
             -- соответствующий текущему элементу (через SetOverrideBindingItem)
             local item = frames[focusedIndex]:GetData()
+
+            if PAD1_COMMON_BINDING ~= nil then
+                SetBinding("PAD1", nil) -- обязательно сначала удалить постоянную привязку!
+            end
+
             if item.type == "item" then
                 local bindString = "item:" .. item.id
                 SetOverrideBindingItem(
@@ -323,17 +329,23 @@ function ConsoleMenu:SetFastTravelFrame()
     hideButton:SetSize(1,1)
     hideButton:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 0, 40)
     hideButton:SetScript("OnClick", function()
+        if PAD1_COMMON_BINDING ~= nil then
+            SetBinding("PAD1", PAD1_COMMON_BINDING)
+            SaveBindings(GetCurrentBindingSet())
+        end
         parentFrame:Hide()
     end)
 
     -- Вешаем бинды, когда окно показывается:
     parentFrame:HookScript("OnShow", function()
+        PAD1_COMMON_BINDING = GetBindingAction("PAD1")
+        
         -- Привязываем PADDUP к клику по FocusUpButton
-        SetOverrideBindingClick(focusUpButton, false, "PADDUP", "FocusUpButton", "LeftButton")
+        SetOverrideBindingClick(focusUpButton, true, "PADDUP", "FocusUpButton", "LeftButton")
         -- Привязываем PADDDOWN к клику по FocusDownButton
-        SetOverrideBindingClick(focusDownButton, false, "PADDDOWN", "FocusDownButton", "LeftButton")
+        SetOverrideBindingClick(focusDownButton, true, "PADDDOWN", "FocusDownButton", "LeftButton")
         -- Привязываем PAD2 к клику по FastTravelHideButton (чтобы закрывать окно)
-        SetOverrideBindingClick(hideButton, false, "PAD2", "FastTravelHideButton", "LeftButton")
+        SetOverrideBindingClick(hideButton, true, "PAD2", "FastTravelHideButton", "LeftButton")
 
         -- Устанавливаем фокус на первый элемент (по желанию)
         if updateFocus then
@@ -348,6 +360,10 @@ function ConsoleMenu:SetFastTravelFrame()
         ClearOverrideBindings(focusUpButton)
         ClearOverrideBindings(focusDownButton)
         ClearOverrideBindings(hideButton)
+        if PAD1_COMMON_BINDING ~= nil then
+            SetBinding("PAD1", PAD1_COMMON_BINDING)
+            SaveBindings(GetCurrentBindingSet())
+        end
         print("Tried clearing override bindings.")
     end)
     
