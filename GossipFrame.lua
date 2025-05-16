@@ -8,6 +8,7 @@ local focusedIndex = 1 -- Индекс текущего элемента в фо
 local questsInQuestLine = {}
 local questsWithoutQuestline = {}
 local previousGossip = false
+local softTargetEnemy
 
 -- Провкрка элемента на вхождение в массив
 local function isElementInTable(element, table)
@@ -268,6 +269,17 @@ local function CreateGossipScrollBox()
     local GossipScrollBox = CreateFrame("Frame", "GossipScroll", UIParent)
     GossipScrollBox:SetSize(640, 48*3)
     GossipScrollBox:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 96)
+
+    GossipScrollBox:HookScript("OnShow", function()
+        softTargetEnemy = GetCVar("SoftTargetEnemy")
+        SetCVar("SoftTargetEnemy", 0)
+    end)
+
+    GossipScrollBox:HookScript("OnHide", function()
+        if softTargetEnemy then
+            SetCVar("SoftTargetEnemy", softTargetEnemy)
+        end
+    end)
     
     -- Создаем ScrollBox
     local ScrollBox = CreateFrame("Frame", "GossipScrollBox", GossipScrollBox, "WowScrollBoxList")
@@ -479,7 +491,11 @@ local function CreateGossipScrollBox()
             elseif data.type == "progressQuest" then
                 CompleteQuest()
             elseif data.type == "completeQuest" or data.type == "completeQuestInStoryline" or data.type == "completeQuestWithReward" then
-                GetQuestReward(data.index)
+                if data.index then
+                    GetQuestReward(data.index)
+                else
+                    GetQuestReward(1)
+                end
             else
                 print("Unknown data type:", data.type)
             end
