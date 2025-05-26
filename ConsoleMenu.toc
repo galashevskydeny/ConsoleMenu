@@ -21,3 +21,5 @@ Blizzard_UIPanels_Game/WorldMapFrame.lua
 GossipFrame.lua
 FastTravelFrame.lua
 BindingSuggestions.lua
+CraftingOrders.lua
+AuctionHouse.lua

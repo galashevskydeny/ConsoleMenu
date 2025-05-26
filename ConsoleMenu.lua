@@ -22,6 +22,8 @@ function ConsoleMenu:OnInitialize()
     self:RegisterEvent("ACTIONBAR_SLOT_CHANGED", "UpdateActionInfo")
     self:RegisterEvent("UPDATE_BINDINGS", "UpdateActionInfo")
     self:RegisterEvent("PLAYER_ENTERING_WORLD", "UpdateActionInfo")
+    self:RegisterEvent("AUCTION_HOUSE_THROTTLED_SYSTEM_READY", "ConfirmPurchase")
+    self:RegisterEvent("CRAFTINGORDERS_CAN_REQUEST", "AddCartButton")
 
     self:SetCharacterFrame()
     self:SetPaperDollFrame()

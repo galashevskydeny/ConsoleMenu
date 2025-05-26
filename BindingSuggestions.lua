@@ -39,6 +39,8 @@ ConsoleMenu.Textures = {
     PAIRBUTTON   = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\pairButtonTexture.png",
     SHIFT        = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\SHIFT.png",
     CTRL         = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\CTRL.png",
+    SPACE         = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\SPACE.png",
+
 }
 
 for i = 65, 90 do -- ASCII коды A (65) до Z (90)
@@ -95,7 +97,7 @@ function ConsoleMenu:GetBindingCommandBySlotID(slotID)
         [1] = "ACTIONBUTTON%d",
         [6] = "MULTIACTIONBAR1BUTTON%d",
         [5] = "MULTIACTIONBAR2BUTTON%d",
-        [4] = "MULTIACTIONBAR3BUTTON%d",
+        [3] = "MULTIACTIONBAR3BUTTON%d",
         [4] = "MULTIACTIONBAR4BUTTON%d",
         [13] = "MULTIACTIONBAR5BUTTON%d",
         [14] = "MULTIACTIONBAR6BUTTON%d",
@@ -112,6 +114,14 @@ function ConsoleMenu:GetBindingCommandBySlotID(slotID)
     else
         -- fallback на default
         bindingFormat = "ACTIONBUTTON%d"
+    end
+
+    -- Поправки на работу ConsolePort с пагинацией страниц кластера
+    if ConsolePortPager then
+        local page = tonumber((SecureCmdOptionParse(ConsolePortPager:GetPageCondition())))
+        if page == barID then
+            bindingFormat = "ACTIONBUTTON%d"
+        end
     end
 
     return bindingFormat:format(buttonID)
@@ -152,7 +162,6 @@ function ConsoleMenu:UpdateSpellTexture(aura_env)
     local binding
 
     local spell = aura_env.state.spellName or aura_env.state.name
-    print(spell)
 
     if spell ~= nil and tonumber(spell) then
         binding = self:GetBinding("spell", spell)
@@ -160,8 +169,6 @@ function ConsoleMenu:UpdateSpellTexture(aura_env)
         spellInfo = C_Spell.GetSpellInfo(spell)
         binding = self:GetBinding("spell", spellInfo.spellID)
     end
-
-    print(binding)
 
     local width = 32
     local height = 32
@@ -316,6 +323,82 @@ function ConsoleMenu:UpdateMacroTexture(aura_env, macroName)
 
     if macroIndex then
         binding = self:GetBinding("macro", macroIndex)
+    end
+
+    local width = 32
+    local height = 32
+    
+    if binding ~= nil and binding:match("%-") then
+        width = 116
+        height = 56
+        
+        local newTexture = ConsoleMenu.Textures["PAIRBUTTON"]
+
+        if aura_env.region.texture and aura_env.region.bar == nil then
+            aura_env.region.texture:SetTexture(newTexture)
+        end
+        
+        aura_env.region.subRegions[4]:SetVisible(true)
+        
+        local key1, key2 = string.match(binding, "([^%-]+)%-(.+)")
+        
+        if key1 == "SHIFT" then
+            key1 = GetCVar("GamePadEmulateShift")
+        elseif key1 == "CTRL" then
+            key1 = GetCVar("GamePadEmulateCtrl")
+        elseif key1 == "ALT" then
+            key1 = GetCVar("GamePadEmulateAlt")
+        end
+        
+        local texture1 = ConsoleMenu.Textures[key1]
+        local texture2 = ConsoleMenu.Textures[key2]
+        
+        if texture1 and aura_env.region.subRegions[3] then
+            aura_env.region.subRegions[3].texture:SetTexture(texture1)
+            aura_env.region.subRegions[3]:SetVisible(true)
+        end
+        
+        if texture2 and aura_env.region.subRegions[5] then
+            aura_env.region.subRegions[5].texture:SetTexture(texture2)
+            aura_env.region.subRegions[5]:SetVisible(true)
+        end
+        
+    elseif binding ~= nil then
+        width = 32
+        height = 32
+
+        aura_env.region.subRegions[4]:SetVisible(false)
+        aura_env.region.subRegions[3]:SetVisible(false)
+        aura_env.region.subRegions[5]:SetVisible(false)
+
+        local newTexture = ConsoleMenu.Textures[binding]
+        
+        if newTexture and aura_env.region and aura_env.region.texture then
+            aura_env.region.texture:SetTexture(newTexture)
+        end
+    end
+
+    aura_env.region.width = width
+    aura_env.region.height = height
+
+    if aura_env.region.relativeTo then
+        aura_env.region.relativeTo.regionData.data.width = width
+        aura_env.region.relativeTo.regionData.data.height = height
+    end
+end
+
+-- Функция обновления ауры (тип текстура) с командой привязки клавиш    
+function ConsoleMenu:UpdateCommandTexture(aura_env, command)
+    local binding
+
+    if command then
+        local keys = { GetBindingKey(command) }
+
+        if #C_GamePad.GetAllDeviceIDs() > 1 then
+            table.sort(keys, function(a, b) return #(a or "") < #(b or "") end)
+        end
+
+        binding = keys[1]
     end
 
     local width = 32
