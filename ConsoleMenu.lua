@@ -11,6 +11,8 @@ function ConsoleMenu:OnInitialize()
     LibSharedMedia:Register ("statusbar", "healthbar", [[Interface\AddOns\ConsoleMenu\Assets\manabar.tga]])
     LibSharedMedia:Register ("statusbar", "healthbar2", [[Interface\AddOns\ConsoleMenu\Assets\healthPlate.tga]])
 
+    LibSharedMedia:Register ("statusbar", "EnemyHealthBar", [[Interface\AddOns\ConsoleMenu\Assets\EnemyHealthBar.png]])
+
     LibSharedMedia:Register ("statusbar", "HealthBar", [[Interface\AddOns\ConsoleMenu\Assets\HealthBar.png]])
     LibSharedMedia:Register ("statusbar", "ManaBar_Mage_Arcane", [[Interface\AddOns\ConsoleMenu\Assets\ManaBar_Mage_Arcane.png]])
 
@@ -22,8 +24,10 @@ function ConsoleMenu:OnInitialize()
     self:RegisterEvent("ACTIONBAR_SLOT_CHANGED", "UpdateActionInfo")
     self:RegisterEvent("UPDATE_BINDINGS", "UpdateActionInfo")
     self:RegisterEvent("PLAYER_ENTERING_WORLD", "UpdateActionInfo")
+    self:RegisterEvent("GAME_PAD_ACTIVE_CHANGED", "UpdateActionInfo")
+
     self:RegisterEvent("AUCTION_HOUSE_THROTTLED_SYSTEM_READY", "ConfirmPurchase")
-    self:RegisterEvent("CRAFTINGORDERS_CAN_REQUEST", "AddCartButton")
+    self:RegisterEvent("CRAFTINGORDERS_SHOW_CUSTOMER", "SetProfessionsCustomerOrdersFrame")
 
     self:SetCharacterFrame()
     self:SetPaperDollFrame()

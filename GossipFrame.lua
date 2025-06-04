@@ -534,7 +534,6 @@ local function CreateGossipScrollBox()
 
 
     EventFrame:SetScript("OnEvent", function(self, event)
-        print(event)
         if event == "GOSSIP_SHOW" then
             
             GetGossip()
