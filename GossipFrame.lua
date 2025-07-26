@@ -224,6 +224,11 @@ local function setIcon(frame, data)
             frame.icon.texture:SetPoint("TOPLEFT", frame.icon, "TOPLEFT", 0, 4)
             frame.icon.texture:SetPoint("BOTTOMRIGHT", frame.icon, "BOTTOMRIGHT", 0, 4)
             frame.icon.texture:SetAtlas("Crosshair_Taxi_128")
+        elseif data.icon == 132058 then
+            frame.icon.texture:Show()
+            frame.icon.texture:SetPoint("TOPLEFT", frame.icon, "TOPLEFT", 0, 2)
+            frame.icon.texture:SetPoint("BOTTOMRIGHT", frame.icon, "BOTTOMRIGHT", 0, 2)
+            frame.icon.texture:SetAtlas("Crosshair_trainer_128")
         else
             print("file: " .. data.icon)
         end
@@ -273,11 +278,23 @@ local function CreateGossipScrollBox()
     GossipScrollBox:HookScript("OnShow", function()
         softTargetEnemy = GetCVar("SoftTargetEnemy")
         SetCVar("SoftTargetEnemy", 0)
+
+        if WeakAuras then
+            WeakAuras.ScanEvents("CHANGE_CONTEXT", "window")
+            WeakAuras.ScanEvents("SHOW_GOSSIP_FRAME", true)
+        end
     end)
 
     GossipScrollBox:HookScript("OnHide", function()
         if softTargetEnemy then
             SetCVar("SoftTargetEnemy", softTargetEnemy)
+        end
+
+        if WeakAuras then
+            WAGlobal = WAGlobal or {}  -- Создаем таблицу, если её ещё нет
+            local previousContext = WAGlobal.previousContext or "exploring"
+            WeakAuras.ScanEvents("CHANGE_CONTEXT", previousContext)
+            WeakAuras.ScanEvents("SHOW_GOSSIP_FRAME", false)
         end
     end)
     
@@ -531,6 +548,7 @@ local function CreateGossipScrollBox()
     EventFrame:RegisterEvent("QUEST_TURNED_IN")
     EventFrame:RegisterEvent("QUEST_ACCEPTED")
     EventFrame:RegisterEvent("QUESTLINE_UPDATE")
+    EventFrame:RegisterEvent("GOSSIP_CONFIRM")
 
 
     EventFrame:SetScript("OnEvent", function(self, event)
@@ -713,7 +731,7 @@ local function CreateGossipScrollBox()
         elseif event == "GOSSIP_CLOSED" then
             previousGossip = true
             GossipScrollBox:Hide()
-        elseif event == "QUEST_FINISHED" then
+        elseif event == "QUEST_FINISHED" or event == "GOSSIP_CONFIRM" then
             GossipScrollBox:Hide()
         elseif event == "QUEST_ACCEPTED" or event == "QUEST_TURNED_IN" then
             previousGossip = false
@@ -753,6 +771,7 @@ local function toggleController(updateFocus)
                 end
             elseif button == "PAD2" then
                 C_GossipInfo.CloseGossip()
+                CloseQuest()
             end
         end)
     end)

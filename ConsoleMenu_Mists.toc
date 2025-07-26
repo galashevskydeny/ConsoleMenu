@@ -1,0 +1,25 @@
+## Interface: 50500
+## Title: ConsoleMenu
+## Notes: Добавляет консольное меню в игру.
+## Author: Ден Галашевский
+## Version: 1.0
+## SavedVariables: ConsoleMenuDB
+## Dependencies: Ace3
+
+ConsoleMenu.lua
+Blizzard_UIPanels_Game/CharacterFrame.lua
+Blizzard_UIPanels_Game/PaperDollFrame.lua
+Blizzard_UIPanels_Game/ReputationFrame.lua
+Blizzard_UIPanels_Game/TokenFrame.lua
+Blizzard_UIPanels_Game/MailFrame.lua
+Blizzard_UIPanels_Game/OpenMailFrame.lua
+Blizzard_UIPanels_Game/MerchantFrame.lua
+Blizzard_UIPanels_Game/QuestFrame.lua
+Blizzard_UIPanels_Game/GossipFrame.lua
+Blizzard_UIPanels_Game/PVEFrame.lua
+Blizzard_UIPanels_Game/WorldMapFrame.lua
+GossipFrame.lua
+FastTravelFrame.lua
+BindingSuggestions.lua
+CraftingOrders.lua
+AuctionHouse.lua

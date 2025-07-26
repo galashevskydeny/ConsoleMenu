@@ -14,10 +14,15 @@ function ConsoleMenu:OnInitialize()
     LibSharedMedia:Register ("statusbar", "EnemyHealthBar", [[Interface\AddOns\ConsoleMenu\Assets\EnemyHealthBar.png]])
 
     LibSharedMedia:Register ("statusbar", "HealthBar", [[Interface\AddOns\ConsoleMenu\Assets\HealthBar.png]])
+    LibSharedMedia:Register ("statusbar", "BossHealthBar", [[Interface\AddOns\ConsoleMenu\Assets\BossHealthBar.png]])
+
     LibSharedMedia:Register ("statusbar", "ManaBar_Mage_Arcane", [[Interface\AddOns\ConsoleMenu\Assets\ManaBar_Mage_Arcane.png]])
+    LibSharedMedia:Register ("statusbar", "EnergyBar_Rogue_", [[Interface\AddOns\ConsoleMenu\Assets\EnergyBar_Rogue_.png]])
+
 
     LibSharedMedia:Register ("statusbar", "GroupIcon2", [[Interface\AddOns\ConsoleMenu\Assets\GroupIcon2.png]])
     LibSharedMedia:Register ("statusbar", "GroupIcon3", [[Interface\AddOns\ConsoleMenu\Assets\GroupIcon3.png]])
+    LibSharedMedia:Register ("statusbar", "GroupIcon3Line", [[Interface\AddOns\ConsoleMenu\Assets\GroupIcon3Line.png]])
     LibSharedMedia:Register ("statusbar", "DpsCounter", [[Interface\AddOns\ConsoleMenu\Assets\DpsCounter.png]])
     LibSharedMedia:Register ("statusbar", "Power_Item", [[Interface\AddOns\ConsoleMenu\Assets\Power_Item.png]])
 
@@ -25,7 +30,7 @@ function ConsoleMenu:OnInitialize()
     self:RegisterEvent("UPDATE_BINDINGS", "UpdateActionInfo")
     self:RegisterEvent("PLAYER_ENTERING_WORLD", "UpdateActionInfo")
     self:RegisterEvent("GAME_PAD_ACTIVE_CHANGED", "UpdateActionInfo")
-
+    self:RegisterEvent("ACTIONBAR_PAGE_CHANGED", "UpdateActionInfo")
     self:RegisterEvent("AUCTION_HOUSE_THROTTLED_SYSTEM_READY", "ConfirmPurchase")
     self:RegisterEvent("CRAFTINGORDERS_SHOW_CUSTOMER", "SetProfessionsCustomerOrdersFrame")
 
@@ -38,7 +43,7 @@ function ConsoleMenu:OnInitialize()
     self:SetOpenMailFrame()
     self:SetQuestFrame()
     self:SetGossipFrame()
-    self:SetPVEFrame()
+    --self:SetPVEFrame()
     --self:SetWorldMapFrame()
     
     self:SetCustomGossipFrame()

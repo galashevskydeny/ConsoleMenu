@@ -98,7 +98,6 @@ local function CreateFastTravelScrollBox()
 
     FastTravelScrollBox:SetScript("OnEvent", function(_, event)
         if FastTravelScrollBox:IsShown() then
-            print("FastTravel скрыт из-за события:", event)
             FastTravelScrollBox:Hide()
         end
     end)
@@ -351,11 +350,16 @@ function ConsoleMenu:SetFastTravelFrame()
         if updateFocus then
             updateFocus(1)
         end
+
+        if WeakAuras then
+            WeakAuras.ScanEvents("CHANGE_CONTEXT", "window")
+            WeakAuras.ScanEvents("SHOW_FAST_TRAVEL_FRAME", true)
+        end
     end)
 
     -- Очищаем бинды, когда окно скрывается:
     parentFrame:HookScript("OnHide", function()
-        print("FastTravelScroll OnHide called", InCombatLockdown())
+
         ClearOverrideBindings(parentFrame)
         ClearOverrideBindings(focusUpButton)
         ClearOverrideBindings(focusDownButton)
@@ -364,7 +368,13 @@ function ConsoleMenu:SetFastTravelFrame()
             SetBinding("PAD1", PAD1_COMMON_BINDING)
             SaveBindings(GetCurrentBindingSet())
         end
-        print("Tried clearing override bindings.")
+
+        if WeakAuras then
+            WAGlobal = WAGlobal or {}  -- Создаем таблицу, если её ещё нет
+            local previousContext = WAGlobal.previousContext or "exploring"
+            WeakAuras.ScanEvents("CHANGE_CONTEXT", previousContext)
+            WeakAuras.ScanEvents("SHOW_FAST_TRAVEL_FRAME", false)
+        end
     end)
     
 end

@@ -39,8 +39,8 @@ ConsoleMenu.Textures = {
     PAIRBUTTON   = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\pairButtonTexture.png",
     SHIFT        = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\SHIFT.png",
     CTRL         = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\CTRL.png",
-    SPACE         = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\SPACE.png",
-
+    SPACE        = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\SPACE.png",
+    EMPTY        = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\plain.png"
 }
 
 for i = 65, 90 do -- ASCII коды A (65) до Z (90)
@@ -51,6 +51,8 @@ end
 for i = 48, 57 do -- ASCII коды 0 (48) до 9 (57)
     local digit = string.char(i)
     ConsoleMenu.Textures[digit] = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\" .. digit .. ".png"
+    ConsoleMenu.Textures["NUMPAD" .. digit] = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\" .. digit .. ".png"
+
 end
 
 --
@@ -61,11 +63,13 @@ function ConsoleMenu:UpdateActionInfo()
         local actionType, id = GetActionInfo(slot)
         
         if actionType and id then
-            ConsoleMenu.ActionInfo[actionType.. "_" .. id] = {
-                actionType = actionType,
-                id = id,
-                slot = slot,
-            }
+            if not ConsoleMenu.ActionInfo[actionType.. "_" .. id] then
+                ConsoleMenu.ActionInfo[actionType.. "_" .. id] = {
+                    actionType = actionType,
+                    id = id,
+                    slot = slot,
+                }
+            end
         end
 
     end
@@ -116,19 +120,10 @@ function ConsoleMenu:GetBindingCommandBySlotID(slotID)
         bindingFormat = "ACTIONBUTTON%d"
     end
 
-    -- Поправки на работу ConsolePort с пагинацией страниц кластера
-    if ConsolePortPager then
-        
-        local condition = ConsolePortPager:GetPageCondition()
-        local numbers = {}
+    local toggles = { GetActionBarToggles() }
 
-        for num in string.gmatch(condition, "%d+") do
-            numbers[tonumber(num)] = true
-        end
-
-        if numbers[barID] then
-            bindingFormat = "ACTIONBUTTON%d"
-        end
+    if not toggles[barId] and barID == GetActionBarPage() then
+        bindingFormat = "ACTIONBUTTON%d"
     end
 
     return bindingFormat:format(buttonID)
@@ -201,12 +196,14 @@ function ConsoleMenu:SetStyle(aura_env, binding)
         
         local key1, key2 = string.match(binding, "([^%-]+)%-(.+)")
         
-        if key1 == "SHIFT" then
-            key1 = GetCVar("GamePadEmulateShift")
-        elseif key1 == "CTRL" then
-            key1 = GetCVar("GamePadEmulateCtrl")
-        elseif key1 == "ALT" then
-            key1 = GetCVar("GamePadEmulateAlt")
+        if #C_GamePad.GetAllDeviceIDs() > 1 then
+            if key1 == "SHIFT" then
+                key1 = GetCVar("GamePadEmulateShift")
+            elseif key1 == "CTRL" then
+                key1 = GetCVar("GamePadEmulateCtrl")
+            elseif key1 == "ALT" then
+                key1 = GetCVar("GamePadEmulateAlt")
+            end
         end
         
         local texture1 = ConsoleMenu.Textures[key1]
@@ -235,7 +232,19 @@ function ConsoleMenu:SetStyle(aura_env, binding)
         if newTexture and aura_env.region and aura_env.region.texture then
             aura_env.region.texture:SetTexture(newTexture)
         end
+    else
+        width = 32
+        height = 32
 
+        local newTexture = ConsoleMenu.Textures["EMPTY"]
+
+        aura_env.region.subRegions[4]:SetVisible(false)
+        aura_env.region.subRegions[3]:SetVisible(false)
+        aura_env.region.subRegions[5]:SetVisible(false)
+
+        if newTexture and aura_env.region and aura_env.region.texture then
+            aura_env.region.texture:SetTexture(newTexture)
+        end
     end
 
     aura_env.region.width = width
@@ -243,19 +252,85 @@ function ConsoleMenu:SetStyle(aura_env, binding)
 
     aura_env.region:SetWidth(width)
     aura_env.region:SetHeight(height)
+    aura_env.region:SetXOffset(offset)
 
     if aura_env.region.relativeTo then
         aura_env.region.relativeTo.regionData.data.width = width
         aura_env.region.relativeTo.regionData.data.height = height + padding
-        aura_env.region.relativeTo.xOffset = offset
+    end
+end
+
+--
+function ConsoleMenu:SetProgressBarStyle(aura_env, binding)
+    local width = 116
+    local height = 56
+    local padding = 0
+    local offset = 0
+
+    local newTexture = ConsoleMenu.Textures["PAIRBUTTON"]
+
+    if aura_env.region.bar == nil then
+        aura_env.region.bar:SetStatusBarTexture(newTexture)
+    end
+    
+    if binding ~= nil and binding:match("%-") then
+        
+        aura_env.region.subRegions[5]:SetVisible(true)
+        
+        local key1, key2 = string.match(binding, "([^%-]+)%-(.+)")
+        
+        if #C_GamePad.GetAllDeviceIDs() > 1 then
+            if key1 == "SHIFT" then
+                key1 = GetCVar("GamePadEmulateShift")
+            elseif key1 == "CTRL" then
+                key1 = GetCVar("GamePadEmulateCtrl")
+            elseif key1 == "ALT" then
+                key1 = GetCVar("GamePadEmulateAlt")
+            end
+        end
+        
+        local texture1 = ConsoleMenu.Textures[key1]
+        local texture2 = ConsoleMenu.Textures[key2]
+        
+        if texture1 and aura_env.region.subRegions[4] then
+            aura_env.region.subRegions[4].texture:SetTexture(texture1)
+            aura_env.region.subRegions[4]:SetVisible(true)
+        end
+        
+        if texture2 and aura_env.region.subRegions[6] then
+            aura_env.region.subRegions[6].texture:SetTexture(texture2)
+            aura_env.region.subRegions[6]:SetVisible(true)
+        end
+        
+    elseif binding ~= nil then
+
+        aura_env.region.subRegions[5]:SetVisible(false)
+        aura_env.region.subRegions[4]:SetVisible(false)
+        aura_env.region:SetXOffset(offset)
+
+        local newTexture = ConsoleMenu.Textures[binding]
+
+        if newTexture and aura_env.region.subRegions[6] then
+            aura_env.region.subRegions[6].texture:SetTexture(newTexture)
+            aura_env.region.subRegions[6]:SetVisible(true)
+        end
+        
+    end
+
+    aura_env.region.width = width
+    aura_env.region.height = height
+
+    if aura_env.region.relativeTo then
+        aura_env.region.relativeTo.regionData.data.width = width
+        aura_env.region.relativeTo.regionData.data.height = height
     end
 end
 
 -- Функция обновления ауры (тип текстура) с заклинанием
-function ConsoleMenu:UpdateSpellTexture(aura_env)
+function ConsoleMenu:UpdateSpellTexture(aura_env, source)
     local binding
 
-    local spell = aura_env.state.spellName or aura_env.state.name
+    local spell = source or aura_env.state.spellName or aura_env.state.name
 
     if spell ~= nil and tonumber(spell) then
         binding = self:GetBinding("spell", spell)
@@ -279,7 +354,7 @@ function ConsoleMenu:UpdateSpellBarTexture(aura_env, spell)
         binding = self:GetBinding("spell", pellInfo.spellID)
     end
 
-    self:SetStyle(aura_env, binding)
+    self:SetProgressBarStyle(aura_env, binding)
 end
 
 -- Функция обновления ауры (тип текстура) с макросом    
@@ -311,3 +386,4 @@ function ConsoleMenu:UpdateCommandTexture(aura_env, command)
 
     self:SetStyle(aura_env, binding)
 end
+
