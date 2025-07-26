@@ -7,17 +7,15 @@ _G[addonName] = ConsoleMenu
 function ConsoleMenu:OnInitialize()
     local LibSharedMedia = LibStub:GetLibrary ("LibSharedMedia-3.0")
 
-
-    LibSharedMedia:Register ("statusbar", "healthbar", [[Interface\AddOns\ConsoleMenu\Assets\manabar.tga]])
-    LibSharedMedia:Register ("statusbar", "healthbar2", [[Interface\AddOns\ConsoleMenu\Assets\healthPlate.tga]])
-
     LibSharedMedia:Register ("statusbar", "EnemyHealthBar", [[Interface\AddOns\ConsoleMenu\Assets\EnemyHealthBar.png]])
 
     LibSharedMedia:Register ("statusbar", "HealthBar", [[Interface\AddOns\ConsoleMenu\Assets\HealthBar.png]])
     LibSharedMedia:Register ("statusbar", "BossHealthBar", [[Interface\AddOns\ConsoleMenu\Assets\BossHealthBar.png]])
 
-    LibSharedMedia:Register ("statusbar", "ManaBar_Mage_Arcane", [[Interface\AddOns\ConsoleMenu\Assets\ManaBar_Mage_Arcane.png]])
-    LibSharedMedia:Register ("statusbar", "EnergyBar_Rogue_", [[Interface\AddOns\ConsoleMenu\Assets\EnergyBar_Rogue_.png]])
+    LibSharedMedia:Register ("statusbar", "FourBar", [[Interface\AddOns\ConsoleMenu\Assets\FourBar.png]])
+    LibSharedMedia:Register ("statusbar", "FiveBar", [[Interface\AddOns\ConsoleMenu\Assets\FiveBar.png]])
+    LibSharedMedia:Register ("statusbar", "SixBar", [[Interface\AddOns\ConsoleMenu\Assets\SixBar.png]])
+    LibSharedMedia:Register ("statusbar", "SevenBar", [[Interface\AddOns\ConsoleMenu\Assets\SevenBar.png]])
 
 
     LibSharedMedia:Register ("statusbar", "GroupIcon2", [[Interface\AddOns\ConsoleMenu\Assets\GroupIcon2.png]])
