@@ -115,21 +115,8 @@ local function CreateFastTravelScrollBox()
 
     local DataProvider = CreateDataProvider()
     local ScrollView = CreateScrollBoxListLinearView()
-    ScrollView:SetDataProvider(DataProvider)
 
-    ScrollUtil.InitScrollBoxListWithScrollBar(ScrollBox, ScrollBar, ScrollView)
-
-    -- Обновление видимости скролл бара
-    local function UpdateScrollBarVisibility()
-        local totalHeight = ScrollView:GetElementExtent() * DataProvider:GetSize() - 1
-        if totalHeight <= FastTravelScrollBox:GetHeight() then
-            FastTravelScrollBar:Hide()
-        else
-            FastTravelScrollBar:Show()
-        end
-    end
-
-    -- Обновление фокуса
+        -- Обновление фокуса
     local function UpdateFocus(newIndex)
         -- Сброс фокуса для всех элементов
         for _, frame in ipairs(frames) do
@@ -170,6 +157,16 @@ local function CreateFastTravelScrollBox()
                     item.name
                 )
             end
+        end
+    end
+
+    -- Обновление видимости скролл бара
+    local function UpdateScrollBarVisibility()
+        local totalHeight = ScrollView:GetExtent() - 1
+        if totalHeight <= FastTravelScrollBox:GetHeight() then
+            FastTravelScrollBar:Hide()
+        else
+            FastTravelScrollBar:Show()
         end
     end
 
@@ -270,12 +267,14 @@ local function CreateFastTravelScrollBox()
             end
         end
     
-    
         UpdateScrollBarVisibility()
     end
 
     ScrollView:SetElementExtent(48)
     ScrollView:SetElementInitializer("Button", Initializer, "SecureActionButtonTemplate")
+
+    ScrollUtil.InitScrollBoxListWithScrollBar(ScrollBox, ScrollBar, ScrollView)
+    ScrollBox:SetDataProvider(DataProvider)
 
     FastTravelScrollBox:Hide()
 

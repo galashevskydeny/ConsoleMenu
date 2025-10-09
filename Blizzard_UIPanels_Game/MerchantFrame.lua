@@ -76,37 +76,37 @@ local function moveFrames()
         MerchantPageText:SetPoint("RIGHT", MerchantNextPageButton, "LEFT", 0, 0)
     end
 
-    MerchantRepairAllButton:HookScript("OnUpdate", function()
-        if MerchantRepairAllButton then
-            MerchantRepairAllButton:ClearAllPoints()
-            MerchantRepairAllButton:SetPoint("LEFT", parentFrame, "LEFT", offsetX, 0)
-            MerchantRepairAllButton:SetPoint("TOP", MerchantNextPageButton, "BOTTOM", 0, -offsetY/2)
-        end
-    end)
+    -- MerchantRepairAllButton:HookScript("OnUpdate", function()
+    --     if MerchantRepairAllButton then
+    --         MerchantRepairAllButton:ClearAllPoints()
+    --         MerchantRepairAllButton:SetPoint("LEFT", parentFrame, "LEFT", offsetX, 0)
+    --         MerchantRepairAllButton:SetPoint("TOP", MerchantNextPageButton, "BOTTOM", 0, -offsetY/2)
+    --     end
+    -- end)
 
-    MerchantRepairItemButton:HookScript("OnUpdate", function()
-        if MerchantRepairItemButton then
-            MerchantRepairItemButton:ClearAllPoints()
-            if MerchantRepairAllButton:IsShown() then
-                MerchantRepairItemButton:SetPoint("LEFT", MerchantRepairAllButton, "RIGHT", 8, 0)
-            else
-                MerchantRepairItemButton:SetPoint("LEFT", parentFrame, "LEFT", offsetX, 0)
-                MerchantRepairItemButton:SetPoint("TOP", MerchantNextPageButton, "BOTTOM", 0, -offsetY/2)
-            end
-        end
-    end)
+    -- MerchantRepairItemButton:HookScript("OnUpdate", function()
+    --     if MerchantRepairItemButton then
+    --         MerchantRepairItemButton:ClearAllPoints()
+    --         if MerchantRepairAllButton:IsShown() then
+    --             MerchantRepairItemButton:SetPoint("LEFT", MerchantRepairAllButton, "RIGHT", 8, 0)
+    --         else
+    --             MerchantRepairItemButton:SetPoint("LEFT", parentFrame, "LEFT", offsetX, 0)
+    --             MerchantRepairItemButton:SetPoint("TOP", MerchantNextPageButton, "BOTTOM", 0, -offsetY/2)
+    --         end
+    --     end
+    -- end)
 
-    MerchantSellAllJunkButton:HookScript("OnUpdate", function()
-        if MerchantSellAllJunkButton then
-            MerchantSellAllJunkButton:ClearAllPoints()
-            if MerchantRepairItemButton:IsShown() then
-                MerchantSellAllJunkButton:SetPoint("LEFT", MerchantRepairItemButton, "RIGHT", 8, 0)
-            else
-                MerchantSellAllJunkButton:SetPoint("LEFT", parentFrame, "LEFT", offsetX, 0)
-                MerchantSellAllJunkButton:SetPoint("TOP", MerchantNextPageButton, "BOTTOM", 0, -offsetY/2)
-            end
-        end
-    end)
+    -- MerchantSellAllJunkButton:HookScript("OnUpdate", function()
+    --     if MerchantSellAllJunkButton then
+    --         MerchantSellAllJunkButton:ClearAllPoints()
+    --         if MerchantRepairItemButton:IsShown() then
+    --             MerchantSellAllJunkButton:SetPoint("LEFT", MerchantRepairItemButton, "RIGHT", 8, 0)
+    --         else
+    --             MerchantSellAllJunkButton:SetPoint("LEFT", parentFrame, "LEFT", offsetX, 0)
+    --             MerchantSellAllJunkButton:SetPoint("TOP", MerchantNextPageButton, "BOTTOM", 0, -offsetY/2)
+    --         end
+    --     end
+    -- end)
 
     MerchantBuyBackItem:HookScript("OnUpdate", function()
         if MerchantBuyBackItem then

@@ -314,14 +314,10 @@ local function CreateGossipScrollBox()
     -- Создаем DataProvider и ScrollView
     local DataProvider = CreateDataProvider()
     local ScrollView = CreateScrollBoxListLinearView()
-    ScrollView:SetDataProvider(DataProvider)
 
-    -- Инициализируем ScrollBox с ScrollBar
-    ScrollUtil.InitScrollBoxListWithScrollBar(ScrollBox, ScrollBar, ScrollView)
-
-    -- Обновление отображения ScrollBar
+        -- Обновление отображения ScrollBar
     local function UpdateScrollBarVisibility()
-        local totalHeight = ScrollView:GetElementExtent() * DataProvider:GetSize() - 1
+        local totalHeight = ScrollView:GetExtent() - 1
         if totalHeight <= GossipScroll:GetHeight() then
             GossipScrollBar:Hide()
         else
@@ -535,6 +531,10 @@ local function CreateGossipScrollBox()
     -- Устанавливаем кастомный элемент как шаблон
     ScrollView:SetElementExtent(48)
     ScrollView:SetElementInitializer("Frame", Initializer)
+
+    -- Инициализируем ScrollBox с ScrollBar
+    ScrollUtil.InitScrollBoxListWithScrollBar(ScrollBox, ScrollBar, ScrollView)
+    ScrollView:SetDataProvider(DataProvider)
 
     -- Обработка событий GOSSIP_SHOW и GOSSIP_CLOSED
     local EventFrame = CreateFrame("Frame", nil, GossipScrollBox)

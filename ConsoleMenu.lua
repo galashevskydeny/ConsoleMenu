@@ -48,5 +48,6 @@ function ConsoleMenu:OnInitialize()
     self:SetFastTravelFrame()
 
     self:UpdateActionInfo()
+    self:HideBlizzardUI()
 
 end
