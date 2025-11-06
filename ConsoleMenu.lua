@@ -58,6 +58,30 @@ local function Initialize()
     ConsoleMenu:RegisterEvent("CRAFTINGORDERS_SHOW_CUSTOMER", "SetProfessionsCustomerOrdersFrame")
     ConsoleMenu:RegisterEvent("TALKINGHEAD_REQUESTED", "HideTalkingHeadFrame")
     ConsoleMenu:RegisterEvent("QUEST_LOG_UPDATE", "HideObjectiveTrackerTopBannerFrame")
+    -- Включаем боевые настройки soft target при начале боя
+    ConsoleMenu:RegisterEvent("PLAYER_REGEN_DISABLED", function()
+        if type(SetCombatSoftTargetSettings) == "function" then
+            SetCombatSoftTargetSettings()
+        end
+    end)
+    -- Возвращаем базовые настройки soft target при выходе из боя
+    ConsoleMenu:RegisterEvent("PLAYER_REGEN_ENABLED", function()
+        if type(SetBaseSoftTargetSettings) == "function" then
+            SetBaseSoftTargetSettings()
+        end
+    end)
+    -- Обновляем настройки soft target при посадке/снятии с маунта
+    ConsoleMenu:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED", function()
+        if type(SetBaseSoftTargetSettings) == "function" then
+            SetBaseSoftTargetSettings()
+        end
+    end)
+    -- Обновляем soft target в святилищах при смене зоны
+    ConsoleMenu:RegisterEvent("ZONE_CHANGED_NEW_AREA", function()
+        if type(SetSanctuarySoftTargetSettings) == "function" then
+            SetSanctuarySoftTargetSettings()
+        end
+    end)
 
     -- Инициализация модулей
     ConsoleMenu:SetCharacterFrame()
@@ -77,6 +101,7 @@ local function Initialize()
 
     ConsoleMenu:UpdateActionInfo()
     ConsoleMenu:HideBlizzardUI()
+    ConsoleMenu:UpdateCVars()
 end
 
 -- Обработчик всех событий
