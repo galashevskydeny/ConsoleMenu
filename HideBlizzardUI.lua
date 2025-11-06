@@ -1,4 +1,4 @@
-local ConsoleMenu = LibStub("AceAddon-3.0"):GetAddon("ConsoleMenu")
+local ConsoleMenu = _G.ConsoleMenu
 
 -- Скрывает основную панель действий (MainMenuBar)
 local function HideActionBar()
@@ -161,10 +161,9 @@ local function HideUIErrorsFrame()
 end
 
 -- Скрывает баннер трекера заданий (ObjectiveTrackerTopBannerFrame)
-local function HideObjectiveTrackerTopBannerFrame()
+function ConsoleMenu:HideObjectiveTrackerTopBannerFrame()
     ObjectiveTrackerTopBannerFrame:Hide()
     ObjectiveTrackerTopBannerFrame:SetAlpha(0.0)
-    RegisterStateDriver(ObjectiveTrackerTopBannerFrame, "visibility", "hide")
     ObjectiveTrackerTopBannerFrame:UnregisterAllEvents()
 end
 
@@ -176,9 +175,10 @@ local function HideAddonCompartmentFrame()
 end
 
 -- Скрывает фрейм говорящей головы (TalkingHeadFrame)
-local function HideTalkingHeadFrame()
-    TalkingHeadFrame:Hide()
-    RegisterStateDriver(TalkingHeadFrame, "visibility", "hide")
+function ConsoleMenu:HideTalkingHeadFrame()
+    if TalkingHeadFrame then
+        TalkingHeadFrame:Hide()
+    end
 end
 
 -- Скрывает фрейм полета на драконе (UIWidgetPowerBarContainerFrame)
@@ -198,9 +198,7 @@ end
 function ConsoleMenu:HideBlizzardUI()
     HideLootFrame()
     HideUIWidgetPowerBarContainerFrame()
-    HideTalkingHeadFrame()
     HideAddonCompartmentFrame()
-    HideObjectiveTrackerTopBannerFrame()
     HideUIErrorsFrame()
     HideAlertFrame()
     HideCompactPartyFrame()

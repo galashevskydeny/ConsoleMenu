@@ -1,6 +1,6 @@
 -- ReputationFrame.lua
 
-local ConsoleMenu = LibStub("AceAddon-3.0"):GetAddon("ConsoleMenu")
+local ConsoleMenu = _G.ConsoleMenu
 local parentFrame = ReputationFrame
 
 local offsetX = 40

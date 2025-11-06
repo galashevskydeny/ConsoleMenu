@@ -1,6 +1,6 @@
 -- PVEFrame.lua
 
-local ConsoleMenu = LibStub("AceAddon-3.0"):GetAddon("ConsoleMenu")
+local ConsoleMenu = _G.ConsoleMenu
 local parentFrame = PVEFrame
 local titleSize = 20
 
