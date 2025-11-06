@@ -82,6 +82,12 @@ local function Initialize()
             SetSanctuarySoftTargetSettings()
         end
     end)
+    -- Вибрация при отображении проков (overlay glow)
+    ConsoleMenu:RegisterEvent("SPELL_ACTIVATION_OVERLAY_GLOW_SHOW", function()
+        if ConsoleMenu and ConsoleMenu.SetVibrationSpellGlow then
+            ConsoleMenu:SetVibrationSpellGlow()
+        end
+    end)
 
     -- Инициализация модулей
     ConsoleMenu:SetCharacterFrame()
