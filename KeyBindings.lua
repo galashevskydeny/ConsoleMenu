@@ -21,7 +21,7 @@ function ConsoleMenu:SetBaseKeyBindings()
     }
     
     local shiftBindings = {
-        PAD1 = "INTERACTTARGET",
+        PAD1 = "JUMP",
         PAD2 = "MULTIACTIONBAR1BUTTON3",
         PAD3 = "MULTIACTIONBAR1BUTTON1",
         PAD4 = "MULTIACTIONBAR1BUTTON2",
@@ -39,7 +39,7 @@ function ConsoleMenu:SetBaseKeyBindings()
     }
     
     local ctrlBindings = {
-        PAD1 = "INTERACTTARGET",
+        PAD1 = "JUMP",
         PAD2 = "MULTIACTIONBAR2BUTTON3",
         PAD3 = "MULTIACTIONBAR2BUTTON1",
         PAD4 = "MULTIACTIONBAR2BUTTON2",
@@ -84,85 +84,85 @@ function ConsoleMenu:SetBaseKeyBindings()
 end
 
 -- Модуль для отслеживания взаимодействия PAD1
-function ConsoleMenu:InitKeybindFramePAD1()
-    if not self.KeybindFramePAD1 then
-        self.KeybindFramePAD1 = CreateFrame("Frame")
+function ConsoleMenu:InitInteractBindingFrame()
+    if not self.InteractBindingFrame then
+        self.InteractBindingFrame = CreateFrame("Frame")
     end
     
-    self.KeybindFramePAD1:RegisterEvent("PLAYER_SOFT_INTERACT_CHANGED")
-    self.KeybindFramePAD1:RegisterEvent("PLAYER_ENTERING_WORLD")
+    self.InteractBindingFrame:RegisterEvent("PLAYER_SOFT_INTERACT_CHANGED")
+    self.InteractBindingFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 
-    self.KeybindFramePAD1:SetScript("OnEvent", function(self, event, ...)
-        if not ConsoleMenu or not ConsoleMenu.SetPAD1Interact then
+    self.InteractBindingFrame:SetScript("OnEvent", function(self, event, ...)
+        if not ConsoleMenu or not ConsoleMenu.SetInteractBinding then
             return
         end
         
         if event == "PLAYER_SOFT_INTERACT_CHANGED" then
             local oldTarget, newTarget = ...
-            ConsoleMenu:SetPAD1Interact(newTarget)
+            ConsoleMenu:SetInteractBinding(newTarget)
         elseif event == "PLAYER_ENTERING_WORLD" then
             local oldTarget, newTarget
-            ConsoleMenu:SetPAD1Interact(newTarget)
+            ConsoleMenu:SetInteractBinding(newTarget)
         end
     end)
 end
 
 -- Устанавливает биндинг PAD1 на взаимодействие
-function ConsoleMenu:SetPAD1Interact(newTarget)
+function ConsoleMenu:SetInteractBinding(newTarget)
     if InCombatLockdown and InCombatLockdown() then
         return
     end
 
     if newTarget then
-        SetOverrideBinding(self.KeybindFramePAD1, true, "PAD1", "INTERACTTARGET")
+        SetOverrideBinding(self.InteractBindingFrame, true, "PAD1", "INTERACTTARGET")
     else
-        ClearOverrideBindings(self.KeybindFramePAD1)
+        ClearOverrideBindings(self.InteractBindingFrame)
     end
 end
 
 -- Модуль для отслеживания спешивания PAD2
-function ConsoleMenu:InitKeybindFramePAD2()
-    if not self.KeybindFramePAD2 then
-        self.KeybindFramePAD2 = CreateFrame("Frame")
+function ConsoleMenu:InitCancelBindingFrame()
+    if not self.CancelBindingFrame then
+        self.CancelBindingFrame = CreateFrame("Frame")
     end
     
-    self.KeybindFramePAD2:RegisterEvent("PLAYER_ENTERING_WORLD")
-    self.KeybindFramePAD2:RegisterEvent("PLAYER_IS_GLIDING_CHANGED")
-    self.KeybindFramePAD2:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED")
+    self.CancelBindingFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+    self.CancelBindingFrame:RegisterEvent("PLAYER_IS_GLIDING_CHANGED")
+    self.CancelBindingFrame:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED")
 
-    self.KeybindFramePAD2:RegisterEvent("UNIT_SPELLCAST_START")
-    self.KeybindFramePAD2:RegisterEvent("UNIT_SPELLCAST_STOP")
-    self.KeybindFramePAD2:RegisterEvent("UNIT_SPELLCAST_FAILED")
-    self.KeybindFramePAD2:RegisterEvent("UNIT_SPELLCAST_INTERRUPTED")
+    self.CancelBindingFrame:RegisterEvent("UNIT_SPELLCAST_START")
+    self.CancelBindingFrame:RegisterEvent("UNIT_SPELLCAST_STOP")
+    self.CancelBindingFrame:RegisterEvent("UNIT_SPELLCAST_FAILED")
+    self.CancelBindingFrame:RegisterEvent("UNIT_SPELLCAST_INTERRUPTED")
 
-    self.KeybindFramePAD2:SetScript("OnEvent", function(self, event, ...)
-        if not ConsoleMenu or not ConsoleMenu.SetPAD2Dismount then
+    self.CancelBindingFrame:SetScript("OnEvent", function(self, event, ...)
+        if not ConsoleMenu or not ConsoleMenu.SetDismountBinding then
             return
         end
         
         if event == "PLAYER_ENTERING_WORLD" or event == "PLAYER_IS_GLIDING_CHANGED" or event == "PLAYER_MOUNT_DISPLAY_CHANGED" then
-            ConsoleMenu:SetPAD2Dismount()
+            ConsoleMenu:SetDismountBinding()
         elseif event == "UNIT_SPELLCAST_START" or event == "UNIT_SPELLCAST_STOP" or event == "UNIT_SPELLCAST_FAILED" or event == "UNIT_SPELLCAST_INTERRUPTED" then
-            ConsoleMenu:SetPAD2StopCasting(event, ...)
+            ConsoleMenu:SetStopCastingBinding(event, ...)
         end
     end)
 end
 
--- Устанавливает биндинг PAD2 на спуск с маунта
-function ConsoleMenu:SetPAD2Dismount()
+-- Устанавливает биндинг на спуск с маунта
+function ConsoleMenu:SetDismountBinding()
     if InCombatLockdown and InCombatLockdown() then
         return
     end
 
     if not IsFlying() and IsMounted() then
-        SetOverrideBinding(self.KeybindFramePAD2, true, "PAD2", "DISMOUNT")
+        SetOverrideBinding(self.CancelBindingFrame, true, "PAD2", "DISMOUNT")
     else
-        ClearOverrideBindings(self.KeybindFramePAD2)
+        ClearOverrideBindings(self.CancelBindingFrame)
     end
 end
 
--- Устанавливает биндинг PAD2 на спуск с маунта
-function ConsoleMenu:SetPAD2StopCasting(event, ...)
+-- Устанавливает биндинг на отмену заклинания
+function ConsoleMenu:SetStopCastingBinding(event, ...)
     if InCombatLockdown and InCombatLockdown() then
         return
     end
@@ -170,26 +170,26 @@ function ConsoleMenu:SetPAD2StopCasting(event, ...)
     if event == "UNIT_SPELLCAST_START" then
         local unitTarget, _ , _ = ...
         if unitTarget == "player" then
-            SetOverrideBinding(self.KeybindFramePAD2, true, "PAD2", "STOPCASTING")
+            SetOverrideBinding(self.CancelBindingFrame, true, "PAD2", "STOPCASTING")
         end
     else
-        ClearOverrideBindings(self.KeybindFramePAD2)
+        ClearOverrideBindings(self.CancelBindingFrame)
     end
 end
 
 -- Модуль для отслеживания способности зоны PAD6 и PADBACK
-function ConsoleMenu:InitKeybindFramePAD6PADBACK()
-    if not self.KeybindFramePAD6PADBACK then
-        self.KeybindFramePAD6PADBACK = CreateFrame("Frame")
+function ConsoleMenu:InitZoneAbilityBindingFrame()
+    if not self.ZoneAbilityBindingFrame then
+        self.ZoneAbilityBindingFrame = CreateFrame("Frame")
     end
     
-    self.KeybindFramePAD6PADBACK:RegisterEvent("PLAYER_ENTERING_WORLD")
-    self.KeybindFramePAD6PADBACK:RegisterEvent("PLAYER_LOSES_VEHICLE_DATA")
-    self.KeybindFramePAD6PADBACK:RegisterEvent("PLAYER_GAINS_VEHICLE_DATA")
-    self.KeybindFramePAD6PADBACK:RegisterEvent("ZONE_CHANGED_NEW_AREA")
-    self.KeybindFramePAD6PADBACK:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED")
+    self.ZoneAbilityBindingFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+    self.ZoneAbilityBindingFrame:RegisterEvent("PLAYER_LOSES_VEHICLE_DATA")
+    self.ZoneAbilityBindingFrame:RegisterEvent("PLAYER_GAINS_VEHICLE_DATA")
+    self.ZoneAbilityBindingFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+    self.ZoneAbilityBindingFrame:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED")
 
-    self.KeybindFramePAD6PADBACK:SetScript("OnEvent", function(self, event, ...)
+    self.ZoneAbilityBindingFrame:SetScript("OnEvent", function(self, event, ...)
         if not ConsoleMenu or not ConsoleMenu.SetBindingsZoneAbility then
             return
         end
@@ -213,16 +213,16 @@ function ConsoleMenu:SetBindingsZoneAbility()
             local spellID = firstAbility.spellID
             local spellInfo = spellID and C_Spell.GetSpellInfo(spellID)
             if spellInfo and spellInfo.name then
-                ClearOverrideBindings(self.KeybindFramePAD6PADBACK)
-                SetOverrideBindingSpell(self.KeybindFramePAD6PADBACK, true, "PAD6", spellInfo.name)
-                SetOverrideBindingSpell(self.KeybindFramePAD6PADBACK, true, "PADBACK", spellInfo.name)
+                ClearOverrideBindings(self.ZoneAbilityBindingFrame)
+                SetOverrideBindingSpell(self.ZoneAbilityBindingFrame, true, "PAD6", spellInfo.name)
+                SetOverrideBindingSpell(self.ZoneAbilityBindingFrame, true, "PADBACK", spellInfo.name)
             else
-                ClearOverrideBindings(self.KeybindFramePAD6PADBACK)
+                ClearOverrideBindings(self.ZoneAbilityBindingFrame)
             end
         else
-            ClearOverrideBindings(self.KeybindFramePAD6PADBACK)
+            ClearOverrideBindings(self.ZoneAbilityBindingFrame)
         end
     else
-        ClearOverrideBindings(self.KeybindFramePAD6PADBACK)
+        ClearOverrideBindings(self.ZoneAbilityBindingFrame)
     end
 end

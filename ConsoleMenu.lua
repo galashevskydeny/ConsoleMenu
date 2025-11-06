@@ -117,9 +117,9 @@ local function Initialize()
         end
     end)
     
-    ConsoleMenu:InitKeybindFramePAD1()
-    ConsoleMenu:InitKeybindFramePAD2()
-    ConsoleMenu:InitKeybindFramePAD6PADBACK()
+    ConsoleMenu:InitInteractBindingFrame()
+    ConsoleMenu:InitCancelBindingFrame()
+    ConsoleMenu:InitZoneAbilityBindingFrame()
     
 end
 
