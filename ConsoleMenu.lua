@@ -51,11 +51,6 @@ local function Initialize()
     ConsoleMenu:RegisterEvent("PLAYER_ENTERING_WORLD", function(self, event)
         self:UpdateActionInfo()
         self:HideTimeManagerClockButton()
-        if IsMounted() then
-            if ConsoleMenu and ConsoleMenu.SetPAD2Interact then
-                ConsoleMenu:SetPAD2Interact()
-            end
-        end
     end)
     ConsoleMenu:RegisterEvent("GAME_PAD_ACTIVE_CHANGED", "UpdateActionInfo")
     ConsoleMenu:RegisterEvent("ACTIONBAR_PAGE_CHANGED", "UpdateActionInfo")
@@ -63,6 +58,7 @@ local function Initialize()
     ConsoleMenu:RegisterEvent("CRAFTINGORDERS_SHOW_CUSTOMER", "SetProfessionsCustomerOrdersFrame")
     ConsoleMenu:RegisterEvent("TALKINGHEAD_REQUESTED", "HideTalkingHeadFrame")
     ConsoleMenu:RegisterEvent("QUEST_LOG_UPDATE", "HideObjectiveTrackerTopBannerFrame")
+
     -- Включаем боевые настройки soft target при начале боя
     ConsoleMenu:RegisterEvent("PLAYER_REGEN_DISABLED", function()
         if ConsoleMenu and ConsoleMenu.SetCombatSoftTargetSettings then
@@ -80,11 +76,6 @@ local function Initialize()
         if ConsoleMenu and ConsoleMenu.SetBaseSoftTargetSettings then
             ConsoleMenu:SetBaseSoftTargetSettings()
         end
-        if IsMounted() then
-            if ConsoleMenu and ConsoleMenu.SetPAD2Interact then
-                ConsoleMenu:SetPAD2Interact()
-            end
-        end
     end)
     -- Обновляем soft target в святилищах при смене зоны
     ConsoleMenu:RegisterEvent("ZONE_CHANGED_NEW_AREA", function()
@@ -98,19 +89,7 @@ local function Initialize()
             ConsoleMenu:SetVibrationSpellGlow()
         end
     end)
-    -- Динамический бинд PAD1 на взаимодействие при смене soft-interact цели
-    ConsoleMenu:RegisterEvent("PLAYER_SOFT_INTERACT_CHANGED", function(self, event, oldTarget, newTarget)
-        if ConsoleMenu and ConsoleMenu.SetPAD1Interact then
-            ConsoleMenu:SetPAD1Interact(newTarget)
-        end
-    end)
-     -- Динамический бинд PAD1 на взаимодействие при смене soft-interact цели
-     ConsoleMenu:RegisterEvent("PLAYER_IS_GLIDING_CHANGED", function(self, event, oldTarget, newTarget)
-        if ConsoleMenu and ConsoleMenu.SetPAD2Interact then
-            ConsoleMenu:SetPAD2Interact()
-        end
-    end)
-
+    
     -- Инициализация модулей
     ConsoleMenu:SetCharacterFrame()
     ConsoleMenu:SetPaperDollFrame()
@@ -137,6 +116,10 @@ local function Initialize()
             ConsoleMenu:SetBaseKeyBindings()
         end
     end)
+    
+    ConsoleMenu:InitKeybindFramePAD1()
+    ConsoleMenu:InitKeybindFramePAD2()
+    ConsoleMenu:InitKeybindFramePAD6PADBACK()
     
 end
 
