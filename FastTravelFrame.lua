@@ -7,6 +7,7 @@ local setItemList
 local frames = {}
 local focusedIndex = 1
 local PAD1_COMMON_BINDING
+local softTargetEnemy
 
 local mageTeleports = {
     -- War Within
@@ -336,6 +337,9 @@ function ConsoleMenu:SetFastTravelFrame()
 
     -- Вешаем бинды, когда окно показывается:
     parentFrame:HookScript("OnShow", function()
+        ConsoleMenu:SetBaseSoftTargetSettings()
+        softTargetEnemy = GetCVar("SoftTargetEnemy")
+        SetCVar("SoftTargetEnemy", 0)
         PAD1_COMMON_BINDING = GetBindingAction("PAD1")
         
         -- Привязываем PADDUP к клику по FocusUpButton
@@ -358,7 +362,10 @@ function ConsoleMenu:SetFastTravelFrame()
 
     -- Очищаем бинды, когда окно скрывается:
     parentFrame:HookScript("OnHide", function()
-
+        if softTargetEnemy then
+            SetCVar("SoftTargetEnemy", softTargetEnemy)
+        end
+        
         ClearOverrideBindings(parentFrame)
         ClearOverrideBindings(focusUpButton)
         ClearOverrideBindings(focusDownButton)

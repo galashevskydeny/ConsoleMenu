@@ -48,6 +48,7 @@ end
 -- Скрывает фрейм игрока (PlayerFrame)
 local function HidePlayerFrame()
     PlayerFrame:Hide()
+    PlayerFrame:SetAlpha(0.0)
     PlayerFrame:UnregisterAllEvents()
     RegisterStateDriver(PlayerFrame, "visibility", "hide")
 end

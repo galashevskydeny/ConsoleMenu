@@ -25,7 +25,7 @@ local function HideQuestCircle()
 end
 
 -- Устанавливает базовые для необходимого пользовательского опыта значения soft target
-function SetBaseSoftTargetSettings()
+function ConsoleMenu:SetBaseSoftTargetSettings()
     SetCVar("SoftTargetFriend", 1)
     SetCVar("SoftTargetFriend", 1)
     SetCVar("SoftTargetNameplateEnemy", 1)
@@ -42,15 +42,15 @@ function SetBaseSoftTargetSettings()
 end
 
 -- Устанавливает значения настроек soft target для боя
-function SetCombatSoftTargetSettings()
+function ConsoleMenu:SetCombatSoftTargetSettings()
     SetCVar("SoftTargetEnemy", 1)
     SetCVar("SoftTargetForce", 0)
 end
 
 -- Устанавливает значения настроект soft target в зонах святилищах
-function SetSanctuarySoftTargetSettings()
+function ConsoleMenu:SetSanctuarySoftTargetSettings()
     local pvpType, _, _ = C_PvP.GetZonePVPInfo()
-    
+
     if pvpType == "sanctuary" then
         SetCVar("SoftTargetEnemy", 0)
     end
@@ -81,7 +81,7 @@ local function SetBaseSettings()
     -- Автоматический сбор добычи
     SetCVar("autoLootDefault", 1)
     -- Автоматическое отслеживание квестов
-    SetCVar("autoQuestWatch", 1)
+    SetCVar("autoQuestWatch", 0)
 
     SetCVar("Sound_ZoneMusicNoDelay", 1)
 
@@ -107,7 +107,7 @@ function ConsoleMenu:UpdateCVars()
     HideGuildMemberNotification()
     HideChatBubble()
     HideQuestCircle()
-    SetBaseSoftTargetSettings()
+    self:SetBaseSoftTargetSettings()
     SetBaseUnitNameSettings()
     SetBaseSettings()
     SetBaseGraphicsSettings()

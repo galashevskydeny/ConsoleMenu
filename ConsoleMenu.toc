@@ -25,3 +25,4 @@ AuctionHouse.lua
 HideBlizzardUI.lua
 UpdateCVars.lua
 GamePad.lua
+KeyBindings.lua

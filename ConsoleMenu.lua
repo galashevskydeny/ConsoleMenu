@@ -51,6 +51,11 @@ local function Initialize()
     ConsoleMenu:RegisterEvent("PLAYER_ENTERING_WORLD", function(self, event)
         self:UpdateActionInfo()
         self:HideTimeManagerClockButton()
+        if IsMounted() then
+            if ConsoleMenu and ConsoleMenu.SetPAD2Interact then
+                ConsoleMenu:SetPAD2Interact()
+            end
+        end
     end)
     ConsoleMenu:RegisterEvent("GAME_PAD_ACTIVE_CHANGED", "UpdateActionInfo")
     ConsoleMenu:RegisterEvent("ACTIONBAR_PAGE_CHANGED", "UpdateActionInfo")
@@ -60,32 +65,49 @@ local function Initialize()
     ConsoleMenu:RegisterEvent("QUEST_LOG_UPDATE", "HideObjectiveTrackerTopBannerFrame")
     -- Включаем боевые настройки soft target при начале боя
     ConsoleMenu:RegisterEvent("PLAYER_REGEN_DISABLED", function()
-        if type(SetCombatSoftTargetSettings) == "function" then
-            SetCombatSoftTargetSettings()
+        if ConsoleMenu and ConsoleMenu.SetCombatSoftTargetSettings then
+            ConsoleMenu:SetCombatSoftTargetSettings()
         end
     end)
     -- Возвращаем базовые настройки soft target при выходе из боя
     ConsoleMenu:RegisterEvent("PLAYER_REGEN_ENABLED", function()
-        if type(SetBaseSoftTargetSettings) == "function" then
-            SetBaseSoftTargetSettings()
+        if ConsoleMenu and ConsoleMenu.SetBaseSoftTargetSettings then
+            ConsoleMenu:SetBaseSoftTargetSettings()
         end
     end)
     -- Обновляем настройки soft target при посадке/снятии с маунта
     ConsoleMenu:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED", function()
-        if type(SetBaseSoftTargetSettings) == "function" then
-            SetBaseSoftTargetSettings()
+        if ConsoleMenu and ConsoleMenu.SetBaseSoftTargetSettings then
+            ConsoleMenu:SetBaseSoftTargetSettings()
+        end
+        if IsMounted() then
+            if ConsoleMenu and ConsoleMenu.SetPAD2Interact then
+                ConsoleMenu:SetPAD2Interact()
+            end
         end
     end)
     -- Обновляем soft target в святилищах при смене зоны
     ConsoleMenu:RegisterEvent("ZONE_CHANGED_NEW_AREA", function()
-        if type(SetSanctuarySoftTargetSettings) == "function" then
-            SetSanctuarySoftTargetSettings()
+        if ConsoleMenu and ConsoleMenu.SetSanctuarySoftTargetSettings then
+            ConsoleMenu:SetSanctuarySoftTargetSettings()
         end
     end)
     -- Вибрация при отображении проков (overlay glow)
     ConsoleMenu:RegisterEvent("SPELL_ACTIVATION_OVERLAY_GLOW_SHOW", function()
         if ConsoleMenu and ConsoleMenu.SetVibrationSpellGlow then
             ConsoleMenu:SetVibrationSpellGlow()
+        end
+    end)
+    -- Динамический бинд PAD1 на взаимодействие при смене soft-interact цели
+    ConsoleMenu:RegisterEvent("PLAYER_SOFT_INTERACT_CHANGED", function(self, event, oldTarget, newTarget)
+        if ConsoleMenu and ConsoleMenu.SetPAD1Interact then
+            ConsoleMenu:SetPAD1Interact(newTarget)
+        end
+    end)
+     -- Динамический бинд PAD1 на взаимодействие при смене soft-interact цели
+     ConsoleMenu:RegisterEvent("PLAYER_IS_GLIDING_CHANGED", function(self, event, oldTarget, newTarget)
+        if ConsoleMenu and ConsoleMenu.SetPAD2Interact then
+            ConsoleMenu:SetPAD2Interact()
         end
     end)
 
@@ -108,6 +130,14 @@ local function Initialize()
     ConsoleMenu:UpdateActionInfo()
     ConsoleMenu:HideBlizzardUI()
     ConsoleMenu:UpdateCVars()
+    
+    -- Установим бинды после полной инициализации игрока
+    ConsoleMenu:RegisterEvent("PLAYER_LOGIN", function()
+        if ConsoleMenu and ConsoleMenu.SetBaseKeyBindings then
+            ConsoleMenu:SetBaseKeyBindings()
+        end
+    end)
+    
 end
 
 -- Обработчик всех событий
