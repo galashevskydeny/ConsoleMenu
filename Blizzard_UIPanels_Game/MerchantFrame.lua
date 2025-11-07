@@ -186,6 +186,10 @@ end
 
 function ConsoleMenu:SetMerchantFrame()
 
+    if ConsoleMenuDB and ConsoleMenuDB["merchantWindowStyle"] == 2 then
+        return
+    end
+
     moveFrames()
     hideFramesAndRegions()
     updateTextures()

@@ -91,6 +91,10 @@ end
 
 function ConsoleMenu:SetTokenFrame()
 
+    if ConsoleMenuDB and ConsoleMenuDB["characterWindowStyle"] == 2 then
+        return
+    end
+
     moveFrames()
     hideFramesAndRegions()
     updateTextures()

@@ -1058,6 +1058,10 @@ end
 -- Применение модификаций
 function ConsoleMenu:SetPaperDollFrame()
 
+    if ConsoleMenuDB and ConsoleMenuDB["characterWindowStyle"] == 2 then
+        return
+    end
+
     moveFrames()
     hideFramesAndRegions()
     updateTextures()

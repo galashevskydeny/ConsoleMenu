@@ -80,6 +80,10 @@ end
 
 function ConsoleMenu:SetReputationFrame()
 
+    if ConsoleMenuDB and ConsoleMenuDB["characterWindowStyle"] == 2 then
+        return
+    end
+
     moveFrames()
     hideFramesAndRegions()
     updateTextures()

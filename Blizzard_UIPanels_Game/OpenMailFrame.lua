@@ -245,6 +245,10 @@ end
 
 function ConsoleMenu:SetOpenMailFrame()
 
+    if ConsoleMenuDB and ConsoleMenuDB["mailWindowStyle"] == 2 then
+        return
+    end
+
     moveFrames()
     hideFramesAndRegions()
     updateTextures()

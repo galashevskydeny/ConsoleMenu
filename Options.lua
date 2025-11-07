@@ -8,56 +8,6 @@ if not ConsoleMenuDB then
     ConsoleMenuDB = {}
 end
 
--- Установка значений по умолчанию для HUD элементов (1 = "Показать", 2 = "Скрыть")
-local defaults = {
-    hideActionBar = 2,
-    hidePetActionBar = 2,
-    hideObjectiveTracker = 2,
-    hideObjectiveTrackerTopBannerFrame = 2,
-    hideTargetFrame = 2,
-    hidePlayerFrame = 2,
-    hidePlayerCastingBarFrame = 2,
-    hideMinimap = 2,
-    hideMicroMenu = 2,
-    hideGroupFinderFrame = 2,
-    hideBagsBarsBar = 2,
-    hideZoneTextFrame = 2,
-    hideStanceBar = 2,
-    hideCompactPartyFrame = 2,
-    hideCompactRaidFrame = 2,
-    hideAlertFrame = 2,
-    hideUIErrorsFrame = 2,
-    hideTalkingHeadFrame = 2,
-    hideUIWidgetPowerBarContainerFrame = 2,
-    hideLootFrame = 2,
-    hideBuffFrame = 2,
-    hideDebuffFrame = 2,
-    hideZoneAbilityFrame = 2,
-    hideBossTargetFrameContainer = 2,
-    -- CVars настройки (1 = "По умолчанию", 2 = "Отключить"/"Кастомные", 3 = "Вручную")
-    hideFloatingText = 2,
-    hideGuildMemberNotification = 2,
-    hideChatBubble = 2,
-    hideQuestCircle = 2,
-    hideUnitNames = 2,
-    enableMacBookGraphics = 2,
-    enableSoftTargetSettings = 2,
-    enableBaseSettings = 2,
-    -- Настройки клавиш (1 = "Включить", 2 = "Выключить")
-    overrideInteractKey = 1,
-    -- Кнопка взаимодействия (1 = "PAD1", 2 = "PAD2", 3 = "PAD3", 4 = "PAD4")
-    interactButton = 1,
-    -- Схема привязки клавиш (1 = "кастомная", 2 = "вручную")
-    keyBindingScheme = 1,
-}
-
--- Применение значений по умолчанию
-for key, value in pairs(defaults) do
-    if ConsoleMenuDB[key] == nil then
-        ConsoleMenuDB[key] = value
-    end
-end
-
 -- Определения настроек для раздела "Стандартный HUD" (1 = "Показать", 2 = "Скрыть")
 local hudSettings = {
     { name = "Панель действий", variable = "hideActionBar", default = 2, tooltip = "Управляет отображением основной панели действий (ActionBar)." },
@@ -162,6 +112,84 @@ local function RegisterOptions()
     -- Добавляем кнопку перезагрузки интерфейса в подкатегорию HUD
     ISL:CreateButton(
         HUDSubcategory,
+        "Применить изменения",
+        "Перезагрузить интерфейс",
+        function()
+            ReloadUI()
+        end,
+        "Перезагружает интерфейс игры (эквивалент команды /reload)",
+        false
+    )
+
+    -- Создаем подкатегорию "Стандартный UI"
+    local StandardUISubcategory, StandardUILayout = ISL:CreateSubcategory(MainCategory, "Стандартный UI")
+
+    -- Добавляем dropdown для выбора окна персонажа: Современное или Стандартное
+    -- Убедимся, что значение валидно (1 или 2)
+    if ConsoleMenuDB.characterWindowStyle == nil or (ConsoleMenuDB.characterWindowStyle ~= 1 and ConsoleMenuDB.characterWindowStyle ~= 2) then
+        ConsoleMenuDB.characterWindowStyle = 1 -- Современное по умолчанию
+    end
+
+    ISL:MakeDropdown(
+        StandardUISubcategory,
+        "Окно персонажа",
+        "characterWindowStyle",
+        1,
+        "Выберите стиль окна персонажа: Современное или Стандартное.",
+        { "Обновленное", "Стандартное" },
+        ConsoleMenuDB,
+        function(_, value)
+            ConsoleMenuDB["characterWindowStyle"] = value
+        end
+    )
+
+
+    -- Добавляем dropdown для выбора окна почты: Обновленное или Стандартное
+    ISL:MakeDropdown(
+        StandardUISubcategory,
+        "Окно почты",
+        "mailWindowStyle",
+        1,
+        "Выберите стиль окна почты: Обновленное или Стандартное.",
+        { "Обновленное", "Стандартное" },
+        ConsoleMenuDB,
+        function(_, value)
+            ConsoleMenuDB["mailWindowStyle"] = value
+        end
+    )
+
+    -- Добавляем dropdown для выбора окна торговца: Обновленное или Стандартное
+    ISL:MakeDropdown(
+        StandardUISubcategory,
+        "Окно торговца",
+        "merchantWindowStyle",
+        1,
+        "Выберите стиль окна торговца: Обновленное или Стандартное.",
+        { "Обновленное", "Стандартное" },
+        ConsoleMenuDB,
+        function(_, value)
+            ConsoleMenuDB["merchantWindowStyle"] = value
+        end
+    )
+
+    -- Добавляем dropdown для выбора отображения окон диалогов и квестов: скрыть или показать
+    ISL:MakeDropdown(
+        StandardUISubcategory,
+        "Окна диалогов и квестов",
+        "dialogQuestWindowVisibility",
+        1,
+        "Показать или скрыть все стандартные окна диалогов и квестов.",
+        { "Скрыть", "Показать" },
+        ConsoleMenuDB,
+        function(_, value)
+            ConsoleMenuDB["dialogQuestWindowVisibility"] = value
+        end
+    )
+
+
+    -- Добавляем кнопку перезагрузки интерфейса на страницу "Стандартный UI"
+    ISL:CreateButton(
+        StandardUISubcategory,
         "Применить изменения",
         "Перезагрузить интерфейс",
         function()

@@ -130,6 +130,7 @@ local function hideFramesAndRegions()
         --greetingPanel.SealMaterialBG,
         --greetingPanel.Bg,
         QuestFrameGreetingGoodbyeButton,
+        QuestModelScene
     }
         
     -- Скрываем все элементы из списка
@@ -507,6 +508,10 @@ local function createBackground()
 end
 
 function ConsoleMenu:SetQuestFrame()
+
+    if ConsoleMenuDB and ConsoleMenuDB["dialogQuestWindowVisibility"] == 2 then
+        return
+    end
 
     --moveFrames()
     hideFramesAndRegions()

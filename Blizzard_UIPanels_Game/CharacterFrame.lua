@@ -175,6 +175,10 @@ end
 -- Применение модификаций
 function ConsoleMenu:SetCharacterFrame()
 
+    if ConsoleMenuDB and ConsoleMenuDB["characterWindowStyle"] == 2 then
+        return
+    end
+
     if scale then
         CharacterFrame:SetScale(scale)
     end
