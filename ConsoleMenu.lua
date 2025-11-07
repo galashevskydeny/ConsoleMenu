@@ -70,6 +70,7 @@ local function Initialize()
     -- Установим бинды после полной инициализации игрока
     ConsoleMenu:RegisterEvent("PLAYER_LOGIN", function()
         if ConsoleMenu.SetBaseKeyBindings then ConsoleMenu:SetBaseKeyBindings() end
+        if ConsoleMenu.HideTimeManagerClockButton then ConsoleMenu:HideTimeManagerClockButton() end
     end)
 
     -- Вибрация при отображении проков (overlay glow)
