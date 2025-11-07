@@ -4,6 +4,13 @@ local addonName, ConsoleMenu = ...
 ConsoleMenu = ConsoleMenu or {}
 _G[addonName] = ConsoleMenu
 
+-- Инициализация таблицы аддона для InterfaceSettingsLib
+if not ConsoleMenuAddon then
+    ConsoleMenuAddon = {}
+    ConsoleMenuAddon.AddonName = "ConsoleMenu"
+    ConsoleMenuAddon.AddonFileName = "ConsoleMenu"
+end
+
 -- Создаём фрейм для обработки событий
 local eventFrame = CreateFrame("Frame")
 
@@ -80,6 +87,11 @@ local function Initialize()
     
     ConsoleMenu:InitInteractBindingFrame()
     ConsoleMenu:InitZoneAbilityBindingFrame()
+    
+    -- Инициализация настроек
+    if ConsoleMenu.InitializeOptions then
+        ConsoleMenu.InitializeOptions()
+    end
     
 end
 

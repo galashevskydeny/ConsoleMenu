@@ -60,10 +60,19 @@ local function HidePlayerCastingBarFrame()
     PlayerCastingBarFrame:UnregisterAllEvents()
 end
 
+-- Скрывает фрейм аддонов (AddonCompartmentFrame)
+local function HideAddonCompartmentFrame()
+    AddonCompartmentFrame:Hide()
+    RegisterStateDriver(AddonCompartmentFrame, "visibility", "hide")
+    AddonCompartmentFrame:UnregisterAllEvents()
+end
+
 -- Скрывает миникарту и связанные элементы (Minimap, GameTimeFrame, BuffFrame, DebuffFrame и т.д.)
 local function HideMinimap()
     Minimap:SetAlpha(0.0)
     Minimap:SetScale(0.01)
+
+    HideAddonCompartmentFrame()
 
     UIWidgetBelowMinimapContainerFrame:Hide()
     RegisterStateDriver(UIWidgetBelowMinimapContainerFrame, "visibility", "hide")
@@ -88,10 +97,16 @@ local function HideMinimap()
 
     MinimapCluster.BorderTop:Hide()
     RegisterStateDriver(MinimapCluster.BorderTop, "visibility", "hide")
+end
 
+-- Скрывает фрейм баффов (BuffFrame)
+local function HideBuffFrame()
     BuffFrame:Hide()
     RegisterStateDriver(BuffFrame, "visibility", "hide")
+end
 
+-- Скрывает фрейм дебаффов (DebuffFrame)
+local function HideDebuffFrame()
     DebuffFrame:Hide()
     RegisterStateDriver(DebuffFrame, "visibility", "hide")
 end
@@ -107,6 +122,15 @@ end
 local function HideMicroMenu()
     MicroMenu:Hide()
     RegisterStateDriver(MicroMenu, "visibility", "hide")
+    
+    -- Скрываем QueueStatusButton если hideGroupFinderFrame == 2
+    if ConsoleMenuDB and ConsoleMenuDB.hideGroupFinderFrame == 2 then
+        if QueueStatusButton then
+            QueueStatusButton:Hide()
+            RegisterStateDriver(QueueStatusButton, "visibility", "hide")
+            QueueStatusButton:UnregisterAllEvents()
+        end
+    end
 end
 
 -- Скрывает панель сумок (BagsBar)
@@ -168,13 +192,6 @@ function ConsoleMenu:HideObjectiveTrackerTopBannerFrame()
     ObjectiveTrackerTopBannerFrame:UnregisterAllEvents()
 end
 
--- Скрывает фрейм аддонов (AddonCompartmentFrame)
-local function HideAddonCompartmentFrame()
-    AddonCompartmentFrame:Hide()
-    RegisterStateDriver(AddonCompartmentFrame, "visibility", "hide")
-    AddonCompartmentFrame:UnregisterAllEvents()
-end
-
 -- Скрывает фрейм говорящей головы (TalkingHeadFrame)
 function ConsoleMenu:HideTalkingHeadFrame()
     if TalkingHeadFrame then
@@ -195,28 +212,136 @@ local function HideLootFrame()
     LootFrame:UnregisterAllEvents()
 end
 
--- Основная функция, которая скрывает все элементы UI Blizzard
+-- Скрывает фрейм способностей зоны (ZoneAbilityFrame)
+local function HideZoneAbilityFrame()
+    if ZoneAbilityFrame then
+        ZoneAbilityFrame:Hide()
+        RegisterStateDriver(ZoneAbilityFrame, "visibility", "hide")
+        ZoneAbilityFrame:UnregisterAllEvents()
+    end
+end
+
+-- Скрывает контейнер фреймов боссов (BossTargetFrameContainer)
+local function HideBossTargetFrameContainer()
+    if BossTargetFrameContainer then
+        BossTargetFrameContainer:Hide()
+        RegisterStateDriver(BossTargetFrameContainer, "visibility", "hide")
+        BossTargetFrameContainer:UnregisterAllEvents()
+    end
+end
+
+-- Основная функция, которая управляет отображением всех элементов UI Blizzard (1 = "Показать", 2 = "Скрыть")
 function ConsoleMenu:HideBlizzardUI()
+    -- Инициализация базы данных настроек, если еще не инициализирована
+    if not ConsoleMenuDB then
+        ConsoleMenuDB = {}
+    end
 
-    ConsoleMenu:RegisterEvent("TALKINGHEAD_REQUESTED", "HideTalkingHeadFrame")
-    ConsoleMenu:RegisterEvent("QUEST_LOG_UPDATE", "HideObjectiveTrackerTopBannerFrame")
+    -- Получаем значение настройки
+    local function getValue(key)
+        local val = ConsoleMenuDB[key]
+        if type(val) == "number" then
+            return val
+        else
+            return 2 -- По умолчанию скрыто
+        end
+    end
 
-    HideLootFrame()
-    HideUIWidgetPowerBarContainerFrame()
-    HideAddonCompartmentFrame()
-    HideUIErrorsFrame()
-    HideAlertFrame()
-    HideCompactPartyFrame()
-    HideCompactRaidFrame()
-    HideStanceBar()
-    HideZoneTextFrame()
-    HideBagsBagsBar()
-    HideMicroMenu()
-    HideMinimap()
-    HidePlayerCastingBarFrame()
-    HidePlayerFrame()
-    HideTargetFrame()
-    HidePetActionBar()
-    HideActionBar()
-    HideObjectiveTrackerFrame()
+    -- Регистрируем события только если соответствующие настройки установлены на скрытие (2)
+    if getValue("hideTalkingHeadFrame") == 2 then
+        ConsoleMenu:RegisterEvent("TALKINGHEAD_REQUESTED", "HideTalkingHeadFrame")
+    else
+        ConsoleMenu:UnregisterEvent("TALKINGHEAD_REQUESTED")
+    end
+    
+    if getValue("hideObjectiveTrackerTopBannerFrame") == 2 then
+        ConsoleMenu:RegisterEvent("QUEST_LOG_UPDATE", "HideObjectiveTrackerTopBannerFrame")
+    else
+        ConsoleMenu:UnregisterEvent("QUEST_LOG_UPDATE")
+    end
+
+    -- Применяем функции скрытия только если значение настройки равно 2 (скрыть)
+    if getValue("hideLootFrame") == 2 then
+        HideLootFrame()
+    end
+    
+    if getValue("hideUIWidgetPowerBarContainerFrame") == 2 then
+        HideUIWidgetPowerBarContainerFrame()
+    end
+    
+    if getValue("hideUIErrorsFrame") == 2 then
+        HideUIErrorsFrame()
+    end
+    
+    if getValue("hideAlertFrame") == 2 then
+        HideAlertFrame()
+    end
+    
+    if getValue("hideCompactPartyFrame") == 2 then
+        HideCompactPartyFrame()
+    end
+    
+    if getValue("hideCompactRaidFrame") == 2 then
+        HideCompactRaidFrame()
+    end
+    
+    if getValue("hideStanceBar") == 2 then
+        HideStanceBar()
+    end
+    
+    if getValue("hideZoneTextFrame") == 2 then
+        HideZoneTextFrame()
+    end
+    
+    if getValue("hideBagsBarsBar") == 2 then
+        HideBagsBagsBar()
+    end
+    
+    if getValue("hideMicroMenu") == 2 then
+        HideMicroMenu()
+    end
+    
+    if getValue("hideMinimap") == 2 then
+        HideMinimap()
+    end
+    
+    if getValue("hidePlayerCastingBarFrame") == 2 then
+        HidePlayerCastingBarFrame()
+    end
+    
+    if getValue("hidePlayerFrame") == 2 then
+        HidePlayerFrame()
+    end
+    
+    if getValue("hideTargetFrame") == 2 then
+        HideTargetFrame()
+    end
+    
+    if getValue("hidePetActionBar") == 2 then
+        HidePetActionBar()
+    end
+    
+    if getValue("hideActionBar") == 2 then
+        HideActionBar()
+    end
+    
+    if getValue("hideObjectiveTracker") == 2 then
+        HideObjectiveTrackerFrame()
+    end
+    
+    if getValue("hideBuffFrame") == 2 then
+        HideBuffFrame()
+    end
+    
+    if getValue("hideDebuffFrame") == 2 then
+        HideDebuffFrame()
+    end
+    
+    if getValue("hideZoneAbilityFrame") == 2 then
+        HideZoneAbilityFrame()
+    end
+    
+    if getValue("hideBossTargetFrameContainer") == 2 then
+        HideBossTargetFrameContainer()
+    end
 end

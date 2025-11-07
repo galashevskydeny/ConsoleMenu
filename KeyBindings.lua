@@ -1,6 +1,55 @@
 local ConsoleMenu = _G.ConsoleMenu
+-- Функция для очистки всех биндов на кнопках PlayStation5 (131-154)
+function ConsoleMenu:ClearControllerBindings()
+    local keys = {
+        "PADDUP",
+        "PADDRIGHT",
+        "PADDDOWN",
+        "PADDLEFT",
+        "PAD1",
+        "PAD2",
+        "PAD3",
+        "PAD4",
+        "PAD5",
+        "PADLSTICK",
+        "PADRSTICK",
+        "PADLSHOULDER",
+        "PADRSHOULDER",
+        "PADLTRIGGER",
+        "PADRTRIGGER",
+        "PADFORWARD",
+        "PADBACK",
+        "PAD6",
+        "PADSYSTEM",
+        "PADSOCIAL",
+        "PADPADDLE1",
+        "PADPADDLE2",
+        "PADPADDLE3",
+        "PADPADDLE4",
+    }
+
+    -- Очищаем бинды в каждом модификаторе и без модификатора
+    for _, key in ipairs(keys) do
+        SetBinding(key)
+        SetBinding("SHIFT-"..key)
+        SetBinding("CTRL-"..key)
+        SetBinding("ALT-"..key)
+        SetBinding("CTRL-SHIFT-"..key)
+        SetBinding("CTRL-ALT-"..key)
+        SetBinding("SHIFT-ALT-"..key)
+        SetBinding("CTRL-SHIFT-ALT-"..key)
+    end
+
+    SaveBindings(GetCurrentBindingSet())
+end
+
 
 function ConsoleMenu:SetBaseKeyBindings()
+    -- Выполняем только если выбрана кастомная схема привязки
+    if not ConsoleMenuDB or ConsoleMenuDB["keyBindingScheme"] ~= 1 then
+        return
+    end
+    
     local baseBindings = {
         PAD1 = "JUMP",
         PAD2 = "ACTIONBUTTON3",
@@ -21,7 +70,7 @@ function ConsoleMenu:SetBaseKeyBindings()
     }
     
     local shiftBindings = {
-        PAD1 = "JUMP",
+        PAD1 = "INTERACTTARGET",
         PAD2 = "MULTIACTIONBAR1BUTTON3",
         PAD3 = "MULTIACTIONBAR1BUTTON1",
         PAD4 = "MULTIACTIONBAR1BUTTON2",
@@ -39,7 +88,7 @@ function ConsoleMenu:SetBaseKeyBindings()
     }
     
     local ctrlBindings = {
-        PAD1 = "JUMP",
+        PAD1 = "INTERACTTARGET",
         PAD2 = "MULTIACTIONBAR2BUTTON3",
         PAD3 = "MULTIACTIONBAR2BUTTON1",
         PAD4 = "MULTIACTIONBAR2BUTTON2",
@@ -113,14 +162,18 @@ end
 
 -- Устанавливает биндинг на взаимодействие
 function ConsoleMenu:SetInteractBinding(newTarget)
+
+    if ConsoleMenuDB and ConsoleMenuDB["overrideInteractKey"] == 2 then
+        return
+    end
+
     if InCombatLockdown and InCombatLockdown() then
         return
     end
 
     if newTarget then
-        SetOverrideBinding(self.InteractBindingFrame, true, "PAD1", "INTERACTTARGET")
-        SetOverrideBinding(self.InteractBindingFrame, true, "SHIFT-PAD1", "INTERACTTARGET")
-        SetOverrideBinding(self.InteractBindingFrame, true, "CTRL-PAD1", "INTERACTTARGET")
+        local interactButton = (ConsoleMenuDB and ConsoleMenuDB["interactButtonString"]) or "PAD1"
+        SetOverrideBinding(self.InteractBindingFrame, true, interactButton, "INTERACTTARGET")
 
     else
         ClearOverrideBindings(self.InteractBindingFrame)
@@ -150,6 +203,11 @@ end
 
 -- Устанавливает биндинг на первую способность зоны
 function ConsoleMenu:SetBindingsZoneAbility()
+    if ConsoleMenuDB and ConsoleMenuDB["overrideZoneAbilityKey"] == 2 then
+        ClearOverrideBindings(self.ZoneAbilityBindingFrame)
+        return
+    end
+    
     if InCombatLockdown and InCombatLockdown() then
         return
     end

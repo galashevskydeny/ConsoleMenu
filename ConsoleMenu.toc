@@ -6,6 +6,8 @@
 ## SavedVariables: ConsoleMenuDB
 
 ConsoleMenu.lua
+InterfaceSettingsLib-1.0.lua
+Options.lua
 Blizzard_UIPanels_Game/CharacterFrame.lua
 Blizzard_UIPanels_Game/PaperDollFrame.lua
 Blizzard_UIPanels_Game/ReputationFrame.lua
