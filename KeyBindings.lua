@@ -83,7 +83,7 @@ function ConsoleMenu:SetBaseKeyBindings()
     SaveBindings(GetCurrentBindingSet())
 end
 
--- Модуль для отслеживания взаимодействия PAD1
+-- Модуль для отслеживания взаимодействия
 function ConsoleMenu:InitInteractBindingFrame()
     if not self.InteractBindingFrame then
         self.InteractBindingFrame = CreateFrame("Frame")
@@ -91,8 +91,9 @@ function ConsoleMenu:InitInteractBindingFrame()
     
     self.InteractBindingFrame:RegisterEvent("PLAYER_SOFT_INTERACT_CHANGED")
     self.InteractBindingFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+    self.InteractBindingFrame:RegisterEvent("PLAYER_SOFT_ENEMY_CHANGED")
 
-    self.InteractBindingFrame:SetScript("OnEvent", function(self, event, ...)
+    self.InteractBindingFrame:SetScript("OnEvent", function(frame, event, ...)
         if not ConsoleMenu or not ConsoleMenu.SetInteractBinding then
             return
         end
@@ -103,11 +104,14 @@ function ConsoleMenu:InitInteractBindingFrame()
         elseif event == "PLAYER_ENTERING_WORLD" then
             local oldTarget, newTarget
             ConsoleMenu:SetInteractBinding(newTarget)
+        elseif event == "PLAYER_SOFT_ENEMY_CHANGED" then
+            -- Отменяем override бинды при появлении враждебной soft-target цели
+            ClearOverrideBindings(frame)
         end
     end)
 end
 
--- Устанавливает биндинг PAD1 на взаимодействие
+-- Устанавливает биндинг на взаимодействие
 function ConsoleMenu:SetInteractBinding(newTarget)
     if InCombatLockdown and InCombatLockdown() then
         return
@@ -115,65 +119,11 @@ function ConsoleMenu:SetInteractBinding(newTarget)
 
     if newTarget then
         SetOverrideBinding(self.InteractBindingFrame, true, "PAD1", "INTERACTTARGET")
+        SetOverrideBinding(self.InteractBindingFrame, true, "SHIFT-PAD1", "INTERACTTARGET")
+        SetOverrideBinding(self.InteractBindingFrame, true, "CTRL-PAD1", "INTERACTTARGET")
+
     else
         ClearOverrideBindings(self.InteractBindingFrame)
-    end
-end
-
--- Модуль для отслеживания спешивания PAD2
-function ConsoleMenu:InitCancelBindingFrame()
-    if not self.CancelBindingFrame then
-        self.CancelBindingFrame = CreateFrame("Frame")
-    end
-    
-    self.CancelBindingFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
-    self.CancelBindingFrame:RegisterEvent("PLAYER_IS_GLIDING_CHANGED")
-    self.CancelBindingFrame:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED")
-
-    self.CancelBindingFrame:RegisterEvent("UNIT_SPELLCAST_START")
-    self.CancelBindingFrame:RegisterEvent("UNIT_SPELLCAST_STOP")
-    self.CancelBindingFrame:RegisterEvent("UNIT_SPELLCAST_FAILED")
-    self.CancelBindingFrame:RegisterEvent("UNIT_SPELLCAST_INTERRUPTED")
-
-    self.CancelBindingFrame:SetScript("OnEvent", function(self, event, ...)
-        if not ConsoleMenu or not ConsoleMenu.SetDismountBinding then
-            return
-        end
-        
-        if event == "PLAYER_ENTERING_WORLD" or event == "PLAYER_IS_GLIDING_CHANGED" or event == "PLAYER_MOUNT_DISPLAY_CHANGED" then
-            ConsoleMenu:SetDismountBinding()
-        elseif event == "UNIT_SPELLCAST_START" or event == "UNIT_SPELLCAST_STOP" or event == "UNIT_SPELLCAST_FAILED" or event == "UNIT_SPELLCAST_INTERRUPTED" then
-            ConsoleMenu:SetStopCastingBinding(event, ...)
-        end
-    end)
-end
-
--- Устанавливает биндинг на спуск с маунта
-function ConsoleMenu:SetDismountBinding()
-    if InCombatLockdown and InCombatLockdown() then
-        return
-    end
-
-    if not IsFlying() and IsMounted() then
-        SetOverrideBinding(self.CancelBindingFrame, true, "PAD2", "DISMOUNT")
-    else
-        ClearOverrideBindings(self.CancelBindingFrame)
-    end
-end
-
--- Устанавливает биндинг на отмену заклинания
-function ConsoleMenu:SetStopCastingBinding(event, ...)
-    if InCombatLockdown and InCombatLockdown() then
-        return
-    end
-
-    if event == "UNIT_SPELLCAST_START" then
-        local unitTarget, _ , _ = ...
-        if unitTarget == "player" then
-            SetOverrideBinding(self.CancelBindingFrame, true, "PAD2", "STOPCASTING")
-        end
-    else
-        ClearOverrideBindings(self.CancelBindingFrame)
     end
 end
 
@@ -198,7 +148,7 @@ function ConsoleMenu:InitZoneAbilityBindingFrame()
     end)
 end
 
--- Устанавливает биндинг PAD6 и PADBACK на первую способность зоны
+-- Устанавливает биндинг на первую способность зоны
 function ConsoleMenu:SetBindingsZoneAbility()
     if InCombatLockdown and InCombatLockdown() then
         return
