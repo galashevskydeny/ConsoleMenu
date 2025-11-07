@@ -118,7 +118,6 @@ local function Initialize()
     end)
     
     ConsoleMenu:InitInteractBindingFrame()
-    ConsoleMenu:InitCancelBindingFrame()
     ConsoleMenu:InitZoneAbilityBindingFrame()
     
 end
