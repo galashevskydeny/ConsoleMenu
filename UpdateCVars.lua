@@ -25,7 +25,7 @@ local function HideQuestCircle()
 end
 
 -- Устанавливает базовые для необходимого пользовательского опыта значения soft target
-function ConsoleMenu:SetBaseSoftTargetSettings()
+local function SetBaseSoftTargetSettings()
     SetCVar("SoftTargetFriend", 1)
     SetCVar("SoftTargetFriend", 1)
     SetCVar("SoftTargetNameplateEnemy", 1)
@@ -42,13 +42,13 @@ function ConsoleMenu:SetBaseSoftTargetSettings()
 end
 
 -- Устанавливает значения настроек soft target для боя
-function ConsoleMenu:SetCombatSoftTargetSettings()
+local function SetCombatSoftTargetSettings()
     SetCVar("SoftTargetEnemy", 1)
     SetCVar("SoftTargetForce", 0)
 end
 
 -- Устанавливает значения настроект soft target в зонах святилищах
-function ConsoleMenu:SetSanctuarySoftTargetSettings()
+local function SetSanctuarySoftTargetSettings()
     local pvpType, _, _ = C_PvP.GetZonePVPInfo()
 
     if pvpType == "sanctuary" then
@@ -103,11 +103,28 @@ end
 
 
 function ConsoleMenu:UpdateCVars()
+    -- Включаем боевые настройки soft target при начале боя
+    ConsoleMenu:RegisterEvent("PLAYER_REGEN_DISABLED", function()
+        SetCombatSoftTargetSettings()
+    end)
+    -- Возвращаем базовые настройки soft target при выходе из боя
+    ConsoleMenu:RegisterEvent("PLAYER_REGEN_ENABLED", function()
+        SetBaseSoftTargetSettings()
+    end)
+    -- Обновляем настройки soft target при посадке/снятии с маунта
+    ConsoleMenu:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED", function()
+        SetBaseSoftTargetSettings()
+    end)
+    -- Обновляем soft target в святилищах при смене зоны
+    ConsoleMenu:RegisterEvent("ZONE_CHANGED_NEW_AREA", function()
+        SetSanctuarySoftTargetSettings()
+    end)
+
     HideFloatingText()
     HideGuildMemberNotification()
     HideChatBubble()
     HideQuestCircle()
-    self:SetBaseSoftTargetSettings()
+    SetBaseSoftTargetSettings()
     SetBaseUnitNameSettings()
     SetBaseSettings()
     SetBaseGraphicsSettings()

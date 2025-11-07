@@ -54,7 +54,26 @@ for i = 48, 57 do -- ASCII коды 0 (48) до 9 (57)
     ConsoleMenu.Textures["NUMPAD" .. digit] = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\" .. digit .. ".png"
 
 end
+--
+function ConsoleMenu:InitActionInfoFrame()
+    if not self.ActionInfoFrame then
+        self.ActionInfoFrame = CreateFrame("Frame")
+    end
+    
+    self.ActionInfoFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+    self.ActionInfoFrame:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
+    self.ActionInfoFrame:RegisterEvent("UPDATE_BINDINGS")
+    self.ActionInfoFrame:RegisterEvent("GAME_PAD_ACTIVE_CHANGED")
+    self.ActionInfoFrame:RegisterEvent("ACTIONBAR_UPDATE_USABLE")
 
+    self.ActionInfoFrame:SetScript("OnEvent", function(frame, event, ...)
+        if not ConsoleMenu or not ConsoleMenu.UpdateActionInfo then
+            return
+        end
+        
+        ConsoleMenu:UpdateActionInfo()
+    end)
+end
 --
 function ConsoleMenu:UpdateActionInfo()
     ConsoleMenu.ActionInfo = {}

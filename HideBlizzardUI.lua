@@ -97,7 +97,7 @@ local function HideMinimap()
 end
 
 -- Скрывает кнопку часов (TimeManagerClockButton)
-function ConsoleMenu:HideTimeManagerClockButton()
+local function HideTimeManagerClockButton()
     if TimeManagerClockButton then
         TimeManagerClockButton:Hide()
     end
@@ -197,6 +197,11 @@ end
 
 -- Основная функция, которая скрывает все элементы UI Blizzard
 function ConsoleMenu:HideBlizzardUI()
+
+    ConsoleMenu:RegisterEvent("PLAYER_ENTERING_WORLD", "HideTimeManagerClockButton")
+    ConsoleMenu:RegisterEvent("TALKINGHEAD_REQUESTED", "HideTalkingHeadFrame")
+    ConsoleMenu:RegisterEvent("QUEST_LOG_UPDATE", "HideObjectiveTrackerTopBannerFrame")
+
     HideLootFrame()
     HideUIWidgetPowerBarContainerFrame()
     HideAddonCompartmentFrame()

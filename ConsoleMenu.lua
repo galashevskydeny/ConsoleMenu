@@ -43,52 +43,10 @@ local function Initialize()
         LibSharedMedia:Register("statusbar", "GroupIcon3Line", [[Interface\AddOns\ConsoleMenu\Assets\GroupIcon3Line.png]])
         LibSharedMedia:Register("statusbar", "DpsCounter", [[Interface\AddOns\ConsoleMenu\Assets\DpsCounter.png]])
         LibSharedMedia:Register("statusbar", "Power_Item", [[Interface\AddOns\ConsoleMenu\Assets\Power_Item.png]])
-    end
+    end    
 
-    -- Регистрация событий
-    ConsoleMenu:RegisterEvent("ACTIONBAR_SLOT_CHANGED", "UpdateActionInfo")
-    ConsoleMenu:RegisterEvent("UPDATE_BINDINGS", "UpdateActionInfo")
-    ConsoleMenu:RegisterEvent("PLAYER_ENTERING_WORLD", function(self, event)
-        self:UpdateActionInfo()
-        self:HideTimeManagerClockButton()
-    end)
-    ConsoleMenu:RegisterEvent("GAME_PAD_ACTIVE_CHANGED", "UpdateActionInfo")
-    ConsoleMenu:RegisterEvent("ACTIONBAR_PAGE_CHANGED", "UpdateActionInfo")
-    ConsoleMenu:RegisterEvent("AUCTION_HOUSE_THROTTLED_SYSTEM_READY", "ConfirmPurchase")
-    ConsoleMenu:RegisterEvent("CRAFTINGORDERS_SHOW_CUSTOMER", "SetProfessionsCustomerOrdersFrame")
-    ConsoleMenu:RegisterEvent("TALKINGHEAD_REQUESTED", "HideTalkingHeadFrame")
-    ConsoleMenu:RegisterEvent("QUEST_LOG_UPDATE", "HideObjectiveTrackerTopBannerFrame")
-
-    -- Включаем боевые настройки soft target при начале боя
-    ConsoleMenu:RegisterEvent("PLAYER_REGEN_DISABLED", function()
-        if ConsoleMenu and ConsoleMenu.SetCombatSoftTargetSettings then
-            ConsoleMenu:SetCombatSoftTargetSettings()
-        end
-    end)
-    -- Возвращаем базовые настройки soft target при выходе из боя
-    ConsoleMenu:RegisterEvent("PLAYER_REGEN_ENABLED", function()
-        if ConsoleMenu and ConsoleMenu.SetBaseSoftTargetSettings then
-            ConsoleMenu:SetBaseSoftTargetSettings()
-        end
-    end)
-    -- Обновляем настройки soft target при посадке/снятии с маунта
-    ConsoleMenu:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED", function()
-        if ConsoleMenu and ConsoleMenu.SetBaseSoftTargetSettings then
-            ConsoleMenu:SetBaseSoftTargetSettings()
-        end
-    end)
-    -- Обновляем soft target в святилищах при смене зоны
-    ConsoleMenu:RegisterEvent("ZONE_CHANGED_NEW_AREA", function()
-        if ConsoleMenu and ConsoleMenu.SetSanctuarySoftTargetSettings then
-            ConsoleMenu:SetSanctuarySoftTargetSettings()
-        end
-    end)
-    -- Вибрация при отображении проков (overlay glow)
-    ConsoleMenu:RegisterEvent("SPELL_ACTIVATION_OVERLAY_GLOW_SHOW", function()
-        if ConsoleMenu and ConsoleMenu.SetVibrationSpellGlow then
-            ConsoleMenu:SetVibrationSpellGlow()
-        end
-    end)
+    -- ConsoleMenu:RegisterEvent("AUCTION_HOUSE_THROTTLED_SYSTEM_READY", "ConfirmPurchase")
+    -- ConsoleMenu:RegisterEvent("CRAFTINGORDERS_SHOW_CUSTOMER", "SetProfessionsCustomerOrdersFrame")
     
     -- Инициализация модулей
     ConsoleMenu:SetCharacterFrame()
@@ -100,21 +58,23 @@ local function Initialize()
     ConsoleMenu:SetOpenMailFrame()
     ConsoleMenu:SetQuestFrame()
     ConsoleMenu:SetGossipFrame()
-    --ConsoleMenu:SetPVEFrame()
-    --ConsoleMenu:SetWorldMapFrame()
     
     ConsoleMenu:SetCustomGossipFrame()
     ConsoleMenu:SetFastTravelFrame()
 
-    ConsoleMenu:UpdateActionInfo()
+    ConsoleMenu:InitActionInfoFrame()
+
     ConsoleMenu:HideBlizzardUI()
     ConsoleMenu:UpdateCVars()
     
     -- Установим бинды после полной инициализации игрока
     ConsoleMenu:RegisterEvent("PLAYER_LOGIN", function()
-        if ConsoleMenu and ConsoleMenu.SetBaseKeyBindings then
-            ConsoleMenu:SetBaseKeyBindings()
-        end
+        if ConsoleMenu.SetBaseKeyBindings then ConsoleMenu:SetBaseKeyBindings() end
+    end)
+
+    -- Вибрация при отображении проков (overlay glow)
+    ConsoleMenu:RegisterEvent("SPELL_ACTIVATION_OVERLAY_GLOW_SHOW", function()
+        if ConsoleMenu.SetVibrationSpellGlow then ConsoleMenu:SetVibrationSpellGlow() end
     end)
     
     ConsoleMenu:InitInteractBindingFrame()
