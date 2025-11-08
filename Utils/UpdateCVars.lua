@@ -84,12 +84,6 @@ local function ResetBaseSoftTargetSettings()
     SetCVar("SoftTargetEnemy", GetCVarDefault("SoftTargetEnemy"))
 end
 
--- Устанавливает значения настроек soft target для боя
-local function SetCombatSoftTargetSettings()
-    SetCVar("SoftTargetEnemy", 1)
-    SetCVar("SoftTargetForce", 0)
-end
-
 -- Скрывает отображения имен
 local function HideUnitNameSettings()
     SetCVar("UnitNameEnemyGuardianName", 0)
@@ -231,11 +225,11 @@ end
 _G.ApplyCVarSettings = ApplyCVarSettings
 
 -- Устанавливает значения настроект soft target в зонах святилищах
-local function UpdateSanctuarySoftTargetSettings()
+local function UpdateZoneSoftTargetSettings()
     ConsoleMenuDB.softTargetFriendRange = GetCVarDefault("SoftTargetFriendRange")
     local pvpType, _, _ = C_PvP.GetZonePVPInfo()
 
-    if ConsoleMenuDB.softTargetSanctuarySwitching == 1 and pvpType == "sanctuary" then
+    if pvpType == "sanctuary" and ConsoleMenuDB.softTargetSanctuarySwitching == 1 then
         SetCVar("SoftTargetEnemy", 0)
     end
 
@@ -247,11 +241,18 @@ local function UpdateSanctuarySoftTargetSettings()
 
 end
 
+-- Устанавливает значения настроек soft target для боя
+local function SetCombatSoftTargetSettings()
+    SetCVar("SoftTargetEnemy", 1)
+    SetCVar("SoftTargetForce", 0)
+end
+
 function ConsoleMenu:UpdateCVars()
     
     -- Регистрируем события для динамического изменения SoftTarget настроек
     ConsoleMenu:RegisterEvent("PLAYER_REGEN_DISABLED", function()
         SetCombatSoftTargetSettings()
+        UpdateZoneSoftTargetSettings()
     end)
     ConsoleMenu:RegisterEvent("PLAYER_REGEN_ENABLED", function()
         SetBaseSoftTargetSettings()
@@ -261,7 +262,7 @@ function ConsoleMenu:UpdateCVars()
     end)
 
     ConsoleMenu:RegisterEvent("ZONE_CHANGED_NEW_AREA", function()
-        UpdateSanctuarySoftTargetSettings()UpdateSanctuarySoftTargetSettings()
+        UpdateZoneSoftTargetSettings()
     end)
 
     ApplyCVarSettings()

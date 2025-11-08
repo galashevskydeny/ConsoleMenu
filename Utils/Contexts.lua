@@ -25,18 +25,34 @@ local function UpdatePlayerVehicle()
     ConsoleMenu.PlayerContext.vehicle = UnitInVehicle('player') or UnitOnTaxi('player') or false
 end
 
-local function UpdatePlayerTarget(unit)
-    if not UnitExists(unit) then
+local function UpdatePlayerTarget()
+    if not UnitExists("target") then
         ConsoleMenu.PlayerContext.target = {}
-        return 
+    elseif UnitCanAttack("player", "target") then
+        ConsoleMenu.PlayerContext.target.isPlayer = UnitIsPlayer("target")
+        ConsoleMenu.PlayerContext.target.canAttack = true
+        ConsoleMenu.PlayerContext.target.isEnemy = UnitIsEnemy("player", "target")
+        ConsoleMenu.PlayerContext.target.isFriend = UnitIsFriend("player", "target")
+        ConsoleMenu.PlayerContext.target.canAssist = UnitCanAssist("player", "target")
     end
+end
 
-    ConsoleMenu.PlayerContext.target.isPlayer = UnitIsPlayer(unit)
-    ConsoleMenu.PlayerContext.target.isEnemy = UnitIsEnemy("player", unit)
-    ConsoleMenu.PlayerContext.target.isFriend = UnitIsFriend("player", unit)
-    ConsoleMenu.PlayerContext.target.canAttack = UnitCanAttack("player", unit)
-    ConsoleMenu.PlayerContext.target.canAssist = UnitCanAssist("player", unit)
+local function UpdatePlayerSoftEnemy()
+    if not UnitExists("softenemy") then
+        ConsoleMenu.PlayerContext.softenemy = {}
+    elseif UnitCanAttack("player", "softenemy") then
+        ConsoleMenu.PlayerContext.softenemy.isPlayer = UnitIsPlayer("softenemy")
+        ConsoleMenu.PlayerContext.softenemy.canAttack = UnitCanAttack("player", "softenemy")
+    end
+end
 
+local function UpdatePlayerSoftFriend()
+    if not UnitExists("softfriend") then
+        ConsoleMenu.PlayerContext.softfriend = {}
+    elseif UnitCanAssist("player", "softfriend") then
+        ConsoleMenu.PlayerContext.softfriend.isPlayer = UnitIsPlayer("softfriend")
+        ConsoleMenu.PlayerContext.softfriend.canAssist = UnitCanAssist("player", "softfriend")
+    end
 end
 
 -- Работа с хэш-таблицей для отслеживания открытых окон
@@ -81,7 +97,7 @@ function ConsoleMenu:GetPlayerContext()
     elseif ConsoleMenu.PlayerContext.inCombat == false
        and ConsoleMenu.PlayerContext.mount == 0
        and ConsoleMenu.PlayerContext.vehicle == false
-       and ConsoleMenu.PlayerContext.target.canAttack == true
+       and (ConsoleMenu.PlayerContext.softenemy.canAttack == true or ConsoleMenu.PlayerContext.target.canAttack == true)
     then
         context = "precombat"
     elseif ConsoleMenu.PlayerContext.mount == 1 or ConsoleMenu.PlayerContext.mount == 2 then
@@ -105,7 +121,7 @@ local function SwitchActionBarPage()
     elseif ConsoleMenu.PlayerContext.inCombat == false
        and ConsoleMenu.PlayerContext.mount == 0
        and ConsoleMenu.PlayerContext.vehicle == false
-       and ConsoleMenu.PlayerContext.target.canAttack == true
+       and (ConsoleMenu.PlayerContext.softenemy.canAttack == true or ConsoleMenu.PlayerContext.target.canAttack == true)
     then
         ChangeActionBarPage(1)
     elseif ConsoleMenu.PlayerContext.mount == 1 and ConsoleMenu.PlayerContext.inCombat == false then
@@ -116,8 +132,7 @@ local function SwitchActionBarPage()
         ChangeActionBarPage(1)
     elseif ConsoleMenu.PlayerContext.inCombat == false
         and ConsoleMenu.PlayerContext.vehicle == false
-        and ConsoleMenu.PlayerContext.target.isPlayer == true
-        and ConsoleMenu.PlayerContext.target.isFriend == true
+        and (ConsoleMenu.PlayerContext.softfriend.isPlayer == true or ConsoleMenu.PlayerContext.target.isFriend == true)
     then
         -- Друг в фокусе
         ChangeActionBarPage(3)
@@ -177,7 +192,9 @@ function ConsoleMenu:InitializeContexts()
         -- Транспорт:
         vehicle = nil,
 
-        -- Цель или soft-target
+        -- Враг и союзник
+        enemy = {},
+        friend = {},
         target = {},
 
         -- Наличие окна интерфейса (хеш-таблица для быстрого доступа)
@@ -191,14 +208,17 @@ function ConsoleMenu:InitializeContexts()
         if event == "PLAYER_ENTERING_WORLD" then
             UpdatePlayerAlive()
             UpdatePlayerInCombat()
+            UpdatePlayerSoftEnemy()
+            UpdatePlayerSoftFriend()
+            UpdatePlayerTarget()
             C_Timer.After(1, UpdatePlayerMount)
             C_Timer.After(1, UpdatePlayerVehicle)
         elseif event == "PLAYER_SOFT_ENEMY_CHANGED" then
-            UpdatePlayerTarget("softenemy")
+            UpdatePlayerSoftEnemy()
         elseif event == "PLAYER_SOFT_FRIEND_CHANGED" then
-            UpdatePlayerTarget("softfriend")
+            UpdatePlayerSoftFriend()
         elseif event == "PLAYER_TARGET_CHANGED" then
-            UpdatePlayerTarget("target")
+            UpdatePlayerTarget()
         elseif event == "PLAYER_REGEN_DISABLED" or event == "PLAYER_REGEN_ENABLED" then
             UpdatePlayerInCombat()
         elseif event == "UNIT_POWER_BAR_SHOW" or event == "UNIT_POWER_BAR_HIDE" or event == "PLAYER_MOUNT_DISPLAY_CHANGED" then
@@ -214,7 +234,6 @@ function ConsoleMenu:InitializeContexts()
         end
 
         local context = ConsoleMenu:GetPlayerContext()
-
         if WeakAuras then
             WeakAuras.ScanEvents("CHANGE_CONTEXT", context)
         end
