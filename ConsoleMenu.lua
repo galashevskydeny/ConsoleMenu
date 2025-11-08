@@ -88,10 +88,8 @@ local function Initialize()
     ConsoleMenu:InitInteractBindingFrame()
     ConsoleMenu:InitZoneAbilityBindingFrame()
     
-    -- Инициализация настроек
-    if ConsoleMenu.InitializeOptions then
-        ConsoleMenu.InitializeOptions()
-    end
+    ConsoleMenu.InitializeOptions()
+    ConsoleMenu:InitializeContexts()
     
 end
 

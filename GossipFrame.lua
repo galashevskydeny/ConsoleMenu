@@ -283,6 +283,7 @@ local function CreateGossipScrollBox()
             WeakAuras.ScanEvents("CHANGE_CONTEXT", "window")
             WeakAuras.ScanEvents("SHOW_GOSSIP_FRAME", true)
         end
+
     end)
 
     GossipScrollBox:HookScript("OnHide", function()
@@ -296,6 +297,7 @@ local function CreateGossipScrollBox()
             WeakAuras.ScanEvents("CHANGE_CONTEXT", previousContext)
             WeakAuras.ScanEvents("SHOW_GOSSIP_FRAME", false)
         end
+
     end)
     
     -- Создаем ScrollBox

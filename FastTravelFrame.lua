@@ -358,6 +358,7 @@ function ConsoleMenu:SetFastTravelFrame()
             WeakAuras.ScanEvents("CHANGE_CONTEXT", "window")
             WeakAuras.ScanEvents("SHOW_FAST_TRAVEL_FRAME", true)
         end
+
     end)
 
     -- Очищаем бинды, когда окно скрывается:
@@ -381,6 +382,7 @@ function ConsoleMenu:SetFastTravelFrame()
             WeakAuras.ScanEvents("CHANGE_CONTEXT", previousContext)
             WeakAuras.ScanEvents("SHOW_FAST_TRAVEL_FRAME", false)
         end
+
     end)
     
 end

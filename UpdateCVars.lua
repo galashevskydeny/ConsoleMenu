@@ -202,7 +202,12 @@ _G.ResetBaseSettings = ResetBaseSettings
 
 -- Устанавливает базовые для необходимого пользовательского опыта значения настроек графики
 local function SetBaseGraphicsSettings()
+
+    -- Устанавливаем настройки для MacBook Pro с вырезом экрана
     SetCVar("NotchedDisplayMode", 0)
+    UIWidgetTopCenterContainerFrame:ClearAllPoints()
+    UIWidgetTopCenterContainerFrame:SetPoint("TOP", UIParent, "TOP", 0, -60)
+
     SetCVar("graphicsOutlineMode", 0)
     SetCVar("useMaxFPS", 0)
     SetCVar("useMaxFPSBk", 0)
@@ -216,7 +221,11 @@ _G.SetBaseGraphicsSettings = SetBaseGraphicsSettings
 
 -- Возвращает настройки графики к значениям по умолчанию
 local function ResetGraphicsSettings()
+    -- Устанавливаем настройки для MacBook Pro с вырезом экрана
+    UIWidgetTopCenterContainerFrame:ClearAllPoints()
+    UIWidgetTopCenterContainerFrame:SetPoint("TOP", UIParent, "TOP", 0, -15)
     SetCVar("NotchedDisplayMode", GetCVarDefault("NotchedDisplayMode"))
+
     SetCVar("graphicsOutlineMode", GetCVarDefault("graphicsOutlineMode"))
     SetCVar("useMaxFPS", GetCVarDefault("useMaxFPS"))
     SetCVar("useMaxFPSBk", GetCVarDefault("useMaxFPSBk"))
@@ -334,4 +343,6 @@ function ConsoleMenu:UpdateCVars()
             SetSanctuarySoftTargetSettings()
         end
     end)
+
+    ApplyCVarSettings()
 end
