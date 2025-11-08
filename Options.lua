@@ -12,7 +12,6 @@ local windowStyleOptions = { "Обновленное", "Стандартное" 
 local cvarDropdownOptions = { "По умолчанию", "Включить", "Выключить", "Не влиять" }
 local cvarHideDropdownOptions = { "По умолчанию", "Скрыть", "Не влиять" }
 local toggleOptions = { "Включено", "Отклюнено" }
-local softTargetDropdownOptions = { "По умолчанию", "Для бойца", "Для танка", "Для лекаря", "Вручную" }
 local interactButtonMap = { "PAD1", "PAD2", "PAD3", "PAD4" }
 
 local mainCategorySettings = {
