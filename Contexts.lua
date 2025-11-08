@@ -86,10 +86,6 @@ function ConsoleMenu:GetPlayerContext()
         context = "mount"
     end
 
-    if WeakAuras then
-        WeakAuras.ScanEvents("CHANGE_CONTEXT", context)
-    end
-
     ConsoleMenu.PlayerContext.lastContext = context
     return context
 end
@@ -181,18 +177,10 @@ function ConsoleMenu:InitializeContexts()
         end
 
         local context = ConsoleMenu:GetPlayerContext()
-        print(context)
+        if WeakAuras then
+            WeakAuras.ScanEvents("CHANGE_CONTEXT", context)
+        end
     end)
-
-    if ConsolePortUtilityToggle then
-        ConsolePortUtilityToggle:HookScript("OnShow", function()
-                WeakAuras.ScanEvents("CHANGE_CONTEXT", "ring")
-        end)
-        
-        ConsolePortUtilityToggle:HookScript("OnHide", function()                
-                WeakAuras.ScanEvents("CHANGE_CONTEXT", ConsoleMenu.PlayerContext.lastContext)
-        end)
-    end
     
     
 end

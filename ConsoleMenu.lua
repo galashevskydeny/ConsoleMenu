@@ -78,6 +78,19 @@ local function Initialize()
     ConsoleMenu:RegisterEvent("PLAYER_LOGIN", function()
         if ConsoleMenu.SetBaseKeyBindings then ConsoleMenu:SetBaseKeyBindings() end
         if ConsoleMenu.HideTimeManagerClockButton then ConsoleMenu:HideTimeManagerClockButton() end
+        if ConsolePortUtilityToggle then
+            ConsolePortUtilityToggle:HookScript("OnShow", function()
+                if WeakAuras then
+                    WeakAuras.ScanEvents("CHANGE_CONTEXT", "ring")
+                end
+            end)
+            
+            ConsolePortUtilityToggle:HookScript("OnHide", function()                
+                if WeakAuras then
+                    WeakAuras.ScanEvents("CHANGE_CONTEXT", ConsoleMenu.PlayerContext.lastContext)
+                end
+            end)
+        end
     end)
 
     -- Вибрация при отображении проков (overlay glow)
