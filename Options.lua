@@ -22,71 +22,77 @@ local mainCategorySettings = {
 local hudSettingsMainElements = {
     { name = "Отслеживание цели", variable = "hideObjectiveTracker", default = 1, tooltip = "Управляет отображением трекера заданий (ObjectiveTracker).", options = hudDropdownOptions },
     { name = "Оповещения о целях", variable = "hideObjectiveTrackerTopBannerFrame", default = 1, tooltip = "Управляет отображением баннера трекера заданий (ObjectiveTrackerTopBannerFrame).", options = hudDropdownOptions },
-    { name = "Миникарта", variable = "hideMinimap", default = 2, tooltip = "Управляет отображением миникарты (Minimap).", options = hudDropdownOptions },
-    { name = "Главное меню", variable = "hideMicroMenu", default = 2, tooltip = "Управляет отображением главного меню (MicroMenu).", options = hudDropdownOptions },
-    { name = "Поиск группы", variable = "hideGroupFinderFrame", default = 2, tooltip = "Управляет отображением фрейма поиска группы (GroupFinderFrame).", options = hudDropdownOptions },
-    { name = "Панель сумок", variable = "hideBagsBarsBar", default = 2, tooltip = "Управляет отображением панели сумок (BagsBarsBar).", options = hudDropdownOptions },
+    { name = "Миникарта", variable = "hideMinimap", default = 1, tooltip = "Управляет отображением миникарты (Minimap).", options = hudDropdownOptions },
+    { name = "Главное меню", variable = "hideMicroMenu", default = 1, tooltip = "Управляет отображением главного меню (MicroMenu).", options = hudDropdownOptions },
+    { name = "Поиск группы", variable = "hideGroupFinderFrame", default = 1, tooltip = "Управляет отображением фрейма поиска группы (GroupFinderFrame).", options = hudDropdownOptions },
+    { name = "Панель сумок", variable = "hideBagsBarsBar", default = 1, tooltip = "Управляет отображением панели сумок (BagsBarsBar).", options = hudDropdownOptions },
 }
 
 -- Рамки интерфейса
 local hudSettingsFrames = {
-    { name = "Игрок", variable = "hidePlayerFrame", default = 2, tooltip = "Управляет отображением фрейма игрока (PlayerFrame).", options = hudDropdownOptions },
-    { name = "Цель и выделенная цель", variable = "hideTargetFrame", default = 2, tooltip = "Управляет отображением фрейма цели (TargetFrame).", options = hudDropdownOptions },
-    { name = "Интерфейс группы", variable = "hideCompactPartyFrame", default = 2, tooltip = "Управляет отображением фрейма группы (CompactPartyFrame).", options = hudDropdownOptions },
-    { name = "Интерфейс рейда", variable = "hideCompactRaidFrame", default = 2, tooltip = "Управляет отображением фрейма рейда (CompactRaidFrame).", options = hudDropdownOptions },
-    { name = "Рамки боссов", variable = "hideBossTargetFrameContainer", default = 2, tooltip = "Управляет отображением контейнера фреймов боссов (BossTargetFrameContainer).", options = hudDropdownOptions },
+    { name = "Игрок", variable = "hidePlayerFrame", default = 1, tooltip = "Управляет отображением фрейма игрока (PlayerFrame).", options = hudDropdownOptions },
+    { name = "Цель и выделенная цель", variable = "hideTargetFrame", default = 1, tooltip = "Управляет отображением фрейма цели (TargetFrame).", options = hudDropdownOptions },
+    { name = "Интерфейс группы", variable = "hideCompactPartyFrame", default = 1, tooltip = "Управляет отображением фрейма группы (CompactPartyFrame).", options = hudDropdownOptions },
+    { name = "Интерфейс рейда", variable = "hideCompactRaidFrame", default = 1, tooltip = "Управляет отображением фрейма рейда (CompactRaidFrame).", options = hudDropdownOptions },
+    { name = "Рамки боссов", variable = "hideBossTargetFrameContainer", default = 1, tooltip = "Управляет отображением контейнера фреймов боссов (BossTargetFrameContainer).", options = hudDropdownOptions },
 }
 
 -- Бой
 local hudSettingsCombat = {
-    { name = "Панель команд", variable = "hideActionBar", default = 2, tooltip = "Управляет отображением основной панели действий (ActionBar).", options = hudDropdownOptions },
-    { name = "Панель питомца", variable = "hidePetActionBar", default = 2, tooltip = "Управляет отображением панели действий питомца (PetActionBar).", options = hudDropdownOptions },
-    { name = "Индикатор заклинаний", variable = "hidePlayerCastingBarFrame", default = 2, tooltip = "Управляет отображением полосы заклинаний игрока (PlayerCastingBarFrame).", options = hudDropdownOptions },
-    { name = "Индикатор стойки", variable = "hideStanceBar", default = 2, tooltip = "Управляет отображением панели стоек (StanceBar).", options = hudDropdownOptions },
-    { name = "Положительные эффекты и ауры", variable = "hideBuffFrame", default = 2, tooltip = "Управляет отображением фрейма баффов (BuffFrame).", options = hudDropdownOptions },
-    { name = "Негативные эффекты и ауры", variable = "hideDebuffFrame", default = 2, tooltip = "Управляет отображением фрейма дебаффов (DebuffFrame).", options = hudDropdownOptions },
-    { name = "Доп. способности", variable = "hideZoneAbilityFrame", default = 2, tooltip = "Управляет отображением фрейма способностей зоны (ZoneAbilityFrame).", options = hudDropdownOptions },
-    { name = "Усиление заклинаний", variable = "hideSpellActivationOverlay", default = 2, tooltip = "Управляет отображением эффектов усиления заклинаний (SpellActivationOverlay) персонажа.", options = hudDropdownOptions },
+    { name = "Панель команд", variable = "hideActionBar", default = 1, tooltip = "Управляет отображением основной панели действий (ActionBar).", options = hudDropdownOptions },
+    { name = "Панель питомца", variable = "hidePetActionBar", default = 1, tooltip = "Управляет отображением панели действий питомца (PetActionBar).", options = hudDropdownOptions },
+    { name = "Индикатор заклинаний", variable = "hidePlayerCastingBarFrame", default = 1, tooltip = "Управляет отображением полосы заклинаний игрока (PlayerCastingBarFrame).", options = hudDropdownOptions },
+    { name = "Индикатор стойки", variable = "hideStanceBar", default = 1, tooltip = "Управляет отображением панели стоек (StanceBar).", options = hudDropdownOptions },
+    { name = "Положительные эффекты и ауры", variable = "hideBuffFrame", default = 1, tooltip = "Управляет отображением фрейма баффов (BuffFrame).", options = hudDropdownOptions },
+    { name = "Негативные эффекты и ауры", variable = "hideDebuffFrame", default = 1, tooltip = "Управляет отображением фрейма дебаффов (DebuffFrame).", options = hudDropdownOptions },
+    { name = "Доп. способности", variable = "hideZoneAbilityFrame", default = 1, tooltip = "Управляет отображением фрейма способностей зоны (ZoneAbilityFrame).", options = hudDropdownOptions },
+    { name = "Усиление заклинаний", variable = "hideSpellActivationOverlay", default = 1, tooltip = "Управляет отображением эффектов усиления заклинаний (SpellActivationOverlay) персонажа.", options = hudDropdownOptions },
 }
 
 -- Разное
 local hudSettingsMisc = {
-    { name = "Название области", variable = "hideZoneTextFrame", default = 2, tooltip = "Управляет отображением фрейма текста зоны (ZoneTextFrame).", options = hudDropdownOptions },
-    { name = "Предупреждения", variable = "hideAlertFrame", default = 2, tooltip = "Управляет отображением фрейма предупреждений (AlertFrame).", options = hudDropdownOptions },
-    { name = "Ошибки", variable = "hideUIErrorsFrame", default = 2, tooltip = "Управляет отображением фрейма ошибок интерфейса (UIErrorsFrame).", options = hudDropdownOptions },
-    { name = "Говорящая голова", variable = "hideTalkingHeadFrame", default = 2, tooltip = "Управляет отображением фрейма говорящей головы (TalkingHeadFrame).", options = hudDropdownOptions },
-    { name = "Высший пилотаж", variable = "hideUIWidgetPowerBarContainerFrame", default = 2, tooltip = "Управляет отображением фрейма полета на драконе (UIWidgetPowerBarContainerFrame).", options = hudDropdownOptions },
-    { name = "Окно добычи", variable = "hideLootFrame", default = 2, tooltip = "Управляет отображением фрейма лута (LootFrame).", options = hudDropdownOptions },
+    { name = "Название области", variable = "hideZoneTextFrame", default = 1, tooltip = "Управляет отображением фрейма текста зоны (ZoneTextFrame).", options = hudDropdownOptions },
+    { name = "Предупреждения", variable = "hideAlertFrame", default = 1, tooltip = "Управляет отображением фрейма предупреждений (AlertFrame).", options = hudDropdownOptions },
+    { name = "Ошибки", variable = "hideUIErrorsFrame", default = 1, tooltip = "Управляет отображением фрейма ошибок интерфейса (UIErrorsFrame).", options = hudDropdownOptions },
+    { name = "Говорящая голова", variable = "hideTalkingHeadFrame", default = 1, tooltip = "Управляет отображением фрейма говорящей головы (TalkingHeadFrame).", options = hudDropdownOptions },
+    { name = "Высший пилотаж", variable = "hideUIWidgetPowerBarContainerFrame", default = 1, tooltip = "Управляет отображением фрейма полета на драконе (UIWidgetPowerBarContainerFrame).", options = hudDropdownOptions },
+    { name = "Окно добычи", variable = "hideLootFrame", default = 1, tooltip = "Управляет отображением фрейма лута (LootFrame).", options = hudDropdownOptions },
 }
 
 -- Геймплей
 local hudSettingsGameplay = {
     { name = "Плавающие цифры", variable = "floatingText", default = 3, tooltip = "Плавающие цифры урона, лечения и других эффектов (threatShowNumeric, enableFloatingCombatText, floatingCombatTextCombatDamage).", options = cvarHideDropdownOptions },
     { name = "Имена персонажей и игроков", variable = "unitNames", default = 3, tooltip = "Отключает отображение имен персонажей, игроков, питомцев и других юнитов (UnitNameEnemyGuardianName и другие).", options = cvarHideDropdownOptions },
-    { name = "Реплики персонажей над головой", variable = "chatBubble", default = 3, tooltip = "Отключает облака с субтитрами над головой персонажей и игроков (chatBubbles, chatBubblesParty).", options = cvarDropdownOptions },
-    { name = "Подсветка квестодателя", variable = "qestCircle", default = 3, tooltip = "Отключает выделение под квестодателем (ShowQuestUnitCircles, ObjectSelectionCircle).", options = cvarDropdownOptions },
-    { name = "Выделение персонажей и игроков", variable = "hideGraphicsOutlineMode", default = 2, tooltip = "Отключает режим контуров графики (graphicsOutlineMode).", options = cvarHideDropdownOptions },
+    { name = "Реплики персонажей над головой", variable = "chatBubble", default = 4, tooltip = "Отключает облака с субтитрами над головой персонажей и игроков (chatBubbles, chatBubblesParty).", options = cvarDropdownOptions },
+    { name = "Подсветка квестодателя", variable = "qestCircle", default = 4, tooltip = "Выделение квестодателя при взаимодействии в геймплее (ShowQuestUnitCircles, ObjectSelectionCircle).", options = cvarDropdownOptions },
+    { name = "Выделение персонажей и игроков", variable = "hideGraphicsOutlineMode", default = 3, tooltip = "Отключает режим контуров графики (graphicsOutlineMode).", options = cvarHideDropdownOptions },
 }
 
 local standardUISettings = {
-    { name = "Окно персонажа", variable = "characterWindowStyle", default = 1, tooltip = "Выберите стиль окна персонажа: обновленную версию или стандартную.", options = windowStyleOptions },
+    { name = "Окно персонажа", variable = "characterWindowStyle", default = 2, tooltip = "Выберите стиль окна персонажа: обновленную версию или стандартную.", options = windowStyleOptions },
     { name = "Окно почты", variable = "mailWindowStyle", default = 2, tooltip = "Выберите стиль окна почты: обновленную версию или стандартную.", options = windowStyleOptions },
     { name = "Окно торговца", variable = "merchantWindowStyle", default = 2, tooltip = "Выберите стиль окна торговца: обновленную версию или стандартную.", options = windowStyleOptions },
-    { name = "Окна диалогов и квестов", variable = "dialogQuestWindowStyle", default = 1, tooltip = "Выберите стиль окна диалогов и квестов: обновленную (более имерсивную) версию или стандартную.", options = windowStyleOptions },
+    { name = "Окна диалогов и квестов", variable = "dialogQuestWindowStyle", default = 2, tooltip = "Выберите стиль окна диалогов и квестов: обновленную (более имерсивную) версию или стандартную.", options = windowStyleOptions },
 }
 
 local keyBindingSettings = {
     { name = "Переопределять кнопку при наличии объекта взаимодействия", variable = "overrideInteractKey", default = 1, tooltip = "Если включено, основная кнопка автоматически использует действие взаимодействия при наличии объекта.", options = toggleOptions },
     { name = "Переопределять кнопку при наличии способности области", variable = "overrideZoneAbilityKey", default = 2, tooltip = "Если включено, выбранная кнопка автоматически использует способность области, если она доступна.", options = toggleOptions },
-    { name = "Схема привязки контроллера", variable = "keyBindingScheme", default = 1, tooltip = "Выберите схему привязки игровых клавиш контроллера к действиям в игре.", options = { "Авторская", "Вручную" } },
+    { name = "Схема привязки контроллера", variable = "keyBindingScheme", default = 2, tooltip = "Выберите схему привязки игровых клавиш контроллера к действиям в игре.", options = { "Авторская", "Вручную" } },
     { name = "Вибрация контроллера", variable = "controllerVibration", default = 2, tooltip = "Управляет вибрацией контроллера при использовании способностей.", options = { "Нет", "При усилении активной способности" } },
 }
 
 local contextsSettings = {
-    { name = "Переключение страниц панели команд", variable = "actionBarPageSwitching", default = 1, tooltip = "Управляет переключением страниц панели команд автоматически в зависимости от контекста игрока (в бою, на транспорте, при рассмотрении дружественного игрока и другие).", options = toggleOptions },
-    { name = "Игнорировать противников при верховой езде", variable = "softTargetFlightSwitching", default = 1, tooltip = "Отключение Soft Target на противниках при верховой езде.", options = toggleOptions},
-    { name = "Игнорировать противников в зонах святилищ", variable = "softTargetSanctuarySwitching", default = 1, tooltip = "Отключение Soft Target на противниках в святилищах.", options = toggleOptions},
-    { name = "Малая дистанция обнаружения союзников", variable = "softTargetFriendSanctuaryRange", default = 1, tooltip = "Радиус фокусировки союзников в святилищах (SoftTargetFriendRange) 5 метров.", options = toggleOptions},
+    { name = "Переключение страниц панели команд", variable = "actionBarPageSwitching", default = 2, tooltip = "Управляет переключением страниц панели команд автоматически в зависимости от контекста игрока (в бою, на транспорте, при рассмотрении дружественного игрока и другие).", options = toggleOptions },
+    { name = "Игнорировать противников при верховой езде", variable = "softTargetFlightSwitching", default = 2, tooltip = "Отключение Soft Target на противниках при верховой езде.", options = toggleOptions},
+    { name = "Игнорировать противников в зонах святилищ", variable = "softTargetSanctuarySwitching", default = 2, tooltip = "Отключение Soft Target на противниках в святилищах.", options = toggleOptions},
+    { name = "Малая дистанция обнаружения союзников", variable = "softTargetFriendSanctuaryRange", default = 2, tooltip = "Радиус фокусировки союзников в святилищах 5 метров (SoftTargetFriendRange).", options = toggleOptions},
+}
+
+local questSettings = {
+    { name = "Автом. переключение активного задания (Super Track)", variable = "questSuperTrackEnable", default = 2, tooltip = "Автоматическое переключение активного задания (Super Track).", options = toggleOptions },
+    { name = "Первый незавершенный квест", variable = "questAutoSelectFirstIncomplete", default = 2, tooltip = "Выбрать первый незавершенный квест из журнала заданий, если не было выбрано задание из цепочки предыдущего задания.", options = toggleOptions },
+    { name = "Фокус на локальных заданиях", variable = "questFocusLocalQuests", default = 2, tooltip = "Автоматически выбирать локальные задания при вхождении в область их выполнения с последующим возвратом предыдущего задания (если оно было выбрано).", options = toggleOptions },
 }
 
 -- Используем библиотеку SettingsHelper
@@ -94,6 +100,17 @@ local ensureNumericChoice = SettingsHelper.ensureNumericChoice
 local ensureDropdownDefaults = SettingsHelper.ensureDropdownDefaults
 local registerDropdown = SettingsHelper.registerDropdown
 local addReloadButton = SettingsHelper.addReloadButton
+
+local function registerMainOptions(category, layout)
+    registerDropdown(category, mainCategorySettings[1], function(value)
+        ConsoleMenuDB[mainCategorySettings[1].variable] = value
+        if _G.ApplyCVarSettings then
+            _G.ApplyCVarSettings()
+        end
+    end)
+
+    addReloadButton(layout, "Применить изменения")
+end
 
 local function registerHUDOptions(category, layout)
     -- Основные элементы
@@ -247,15 +264,12 @@ local function registerKeyBindingOptions(category, layout)
     layout:AddInitializer(clearBindingsInitializer)
 end
 
-local function registerMainOptions(category, layout)
-    registerDropdown(category, mainCategorySettings[1], function(value)
-        ConsoleMenuDB[mainCategorySettings[1].variable] = value
-        if _G.ApplyCVarSettings then
-            _G.ApplyCVarSettings()
-        end
-    end)
-
-    addReloadButton(layout, "Применить изменения")
+local function registerQuestOptions(category, layout)
+    for _, setting in ipairs(questSettings) do
+        registerDropdown(category, setting, function(value)
+            ConsoleMenuDB[setting.variable] = value
+        end)
+    end
 end
 
 local function RegisterOptions()
@@ -277,6 +291,9 @@ local function RegisterOptions()
 
     local contextsCategory, contextsLayout = Settings.RegisterVerticalLayoutSubcategory(mainCategory, "Контексты")
     registerContextsOptions(contextsCategory, contextsLayout)
+
+    local questCategory, questLayout = Settings.RegisterVerticalLayoutSubcategory(mainCategory, "Задания")
+    registerQuestOptions(questCategory, questLayout)
 
     Settings.RegisterAddOnCategory(mainCategory)
 

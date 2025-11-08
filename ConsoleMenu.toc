@@ -31,5 +31,6 @@ Utils/HideBlizzardUI.lua
 Utils/UpdateCVars.lua
 Utils/GamePad.lua
 Utils/KeyBindings.lua
+Utils/SuperTrackManager.lua
 
 BindingSuggestions.lua
