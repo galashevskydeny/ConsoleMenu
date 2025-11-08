@@ -62,7 +62,7 @@ local hudSettingsMisc = {
 -- Геймплей
 local hudSettingsGameplay = {
     { name = "Плавающие цифры", variable = "floatingText", default = 3, tooltip = "Плавающие цифры урона, лечения и других эффектов (threatShowNumeric, enableFloatingCombatText, floatingCombatTextCombatDamage).", options = cvarHideDropdownOptions },
-    { name = "Имена персонажей и игроков", variable = "unitNames", default = 3, tooltip = "Отключает отображение имен персонажей, игроков, питомцев и других юнитов (UnitNameEnemyGuardianName и другие).", options = cvarDropdownOptions },
+    { name = "Имена персонажей и игроков", variable = "unitNames", default = 3, tooltip = "Отключает отображение имен персонажей, игроков, питомцев и других юнитов (UnitNameEnemyGuardianName и другие).", options = cvarHideDropdownOptions },
     { name = "Реплики персонажей над головой", variable = "chatBubble", default = 3, tooltip = "Отключает облака с субтитрами над головой персонажей и игроков (chatBubbles, chatBubblesParty).", options = cvarDropdownOptions },
     { name = "Подсветка квестодателя", variable = "qestCircle", default = 3, tooltip = "Отключает выделение под квестодателем (ShowQuestUnitCircles, ObjectSelectionCircle).", options = cvarDropdownOptions },
     { name = "Выделение персонажей и игроков", variable = "hideGraphicsOutlineMode", default = 2, tooltip = "Отключает режим контуров графики (graphicsOutlineMode).", options = cvarHideDropdownOptions },

@@ -7,13 +7,6 @@ local function HideFloatingText()
     SetCVar("floatingCombatTextCombatDamage", 0)
 end
 
--- Отображение текста боя (всплывающих цифр) к значениям по умолчанию
-local function ShowFloatingText()
-    SetCVar("threatShowNumeric", 1)
-    SetCVar("enableFloatingCombatText", 1)
-    SetCVar("floatingCombatTextCombatDamage", 1)
-end
-
 -- Возврат текста боя (всплывающих цифр) к значениям по умолчанию
 local function DefaultFloatingText()
     SetCVar("threatShowNumeric", GetCVarDefault("threatShowNumeric"))
@@ -57,33 +50,6 @@ local function ShowQuestCircle()
     SetCVar("ObjectSelectionCircle", 1)
 end
 
--- Устанавливает базовые для необходимого пользовательского опыта значения soft target
-local function SetBaseSoftTargetSettings()
-    SetCVar("SoftTargetFriend", 1)
-    SetCVar("SoftTargetNameplateEnemy", 1)
-    SetCVar("SoftTargetIconInteract", 0)
-    
-    SetCVar("SoftTargetForce", 0)
-
-    if ConsoleMenuDB.softTargetFlightSwitching == 1 then
-        -- Фокусировка на врагах только если персонаж не верхом
-        if IsMounted() then
-            SetCVar("SoftTargetEnemy", 0)
-        else
-            SetCVar("SoftTargetEnemy", 1)
-        end
-    end
-end
-
--- Возвращает настройки soft target к значениям по умолчанию
-local function ResetBaseSoftTargetSettings()
-    SetCVar("SoftTargetFriend", GetCVarDefault("SoftTargetFriend"))
-    SetCVar("SoftTargetNameplateEnemy", GetCVarDefault("SoftTargetNameplateEnemy"))
-    SetCVar("SoftTargetIconInteract", GetCVarDefault("SoftTargetIconInteract"))
-    SetCVar("SoftTargetForce", GetCVarDefault("SoftTargetForce"))
-    SetCVar("SoftTargetEnemy", GetCVarDefault("SoftTargetEnemy"))
-end
-
 -- Скрывает отображения имен
 local function HideUnitNameSettings()
     SetCVar("UnitNameEnemyGuardianName", 0)
@@ -101,25 +67,6 @@ local function HideUnitNameSettings()
     SetCVar("UnitNameGuildTitle", 0)
     SetCVar("UnitNameHostleNPC", 0)
     SetCVar("UnitNameInteractiveNPC", 0)
-end
-
--- Отображение имен
-local function ShowUnitNameSettings()
-    SetCVar("UnitNameEnemyGuardianName", 1)
-    SetCVar("UnitNameEnemyMinionName", 1)
-    SetCVar("UnitNameEnemyPetName", 1)
-    SetCVar("UnitNameEnemyPlayerName", 1)
-    SetCVar("UnitNameEnemyTotemName", 1)
-
-    SetCVar("UnitNameFriendlyGuardianName", 1)
-    SetCVar("UnitNameFriendlyMinionName", 1)
-    SetCVar("UnitNameFriendlyPetName", 1)
-    SetCVar("UnitNameFriendlyPlayerName", 1)
-    SetCVar("UnitNameFriendlySpecialNPCName", 1)
-    SetCVar("UnitNameFriendlyTotemName", 1)
-    SetCVar("UnitNameGuildTitle", 1)
-    SetCVar("UnitNameHostleNPC", 1)
-    SetCVar("UnitNameInteractiveNPC", 1)
 end
 
 -- Возвращает настройки отображения имен к значениям по умолчанию
@@ -192,18 +139,14 @@ local function ApplyCVarSettings()
     if ConsoleMenuDB.qestCircle == 1 then
         ResetQuestCircle()
     elseif ConsoleMenuDB.qestCircle == 2 then
-        ShowQuestCircle()
+        HideQuestCircle()
     elseif ConsoleMenuDB.qestCircle == 3 then
         HideQuestCircle()
     end
-    
-    SetBaseSoftTargetSettings()
-    
+        
     if ConsoleMenuDB.unitNames == 1 then
         ResetUnitNameSettings()
     elseif ConsoleMenuDB.unitNames == 2 then
-        ShowUnitNameSettings()
-    elseif ConsoleMenuDB.unitNames == 3 then
         HideUnitNameSettings()
     end
     
@@ -223,6 +166,33 @@ end
 
 -- Делаем функцию доступной глобально
 _G.ApplyCVarSettings = ApplyCVarSettings
+
+-- Устанавливает базовые для необходимого пользовательского опыта значения soft target
+local function SetBaseSoftTargetSettings()
+    SetCVar("SoftTargetFriend", 1)
+    SetCVar("SoftTargetNameplateEnemy", 1)
+    SetCVar("SoftTargetIconInteract", 0)
+    
+    SetCVar("SoftTargetForce", 0)
+
+    if ConsoleMenuDB.softTargetFlightSwitching == 1 then
+        -- Фокусировка на врагах только если персонаж не верхом
+        if IsMounted() then
+            SetCVar("SoftTargetEnemy", 0)
+        else
+            SetCVar("SoftTargetEnemy", 1)
+        end
+    end
+end
+
+-- Возвращает настройки soft target к значениям по умолчанию
+local function ResetBaseSoftTargetSettings()
+    SetCVar("SoftTargetFriend", GetCVarDefault("SoftTargetFriend"))
+    SetCVar("SoftTargetNameplateEnemy", GetCVarDefault("SoftTargetNameplateEnemy"))
+    SetCVar("SoftTargetIconInteract", GetCVarDefault("SoftTargetIconInteract"))
+    SetCVar("SoftTargetForce", GetCVarDefault("SoftTargetForce"))
+    SetCVar("SoftTargetEnemy", GetCVarDefault("SoftTargetEnemy"))
+end
 
 -- Устанавливает значения настроект soft target в зонах святилищах
 local function UpdateZoneSoftTargetSettings()
@@ -264,6 +234,8 @@ function ConsoleMenu:UpdateCVars()
     ConsoleMenu:RegisterEvent("ZONE_CHANGED_NEW_AREA", function()
         UpdateZoneSoftTargetSettings()
     end)
+
+    SetBaseSoftTargetSettings()
 
     ApplyCVarSettings()
 end
