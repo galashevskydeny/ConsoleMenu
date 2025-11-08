@@ -6,71 +6,63 @@ local function HideFloatingText()
     SetCVar("enableFloatingCombatText", 0)
     SetCVar("floatingCombatTextCombatDamage", 0)
 end
--- Делаем функцию доступной глобально
-_G.HideFloatingText = HideFloatingText
 
--- Возвращает текст боя (всплывающих цифр) к значениям по умолчанию
+-- Отображение текста боя (всплывающих цифр) к значениям по умолчанию
 local function ShowFloatingText()
+    SetCVar("threatShowNumeric", 1)
+    SetCVar("enableFloatingCombatText", 1)
+    SetCVar("floatingCombatTextCombatDamage", 1)
+end
+
+-- Возврат текста боя (всплывающих цифр) к значениям по умолчанию
+local function DefaultFloatingText()
     SetCVar("threatShowNumeric", GetCVarDefault("threatShowNumeric"))
     SetCVar("enableFloatingCombatText", GetCVarDefault("enableFloatingCombatText"))
     SetCVar("floatingCombatTextCombatDamage", GetCVarDefault("floatingCombatTextCombatDamage"))
 end
--- Делаем функцию доступной глобально
-_G.ShowFloatingText = ShowFloatingText
-
--- Скрывает уведомления о входе/выходе членов гильдии из онлайна
-local function HideGuildMemberNotification()
-    SetCVar("guildMemberNotify", 0)
-end
--- Делаем функцию доступной глобально
-_G.HideGuildMemberNotification = HideGuildMemberNotification
-
--- Возвращает уведомления о входе/выходе членов гильдии из онлайна к значениям по умолчанию
-local function ShowGuildMemberNotification()
-    SetCVar("guildMemberNotify", GetCVarDefault("guildMemberNotify"))
-end
--- Делаем функцию доступной глобально
-_G.ShowGuildMemberNotification = ShowGuildMemberNotification
 
 -- Скрывает облака с субтитрами над головой персонажей и игроков
 local function HideChatBubble()
     SetCVar("chatBubbles", 0)
     SetCVar("chatBubblesParty", 0)
 end
--- Делаем функцию доступной глобально
-_G.HideChatBubble = HideChatBubble
 
 -- Возвращает облака с субтитрами над головой персонажей и игроков к значениям по умолчанию
-local function ShowChatBubble()
+local function ResetChatBubble()
     SetCVar("chatBubbles", GetCVarDefault("chatBubbles"))
     SetCVar("chatBubblesParty", GetCVarDefault("chatBubblesParty"))
 end
--- Делаем функцию доступной глобально
-_G.ShowChatBubble = ShowChatBubble
+
+-- Отображение облака с субтитрами над головой персонажей и игроков
+local function ShowChatBubble()
+    SetCVar("chatBubbles", 1)
+    SetCVar("chatBubblesParty", 1)
+end
 
 -- Скрывает выделение под квестодателем
 local function HideQuestCircle()
     SetCVar("ShowQuestUnitCircles", "0")
     SetCVar("ObjectSelectionCircle", "0")
 end
--- Делаем функцию доступной глобально
-_G.HideQuestCircle = HideQuestCircle
 
 -- Возвращает выделение под квестодателем к значениям по умолчанию
-local function ShowQuestCircle()
+local function ResetQuestCircle()
     SetCVar("ShowQuestUnitCircles", GetCVarDefault("ShowQuestUnitCircles"))
     SetCVar("ObjectSelectionCircle", GetCVarDefault("ObjectSelectionCircle"))
 end
--- Делаем функцию доступной глобально
-_G.ShowQuestCircle = ShowQuestCircle
+
+-- Отображение выделения под квестодателем
+local function ShowQuestCircle()
+    SetCVar("ShowQuestUnitCircles", 1)
+    SetCVar("ObjectSelectionCircle", 1)
+end
 
 -- Устанавливает базовые для необходимого пользовательского опыта значения soft target
 local function SetBaseSoftTargetSettings()
     SetCVar("SoftTargetFriend", 1)
-    SetCVar("SoftTargetFriend", 1)
     SetCVar("SoftTargetNameplateEnemy", 1)
     SetCVar("SoftTargetIconInteract", 0)
-    SetCVar("SoftTargetFriendRange", 5)
+    
     SetCVar("SoftTargetForce", 0)
 
     if ConsoleMenuDB.softTargetFlightSwitching == 1 then
@@ -82,20 +74,15 @@ local function SetBaseSoftTargetSettings()
         end
     end
 end
--- Делаем функцию доступной глобально
-_G.SetBaseSoftTargetSettings = SetBaseSoftTargetSettings
 
 -- Возвращает настройки soft target к значениям по умолчанию
-local function ResetSoftTargetSettings()
+local function ResetBaseSoftTargetSettings()
     SetCVar("SoftTargetFriend", GetCVarDefault("SoftTargetFriend"))
     SetCVar("SoftTargetNameplateEnemy", GetCVarDefault("SoftTargetNameplateEnemy"))
     SetCVar("SoftTargetIconInteract", GetCVarDefault("SoftTargetIconInteract"))
-    SetCVar("SoftTargetFriendRange", GetCVarDefault("SoftTargetFriendRange"))
     SetCVar("SoftTargetForce", GetCVarDefault("SoftTargetForce"))
     SetCVar("SoftTargetEnemy", GetCVarDefault("SoftTargetEnemy"))
 end
--- Делаем функцию доступной глобально
-_G.ResetSoftTargetSettings = ResetSoftTargetSettings
 
 -- Устанавливает значения настроек soft target для боя
 local function SetCombatSoftTargetSettings()
@@ -103,29 +90,8 @@ local function SetCombatSoftTargetSettings()
     SetCVar("SoftTargetForce", 0)
 end
 
--- Устанавливает значения настроект soft target в зонах святилищах
-local function SetSanctuarySoftTargetSettings()
-    local pvpType, _, _ = C_PvP.GetZonePVPInfo()
-
-    if pvpType == "sanctuary" then
-        SetCVar("SoftTargetEnemy", 0)
-    end
-end
-
--- Устанавливает настройки soft target для лекаря (фокусировка на союзниках)
-local function SetHealerSoftTargetSettings()
-    SetCVar("SoftTargetFriend", 1)
-    SetCVar("SoftTargetNameplateEnemy", 0)
-    SetCVar("SoftTargetIconInteract", 0)
-    SetCVar("SoftTargetFriendRange", 5)
-    SetCVar("SoftTargetForce", 0)
-    SetCVar("SoftTargetEnemy", 0)
-end
--- Делаем функцию доступной глобально
-_G.SetHealerSoftTargetSettings = SetHealerSoftTargetSettings
-
--- Устанавливает базовые для необходимого пользовательского опыта значения настроек отображения имен
-local function SetBaseUnitNameSettings()
+-- Скрывает отображения имен
+local function HideUnitNameSettings()
     SetCVar("UnitNameEnemyGuardianName", 0)
     SetCVar("UnitNameEnemyMinionName", 0)
     SetCVar("UnitNameEnemyPetName", 0)
@@ -142,8 +108,25 @@ local function SetBaseUnitNameSettings()
     SetCVar("UnitNameHostleNPC", 0)
     SetCVar("UnitNameInteractiveNPC", 0)
 end
--- Делаем функцию доступной глобально
-_G.SetBaseUnitNameSettings = SetBaseUnitNameSettings
+
+-- Отображение имен
+local function ShowUnitNameSettings()
+    SetCVar("UnitNameEnemyGuardianName", 1)
+    SetCVar("UnitNameEnemyMinionName", 1)
+    SetCVar("UnitNameEnemyPetName", 1)
+    SetCVar("UnitNameEnemyPlayerName", 1)
+    SetCVar("UnitNameEnemyTotemName", 1)
+
+    SetCVar("UnitNameFriendlyGuardianName", 1)
+    SetCVar("UnitNameFriendlyMinionName", 1)
+    SetCVar("UnitNameFriendlyPetName", 1)
+    SetCVar("UnitNameFriendlyPlayerName", 1)
+    SetCVar("UnitNameFriendlySpecialNPCName", 1)
+    SetCVar("UnitNameFriendlyTotemName", 1)
+    SetCVar("UnitNameGuildTitle", 1)
+    SetCVar("UnitNameHostleNPC", 1)
+    SetCVar("UnitNameInteractiveNPC", 1)
+end
 
 -- Возвращает настройки отображения имен к значениям по умолчанию
 local function ResetUnitNameSettings()
@@ -163,82 +146,34 @@ local function ResetUnitNameSettings()
     SetCVar("UnitNameHostleNPC", GetCVarDefault("UnitNameHostleNPC"))
     SetCVar("UnitNameInteractiveNPC", GetCVarDefault("UnitNameInteractiveNPC"))
 end
--- Делаем функцию доступной глобально
-_G.ResetUnitNameSettings = ResetUnitNameSettings
 
--- Устанаваливает базовые для необходимого пользовательского опыта значения различных игровых настроек 
-local function SetBaseSettings()
-    -- Автоматический сбор добычи
-    SetCVar("autoLootDefault", 1)
-    -- Автоматическое отслеживание квестов
-    SetCVar("autoQuestWatch", 0)
-
-    SetCVar("Sound_ZoneMusicNoDelay", 1)
-
-    -- Скрытие отображения уроков в интерфейсе
-    SetCVar("showTutorials", 0)
-
-    SetCVar("nameplateShowSelf", 0)
-
+-- Отключает режим контуров графики
+local function SetGraphicsOutlineMode()
+    SetCVar("graphicsOutlineMode", 0)
 end
--- Делаем функцию доступной глобально
-_G.SetBaseSettings = SetBaseSettings
 
--- Возвращает различные игровые настройки к значениям по умолчанию
-local function ResetBaseSettings()
-    -- Автоматический сбор добычи
-    SetCVar("autoLootDefault", GetCVarDefault("autoLootDefault"))
-    -- Автоматическое отслеживание квестов
-    SetCVar("autoQuestWatch", GetCVarDefault("autoQuestWatch"))
-
-    SetCVar("Sound_ZoneMusicNoDelay", GetCVarDefault("Sound_ZoneMusicNoDelay"))
-
-    -- Отображение уроков в интерфейсе
-    SetCVar("showTutorials", GetCVarDefault("showTutorials"))
-
-    SetCVar("nameplateShowSelf", GetCVarDefault("nameplateShowSelf"))
-
+-- Возвращает режим контуров графики к значению по умолчанию
+local function ResetGraphicsOutlineMode()
+    SetCVar("graphicsOutlineMode", GetCVarDefault("graphicsOutlineMode"))
 end
--- Делаем функцию доступной глобально
-_G.ResetBaseSettings = ResetBaseSettings
 
 -- Устанавливает базовые для необходимого пользовательского опыта значения настроек графики
-local function SetBaseGraphicsSettings()
+local function SetMacBookSettings()
 
     -- Устанавливаем настройки для MacBook Pro с вырезом экрана
-    SetCVar("NotchedDisplayMode", 0)
     UIWidgetTopCenterContainerFrame:ClearAllPoints()
     UIWidgetTopCenterContainerFrame:SetPoint("TOP", UIParent, "TOP", 0, -60)
+    SetCVar("NotchedDisplayMode", 0)
 
-    SetCVar("graphicsOutlineMode", 0)
-    SetCVar("useMaxFPS", 0)
-    SetCVar("useMaxFPSBk", 0)
-    SetCVar("useTargetFPS", 0)
-    SetCVar("Gamma", 0.9)
-    SetCVar("Contrast", 80)
-    SetCVar("Brightness", 65)
 end
--- Делаем функцию доступной глобально
-_G.SetBaseGraphicsSettings = SetBaseGraphicsSettings
 
 -- Возвращает настройки графики к значениям по умолчанию
-local function ResetGraphicsSettings()
+local function ResetMacBookSettings()
     -- Устанавливаем настройки для MacBook Pro с вырезом экрана
     UIWidgetTopCenterContainerFrame:ClearAllPoints()
     UIWidgetTopCenterContainerFrame:SetPoint("TOP", UIParent, "TOP", 0, -15)
     SetCVar("NotchedDisplayMode", GetCVarDefault("NotchedDisplayMode"))
-
-    SetCVar("graphicsOutlineMode", GetCVarDefault("graphicsOutlineMode"))
-    SetCVar("useMaxFPS", GetCVarDefault("useMaxFPS"))
-    SetCVar("useMaxFPSBk", GetCVarDefault("useMaxFPSBk"))
-    SetCVar("useTargetFPS", GetCVarDefault("useTargetFPS"))
-    SetCVar("Gamma", GetCVarDefault("Gamma"))
-    SetCVar("Contrast", GetCVarDefault("Contrast"))
-    SetCVar("Brightness", GetCVarDefault("Brightness"))
 end
--- Делаем функцию доступной глобально
-_G.ResetGraphicsSettings = ResetGraphicsSettings
-
 
 -- Применяет настройки CVars на основе значений в ConsoleMenuDB
 local function ApplyCVarSettings()
@@ -247,103 +182,89 @@ local function ApplyCVarSettings()
     end
     
     -- Применяем функции в зависимости от значения настройки (1 = "По умолчанию", 2 = "Отключить", 3 = "Вручную" - не применяется)
-    if ConsoleMenuDB.hideFloatingText == 1 then
+    if ConsoleMenuDB.floatingText == 1 then
+        DefaultFloatingText()
+    elseif ConsoleMenuDB.floatingText == 2 then
         ShowFloatingText()
-    elseif ConsoleMenuDB.hideFloatingText == 2 then
+    elseif ConsoleMenuDB.floatingText == 3 then
         HideFloatingText()
-    -- При значении 3 ("Вручную") функции не вызываются
     end
     
-    if ConsoleMenuDB.hideGuildMemberNotification == 1 then
-        ShowGuildMemberNotification()
-    elseif ConsoleMenuDB.hideGuildMemberNotification == 2 then
-        HideGuildMemberNotification()
-    -- При значении 3 ("Вручную") функции не вызываются
-    end
-    
-    if ConsoleMenuDB.hideChatBubble == 1 then
+    if ConsoleMenuDB.chatBubble == 1 then
+        ResetChatBubble()
+    elseif ConsoleMenuDB.chatBubble == 2 then
         ShowChatBubble()
-    elseif ConsoleMenuDB.hideChatBubble == 2 then
+    elseif ConsoleMenuDB.chatBubble == 3 then
         HideChatBubble()
-    -- При значении 3 ("Вручную") функции не вызываются
     end
     
-    if ConsoleMenuDB.hideQuestCircle == 1 then
+    if ConsoleMenuDB.qestCircle == 1 then
+        ResetQuestCircle()
+    elseif ConsoleMenuDB.qestCircle == 2 then
         ShowQuestCircle()
-    elseif ConsoleMenuDB.hideQuestCircle == 2 then
+    elseif ConsoleMenuDB.qestCircle == 3 then
         HideQuestCircle()
-    -- При значении 3 ("Вручную") функции не вызываются
     end
     
-    -- SoftTarget настройки (1 = "По умолчанию", 2 = "Для бойца", 3 = "Для танка", 4 = "Для лекаря", 5 = "Вручную")
-    if ConsoleMenuDB.enableSoftTargetSettings == 1 then
-        ResetSoftTargetSettings()
-    elseif ConsoleMenuDB.enableSoftTargetSettings == 2 or ConsoleMenuDB.enableSoftTargetSettings == 3 then
-        -- Боец и танк используют одинаковую логику
-        SetBaseSoftTargetSettings()
-    elseif ConsoleMenuDB.enableSoftTargetSettings == 4 then
-        -- Лекарь использует специальную логику
-        SetHealerSoftTargetSettings()
-    -- При значении 5 ("Вручную") функции не вызываются
-    end
+    SetBaseSoftTargetSettings()
     
-    if ConsoleMenuDB.hideUnitNames == 1 then
+    if ConsoleMenuDB.unitNames == 1 then
         ResetUnitNameSettings()
-    elseif ConsoleMenuDB.hideUnitNames == 2 then
-        SetBaseUnitNameSettings()
-    -- При значении 3 ("Вручную") функции не вызываются
+    elseif ConsoleMenuDB.unitNames == 2 then
+        ShowUnitNameSettings()
+    elseif ConsoleMenuDB.unitNames == 3 then
+        HideUnitNameSettings()
     end
     
-    if ConsoleMenuDB.enableMacBookGraphics == 1 then
-        ResetGraphicsSettings()
-    elseif ConsoleMenuDB.enableMacBookGraphics == 2 then
-        SetBaseGraphicsSettings()
-    -- При значении 3 ("Вручную") функции не вызываются
+    if ConsoleMenuDB.enableMacBook == 1 then
+        SetMacBookSettings()
+    elseif ConsoleMenuDB.enableMacBook == 2 then
+        ResetMacBookSettings()
+    end
+
+    if ConsoleMenuDB.hideGraphicsOutlineMode == 1 then
+        ResetGraphicsOutlineMode()
+    elseif ConsoleMenuDB.hideGraphicsOutlineMode == 2 then
+        SetGraphicsOutlineMode()
     end
     
-    -- Дополнительные параметры (1 = "По умолчанию", 2 = "Кастомные", 3 = "Вручную")
-    if ConsoleMenuDB.enableBaseSettings == 1 then
-        ResetBaseSettings()
-    elseif ConsoleMenuDB.enableBaseSettings == 2 then
-        SetBaseSettings()
-    -- При значении 3 ("Вручную") функции не вызываются
-    end
 end
+
 -- Делаем функцию доступной глобально
 _G.ApplyCVarSettings = ApplyCVarSettings
 
-function ConsoleMenu:UpdateCVars()
-    -- Инициализация базы данных настроек, если еще не инициализирована
-    if not ConsoleMenuDB then
-        ConsoleMenuDB = {}
+-- Устанавливает значения настроект soft target в зонах святилищах
+local function UpdateSanctuarySoftTargetSettings()
+    ConsoleMenuDB.softTargetFriendRange = GetCVarDefault("SoftTargetFriendRange")
+    local pvpType, _, _ = C_PvP.GetZonePVPInfo()
+
+    if ConsoleMenuDB.softTargetSanctuarySwitching == 1 and pvpType == "sanctuary" then
+        SetCVar("SoftTargetEnemy", 0)
     end
+
+    if pvpType ~= "sanctuary" and ConsoleMenuDB.softTargetFriendSanctuaryRange == 1 then
+        SetCVar("SoftTargetFriendRange", ConsoleMenuDB.softTargetFriendRange)
+    elseif pvpType == "sanctuary" and ConsoleMenuDB.softTargetFriendSanctuaryRange == 1 then
+        SetCVar("SoftTargetFriendRange", 5)
+    end
+
+end
+
+function ConsoleMenu:UpdateCVars()
     
     -- Регистрируем события для динамического изменения SoftTarget настроек
     ConsoleMenu:RegisterEvent("PLAYER_REGEN_DISABLED", function()
-        if ConsoleMenuDB then
-            if ConsoleMenuDB.enableSoftTargetSettings == 2 or ConsoleMenuDB.enableSoftTargetSettings == 3 then
-                -- Боец и танк: фокус на врагах в бою
-                SetCombatSoftTargetSettings()
-            elseif ConsoleMenuDB.enableSoftTargetSettings == 4 then
-                -- Лекарь: фокус на союзниках в бою
-                SetHealerSoftTargetSettings()
-            end
-        end
+        SetCombatSoftTargetSettings()
     end)
     ConsoleMenu:RegisterEvent("PLAYER_REGEN_ENABLED", function()
-        if ConsoleMenuDB and (ConsoleMenuDB.enableSoftTargetSettings == 2 or ConsoleMenuDB.enableSoftTargetSettings == 3) then
-            SetBaseSoftTargetSettings()
-        end
+        SetBaseSoftTargetSettings()
     end)
     ConsoleMenu:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED", function()
-        if ConsoleMenuDB and (ConsoleMenuDB.enableSoftTargetSettings == 2 or ConsoleMenuDB.enableSoftTargetSettings == 3) then
-            SetBaseSoftTargetSettings()
-        end
+        SetBaseSoftTargetSettings()
     end)
+
     ConsoleMenu:RegisterEvent("ZONE_CHANGED_NEW_AREA", function()
-        if ConsoleMenuDB and (ConsoleMenuDB.enableSoftTargetSettings == 2 or ConsoleMenuDB.enableSoftTargetSettings == 3) then
-            SetSanctuarySoftTargetSettings()
-        end
+        UpdateSanctuarySoftTargetSettings()UpdateSanctuarySoftTargetSettings()
     end)
 
     ApplyCVarSettings()

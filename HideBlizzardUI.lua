@@ -208,6 +208,7 @@ end
 
 -- Скрывает фрейм лута (LootFrame)
 local function HideLootFrame()
+    SetCVar("autoLootDefault", 1)
     LootFrame:Hide()
     LootFrame:UnregisterAllEvents()
 end

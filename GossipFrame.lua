@@ -554,6 +554,7 @@ local function CreateGossipScrollBox()
 
 
     EventFrame:SetScript("OnEvent", function(self, event)
+
         if event == "GOSSIP_SHOW" then
             
             GetGossip()
@@ -785,6 +786,10 @@ local function toggleController(updateFocus)
 end
 
 function ConsoleMenu:SetCustomGossipFrame()
+    if ConsoleMenuDB.dialogQuestWindowStyle == 2 then
+        return
+    end
+    
     -- Создаем основной фрейм
     parentFrame, updateFocus = CreateGossipScrollBox()
 

@@ -97,7 +97,7 @@ local function SwitchActionBarPage()
     if ConsoleMenuDB and ConsoleMenuDB.actionBarPageSwitching == 2 then
         return
     end
-    
+
     if ConsoleMenu.PlayerContext.inCombat == true
        and ConsoleMenu.PlayerContext.vehicle == false
     then
@@ -115,7 +115,6 @@ local function SwitchActionBarPage()
         -- Полет на драконе
         ChangeActionBarPage(1)
     elseif ConsoleMenu.PlayerContext.inCombat == false
-        and ConsoleMenu.PlayerContext.mount == 0
         and ConsoleMenu.PlayerContext.vehicle == false
         and ConsoleMenu.PlayerContext.target.isPlayer == true
         and ConsoleMenu.PlayerContext.target.isFriend == true

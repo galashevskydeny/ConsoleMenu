@@ -337,7 +337,6 @@ function ConsoleMenu:SetFastTravelFrame()
 
     -- Вешаем бинды, когда окно показывается:
     parentFrame:HookScript("OnShow", function()
-        SetBaseSoftTargetSettings()
         softTargetEnemy = GetCVar("SoftTargetEnemy")
         SetCVar("SoftTargetEnemy", 0)
         PAD1_COMMON_BINDING = GetBindingAction("PAD1")

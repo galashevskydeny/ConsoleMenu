@@ -207,7 +207,7 @@ end
 
 function ConsoleMenu:SetGossipFrame()
 
-    if ConsoleMenuDB and ConsoleMenuDB["dialogQuestWindowVisibility"] == 2 then
+    if ConsoleMenuDB.dialogQuestWindowStyle == 2 then
         return
     end
 

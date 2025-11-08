@@ -7,74 +7,79 @@ if not ConsoleMenuDB then
     ConsoleMenuDB = {}
 end
 
-local hudDropdownOptions = { "Показать", "Скрыть" }
-local cvarDropdownOptions = { "По умолчанию", "Отключить", "Вручную" }
-local macBookGraphicsDropdownOptions = { "По умолчанию", "Кастомные", "Вручную" }
+local hudDropdownOptions = { "Не влиять", "Скрыть" }
+local windowStyleOptions = { "Обновленное", "Стандартное" }
+local cvarDropdownOptions = { "По умолчанию", "Включить", "Выключить", "Не влиять" }
+local cvarHideDropdownOptions = { "По умолчанию", "Скрыть", "Не влиять" }
+local toggleOptions = { "Включено", "Отклюнено" }
 local softTargetDropdownOptions = { "По умолчанию", "Для бойца", "Для танка", "Для лекаря", "Вручную" }
+local interactButtonMap = { "PAD1", "PAD2", "PAD3", "PAD4" }
+
+local mainCategorySettings = {
+    { name = "Вырез экрана MacBook Pro", variable = "enableMacBook", default = 1, tooltip = "Смещает элементы интерфейса вниз для MacBook Pro с вырезом экрана.", options = toggleOptions }
+}
 
 local hudSettings = {
-    { name = "Панель действий", variable = "hideActionBar", default = 2, tooltip = "Управляет отображением основной панели действий (ActionBar).", options = hudDropdownOptions },
-    { name = "Панель действий питомца", variable = "hidePetActionBar", default = 2, tooltip = "Управляет отображением панели действий питомца (PetActionBar).", options = hudDropdownOptions },
-    { name = "Трекер заданий", variable = "hideObjectiveTracker", default = 1, tooltip = "Управляет отображением трекера заданий (ObjectiveTracker).", options = hudDropdownOptions },
-    { name = "Баннер трекера заданий", variable = "hideObjectiveTrackerTopBannerFrame", default = 1, tooltip = "Управляет отображением баннера трекера заданий (ObjectiveTrackerTopBannerFrame).", options = hudDropdownOptions },
-    { name = "Фрейм цели", variable = "hideTargetFrame", default = 2, tooltip = "Управляет отображением фрейма цели (TargetFrame).", options = hudDropdownOptions },
-    { name = "Фрейм игрока", variable = "hidePlayerFrame", default = 2, tooltip = "Управляет отображением фрейма игрока (PlayerFrame).", options = hudDropdownOptions },
-    { name = "Полоса заклинаний", variable = "hidePlayerCastingBarFrame", default = 2, tooltip = "Управляет отображением полосы заклинаний игрока (PlayerCastingBarFrame).", options = hudDropdownOptions },
+    { name = "Панель команд", variable = "hideActionBar", default = 2, tooltip = "Управляет отображением основной панели действий (ActionBar).", options = hudDropdownOptions },
+    { name = "Панель питомца", variable = "hidePetActionBar", default = 2, tooltip = "Управляет отображением панели действий питомца (PetActionBar).", options = hudDropdownOptions },
+    { name = "Отслеживание цели", variable = "hideObjectiveTracker", default = 1, tooltip = "Управляет отображением трекера заданий (ObjectiveTracker).", options = hudDropdownOptions },
+    { name = "Оповещения о целях", variable = "hideObjectiveTrackerTopBannerFrame", default = 1, tooltip = "Управляет отображением баннера трекера заданий (ObjectiveTrackerTopBannerFrame).", options = hudDropdownOptions },
+    { name = "Цель и выделенная цель", variable = "hideTargetFrame", default = 2, tooltip = "Управляет отображением фрейма цели (TargetFrame).", options = hudDropdownOptions },
+    { name = "Игрок", variable = "hidePlayerFrame", default = 2, tooltip = "Управляет отображением фрейма игрока (PlayerFrame).", options = hudDropdownOptions },
+    { name = "Индикатор заклинаний", variable = "hidePlayerCastingBarFrame", default = 2, tooltip = "Управляет отображением полосы заклинаний игрока (PlayerCastingBarFrame).", options = hudDropdownOptions },
     { name = "Миникарта", variable = "hideMinimap", default = 2, tooltip = "Управляет отображением миникарты (Minimap).", options = hudDropdownOptions },
     { name = "Главное меню", variable = "hideMicroMenu", default = 2, tooltip = "Управляет отображением главного меню (MicroMenu).", options = hudDropdownOptions },
     { name = "Поиск группы", variable = "hideGroupFinderFrame", default = 2, tooltip = "Управляет отображением фрейма поиска группы (GroupFinderFrame).", options = hudDropdownOptions },
     { name = "Панель сумок", variable = "hideBagsBarsBar", default = 2, tooltip = "Управляет отображением панели сумок (BagsBarsBar).", options = hudDropdownOptions },
-    { name = "Текст зоны", variable = "hideZoneTextFrame", default = 2, tooltip = "Управляет отображением фрейма текста зоны (ZoneTextFrame).", options = hudDropdownOptions },
-    { name = "Панель стоек", variable = "hideStanceBar", default = 2, tooltip = "Управляет отображением панели стоек (StanceBar).", options = hudDropdownOptions },
-    { name = "Фрейм группы", variable = "hideCompactPartyFrame", default = 2, tooltip = "Управляет отображением фрейма группы (CompactPartyFrame).", options = hudDropdownOptions },
-    { name = "Фрейм рейда", variable = "hideCompactRaidFrame", default = 2, tooltip = "Управляет отображением фрейма рейда (CompactRaidFrame).", options = hudDropdownOptions },
-    { name = "Фрейм предупреждений", variable = "hideAlertFrame", default = 2, tooltip = "Управляет отображением фрейма предупреждений (AlertFrame).", options = hudDropdownOptions },
-    { name = "Фрейм ошибок", variable = "hideUIErrorsFrame", default = 2, tooltip = "Управляет отображением фрейма ошибок интерфейса (UIErrorsFrame).", options = hudDropdownOptions },
+    { name = "Название области", variable = "hideZoneTextFrame", default = 2, tooltip = "Управляет отображением фрейма текста зоны (ZoneTextFrame).", options = hudDropdownOptions },
+    { name = "Индикатор стойки", variable = "hideStanceBar", default = 2, tooltip = "Управляет отображением панели стоек (StanceBar).", options = hudDropdownOptions },
+    { name = "Интерфейс группы", variable = "hideCompactPartyFrame", default = 2, tooltip = "Управляет отображением фрейма группы (CompactPartyFrame).", options = hudDropdownOptions },
+    { name = "Интерфейс рейда", variable = "hideCompactRaidFrame", default = 2, tooltip = "Управляет отображением фрейма рейда (CompactRaidFrame).", options = hudDropdownOptions },
+    { name = "Предупреждения", variable = "hideAlertFrame", default = 2, tooltip = "Управляет отображением фрейма предупреждений (AlertFrame).", options = hudDropdownOptions },
+    { name = "Ошибки", variable = "hideUIErrorsFrame", default = 2, tooltip = "Управляет отображением фрейма ошибок интерфейса (UIErrorsFrame).", options = hudDropdownOptions },
     { name = "Говорящая голова", variable = "hideTalkingHeadFrame", default = 2, tooltip = "Управляет отображением фрейма говорящей головы (TalkingHeadFrame).", options = hudDropdownOptions },
-    { name = "Панель полета", variable = "hideUIWidgetPowerBarContainerFrame", default = 2, tooltip = "Управляет отображением фрейма полета на драконе (UIWidgetPowerBarContainerFrame).", options = hudDropdownOptions },
+    { name = "Высший пилотаж", variable = "hideUIWidgetPowerBarContainerFrame", default = 2, tooltip = "Управляет отображением фрейма полета на драконе (UIWidgetPowerBarContainerFrame).", options = hudDropdownOptions },
     { name = "Окно добычи", variable = "hideLootFrame", default = 2, tooltip = "Управляет отображением фрейма лута (LootFrame).", options = hudDropdownOptions },
-    { name = "Фрейм баффов", variable = "hideBuffFrame", default = 2, tooltip = "Управляет отображением фрейма баффов (BuffFrame).", options = hudDropdownOptions },
-    { name = "Фрейм дебаффов", variable = "hideDebuffFrame", default = 2, tooltip = "Управляет отображением фрейма дебаффов (DebuffFrame).", options = hudDropdownOptions },
-    { name = "Фрейм способностей зоны", variable = "hideZoneAbilityFrame", default = 2, tooltip = "Управляет отображением фрейма способностей зоны (ZoneAbilityFrame).", options = hudDropdownOptions },
-    { name = "Контейнер фреймов боссов", variable = "hideBossTargetFrameContainer", default = 2, tooltip = "Управляет отображением контейнера фреймов боссов (BossTargetFrameContainer).", options = hudDropdownOptions },
+    { name = "Положительные эффекты и ауры", variable = "hideBuffFrame", default = 2, tooltip = "Управляет отображением фрейма баффов (BuffFrame).", options = hudDropdownOptions },
+    { name = "Негативные эффекты и ауры", variable = "hideDebuffFrame", default = 2, tooltip = "Управляет отображением фрейма дебаффов (DebuffFrame).", options = hudDropdownOptions },
+    { name = "Доп. способности", variable = "hideZoneAbilityFrame", default = 2, tooltip = "Управляет отображением фрейма способностей зоны (ZoneAbilityFrame).", options = hudDropdownOptions },
+    { name = "Рамки боссов", variable = "hideBossTargetFrameContainer", default = 2, tooltip = "Управляет отображением контейнера фреймов боссов (BossTargetFrameContainer).", options = hudDropdownOptions },
+    { name = "Плавающие цифры", variable = "floatingText", default = 3, tooltip = "Отключает плавающие цифры урона и лечения (threatShowNumeric, enableFloatingCombatText, floatingCombatTextCombatDamage).", options = cvarDropdownOptions },
+    { name = "Имена персонажей и игроков", variable = "unitNames", default = 3, tooltip = "Отключает отображение имен персонажей, игроков, питомцев и других юнитов (UnitNameEnemyGuardianName и другие).", options = cvarDropdownOptions },
+    { name = "Реплики персонажей над головой", variable = "chatBubble", default = 3, tooltip = "Отключает облака с субтитрами над головой персонажей и игроков (chatBubbles, chatBubblesParty).", options = cvarDropdownOptions },
+    { name = "Подсветка квестодателя", variable = "qestCircle", default = 3, tooltip = "Отключает выделение под квестодателем (ShowQuestUnitCircles, ObjectSelectionCircle).", options = cvarDropdownOptions },
+    { name = "Выделение персонажей и игроков", variable = "hideGraphicsOutlineMode", default = 2, tooltip = "Отключает режим контуров графики (graphicsOutlineMode).", options = cvarHideDropdownOptions },
 }
 
 local standardUISettings = {
-    { name = "Окно персонажа", variable = "characterWindowStyle", default = 1, tooltip = "Выберите стиль окна персонажа: Современное или Стандартное.", options = { "Обновленное", "Стандартное" } },
-    { name = "Окно почты", variable = "mailWindowStyle", default = 2, tooltip = "Выберите стиль окна почты: Обновленное или Стандартное.", options = { "Обновленное", "Стандартное" } },
-    { name = "Окно торговца", variable = "merchantWindowStyle", default = 2, tooltip = "Выберите стиль окна торговца: Обновленное или Стандартное.", options = { "Обновленное", "Стандартное" } },
-    { name = "Окна диалогов и квестов", variable = "dialogQuestWindowVisibility", default = 1, tooltip = "Показать или скрыть все стандартные окна диалогов и квестов.", options = { "Скрыть", "Показать" } },
-}
-
-local cvarSettings = {
-    { name = "Плавающие цифры", variable = "hideFloatingText", default = 2, tooltip = "Отключает плавающие цифры урона и лечения (threatShowNumeric, enableFloatingCombatText, floatingCombatTextCombatDamage).", options = cvarDropdownOptions },
-    { name = "Уведомления об онлайне в гильдии", variable = "hideGuildMemberNotification", default = 2, tooltip = "Отключает уведомления о входе/выходе членов гильдии из онлайна (guildMemberNotify).", options = cvarDropdownOptions },
-    { name = "Реплики персонажей над головой", variable = "hideChatBubble", default = 2, tooltip = "Отключает облака с субтитрами над головой персонажей и игроков (chatBubbles, chatBubblesParty).", options = cvarDropdownOptions },
-    { name = "Выделение квестодателя", variable = "hideQuestCircle", default = 2, tooltip = "Отключает выделение под квестодателем (ShowQuestUnitCircles, ObjectSelectionCircle).", options = cvarDropdownOptions },
-    { name = "Отображение имен персонажей и игроков", variable = "hideUnitNames", default = 2, tooltip = "Отключает отображение имен персонажей, игроков, питомцев и других юнитов (UnitNameEnemyGuardianName и другие).", options = cvarDropdownOptions },
-    { name = "Дополнительные параметры", variable = "enableBaseSettings", default = 2, tooltip = "Применяет дополнительные игровые настройки (autoLootDefault, autoQuestWatch, Sound_ZoneMusicNoDelay, showTutorials, nameplateShowSelf).", options = macBookGraphicsDropdownOptions },
-    { name = "Настройки для MacBook Pro", variable = "enableMacBookGraphics", default = 3, tooltip = "Применяет настройки для MacBook Pro (NotchedDisplayMode, graphicsOutlineMode, useMaxFPS, useMaxFPSBk, useTargetFPS, Gamma, Contrast, Brightness).", options = macBookGraphicsDropdownOptions },
-    { name = "Настройки SoftTarget", variable = "enableSoftTargetSettings", default = 2, tooltip = "Включает настройки мягкого выделения (SoftTargetFriend, SoftTargetIconInteract, SoftTargetFriendRange, SoftTargetForce, SoftTargetEnemy).", options = softTargetDropdownOptions },
+    { name = "Окно персонажа", variable = "characterWindowStyle", default = 1, tooltip = "Выберите стиль окна персонажа: обновленную версию или стандартную.", options = windowStyleOptions },
+    { name = "Окно почты", variable = "mailWindowStyle", default = 2, tooltip = "Выберите стиль окна почты: обновленную версию или стандартную.", options = windowStyleOptions },
+    { name = "Окно торговца", variable = "merchantWindowStyle", default = 2, tooltip = "Выберите стиль окна торговца: обновленную версию или стандартную.", options = windowStyleOptions },
+    { name = "Окна диалогов и квестов", variable = "dialogQuestWindowStyle", default = 1, tooltip = "Выберите стиль окна диалогов и квестов: обновленную (более имерсивную) версию или стандартную.", options = windowStyleOptions },
 }
 
 local keyBindingSettings = {
-    { name = "Переопределять кнопку при наличии объекта взаимодействия", variable = "overrideInteractKey", default = 1, tooltip = "Если включено, основная кнопка автоматически использует действие взаимодействия при наличии объекта.", options = { "Включить", "Выключить" } },
-    { name = "Переопределять кнопку при наличии способности области", variable = "overrideZoneAbilityKey", default = 2, tooltip = "Если включено, выбранная кнопка автоматически использует способность области, если она доступна.", options = { "Включить", "Выключить" } },
+    { name = "Переопределять кнопку при наличии объекта взаимодействия", variable = "overrideInteractKey", default = 1, tooltip = "Если включено, основная кнопка автоматически использует действие взаимодействия при наличии объекта.", options = toggleOptions },
+    { name = "Переопределять кнопку при наличии способности области", variable = "overrideZoneAbilityKey", default = 2, tooltip = "Если включено, выбранная кнопка автоматически использует способность области, если она доступна.", options = toggleOptions },
     { name = "Схема привязки контроллера", variable = "keyBindingScheme", default = 1, tooltip = "Выберите схему привязки игровых клавиш контроллера к действиям в игре.", options = { "Авторская", "Вручную" } },
     { name = "Вибрация контроллера", variable = "controllerVibration", default = 2, tooltip = "Управляет вибрацией контроллера при использовании способностей.", options = { "Нет", "При усилении активной способности" } },
 }
 
 local contextsSettings = {
-    { name = "Переключение страниц панели команд", variable = "actionBarPageSwitching", default = 1, tooltip = "Управляет переключением страниц панели команд автоматически в зависимости от контекста игрока (в бою, на транспорте, при рассмотрении дружественного игрока и другие).", options = { "Включено", "Выключено" } },
-    { name = "Игнорировать противников (soft target)", variable = "softTargetFlightSwitching", default = 1, tooltip = "Отключение soft target на противниках при верховой езде.", options = { "Включено", "Выключено" } },
+    { name = "Переключение страниц панели команд", variable = "actionBarPageSwitching", default = 1, tooltip = "Управляет переключением страниц панели команд автоматически в зависимости от контекста игрока (в бою, на транспорте, при рассмотрении дружественного игрока и другие).", options = toggleOptions },
+    { name = "Игнорировать противников при верховой езде", variable = "softTargetFlightSwitching", default = 1, tooltip = "Отключение Soft Target на противниках при верховой езде.", options = toggleOptions},
+    { name = "Игнорировать противников в зонах святилищ", variable = "softTargetSanctuarySwitching", default = 1, tooltip = "Отключение Soft Target на противниках в святилищах.", options = toggleOptions},
+    { name = "Малая дистанция обнаружения союзников", variable = "softTargetFriendSanctuaryRange", default = 1, tooltip = "Радиус фокусировки союзников в святилищах (SoftTargetFriendRange) 5 метров.", options = toggleOptions},
 }
 
-local interactButtonMap = { "PAD1", "PAD2", "PAD3", "PAD4" }
-
 local function ensureNumericChoice(variable, defaultValue, maxValue)
+    if not ConsoleMenuDB then
+        ConsoleMenuDB = {}
+    end
+    
     local value = ConsoleMenuDB[variable]
 
-    if type(value) ~= "number" or value < 1 or value > maxValue then
+    if value == nil or type(value) ~= "number" or value < 1 or value > maxValue then
         ConsoleMenuDB[variable] = defaultValue
         value = defaultValue
     end
@@ -136,13 +141,134 @@ local function addReloadButton(layout, name)
 end
 
 local function registerHUDOptions(category, layout)
-    for _, setting in ipairs(hudSettings) do
-        registerDropdown(category, setting, function(value)
-            ConsoleMenuDB[setting.variable] = value
-        end)
-    end
 
-    addReloadButton(layout, "Применить изменения")
+    layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Основные элементы"))
+
+    registerDropdown(category, hudSettings[3], function(value)
+        ConsoleMenuDB[hudSettings[3].variable] = value
+    end)
+
+    registerDropdown(category, hudSettings[4], function(value)
+        ConsoleMenuDB[hudSettings[4].variable] = value
+    end)
+
+    registerDropdown(category, hudSettings[8], function(value)
+        ConsoleMenuDB[hudSettings[8].variable] = value
+    end)
+
+    registerDropdown(category, hudSettings[9], function(value)
+        ConsoleMenuDB[hudSettings[9].variable] = value
+    end)
+
+    registerDropdown(category, hudSettings[10], function(value)
+        ConsoleMenuDB[hudSettings[10].variable] = value
+    end)
+
+    registerDropdown(category, hudSettings[11], function(value)
+        ConsoleMenuDB[hudSettings[11].variable] = value
+    end)
+
+    layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Рамки интерфейса"))
+
+
+    registerDropdown(category, hudSettings[6], function(value)
+        ConsoleMenuDB[hudSettings[6].variable] = value
+    end)
+
+    registerDropdown(category, hudSettings[5], function(value)
+        ConsoleMenuDB[hudSettings[5].variable] = value
+    end)
+
+    registerDropdown(category, hudSettings[14], function(value)
+        ConsoleMenuDB[hudSettings[14].variable] = value
+    end)
+    
+    registerDropdown(category, hudSettings[15], function(value)
+        ConsoleMenuDB[hudSettings[15].variable] = value
+    end)
+
+    registerDropdown(category, hudSettings[24], function(value)
+        ConsoleMenuDB[hudSettings[24].variable] = value
+    end)
+
+    layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Бой"))
+
+    registerDropdown(category, hudSettings[1], function(value)
+        ConsoleMenuDB[hudSettings[1].variable] = value
+    end)
+    registerDropdown(category, hudSettings[2], function(value)
+        ConsoleMenuDB[hudSettings[2].variable] = value
+    end)
+
+    registerDropdown(category, hudSettings[7], function(value)
+        ConsoleMenuDB[hudSettings[7].variable] = value
+    end)
+
+    registerDropdown(category, hudSettings[13], function(value)
+        ConsoleMenuDB[hudSettings[13].variable] = value
+    end)
+
+    registerDropdown(category, hudSettings[21], function(value)
+        ConsoleMenuDB[hudSettings[21].variable] = value
+    end)
+
+    registerDropdown(category, hudSettings[22], function(value)
+        ConsoleMenuDB[hudSettings[22].variable] = value
+    end)
+
+    registerDropdown(category, hudSettings[23], function(value)
+        ConsoleMenuDB[hudSettings[23].variable] = value
+    end)
+
+    layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Разное"))
+
+    registerDropdown(category, hudSettings[12], function(value)
+        ConsoleMenuDB[hudSettings[12].variable] = value
+    end)
+
+    registerDropdown(category, hudSettings[16], function(value)
+        ConsoleMenuDB[hudSettings[16].variable] = value
+    end)
+
+    registerDropdown(category, hudSettings[17], function(value)
+        ConsoleMenuDB[hudSettings[17].variable] = value
+    end)
+
+    registerDropdown(category, hudSettings[18], function(value)
+        ConsoleMenuDB[hudSettings[18].variable] = value
+    end)
+
+    registerDropdown(category, hudSettings[19], function(value)
+        ConsoleMenuDB[hudSettings[19].variable] = value
+    end)
+
+    registerDropdown(category, hudSettings[20], function(value)
+        ConsoleMenuDB[hudSettings[20].variable] = value
+    end)
+
+    layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Геймплей"))
+
+    registerDropdown(category, hudSettings[25], function(value)
+        ConsoleMenuDB[hudSettings[25].variable] = value
+    end)
+
+    registerDropdown(category, hudSettings[26], function(value)
+        ConsoleMenuDB[hudSettings[26].variable] = value
+    end)
+
+    registerDropdown(category, hudSettings[27], function(value)
+        ConsoleMenuDB[hudSettings[27].variable] = value
+    end)
+
+    registerDropdown(category, hudSettings[28], function(value)
+        ConsoleMenuDB[hudSettings[28].variable] = value
+    end)
+
+    registerDropdown(category, hudSettings[29], function(value)
+        ConsoleMenuDB[hudSettings[29].variable] = value
+    end)
+
+
 end
 
 local function registerStandardUIOptions(category, layout)
@@ -151,31 +277,25 @@ local function registerStandardUIOptions(category, layout)
             ConsoleMenuDB[setting.variable] = value
         end)
     end
-
-    addReloadButton(layout, "Применить изменения")
-end
-
-local function registerCVarOptions(category)
-    for _, setting in ipairs(cvarSettings) do
-        registerDropdown(category, setting, function(value)
-            ConsoleMenuDB[setting.variable] = value
-            if _G.ApplyCVarSettings then
-                _G.ApplyCVarSettings()
-            end
-        end)
-    end
 end
 
 local function registerContextsOptions(category, layout)
-    -- Первая настройка
     registerDropdown(category, contextsSettings[1], function(value)
         ConsoleMenuDB[contextsSettings[1].variable] = value
     end)
+
+    layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Исследование святилищ"))
+
+    registerDropdown(category, contextsSettings[3], function(value)
+        ConsoleMenuDB[contextsSettings[3].variable] = value
+    end)
+
+    registerDropdown(category, contextsSettings[4], function(value)
+        ConsoleMenuDB[contextsSettings[4].variable] = value
+    end)
     
-    -- Заголовок "Верховая езда"
     layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Верховая езда"))
     
-    -- Вторая настройка
     registerDropdown(category, contextsSettings[2], function(value)
         ConsoleMenuDB[contextsSettings[2].variable] = value
     end)
@@ -221,7 +341,7 @@ local function registerKeyBindingOptions(category, layout)
         end
     )
 
-    layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Способность зоны (области)"))
+    layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Способность области"))
 
     registerDropdown(category, keyBindingSettings[2], function(value)
         ConsoleMenuDB.overrideZoneAbilityKey = value
@@ -258,21 +378,30 @@ local function registerKeyBindingOptions(category, layout)
     layout:AddInitializer(clearBindingsInitializer)
 end
 
+local function registerMainOptions(category, layout)
+    registerDropdown(category, mainCategorySettings[1], function(value)
+        ConsoleMenuDB[mainCategorySettings[1].variable] = value
+        if _G.ApplyCVarSettings then
+            _G.ApplyCVarSettings()
+        end
+    end)
+
+    addReloadButton(layout, "Применить изменения")
+end
+
 local function RegisterOptions()
     if not Settings then
         return false
     end
 
     local mainCategory, mainLayout = Settings.RegisterVerticalLayoutCategory("ConsoleMenu")
+    registerMainOptions(mainCategory, mainLayout)
 
-    local hudCategory, hudLayout = Settings.RegisterVerticalLayoutSubcategory(mainCategory, "Стандартный HUD")
+    local hudCategory, hudLayout = Settings.RegisterVerticalLayoutSubcategory(mainCategory, "Интерфейс")
     registerHUDOptions(hudCategory, hudLayout)
 
-    local standardUICategory, standardUILayout = Settings.RegisterVerticalLayoutSubcategory(mainCategory, "Стандартный UI")
+    local standardUICategory, standardUILayout = Settings.RegisterVerticalLayoutSubcategory(mainCategory, "Игровые окна")
     registerStandardUIOptions(standardUICategory, standardUILayout)
-
-    local cvarsCategory = Settings.RegisterVerticalLayoutSubcategory(mainCategory, "Изменение CVars")
-    registerCVarOptions(cvarsCategory)
 
     local keyBindingsCategory, keyBindingsLayout = Settings.RegisterVerticalLayoutSubcategory(mainCategory, "Настройка клавиш")
     registerKeyBindingOptions(keyBindingsCategory, keyBindingsLayout)
