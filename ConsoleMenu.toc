@@ -6,6 +6,7 @@
 ## SavedVariables: ConsoleMenuDB
 
 ConsoleMenu.lua
+Utils/SettingsHelper.lua
 Options.lua
 
 Assets/Assets.lua
