@@ -232,116 +232,102 @@ end
 
 -- Основная функция, которая управляет отображением всех элементов UI Blizzard (1 = "Показать", 2 = "Скрыть")
 function ConsoleMenu:HideBlizzardUI()
-    -- Инициализация базы данных настроек, если еще не инициализирована
-    if not ConsoleMenuDB then
-        ConsoleMenuDB = {}
-    end
-
-    -- Получаем значение настройки
-    local function getValue(key)
-        local val = ConsoleMenuDB[key]
-        if type(val) == "number" then
-            return val
-        else
-            return 2 -- По умолчанию скрыто
-        end
-    end
 
     -- Регистрируем события только если соответствующие настройки установлены на скрытие (2)
-    if getValue("hideTalkingHeadFrame") == 2 then
+    if ConsoleMenuDB.hideTalkingHeadFrame == 2 then
         ConsoleMenu:RegisterEvent("TALKINGHEAD_REQUESTED", "HideTalkingHeadFrame")
     else
         ConsoleMenu:UnregisterEvent("TALKINGHEAD_REQUESTED")
     end
     
-    if getValue("hideObjectiveTrackerTopBannerFrame") == 2 then
+    if ConsoleMenuDB.hideObjectiveTrackerTopBannerFrame == 2 then
         ConsoleMenu:RegisterEvent("QUEST_LOG_UPDATE", "HideObjectiveTrackerTopBannerFrame")
     else
         ConsoleMenu:UnregisterEvent("QUEST_LOG_UPDATE")
     end
 
     -- Применяем функции скрытия только если значение настройки равно 2 (скрыть)
-    if getValue("hideLootFrame") == 2 then
+    if ConsoleMenuDB.hideLootFrame == 2 then
         HideLootFrame()
     end
     
-    if getValue("hideUIWidgetPowerBarContainerFrame") == 2 then
+    if ConsoleMenuDB.hideUIWidgetPowerBarContainerFrame == 2 then
         HideUIWidgetPowerBarContainerFrame()
     end
     
-    if getValue("hideUIErrorsFrame") == 2 then
+    if ConsoleMenuDB.hideUIErrorsFrame == 2 then
         HideUIErrorsFrame()
     end
     
-    if getValue("hideAlertFrame") == 2 then
+    if ConsoleMenuDB.hideAlertFrame == 2 then
         HideAlertFrame()
     end
     
-    if getValue("hideCompactPartyFrame") == 2 then
+    if ConsoleMenuDB.hideCompactPartyFrame == 2 then
         HideCompactPartyFrame()
     end
     
-    if getValue("hideCompactRaidFrame") == 2 then
+    if ConsoleMenuDB.hideCompactRaidFrame == 2 then
         HideCompactRaidFrame()
     end
     
-    if getValue("hideStanceBar") == 2 then
+    if ConsoleMenuDB.hideStanceBar == 2 then
         HideStanceBar()
     end
     
-    if getValue("hideZoneTextFrame") == 2 then
+    if ConsoleMenuDB.hideZoneTextFrame == 2 then
         HideZoneTextFrame()
     end
     
-    if getValue("hideBagsBarsBar") == 2 then
+    if ConsoleMenuDB.hideBagsBarsBar == 2 then
         HideBagsBagsBar()
     end
     
-    if getValue("hideMicroMenu") == 2 then
+    if ConsoleMenuDB.hideMicroMenu == 2 then
         HideMicroMenu()
     end
     
-    if getValue("hideMinimap") == 2 then
+    if ConsoleMenuDB.hideMinimap == 2 then
         HideMinimap()
     end
     
-    if getValue("hidePlayerCastingBarFrame") == 2 then
+    if ConsoleMenuDB.hidePlayerCastingBarFrame == 2 then
         HidePlayerCastingBarFrame()
     end
     
-    if getValue("hidePlayerFrame") == 2 then
+    if ConsoleMenuDB.hidePlayerFrame == 2 then
         HidePlayerFrame()
     end
     
-    if getValue("hideTargetFrame") == 2 then
+    if ConsoleMenuDB.hideTargetFrame == 2 then
         HideTargetFrame()
     end
     
-    if getValue("hidePetActionBar") == 2 then
+    if ConsoleMenuDB.hidePetActionBar == 2 then
         HidePetActionBar()
     end
     
-    if getValue("hideActionBar") == 2 then
+    if ConsoleMenuDB.hideActionBar == 2 then
         HideActionBar()
     end
     
-    if getValue("hideObjectiveTracker") == 2 then
+    if ConsoleMenuDB.hideObjectiveTracker == 2 then
         HideObjectiveTrackerFrame()
     end
     
-    if getValue("hideBuffFrame") == 2 then
+    if ConsoleMenuDB.hideBuffFrame == 2 then
         HideBuffFrame()
     end
     
-    if getValue("hideDebuffFrame") == 2 then
+    if ConsoleMenuDB.hideDebuffFrame == 2 then
         HideDebuffFrame()
     end
     
-    if getValue("hideZoneAbilityFrame") == 2 then
+    if ConsoleMenuDB.hideZoneAbilityFrame == 2 then
         HideZoneAbilityFrame()
     end
     
-    if getValue("hideBossTargetFrameContainer") == 2 then
+    if ConsoleMenuDB.hideBossTargetFrameContainer == 2 then
         HideBossTargetFrameContainer()
     end
 end

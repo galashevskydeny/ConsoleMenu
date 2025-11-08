@@ -73,11 +73,13 @@ local function SetBaseSoftTargetSettings()
     SetCVar("SoftTargetFriendRange", 5)
     SetCVar("SoftTargetForce", 0)
 
-    -- Фокусировка на врагах только если персонаж не верхом
-    if IsMounted() then
-        SetCVar("SoftTargetEnemy", 0)
-    else
-        SetCVar("SoftTargetEnemy", 1)
+    if ConsoleMenuDB.softTargetFlightSwitching == 1 then
+        -- Фокусировка на врагах только если персонаж не верхом
+        if IsMounted() then
+            SetCVar("SoftTargetEnemy", 0)
+        else
+            SetCVar("SoftTargetEnemy", 1)
+        end
     end
 end
 -- Делаем функцию доступной глобально

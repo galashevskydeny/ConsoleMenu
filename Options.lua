@@ -66,6 +66,7 @@ local keyBindingSettings = {
 
 local contextsSettings = {
     { name = "Переключение страниц панели команд", variable = "actionBarPageSwitching", default = 1, tooltip = "Управляет переключением страниц панели команд автоматически в зависимости от контекста игрока (в бою, на транспорте, при рассмотрении дружественного игрока и другие).", options = { "Включено", "Выключено" } },
+    { name = "Игнорировать противников (soft target)", variable = "softTargetFlightSwitching", default = 1, tooltip = "Отключение soft target на противниках при верховой езде.", options = { "Включено", "Выключено" } },
 }
 
 local interactButtonMap = { "PAD1", "PAD2", "PAD3", "PAD4" }
@@ -138,9 +139,6 @@ local function registerHUDOptions(category, layout)
     for _, setting in ipairs(hudSettings) do
         registerDropdown(category, setting, function(value)
             ConsoleMenuDB[setting.variable] = value
-            if ConsoleMenu.HideBlizzardUI then
-                ConsoleMenu:HideBlizzardUI()
-            end
         end)
     end
 
@@ -168,12 +166,19 @@ local function registerCVarOptions(category)
     end
 end
 
-local function registerContextsOptions(category)
-    for _, setting in ipairs(contextsSettings) do
-        registerDropdown(category, setting, function(value)
-            ConsoleMenuDB[setting.variable] = value
-        end)
-    end
+local function registerContextsOptions(category, layout)
+    -- Первая настройка
+    registerDropdown(category, contextsSettings[1], function(value)
+        ConsoleMenuDB[contextsSettings[1].variable] = value
+    end)
+    
+    -- Заголовок "Верховая езда"
+    layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Верховая езда"))
+    
+    -- Вторая настройка
+    registerDropdown(category, contextsSettings[2], function(value)
+        ConsoleMenuDB[contextsSettings[2].variable] = value
+    end)
 end
 
 local function registerKeyBindingOptions(category, layout)
@@ -273,7 +278,7 @@ local function RegisterOptions()
     registerKeyBindingOptions(keyBindingsCategory, keyBindingsLayout)
 
     local contextsCategory, contextsLayout = Settings.RegisterVerticalLayoutSubcategory(mainCategory, "Контексты")
-    registerContextsOptions(contextsCategory)
+    registerContextsOptions(contextsCategory, contextsLayout)
 
     Settings.RegisterAddOnCategory(mainCategory)
 

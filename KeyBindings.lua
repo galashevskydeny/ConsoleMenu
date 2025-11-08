@@ -46,7 +46,7 @@ end
 
 function ConsoleMenu:SetBaseKeyBindings()
     -- Выполняем только если выбрана кастомная схема привязки
-    if not ConsoleMenuDB or ConsoleMenuDB["keyBindingScheme"] ~= 1 then
+    if not ConsoleMenuDB or ConsoleMenuDB.keyBindingScheme ~= 1 then
         return
     end
     
@@ -163,7 +163,7 @@ end
 -- Устанавливает биндинг на взаимодействие
 function ConsoleMenu:SetInteractBinding(newTarget)
 
-    if ConsoleMenuDB and ConsoleMenuDB["overrideInteractKey"] == 2 then
+    if ConsoleMenuDB and ConsoleMenuDB.overrideInteractKey == 2 then
         return
     end
 
@@ -203,7 +203,7 @@ end
 
 -- Устанавливает биндинг на первую способность зоны
 function ConsoleMenu:SetBindingsZoneAbility()
-    if ConsoleMenuDB and ConsoleMenuDB["overrideZoneAbilityKey"] == 2 then
+    if ConsoleMenuDB and ConsoleMenuDB.overrideZoneAbilityKey == 2 then
         ClearOverrideBindings(self.ZoneAbilityBindingFrame)
         return
     end

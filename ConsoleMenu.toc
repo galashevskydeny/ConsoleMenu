@@ -6,7 +6,6 @@
 ## SavedVariables: ConsoleMenuDB
 
 ConsoleMenu.lua
-InterfaceSettingsLib-1.0.lua
 Options.lua
 Contexts.lua
 Blizzard_UIPanels_Game/CharacterFrame.lua

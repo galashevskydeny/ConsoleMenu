@@ -2,6 +2,7 @@
 
 local ConsoleMenu = _G.ConsoleMenu
 
+-- Набор функций для обновления контекста
 local function UpdatePlayerAlive()
     ConsoleMenu.PlayerContext.alive = not UnitIsDead("player") or true
 end
@@ -38,7 +39,7 @@ local function UpdatePlayerTarget(unit)
 
 end
 
--- Вспомогательные функции для работы с окнами
+-- Работа с хэш-таблицей для отслеживания открытых окон
 function ConsoleMenu:AddWindow(type)
     if not self.PlayerContext or not self.PlayerContext.window then
         return
@@ -63,6 +64,7 @@ function ConsoleMenu:HasWindows()
     return false
 end
 
+-- Функция получения контекста
 function ConsoleMenu:GetPlayerContext()
 
     local context = "exploring"
@@ -88,6 +90,42 @@ function ConsoleMenu:GetPlayerContext()
 
     ConsoleMenu.PlayerContext.lastContext = context
     return context
+end
+
+-- Функция переключения страниц панели действий
+local function SwitchActionBarPage()
+    if ConsoleMenuDB and ConsoleMenuDB.actionBarPageSwitching == 2 then
+        return
+    end
+    
+    if ConsoleMenu.PlayerContext.inCombat == true
+       and ConsoleMenu.PlayerContext.vehicle == false
+    then
+        ChangeActionBarPage(1)
+    elseif ConsoleMenu.PlayerContext.inCombat == false
+       and ConsoleMenu.PlayerContext.mount == 0
+       and ConsoleMenu.PlayerContext.vehicle == false
+       and ConsoleMenu.PlayerContext.target.canAttack == true
+    then
+        ChangeActionBarPage(1)
+    elseif ConsoleMenu.PlayerContext.mount == 1 and ConsoleMenu.PlayerContext.inCombat == false then
+        -- Обычное средство передвижения
+        ChangeActionBarPage(4)
+    elseif ConsoleMenu.PlayerContext.mount == 2 then
+        -- Полет на драконе
+        ChangeActionBarPage(1)
+    elseif ConsoleMenu.PlayerContext.inCombat == false
+        and ConsoleMenu.PlayerContext.mount == 0
+        and ConsoleMenu.PlayerContext.vehicle == false
+        and ConsoleMenu.PlayerContext.target.isPlayer == true
+        and ConsoleMenu.PlayerContext.target.isFriend == true
+    then
+        -- Друг в фокусе
+        ChangeActionBarPage(3)
+    else
+        -- Исследование
+        ChangeActionBarPage(2)
+    end
 end
 
 -- Функция инициализации контекстов
@@ -177,9 +215,12 @@ function ConsoleMenu:InitializeContexts()
         end
 
         local context = ConsoleMenu:GetPlayerContext()
+
         if WeakAuras then
             WeakAuras.ScanEvents("CHANGE_CONTEXT", context)
         end
+
+        SwitchActionBarPage()
     end)
     
     
