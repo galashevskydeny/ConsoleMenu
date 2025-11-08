@@ -34,28 +34,11 @@ function ConsoleMenu:UnregisterEvent(event)
 end
 
 -- Инициализация аддона
-local function Initialize()
-    -- Регистрация текстур в LibSharedMedia (если доступна)
-    local LibSharedMedia = LibStub and LibStub:GetLibrary("LibSharedMedia-3.0", true)
-    if LibSharedMedia then
-        LibSharedMedia:Register("statusbar", "EnemyHealthBar", [[Interface\AddOns\ConsoleMenu\Assets\EnemyHealthBar.png]])
-        LibSharedMedia:Register("statusbar", "HealthBar", [[Interface\AddOns\ConsoleMenu\Assets\HealthBar.png]])
-        LibSharedMedia:Register("statusbar", "BossHealthBar", [[Interface\AddOns\ConsoleMenu\Assets\BossHealthBar.png]])
-        LibSharedMedia:Register("statusbar", "FourBar", [[Interface\AddOns\ConsoleMenu\Assets\FourBar.png]])
-        LibSharedMedia:Register("statusbar", "FiveBar", [[Interface\AddOns\ConsoleMenu\Assets\FiveBar.png]])
-        LibSharedMedia:Register("statusbar", "SixBar", [[Interface\AddOns\ConsoleMenu\Assets\SixBar.png]])
-        LibSharedMedia:Register("statusbar", "SevenBar", [[Interface\AddOns\ConsoleMenu\Assets\SevenBar.png]])
-        LibSharedMedia:Register("statusbar", "GroupIcon2", [[Interface\AddOns\ConsoleMenu\Assets\GroupIcon2.png]])
-        LibSharedMedia:Register("statusbar", "GroupIcon3", [[Interface\AddOns\ConsoleMenu\Assets\GroupIcon3.png]])
-        LibSharedMedia:Register("statusbar", "GroupIcon3Line", [[Interface\AddOns\ConsoleMenu\Assets\GroupIcon3Line.png]])
-        LibSharedMedia:Register("statusbar", "DpsCounter", [[Interface\AddOns\ConsoleMenu\Assets\DpsCounter.png]])
-        LibSharedMedia:Register("statusbar", "Power_Item", [[Interface\AddOns\ConsoleMenu\Assets\Power_Item.png]])
-    end    
-
-    -- ConsoleMenu:RegisterEvent("AUCTION_HOUSE_THROTTLED_SYSTEM_READY", "ConfirmPurchase")
-    -- ConsoleMenu:RegisterEvent("CRAFTINGORDERS_SHOW_CUSTOMER", "SetProfessionsCustomerOrdersFrame")
+local function Initialize()  
     
     -- Инициализация модулей
+    ConsoleMenu:RegisterAssets()
+
     ConsoleMenu:SetCharacterFrame()
     ConsoleMenu:SetPaperDollFrame()
     ConsoleMenu:SetReputationFrame()
@@ -78,6 +61,8 @@ local function Initialize()
     ConsoleMenu:RegisterEvent("PLAYER_LOGIN", function()
         if ConsoleMenu.SetBaseKeyBindings then ConsoleMenu:SetBaseKeyBindings() end
         if ConsoleMenu.HideTimeManagerClockButton then ConsoleMenu:HideTimeManagerClockButton() end
+
+        -- Интеграция с ConsolePort
         if ConsolePortUtilityToggle then
             ConsolePortUtilityToggle:HookScript("OnShow", function()
                 if WeakAuras then
@@ -95,7 +80,7 @@ local function Initialize()
 
     -- Вибрация при отображении проков (overlay glow)
     ConsoleMenu:RegisterEvent("SPELL_ACTIVATION_OVERLAY_GLOW_SHOW", function()
-        if ConsoleMenu.SetVibrationSpellGlow then ConsoleMenu:SetVibrationSpellGlow() end
+        ConsoleMenu:SetVibrationSpellGlow()
     end)
     
     ConsoleMenu:InitInteractBindingFrame()

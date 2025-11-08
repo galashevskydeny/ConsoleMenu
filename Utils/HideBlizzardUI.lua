@@ -127,6 +127,7 @@ local function HideMicroMenu()
     if ConsoleMenuDB and ConsoleMenuDB.hideGroupFinderFrame == 2 then
         if QueueStatusButton then
             QueueStatusButton:Hide()
+            QueueStatusButton:SetAlpha(0.0)
             RegisterStateDriver(QueueStatusButton, "visibility", "hide")
             QueueStatusButton:UnregisterAllEvents()
         end
@@ -231,6 +232,12 @@ local function HideBossTargetFrameContainer()
     end
 end
 
+local function HideSpellActivationOverlay()
+    SpellActivationOverlayFrame:Hide()
+    RegisterStateDriver(SpellActivationOverlayFrame, "visibility", "hide")
+    SpellActivationOverlayFrame:UnregisterAllEvents()
+end
+
 -- Основная функция, которая управляет отображением всех элементов UI Blizzard (1 = "Показать", 2 = "Скрыть")
 function ConsoleMenu:HideBlizzardUI()
 
@@ -330,5 +337,9 @@ function ConsoleMenu:HideBlizzardUI()
     
     if ConsoleMenuDB.hideBossTargetFrameContainer == 2 then
         HideBossTargetFrameContainer()
+    end
+
+    if ConsoleMenuDB.hideSpellActivationOverlay == 2 then
+        HideSpellActivationOverlay()
     end
 end

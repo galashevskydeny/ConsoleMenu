@@ -44,11 +44,12 @@ local hudSettings = {
     { name = "Негативные эффекты и ауры", variable = "hideDebuffFrame", default = 2, tooltip = "Управляет отображением фрейма дебаффов (DebuffFrame).", options = hudDropdownOptions },
     { name = "Доп. способности", variable = "hideZoneAbilityFrame", default = 2, tooltip = "Управляет отображением фрейма способностей зоны (ZoneAbilityFrame).", options = hudDropdownOptions },
     { name = "Рамки боссов", variable = "hideBossTargetFrameContainer", default = 2, tooltip = "Управляет отображением контейнера фреймов боссов (BossTargetFrameContainer).", options = hudDropdownOptions },
-    { name = "Плавающие цифры", variable = "floatingText", default = 3, tooltip = "Отключает плавающие цифры урона и лечения (threatShowNumeric, enableFloatingCombatText, floatingCombatTextCombatDamage).", options = cvarDropdownOptions },
+    { name = "Плавающие цифры", variable = "floatingText", default = 3, tooltip = "Отключает плавающие цифры урона и лечения (threatShowNumeric, enableFloatingCombatText, floatingCombatTextCombatDamage).", options = cvarHideDropdownOptions },
     { name = "Имена персонажей и игроков", variable = "unitNames", default = 3, tooltip = "Отключает отображение имен персонажей, игроков, питомцев и других юнитов (UnitNameEnemyGuardianName и другие).", options = cvarDropdownOptions },
     { name = "Реплики персонажей над головой", variable = "chatBubble", default = 3, tooltip = "Отключает облака с субтитрами над головой персонажей и игроков (chatBubbles, chatBubblesParty).", options = cvarDropdownOptions },
     { name = "Подсветка квестодателя", variable = "qestCircle", default = 3, tooltip = "Отключает выделение под квестодателем (ShowQuestUnitCircles, ObjectSelectionCircle).", options = cvarDropdownOptions },
     { name = "Выделение персонажей и игроков", variable = "hideGraphicsOutlineMode", default = 2, tooltip = "Отключает режим контуров графики (graphicsOutlineMode).", options = cvarHideDropdownOptions },
+    { name = "Усиление заклинаний", variable = "hideSpellActivationOverlay", default = 2, tooltip = "Управляет отображением эффектов усиления заклинаний (SpellActivationOverlay) персонажа.", options = hudDropdownOptions },
 }
 
 local standardUISettings = {
@@ -220,6 +221,10 @@ local function registerHUDOptions(category, layout)
         ConsoleMenuDB[hudSettings[23].variable] = value
     end)
 
+    registerDropdown(category, hudSettings[30], function(value)
+        ConsoleMenuDB[hudSettings[30].variable] = value
+    end)
+
     layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Разное"))
 
     registerDropdown(category, hudSettings[12], function(value)
@@ -250,22 +255,27 @@ local function registerHUDOptions(category, layout)
 
     registerDropdown(category, hudSettings[25], function(value)
         ConsoleMenuDB[hudSettings[25].variable] = value
+        ApplyCVarSettings()
     end)
 
     registerDropdown(category, hudSettings[26], function(value)
         ConsoleMenuDB[hudSettings[26].variable] = value
+        ApplyCVarSettings()
     end)
 
     registerDropdown(category, hudSettings[27], function(value)
         ConsoleMenuDB[hudSettings[27].variable] = value
+        ApplyCVarSettings()
     end)
 
     registerDropdown(category, hudSettings[28], function(value)
         ConsoleMenuDB[hudSettings[28].variable] = value
+        ApplyCVarSettings()
     end)
 
     registerDropdown(category, hudSettings[29], function(value)
         ConsoleMenuDB[hudSettings[29].variable] = value
+        ApplyCVarSettings()
     end)
 
 

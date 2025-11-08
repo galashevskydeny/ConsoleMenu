@@ -8,6 +8,8 @@
 ConsoleMenu.lua
 Options.lua
 
+Assets/Assets.lua
+
 BlizzardFrames/CharacterFrame.lua
 BlizzardFrames/PaperDollFrame.lua
 BlizzardFrames/ReputationFrame.lua
@@ -30,6 +32,3 @@ Utils/GamePad.lua
 Utils/KeyBindings.lua
 
 BindingSuggestions.lua
-
-AuctionHouse.lua
-CraftingOrders.lua

@@ -181,12 +181,9 @@ local function ApplyCVarSettings()
         return
     end
     
-    -- Применяем функции в зависимости от значения настройки (1 = "По умолчанию", 2 = "Отключить", 3 = "Вручную" - не применяется)
     if ConsoleMenuDB.floatingText == 1 then
         DefaultFloatingText()
     elseif ConsoleMenuDB.floatingText == 2 then
-        ShowFloatingText()
-    elseif ConsoleMenuDB.floatingText == 3 then
         HideFloatingText()
     end
     
