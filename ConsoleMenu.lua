@@ -34,12 +34,13 @@ function ConsoleMenu:UnregisterEvent(event)
 end
 
 -- Инициализация аддона
-local function Initialize()  
-    
+local function Initialize()
+
     -- Инициализация модулей
     ConsoleMenu:RegisterAssets()
 
     ConsoleMenu:SetCharacterFrame()
+    ConsoleMenu:SetChatFrame()
     ConsoleMenu:SetPaperDollFrame()
     ConsoleMenu:SetReputationFrame()
     ConsoleMenu:SetTokenFrame()

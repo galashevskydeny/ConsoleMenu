@@ -73,6 +73,7 @@ local standardUISettings = {
     { name = "Окно почты", variable = "mailWindowStyle", default = 2, tooltip = "Выберите стиль окна почты: обновленную версию или стандартную.", options = windowStyleOptions },
     { name = "Окно торговца", variable = "merchantWindowStyle", default = 2, tooltip = "Выберите стиль окна торговца: обновленную версию или стандартную.", options = windowStyleOptions },
     { name = "Окна диалогов и квестов", variable = "dialogQuestWindowStyle", default = 2, tooltip = "Выберите стиль окна диалогов и квестов: обновленную (более имерсивную) версию или стандартную.", options = windowStyleOptions },
+    { name = "Окно чата", variable = "chatWindowStyle", default = 2, tooltip = "Выберите стиль окна чата: обновленную версию (скрытую по умолчанию в центре экрана) или стандартную.", options = windowStyleOptions },
 }
 
 local keyBindingSettings = {
@@ -104,6 +105,7 @@ local ensureNumericChoice = SettingsHelper.ensureNumericChoice
 local ensureDropdownDefaults = SettingsHelper.ensureDropdownDefaults
 local registerDropdown = SettingsHelper.registerDropdown
 local addReloadButton = SettingsHelper.addReloadButton
+local registerKeyBindingPicker = SettingsHelper.registerKeyBindingPicker
 
 local function registerMainOptions(category, layout)
     registerDropdown(category, mainCategorySettings[1], function(value)
@@ -229,36 +231,17 @@ local function registerKeyBindingOptions(category, layout)
         ConsoleMenuDB[keyBindingSettings[1].variable] = value
     end)
 
-    local currentInteractButton = ConsoleMenuDB.interactButton
-    if currentInteractButton == nil then
-        ConsoleMenuDB.interactButton = 1
-    elseif type(currentInteractButton) == "string" then
-        local converted
-        for index, label in ipairs(interactButtonMap) do
-            if label == currentInteractButton then
-                converted = index
-                break
-            end
-        end
-        ConsoleMenuDB.interactButton = converted or 1
-    else
-        ensureNumericChoice("interactButton", 1, #interactButtonMap)
-    end
-
-    ConsoleMenuDB.interactButtonString = interactButtonMap[ConsoleMenuDB.interactButton]
-
-    registerDropdown(
+    registerKeyBindingPicker(
         category,
+        layout,
         {
-            name = "Кнопка взаимодействия",
+            name = "Клавиша для взаимодействия",
             variable = "interactButton",
-            default = ConsoleMenuDB.interactButton,
+            defaultKey = "PAD1",
             tooltip = "Выберите, какая кнопка будет использоваться для взаимодействия с объектами.",
-            options = interactButtonMap,
         },
-        function(value)
-            ConsoleMenuDB.interactButton = value
-            ConsoleMenuDB.interactButtonString = interactButtonMap[value]
+        function(newKey)
+            ConsoleMenuDB.interactButton = newKey
         end
     )
 
@@ -327,6 +310,27 @@ local function registerKeyBindingOptions(category, layout)
             _G.ApplyMacroSettings()
         end
     end)
+
+    layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Чат"))
+
+    registerKeyBindingPicker(
+        category,
+        layout,
+        {
+            name = "Показать / скрыть чат",
+            variable = "selectedChatButtonKey",
+            defaultKey = "PAD5",
+            tooltip = "Установить клавишу открытия чата. Нажмите кнопку и выберите клавишу.",
+        },
+        function(newKey)
+            ConsoleMenuDB.selectedChatButtonKey = newKey
+            -- Обновляем биндинг при изменении клавиши
+            if ConsoleMenu and ConsoleMenu.SetupChatKeyBinding then
+                ConsoleMenu:SetupChatKeyBinding()
+            end
+        end
+    )
+    
 end
 
 local function registerQuestOptions(category, layout)

@@ -12,6 +12,7 @@ Options.lua
 Assets/Assets.lua
 
 BlizzardFrames/CharacterFrame.lua
+BlizzardFrames/ChatFrame.lua
 BlizzardFrames/PaperDollFrame.lua
 BlizzardFrames/ReputationFrame.lua
 BlizzardFrames/TokenFrame.lua

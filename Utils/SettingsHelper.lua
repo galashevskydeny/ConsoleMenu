@@ -127,6 +127,117 @@ function SettingsHelper.addReloadButton(layout, name)
     layout:AddInitializer(initializer)
 end
 
+-- Регистрирует пикер клавиши/кнопки бинда
+-- settingInfo: { name, variable, defaultKey, tooltip }
+-- onValueChanged: функция, вызываемая при изменении значения (опционально)
+function SettingsHelper.registerKeyBindingPicker(category, layout, settingInfo, onValueChanged)
+    if not ConsoleMenuDB then
+        ConsoleMenuDB = {}
+    end
+
+    local variable = settingInfo.variable
+    local defaultKey = settingInfo.defaultKey or "ENTER"
+    
+    -- Инициализация значения по умолчанию
+    if ConsoleMenuDB[variable] == nil then
+        ConsoleMenuDB[variable] = defaultKey
+    end
+
+    -- Создание и добавление кнопки выбора клавиши
+    local keyPickerInitializer = CreateSettingsButtonInitializer(
+        settingInfo.name,
+        ConsoleMenuDB[variable] or defaultKey,
+        function(button)
+            -- Ожидание ввода клавиши
+            if button._waitingForKey then
+                return
+            end
+            button._waitingForKey = true
+            local originalText = button:GetText()
+            button:SetText("Нажмите клавишу...")
+
+            -- Создаем полноэкранный фрейм для захвата ввода
+            local captureFrame = CreateFrame("Frame", nil, UIParent)
+            captureFrame:SetFrameStrata("DIALOG")
+            captureFrame:SetAllPoints(UIParent)
+            captureFrame:EnableKeyboard(true)
+            captureFrame:EnableGamePadButton(true)
+            captureFrame:SetPropagateKeyboardInput(false)
+            
+            -- Создаем затемняющий фон
+            local backdrop = captureFrame:CreateTexture(nil, "BACKGROUND")
+            backdrop:SetAllPoints(captureFrame)
+            backdrop:SetColorTexture(0, 0, 0, 0.7)
+            
+            -- Создаем текст подсказки
+            local textFrame = CreateFrame("Frame", nil, captureFrame)
+            textFrame:SetSize(400, 100)
+            textFrame:SetPoint("CENTER", captureFrame, "CENTER", 0, 0)
+            
+            local text = textFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+            text:SetPoint("CENTER", textFrame, "CENTER", 0, 0)
+            text:SetText("Нажмите клавишу на клавиатуре или кнопку на контроллере...\n(ESC для отмены)")
+            text:SetTextColor(1, 1, 1, 1)
+            
+            local waitingForInput = true
+            local capturedKey = nil
+            
+            -- Обработка нажатий клавиатуры
+            captureFrame:SetScript("OnKeyDown", function(self, key)
+                if waitingForInput and key then
+                    if key == "ESCAPE" then
+                        -- Отмена
+                        waitingForInput = false
+                        self:Hide()
+                    else
+                        -- Сохраняем выбор
+                        capturedKey = key
+                        waitingForInput = false
+                        self:Hide()
+                    end
+                end
+            end)
+            
+            -- Обработка нажатий геймпада
+            captureFrame:SetScript("OnGamePadButtonDown", function(self, gamepadButton)
+                if waitingForInput and gamepadButton then
+                    -- Сохраняем выбор кнопки геймпада
+                    capturedKey = gamepadButton
+                    waitingForInput = false
+                    self:Hide()
+                end
+            end)
+            
+            -- Очистка при скрытии
+            captureFrame:SetScript("OnHide", function(self)
+                if capturedKey then
+                    -- Сохраняем выбор
+                    ConsoleMenuDB[variable] = capturedKey
+                    button:SetText(capturedKey)
+                    -- Вызываем callback, если он указан
+                    if onValueChanged then
+                        onValueChanged(capturedKey)
+                    end
+                else
+                    -- Восстанавливаем исходный текст при отмене
+                    button:SetText(originalText)
+                end
+                button._waitingForKey = false
+                -- Очищаем скрипты
+                self:SetScript("OnKeyDown", nil)
+                self:SetScript("OnGamePadButtonDown", nil)
+                self:SetScript("OnHide", nil)
+            end)
+            
+            captureFrame:Show()
+        end,
+        settingInfo.tooltip or "Нажмите, чтобы выбрать клавишу или кнопку",
+        true -- выделенная кнопка
+    )
+    
+    layout:AddInitializer(keyPickerInitializer)
+end
+
 -- Экспорт библиотеки
 _G.SettingsHelper = SettingsHelper
 

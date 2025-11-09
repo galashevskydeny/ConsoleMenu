@@ -172,9 +172,7 @@ function ConsoleMenu:SetInteractBinding(newTarget)
     end
 
     if newTarget then
-        local interactButton = (ConsoleMenuDB and ConsoleMenuDB["interactButtonString"]) or "PAD1"
-        SetOverrideBinding(self.InteractBindingFrame, true, interactButton, "INTERACTTARGET")
-
+        SetOverrideBinding(self.InteractBindingFrame, true, ConsoleMenuDB.interactButton, "INTERACTTARGET")
     else
         ClearOverrideBindings(self.InteractBindingFrame)
     end
