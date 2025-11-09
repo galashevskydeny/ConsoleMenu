@@ -65,6 +65,12 @@ local function HideFramesAndRegions()
 end
 
 local function HideChatCommand()
+
+    if WeakAuras then
+        WeakAuras.ScanEvents("CHANGE_CONTEXT", ConsoleMenu.PlayerContext.lastContext)
+        WeakAuras.ScanEvents("SHOW_CHAT_FRAME", false)
+    end
+
     ChatFrame1:SetHeight(1)
 
     ChatFrame1:ClearAllPoints() -- Очищаем все текущие точки привязки
@@ -94,6 +100,12 @@ local function HideChatCommand()
 end
 
 local function ShowChatCommand()
+
+    if WeakAuras then
+        WeakAuras.ScanEvents("CHANGE_CONTEXT", "window")
+        WeakAuras.ScanEvents("SHOW_CHAT_FRAME", true)
+    end
+
     ChatFrame1:SetHeight(160)
 
     ChatFrame1:ClearAllPoints() -- Очищаем все текущие точки привязки
@@ -139,6 +151,7 @@ local function CreateToggleChatButton()
     -- Создаём кнопку без шаблона (без фона)
     local btn = CreateFrame("Button", "ToggleChatButton", parentFrame)
     btn:SetSize(100, 20)
+    btn:SetAlpha(0.4)
 
     -- Функция для установки биндинга (доступна глобально для обновления)
     function ConsoleMenu:SetupChatKeyBinding()
@@ -193,11 +206,11 @@ local function CreateToggleChatButton()
     
     -- Добавляем эффект при наведении (опционально)
     btn:SetScript("OnEnter", function(self)
-        btnText:SetTextColor(1, 0.82, 0) -- Золотой цвет при наведении
+        btn:SetAlpha(1)
     end)
     
     btn:SetScript("OnLeave", function(self)
-        btnText:SetTextColor(1, 1, 1) -- Белый цвет обычно
+        btn:SetAlpha(0.4)
     end)
 
     return btn
