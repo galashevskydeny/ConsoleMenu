@@ -211,8 +211,16 @@ function ConsoleMenu:InitializeContexts()
             UpdatePlayerSoftEnemy()
             UpdatePlayerSoftFriend()
             UpdatePlayerTarget()
-            C_Timer.After(1, UpdatePlayerMount)
-            C_Timer.After(1, UpdatePlayerVehicle)
+
+            C_Timer.After(1, function()
+                UpdatePlayerMount()
+                UpdatePlayerVehicle()
+                local context = ConsoleMenu:GetPlayerContext()
+                if WeakAuras then
+                    WeakAuras.ScanEvents("CHANGE_CONTEXT", context)
+                end
+                SwitchActionBarPage()
+            end)
         elseif event == "PLAYER_SOFT_ENEMY_CHANGED" then
             UpdatePlayerSoftEnemy()
         elseif event == "PLAYER_SOFT_FRIEND_CHANGED" then
