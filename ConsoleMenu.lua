@@ -90,7 +90,6 @@ local function Initialize()
     ConsoleMenu.InitializeOptions()
     ConsoleMenu:InitializeContexts()
     ConsoleMenu:InitializeSuperTrackManager()
-    ConsoleMenu:InitializeMacro()
     
 end
 
