@@ -203,14 +203,12 @@ end
 
 -- Устанавливает биндинг на первую способность зоны
 function ConsoleMenu:SetBindingsZoneAbility()
-    if ConsoleMenuDB and ConsoleMenuDB.overrideZoneAbilityKey == 2 then
+    if ConsoleMenuDB.overrideZoneAbilityKey == 2 then
         ClearOverrideBindings(self.ZoneAbilityBindingFrame)
         return
     end
     
-    if InCombatLockdown and InCombatLockdown() then
-        return
-    end
+    if InCombatLockdown() then return end
 
     -- Получаем активные зоновые способности
     local zoneAbilities = C_ZoneAbility.GetActiveAbilities()

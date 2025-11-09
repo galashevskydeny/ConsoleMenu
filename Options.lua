@@ -178,10 +178,16 @@ local function registerContextsOptions(category, layout)
 
     registerDropdown(category, keyBindingSettings[5], function(value)
         ConsoleMenuDB[keyBindingSettings[5].variable] = value
+        if _G.ApplyMacroSettings then
+            _G.ApplyMacroSettings()
+        end
     end)
 
     registerDropdown(category, keyBindingSettings[6], function(value)
         ConsoleMenuDB[keyBindingSettings[6].variable] = value
+        if _G.ApplyMacroSettings then
+            _G.ApplyMacroSettings()
+        end
     end)
 
     layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Исследование святилищ"))
@@ -202,10 +208,16 @@ local function registerContextsOptions(category, layout)
 
     registerDropdown(category, keyBindingSettings[7], function(value)
         ConsoleMenuDB[keyBindingSettings[7].variable] = value
+        if _G.ApplyMacroSettings then
+            _G.ApplyMacroSettings()
+        end
     end)
 
     registerDropdown(category, keyBindingSettings[8], function(value)
         ConsoleMenuDB[keyBindingSettings[8].variable] = value
+        if _G.ApplyMacroSettings then
+            _G.ApplyMacroSettings()
+        end
     end)
 
 end
@@ -290,18 +302,30 @@ local function registerKeyBindingOptions(category, layout)
 
     registerDropdown(category, keyBindingSettings[5], function(value)
         ConsoleMenuDB[keyBindingSettings[5].variable] = value
+        if _G.ApplyMacroSettings then
+            _G.ApplyMacroSettings()
+        end
     end)
 
     registerDropdown(category, keyBindingSettings[6], function(value)
         ConsoleMenuDB[keyBindingSettings[6].variable] = value
+        if _G.ApplyMacroSettings then
+            _G.ApplyMacroSettings()
+        end
     end)
 
     registerDropdown(category, keyBindingSettings[7], function(value)
         ConsoleMenuDB[keyBindingSettings[7].variable] = value
+        if _G.ApplyMacroSettings then
+            _G.ApplyMacroSettings()
+        end
     end)
 
     registerDropdown(category, keyBindingSettings[8], function(value)
         ConsoleMenuDB[keyBindingSettings[8].variable] = value
+        if _G.ApplyMacroSettings then
+            _G.ApplyMacroSettings()
+        end
     end)
 end
 

@@ -115,6 +115,13 @@ end
 function ConsoleMenu:HideTimeManagerClockButton()
     if TimeManagerClockButton then
         TimeManagerClockButton:Hide()
+        RegisterStateDriver(TimeManagerClockButton, "visibility", "hide")
+        TimeManagerClockButton:UnregisterAllEvents()
+        TimeManagerClockButton:SetAlpha(0.0)
+        TimeManagerClockTicker:Hide()
+        RegisterStateDriver(TimeManagerClockTicker, "visibility", "hide")
+        TimeManagerClockTicker:UnregisterAllEvents()
+        TimeManagerClockTicker:SetAlpha(0.0)
     end
 end
 

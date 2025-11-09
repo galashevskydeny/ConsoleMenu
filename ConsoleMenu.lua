@@ -59,9 +59,10 @@ local function Initialize()
     
     -- Установим бинды после полной инициализации игрока
     ConsoleMenu:RegisterEvent("PLAYER_LOGIN", function()
-        if ConsoleMenu.SetBaseKeyBindings then ConsoleMenu:SetBaseKeyBindings() end
-        if ConsoleMenu.HideTimeManagerClockButton then ConsoleMenu:HideTimeManagerClockButton() end
-
+        ConsoleMenu:SetBaseKeyBindings()
+        ConsoleMenu:HideTimeManagerClockButton()
+        _G.ApplyMacroSettings()
+        
         -- Интеграция с ConsolePort
         if ConsolePortUtilityToggle then
             ConsolePortUtilityToggle:HookScript("OnShow", function()
@@ -89,6 +90,7 @@ local function Initialize()
     ConsoleMenu.InitializeOptions()
     ConsoleMenu:InitializeContexts()
     ConsoleMenu:InitializeSuperTrackManager()
+    ConsoleMenu:InitializeMacro()
     
 end
 
