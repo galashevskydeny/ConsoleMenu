@@ -8,6 +8,10 @@ if not ConsoleMenuDB then
     ConsoleMenuDB = {}
 end
 
+-- Кеш зарегистрированных настроек для избежания повторной регистрации
+-- Ключ: "CONSOLEMENU_" .. variable:upper(), значение: объект настройки
+local registeredSettings = {}
+
 -- Проверяет и устанавливает числовое значение в допустимом диапазоне
 function SettingsHelper.ensureNumericChoice(variable, defaultValue, maxValue)
     if not ConsoleMenuDB then
@@ -41,27 +45,70 @@ function SettingsHelper.registerDropdown(category, settingInfo, onValueChanged)
         return container:GetData()
     end
 
-    local setting = Settings.RegisterAddOnSetting(
-        category,
-        "CONSOLEMENU_" .. settingInfo.variable:upper(),
-        settingInfo.variable,
-        ConsoleMenuDB,
-        Settings.VarType.Number,
-        settingInfo.name,
-        settingInfo.default
-    )
+    local settingKey = "CONSOLEMENU_" .. settingInfo.variable:upper()
+    local setting
+    
+    -- Проверяем, не была ли настройка уже зарегистрирована
+    if registeredSettings[settingKey] then
+        -- Используем уже зарегистрированную настройку
+        setting = registeredSettings[settingKey]
+    else
+        -- Регистрируем новую настройку
+        local success, result = pcall(function()
+            return Settings.RegisterAddOnSetting(
+                category,
+                settingKey,
+                settingInfo.variable,
+                ConsoleMenuDB,
+                Settings.VarType.Number,
+                settingInfo.name,
+                settingInfo.default
+            )
+        end)
+        
+        if success then
+            setting = result
+        else
+            -- Если регистрация не удалась (настройка уже существует), 
+            -- пытаемся получить существующую настройку через Settings API
+            -- В WoW API нет прямого способа получить существующую настройку,
+            -- поэтому создаем объект-заглушку, который будет работать с dropdown
+            setting = {
+                variable = settingInfo.variable,
+                variableKey = settingInfo.variable,
+                variableType = "number",
+                name = settingInfo.name,
+                defaultValue = settingInfo.default,
+                data = {}
+            }
+        end
+        
+        -- Сохраняем в кеш
+        registeredSettings[settingKey] = setting
+    end
 
+    -- Обновляем tooltip, если он указан
     if settingInfo.tooltip then
-        setting.data = setting.data or {}
+        if not setting.data then
+            setting.data = {}
+        end
         setting.data.tooltip = settingInfo.tooltip
     end
 
-    if onValueChanged then
-        setting:SetValueChangedCallback(function(_, newValue)
-            onValueChanged(newValue)
+    -- Callback устанавливаем только при первой регистрации
+    if onValueChanged and not registeredSettings[settingKey]._callbackSet then
+        local callbackSuccess, callbackError = pcall(function()
+            if setting.SetValueChangedCallback then
+                setting:SetValueChangedCallback(function(_, newValue)
+                    onValueChanged(newValue)
+                end)
+                registeredSettings[settingKey]._callbackSet = true
+            end
         end)
+        -- Если callback не поддерживается, игнорируем ошибку
     end
 
+    -- Создаем dropdown для текущей категории (можно создавать несколько dropdown для одной настройки)
     Settings.CreateDropdown(category, setting, getOptions, settingInfo.tooltip)
 end
 

@@ -80,6 +80,10 @@ local keyBindingSettings = {
     { name = "Переопределять кнопку при наличии способности области", variable = "overrideZoneAbilityKey", default = 2, tooltip = "Если включено, выбранная кнопка автоматически использует способность области, если она доступна.", options = toggleOptions },
     { name = "Схема привязки контроллера", variable = "keyBindingScheme", default = 2, tooltip = "Выберите схему привязки игровых клавиш контроллера к действиям в игре.", options = { "Авторская", "Вручную" } },
     { name = "Вибрация контроллера", variable = "controllerVibration", default = 2, tooltip = "Управляет вибрацией контроллера при использовании способностей.", options = { "Нет", "При усилении активной способности" } },
+    { name = "Макросы панели исследования", variable = "actionBarPageExploring", default = 2, tooltip = "Устанавливает фиксированный набор преднастроенных макросов для панели исследования открытого мира.", options = toggleOptions },  
+    { name = "Макросы панели общения с игроком", variable = "actionBarPagePlayerInteraction", default = 2, tooltip = "Устанавливает фиксированный набор преднастроенных макросов для панели общения с игроком.", options = toggleOptions },
+    { name = "Макросы панели верховой езды", variable = "actionBarPageMount", default = 2, tooltip = "Устанавливает фиксированный набор преднастроенных макросов для панели верховой езды.", options = toggleOptions },
+    { name = "Способности и макросы панели полета на драконе", variable = "actionBarPageDragonriding", default = 2, tooltip = "Устанавливает фиксированный набор преднастроенных способностей и макросов для панели полета на драконе.", options = toggleOptions }, 
 }
 
 local contextsSettings = {
@@ -103,7 +107,7 @@ local addReloadButton = SettingsHelper.addReloadButton
 
 local function registerMainOptions(category, layout)
     registerDropdown(category, mainCategorySettings[1], function(value)
-        ConsoleMenuDB[mainCategorySettings[1].variable] = value
+        ConsoleMenuDB.enableMacBook = value
         if _G.ApplyCVarSettings then
             _G.ApplyCVarSettings()
         end
@@ -170,6 +174,16 @@ local function registerContextsOptions(category, layout)
         ConsoleMenuDB[contextsSettings[1].variable] = value
     end)
 
+    layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Исследование открытого мира"))
+
+    registerDropdown(category, keyBindingSettings[5], function(value)
+        ConsoleMenuDB[keyBindingSettings[5].variable] = value
+    end)
+
+    registerDropdown(category, keyBindingSettings[6], function(value)
+        ConsoleMenuDB[keyBindingSettings[6].variable] = value
+    end)
+
     layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Исследование святилищ"))
 
     registerDropdown(category, contextsSettings[3], function(value)
@@ -185,13 +199,22 @@ local function registerContextsOptions(category, layout)
     registerDropdown(category, contextsSettings[2], function(value)
         ConsoleMenuDB[contextsSettings[2].variable] = value
     end)
+
+    registerDropdown(category, keyBindingSettings[7], function(value)
+        ConsoleMenuDB[keyBindingSettings[7].variable] = value
+    end)
+
+    registerDropdown(category, keyBindingSettings[8], function(value)
+        ConsoleMenuDB[keyBindingSettings[8].variable] = value
+    end)
+
 end
 
 local function registerKeyBindingOptions(category, layout)
     layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Взаимодействие"))
 
     registerDropdown(category, keyBindingSettings[1], function(value)
-        ConsoleMenuDB.overrideInteractKey = value
+        ConsoleMenuDB[keyBindingSettings[1].variable] = value
     end)
 
     local currentInteractButton = ConsoleMenuDB.interactButton
@@ -230,7 +253,7 @@ local function registerKeyBindingOptions(category, layout)
     layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Способность области"))
 
     registerDropdown(category, keyBindingSettings[2], function(value)
-        ConsoleMenuDB.overrideZoneAbilityKey = value
+        ConsoleMenuDB[keyBindingSettings[2].variable] = value
         if ConsoleMenu and ConsoleMenu.SetBindingsZoneAbility then
             ConsoleMenu:SetBindingsZoneAbility()
         end
@@ -239,14 +262,14 @@ local function registerKeyBindingOptions(category, layout)
     layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Игровой контроллер"))
 
     registerDropdown(category, keyBindingSettings[3], function(value)
-        ConsoleMenuDB.keyBindingScheme = value
+        ConsoleMenuDB[keyBindingSettings[3].variable] = value
         if ConsoleMenu and ConsoleMenu.SetBaseKeyBindings then
             ConsoleMenu:SetBaseKeyBindings()
         end
     end)
 
     registerDropdown(category, keyBindingSettings[4], function(value)
-        ConsoleMenuDB.controllerVibration = value
+        ConsoleMenuDB[keyBindingSettings[4].variable] = value
     end)
 
     local clearBindingsInitializer = CreateSettingsButtonInitializer(
@@ -262,6 +285,24 @@ local function registerKeyBindingOptions(category, layout)
     )
 
     layout:AddInitializer(clearBindingsInitializer)
+
+    layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Страницы и макросы"))
+
+    registerDropdown(category, keyBindingSettings[5], function(value)
+        ConsoleMenuDB[keyBindingSettings[5].variable] = value
+    end)
+
+    registerDropdown(category, keyBindingSettings[6], function(value)
+        ConsoleMenuDB[keyBindingSettings[6].variable] = value
+    end)
+
+    registerDropdown(category, keyBindingSettings[7], function(value)
+        ConsoleMenuDB[keyBindingSettings[7].variable] = value
+    end)
+
+    registerDropdown(category, keyBindingSettings[8], function(value)
+        ConsoleMenuDB[keyBindingSettings[8].variable] = value
+    end)
 end
 
 local function registerQuestOptions(category, layout)
