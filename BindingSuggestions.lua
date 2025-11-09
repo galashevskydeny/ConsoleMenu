@@ -12,6 +12,7 @@ function ConsoleMenu:InitActionInfoFrame()
     self.ActionInfoFrame:RegisterEvent("UPDATE_BINDINGS")
     self.ActionInfoFrame:RegisterEvent("GAME_PAD_ACTIVE_CHANGED")
     self.ActionInfoFrame:RegisterEvent("ACTIONBAR_UPDATE_USABLE")
+    self.ActionInfoFrame:RegisterEvent("ACTIONBAR_PAGE_CHANGED")
 
     self.ActionInfoFrame:SetScript("OnEvent", function(frame, event, ...)
         if not ConsoleMenu or not ConsoleMenu.UpdateActionInfo then
@@ -29,15 +30,17 @@ function ConsoleMenu:UpdateActionInfo()
         local actionType, id = GetActionInfo(slot)
         
         if actionType and id then
-            if not ConsoleMenu.ActionInfo[actionType.. "_" .. id] then
-                ConsoleMenu.ActionInfo[actionType.. "_" .. id] = {
+            local key = actionType .. "_" .. id
+            if not ConsoleMenu.ActionInfo[key] then
+                ConsoleMenu.ActionInfo[key] = {
                     actionType = actionType,
                     id = id,
-                    slot = slot,
+                    slots = {}, -- Храним все слоты, где находится это действие
                 }
             end
+            -- Добавляем слот в список
+            table.insert(ConsoleMenu.ActionInfo[key].slots, slot)
         end
-
     end
 end
 
@@ -88,7 +91,7 @@ function ConsoleMenu:GetBindingCommandBySlotID(slotID)
 
     local toggles = { GetActionBarToggles() }
 
-    if not toggles[barId] and barID == GetActionBarPage() then
+    if not toggles[barID] and barID == GetActionBarPage() then
         bindingFormat = "ACTIONBUTTON%d"
     end
 
@@ -98,14 +101,33 @@ end
 --  Функция получения кнопки по идентификатору заклинания
 function ConsoleMenu:GetBinding(actionType, id)
     local entry = ConsoleMenu.ActionInfo[actionType .. "_" .. id]
-    if entry then
-        local item = entry.slot
-        if item then
-            local bindingCommand = self:GetBindingCommandBySlotID(item)
+    if entry and entry.slots and #entry.slots > 0 then
+        local currentPage = GetActionBarPage()
+        local NUM_ACTIONBAR_BUTTONS = 12
+        
+        -- Сначала пытаемся найти слот на текущей странице (для слотов 1-48)
+        for _, slot in ipairs(entry.slots) do
+            if slot >= 1 and slot <= 48 then
+                local slotPage = math.ceil(slot / NUM_ACTIONBAR_BUTTONS)
+                if slotPage == currentPage then
+                    local bindingCommand = self:GetBindingCommandBySlotID(slot)
+                    if bindingCommand then
+                        local key1, key2 = GetBindingKey(bindingCommand)
+                        return key1
+                    end
+                end
+            end
+        end
+        
+        -- Если не нашли на текущей странице, пробуем найти на любой странице
+        -- (для MULTIACTIONBAR и других постоянных баров, или если действие не на текущей странице)
+        for _, slot in ipairs(entry.slots) do
+            local bindingCommand = self:GetBindingCommandBySlotID(slot)
             if bindingCommand then
                 local key1, key2 = GetBindingKey(bindingCommand)
-
-                return key1
+                if key1 then
+                    return key1
+                end
             end
         end
     end
@@ -316,8 +338,10 @@ function ConsoleMenu:UpdateSpellBarTexture(aura_env, spell)
     if spell ~= nil and tonumber(spell) then
         binding = self:GetBinding("spell", spell)
     elseif spell ~= nil then
-        spellInfo = C_Spell.GetSpellInfo(spell)
-        binding = self:GetBinding("spell", pellInfo.spellID)
+        local spellInfo = C_Spell.GetSpellInfo(spell)
+        if spellInfo and spellInfo.spellID then
+            binding = self:GetBinding("spell", spellInfo.spellID)
+        end
     end
 
     self:SetProgressBarStyle(aura_env, binding)
