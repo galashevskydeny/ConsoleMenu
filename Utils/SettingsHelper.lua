@@ -149,6 +149,17 @@ function SettingsHelper.registerKeyBindingPicker(category, layout, settingInfo, 
         ConsoleMenuDB[variable] or defaultKey,
 
         function(button)
+            -- Сохраняем ссылку на переменную и значение по умолчанию для OnUpdate
+            if not button._keyPickerVariable then
+                button._keyPickerVariable = variable
+                button._keyPickerDefaultKey = defaultKey
+                
+                -- Добавляем OnUpdate для обновления текста кнопки
+                button:SetScript("OnUpdate", function(self)
+                    local currentValue = ConsoleMenuDB[self._keyPickerVariable] or self._keyPickerDefaultKey
+                    self:SetText(currentValue)
+                end)
+            end
             
             -- Ожидание ввода клавиши
             if button._waitingForKey then
