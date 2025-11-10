@@ -66,8 +66,10 @@ end
 
 local function HideChatCommand()
 
+    ConsoleMenu:RemoveWindow("chat")
+    local context = ConsoleMenu:GetPlayerContext()
     if WeakAuras then
-        WeakAuras.ScanEvents("CHANGE_CONTEXT", ConsoleMenu.PlayerContext.lastContext)
+        WeakAuras.ScanEvents("CHANGE_CONTEXT", context)
         WeakAuras.ScanEvents("SHOW_CHAT_FRAME", false)
     end
 
@@ -101,8 +103,10 @@ end
 
 local function ShowChatCommand()
 
+    ConsoleMenu:AddWindow("chat")
+
     if WeakAuras then
-        WeakAuras.ScanEvents("CHANGE_CONTEXT", "window")
+        WeakAuras.ScanEvents("CHANGE_CONTEXT", context)
         WeakAuras.ScanEvents("SHOW_CHAT_FRAME", true)
     end
 
