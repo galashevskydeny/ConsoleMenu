@@ -4,6 +4,7 @@
 local SettingsHelper = {}
 
 -- Инициализация базы данных, если она не существует
+-- ВАЖНО: Не перезаписываем ConsoleMenuDB, если он уже существует (загружен из SavedVariables)
 if not ConsoleMenuDB then
     ConsoleMenuDB = {}
 end
@@ -138,8 +139,7 @@ function SettingsHelper.registerKeyBindingPicker(category, layout, settingInfo, 
     local variable = settingInfo.variable
     local defaultKey = settingInfo.defaultKey or "ENTER"
     
-    -- Инициализация значения по умолчанию
-    if ConsoleMenuDB[variable] == nil then
+    if ConsoleMenuDB[variable] == nil or ConsoleMenuDB[variable] == "" then
         ConsoleMenuDB[variable] = defaultKey
     end
 
@@ -147,37 +147,44 @@ function SettingsHelper.registerKeyBindingPicker(category, layout, settingInfo, 
     local keyPickerInitializer = CreateSettingsButtonInitializer(
         settingInfo.name,
         ConsoleMenuDB[variable] or defaultKey,
+
         function(button)
+            
             -- Ожидание ввода клавиши
             if button._waitingForKey then
                 return
             end
             button._waitingForKey = true
-            local originalText = button:GetText()
-            button:SetText("Нажмите клавишу...")
 
-            -- Создаем полноэкранный фрейм для захвата ввода
-            local captureFrame = CreateFrame("Frame", nil, UIParent)
-            captureFrame:SetFrameStrata("DIALOG")
-            captureFrame:SetAllPoints(UIParent)
-            captureFrame:EnableKeyboard(true)
-            captureFrame:EnableGamePadButton(true)
-            captureFrame:SetPropagateKeyboardInput(false)
-            
-            -- Создаем затемняющий фон
-            local backdrop = captureFrame:CreateTexture(nil, "BACKGROUND")
-            backdrop:SetAllPoints(captureFrame)
-            backdrop:SetColorTexture(0, 0, 0, 0.7)
-            
-            -- Создаем текст подсказки
-            local textFrame = CreateFrame("Frame", nil, captureFrame)
-            textFrame:SetSize(400, 100)
-            textFrame:SetPoint("CENTER", captureFrame, "CENTER", 0, 0)
-            
-            local text = textFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-            text:SetPoint("CENTER", textFrame, "CENTER", 0, 0)
-            text:SetText("Нажмите клавишу на клавиатуре или кнопку на контроллере...\n(ESC для отмены)")
-            text:SetTextColor(1, 1, 1, 1)
+            -- Переиспользуем существующий фрейм или создаем новый
+            local captureFrame = button._captureFrame
+            if not captureFrame then
+                -- Создаем полноэкранный фрейм для захвата ввода
+                captureFrame = CreateFrame("Frame", nil, UIParent)
+                captureFrame:SetFrameStrata("DIALOG")
+                captureFrame:SetAllPoints(UIParent)
+                captureFrame:EnableKeyboard(true)
+                captureFrame:EnableGamePadButton(true)
+                captureFrame:SetPropagateKeyboardInput(false)
+                
+                -- Создаем затемняющий фон
+                local backdrop = captureFrame:CreateTexture(nil, "BACKGROUND")
+                backdrop:SetAllPoints(captureFrame)
+                backdrop:SetColorTexture(0, 0, 0, 0.7)
+                
+                -- Создаем текст подсказки
+                local textFrame = CreateFrame("Frame", nil, captureFrame)
+                textFrame:SetSize(400, 100)
+                textFrame:SetPoint("CENTER", captureFrame, "CENTER", 0, 0)
+                
+                local text = textFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+                text:SetPoint("CENTER", textFrame, "CENTER", 0, 0)
+                text:SetText("Нажмите клавишу на клавиатуре или кнопку на контроллере...\n(ESC для отмены)")
+                text:SetTextColor(1, 1, 1, 1)
+                
+                -- Сохраняем ссылку на фрейм в кнопке
+                button._captureFrame = captureFrame
+            end
             
             local waitingForInput = true
             local capturedKey = nil
@@ -211,16 +218,16 @@ function SettingsHelper.registerKeyBindingPicker(category, layout, settingInfo, 
             -- Очистка при скрытии
             captureFrame:SetScript("OnHide", function(self)
                 if capturedKey then
-                    -- Сохраняем выбор
+                    -- Сначала обновляем значение в базе данных
                     ConsoleMenuDB[variable] = capturedKey
-                    button:SetText(capturedKey)
-                    -- Вызываем callback, если он указан
+                    
+                    -- Вызываем callback (он может также изменять значение в ConsoleMenuDB)
                     if onValueChanged then
                         onValueChanged(capturedKey)
                     end
-                else
-                    -- Восстанавливаем исходный текст при отмене
-                    button:SetText(originalText)
+                    
+                    button:SetText(capturedKey)
+                    
                 end
                 button._waitingForKey = false
                 -- Очищаем скрипты
