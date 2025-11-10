@@ -151,30 +151,33 @@ local function CreateToggleChatButton()
     -- Создаём кнопку без шаблона (без фона)
     local btn = CreateFrame("Button", "ToggleChatButton", parentFrame)
     btn:SetSize(100, 20)
-    btn:SetAlpha(0.4)
+    btn:SetAlpha(0.5)
 
     -- Функция для установки биндинга (доступна глобально для обновления)
-    function ConsoleMenu:SetupChatKeyBinding()
+    local function SetupChatKeyBinding()
         if InCombatLockdown() then
             return
         end
         
-        if not self.ChatBindingFrame then
+        if not ConsoleMenu.ChatBindingFrame then
             return
         end
         
         -- Очищаем предыдущие override биндинги
-        ClearOverrideBindings(self.ChatBindingFrame)
+        ClearOverrideBindings(ConsoleMenu.ChatBindingFrame)
         
         -- Устанавливаем новый override биндинг
         local key = ConsoleMenuDB and ConsoleMenuDB.selectedChatButtonKey
         if key and key ~= "" then
-            SetOverrideBindingClick(self.ChatBindingFrame, true, key, "ToggleChatButton", "LeftButton")
+            SetOverrideBindingClick(ConsoleMenu.ChatBindingFrame, true, key, "ToggleChatButton", "LeftButton")
         end
     end
 
+    -- Делаем функцию доступной глобально
+    _G.SetupChatKeyBinding = SetupChatKeyBinding
+
     -- Устанавливаем биндинг при создании
-    ConsoleMenu:SetupChatKeyBinding()
+    SetupChatKeyBinding()
     
     -- Создаём текстовую строку для кнопки
     local btnText = btn:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -210,7 +213,7 @@ local function CreateToggleChatButton()
     end)
     
     btn:SetScript("OnLeave", function(self)
-        btn:SetAlpha(0.4)
+        btn:SetAlpha(0.5)
     end)
 
     return btn
