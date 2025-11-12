@@ -2,54 +2,44 @@
 
 local ConsoleMenu = _G.ConsoleMenu
 
-local function DrawActionBarSlots(parentFrame)
-    local ICON_SIZE = 48
-    local ICON_SPACING = 8
-    local icons = {}
-
-    for slot = 1, 12 do
-        local actionType, actionID, subType = GetActionInfo(slot)
-        local iconTexture = GetActionTexture(slot)
-        local iconData = {
-            id = "ActionBarSlot"..slot,
-            width = ICON_SIZE,
-            height = ICON_SIZE,
-            displayIcon = iconTexture or "Interface\\Icons\\INV_Misc_QuestionMark",
-            applyMask = true,
-        }
-
-        local icon = ConsoleMenu:CreateIcon(parentFrame, iconData)
-
-        -- Выставляем позицию каждой иконки в ряд
-        icon:SetPoint(
-            "BOTTOMLEFT",
-            parentFrame,
-            "BOTTOMLEFT",
-            (slot - 1) * (ICON_SIZE + ICON_SPACING),
-            0
-        )
-        icons[slot] = icon
-    end
-
-    return icons
-end
-
-
-
 function ConsoleMenu:SetMainActionBar()
-    -- Создаём кастомные слоты панели действий от ConsoleMenu
-    if not self.MainActionBarFrame then
-        self.MainActionBarFrame = CreateFrame("Frame", "ConsoleMenuMainActionBar", UIParent)
-        self.MainActionBarFrame:SetSize(12 * 48 + 11 * 6, 48) -- 12 слотов, 11 промежутков
-        self.MainActionBarFrame:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 80)
+    -- Создаем главный фрейм панели действий
+    if self.mainActionBar then
+        self.mainActionBar:Hide()
+        self.mainActionBar:SetParent(nil)
     end
 
-    if self.MainActionBarIcons then
-        for _, icon in ipairs(self.MainActionBarIcons) do
-            icon:Hide()
+    local mainBar = CreateFrame("Frame", "ConsoleMenuMainActionBar", UIParent)
+    mainBar:SetSize(670, 64)
+    mainBar:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 100)
+    mainBar:SetFrameStrata("MEDIUM")
+    self.mainActionBar = mainBar
+
+    mainBar.buttons = {}
+
+    local numButtons = 12
+    local buttonSpacing = 6
+    local buttonSize = 52
+    local totalWidth = numButtons * buttonSize + (numButtons - 1) * buttonSpacing
+
+    for slot = 1, numButtons do
+        local button = self:CreateActionButton(mainBar, slot)
+        if not button then
+            return
         end
+        button:SetParent(mainBar)
+        button:SetSize(buttonSize, buttonSize)
+        button:ClearAllPoints()
+        if slot == 1 then
+            button:SetPoint("LEFT", mainBar, "LEFT", 0, 0)
+        else
+            button:SetPoint("LEFT", mainBar.buttons[slot - 1], "RIGHT", buttonSpacing, 0)
+        end
+        mainBar.buttons[slot] = button
     end
 
-    self.MainActionBarIcons = DrawActionBarSlots(self.MainActionBarFrame)
+    -- Центрируем фрейм под панелью
+    mainBar:SetWidth(totalWidth)
+    mainBar:SetHeight(buttonSize)
 end
 

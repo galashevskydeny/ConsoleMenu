@@ -36,5 +36,6 @@ Utils/KeyBindings.lua
 Utils/SuperTrackManager.lua
 Utils/Macro.lua
 Utils/Icon.lua
+Utils/Button.lua
 
 BindingSuggestions.lua

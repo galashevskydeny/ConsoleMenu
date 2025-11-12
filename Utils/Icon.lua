@@ -2,13 +2,7 @@
 -- Библиотека для работы с иконками по аналогии с WeakAuras Icon
 --
 -- Пример использования:
---   local icon = ConsoleMenu:CreateIcon(parentFrame, {
---       id = "MyIcon",
---       width = 64,
---       height = 64,
---       displayIcon = "Interface\\Icons\\Spell_Nature_HealingTouch",
---       applyMask = true
---   })
+--   local icon = ConsoleMenu:CreateIcon(parentFrame, 64, 64, "Interface\\Icons\\Spell_Nature_HealingTouch", true)
 --
 --   -- Обновление иконки
 --   icon:SetIcon("Interface\\Icons\\Spell_Fire_Fireball")
@@ -97,38 +91,12 @@ local function GetTexCoord(region, texWidth, aspectRatio, xOffset, yOffset)
     return unpack(region.currentCoord)
 end
 
--- Значения по умолчанию
-local default = {
-    icon = true,
-    desaturate = false,
-    iconSource = -1, -- Источник иконки: -1 = state.icon, 0 = displayIcon, >0 = states[triggernumber].icon
-    width = 64,
-    height = 64,
-    selfPoint = "CENTER",
-    anchorPoint = "CENTER",
-    anchorFrameType = "SCREEN",
-    xOffset = 0,
-    yOffset = 0,
-    zoom = 0,
-    keepAspectRatio = false,
-    cooldownTextDisabled = false,
-    cooldownSwipe = true,
-    cooldownEdge = false,
-    useCooldownModRate = true,
-    displayIcon = "Interface\\Icons\\INV_Misc_QuestionMark",
-    applyMask = false
-}
-
 -- Создание иконки
-function ConsoleMenu:CreateIcon(parent, data)
-    data = data or {}
-    
-    -- Применяем значения по умолчанию
-    for k, v in pairs(default) do
-        if data[k] == nil then
-            data[k] = v
-        end
-    end
+function ConsoleMenu:CreateIcon(parent, width, height, displayIcon, applyMask)
+    width = width or 64
+    height = height or 64
+    displayIcon = displayIcon or "Interface\\Icons\\INV_Misc_QuestionMark"
+    applyMask = applyMask or true
     
     local region = CreateFrame("Frame", nil, parent)
     region.regionType = "icon"
@@ -144,41 +112,22 @@ function ConsoleMenu:CreateIcon(parent, data)
     region.icon = icon
     
     -- Установка текстуры по умолчанию
-    SetTextureOrAtlas(icon, data.displayIcon)
-    
-    -- Создание cooldown фрейма
-    local frameId = (data.id or "Icon"):lower():gsub(" ", "_")
-    if _G["ConsoleMenuCooldown"..frameId] then
-        local baseFrameId = frameId
-        local num = 2
-        while _G["ConsoleMenuCooldown"..frameId] do
-            frameId = baseFrameId..num
-            num = num + 1
-        end
-    end
-    region.frameId = frameId
-    
-    local cooldown = CreateFrame("Cooldown", "ConsoleMenuCooldown"..frameId, region, "CooldownFrameTemplate")
-    region.cooldown = cooldown
-    cooldown:SetAllPoints(icon)
-    cooldown:SetDrawBling(false)
-    cooldown.SetDrawSwipeOrg = cooldown.SetDrawSwipe
-    cooldown.SetDrawSwipe = function() end
-    cooldown:Hide()
+    SetTextureOrAtlas(icon, displayIcon)
     
     -- Инициализация данных региона
-    region.width = data.width
-    region.height = data.height
+    region.width = width
+    region.height = height
     region.scalex = 1
     region.scaley = 1
-    region.keepAspectRatio = data.keepAspectRatio
-    region.zoom = data.zoom
-    region.texXOffset = data.texXOffset or 0
-    region.texYOffset = data.texYOffset or 0
-    region.iconSource = data.iconSource
-    region.displayIcon = data.displayIcon
-    region.states = data.states or {}
-    region.state = data.state or {}
+    region.keepAspectRatio = false
+    region.zoom = 0
+    region.texXOffset = 0
+    region.texYOffset = 0
+    region.iconSource = -1
+    region.displayIcon = displayIcon
+    region.states = {}
+    region.state = {}
+    region.applyMask = applyMask
     
     -- Функция обновления размера
     function region:UpdateSize()
@@ -265,7 +214,7 @@ function ConsoleMenu:CreateIcon(parent, data)
         SetTextureOrAtlas(icon, iconPath)
         
         -- Применение маски, если требуется
-        if data.applyMask then
+        if self.applyMask then
             ApplyMaskToTexture(icon)
         end
     end
@@ -302,114 +251,13 @@ function ConsoleMenu:CreateIcon(parent, data)
         self:UpdateTexCoords()
     end
     
-    -- Функция установки cooldown swipe
-    function region:SetCooldownSwipe(cooldownSwipe)
-        self.cooldownSwipe = cooldownSwipe
-        cooldown:SetDrawSwipeOrg(cooldownSwipe)
-    end
-    
-    -- Функция установки cooldown edge
-    function region:SetCooldownEdge(cooldownEdge)
-        self.cooldownEdge = cooldownEdge
-        cooldown:SetDrawEdge(cooldownEdge)
-    end
-    
-    -- Функция скрытия текста cooldown
-    function region:SetHideCountdownNumbers(cooldownTextDisabled)
-        cooldown:SetHideCountdownNumbers(cooldownTextDisabled)
-    end
-    
-    -- Функция установки inverse
-    function region:SetInverse(inverse)
-        if self.inverseDirection == inverse then
-            return
-        end
-        self.inverseDirection = inverse
-        self:UpdateEffectiveInverse()
-    end
-    
-    function region:UpdateEffectiveInverse()
-        local effectiveReverse = not self.inverseDirection == not cooldown.inverse
-        cooldown:SetReverse(effectiveReverse)
-        if (cooldown.expirationTime and cooldown.duration and cooldown:IsShown()) then
-            cooldown:SetCooldown(0, 0)
-            cooldown:SetCooldown(cooldown.expirationTime - cooldown.duration,
-                                 cooldown.duration,
-                                 cooldown.useCooldownModRate and cooldown.modRate or nil)
-        end
-    end
-    
-    -- Инициализация cooldown
-    cooldown.expirationTime = nil
-    cooldown.duration = nil
-    cooldown.modRate = nil
-    cooldown.useCooldownModRate = data.useCooldownModRate
-    
-    -- Функции обновления cooldown
-    if data.cooldown then
-        function region:UpdateValue()
-            cooldown.value = self.value
-            cooldown.total = self.total
-            cooldown.modRate = nil
-            if (self.value >= 0 and self.value <= self.total) then
-                cooldown:Show()
-                cooldown:SetCooldown(GetTime() - (self.total - self.value), self.total)
-                cooldown:Pause()
-            else
-                cooldown:Hide()
-            end
-        end
-        
-        function region:UpdateTime()
-            if self.paused then
-                cooldown:Pause()
-            else
-                cooldown:Resume()
-            end
-            if (self.duration > 0 and self.expirationTime > GetTime() and self.expirationTime ~= math.huge) then
-                cooldown:Show()
-                cooldown.expirationTime = self.expirationTime
-                cooldown.duration = self.duration
-                cooldown.modRate = self.modRate
-                cooldown.inverse = self.inverse
-                self:UpdateEffectiveInverse()
-                cooldown:SetCooldown(self.expirationTime - self.duration, self.duration,
-                                     cooldown.useCooldownModRate and self.modRate or nil)
-            else
-                cooldown.expirationTime = self.expirationTime
-                cooldown.duration = self.duration
-                cooldown.modRate = self.modRate
-                cooldown:Hide()
-            end
-        end
-        
-        function region:PreShow()
-            if (cooldown.duration and cooldown.duration > 0.01 and cooldown.duration ~= math.huge and cooldown.expirationTime ~= math.huge) then
-                cooldown:Show()
-                cooldown:SetCooldown(cooldown.expirationTime - cooldown.duration,
-                                     cooldown.duration,
-                                     cooldown.useCooldownModRate and cooldown.modRate or nil)
-                cooldown:Resume()
-            end
-        end
-    end
-    
     -- Применение начальных настроек
-    region:SetDesaturated(data.desaturate)
-    region:SetInverse(data.inverse)
-    region:SetHideCountdownNumbers(data.cooldownTextDisabled)
-    region:SetCooldownSwipe(data.cooldownSwipe)
-    region:SetCooldownEdge(data.cooldownEdge)
+    region:SetDesaturated(false)
     region:UpdateSize()
     region:UpdateIcon()
     
-    -- Установка точки привязки
-    if data.anchorPoint and data.selfPoint then
-        region:SetPoint(data.selfPoint, parent, data.anchorPoint, data.xOffset, data.yOffset)
-    end
-    
     -- Установка слоя
-    region:SetFrameStrata(data.frameStrata or "MEDIUM")
+    region:SetFrameStrata("MEDIUM")
     
     return region
 end
@@ -458,20 +306,7 @@ function ConsoleMenu:ModifyIcon(region, data)
     if data.desaturate ~= nil then
         region:SetDesaturated(data.desaturate)
     end
-    if data.inverse ~= nil then
-        region:SetInverse(data.inverse)
-    end
-    if data.cooldownTextDisabled ~= nil then
-        region:SetHideCountdownNumbers(data.cooldownTextDisabled)
-    end
-    if data.cooldownSwipe ~= nil then
-        region:SetCooldownSwipe(data.cooldownSwipe)
-    end
-    if data.cooldownEdge ~= nil then
-        region:SetCooldownEdge(data.cooldownEdge)
-    end
     
     region:UpdateSize()
     region:UpdateIcon()
 end
-
