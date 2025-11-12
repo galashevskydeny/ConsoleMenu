@@ -6,9 +6,6 @@ function ConsoleMenu:InitializeNameplate()
         self.NameplateFrame = CreateFrame("Frame")
     end
 
-    self.NameplateFrame:RegisterEvent("NAME_PLATE_UNIT_ADDED");
-    self.NameplateFrame:RegisterEvent("NAME_PLATE_UNIT_REMOVED");
-
     hooksecurefunc(NamePlateUnitFrameMixin, "UpdateAnchors", function(self)
         local container = self.HealthBarsContainer;
         local healthBar = self.HealthBarsContainer.healthBar;
@@ -38,6 +35,14 @@ function ConsoleMenu:InitializeNameplate()
         PixelUtil.SetPoint(container, "BOTTOMLEFT", self.castBar, "TOPLEFT", 24, 4);
         PixelUtil.SetPoint(container, "BOTTOMRIGHT", self.castBar, "TOPRIGHT", -24, 4);
 
-    end);
+    end)
+
+    hooksecurefunc("CompactUnitFrame_UpdateHealthColor", function(frame)
+        -- Проверяем, что это nameplate healthbar
+        if frame and frame.HealthBarsContainer and frame.HealthBarsContainer.healthBar then
+            local healthBar = frame.HealthBarsContainer.healthBar;
+            healthBar:SetStatusBarColor(0.188235, 0.811765, 0.556863) -- Цвет 30CF8E
+        end
+    end)
 end
 
