@@ -2,8 +2,15 @@ local ConsoleMenu = _G.ConsoleMenu
 
 -- Скрывает основную панель действий (MainMenuBar)
 local function HideActionBar()
-    MainMenuBar:SetAlpha(0)
-    RegisterStateDriver(MainMenuBar, "visibility", "hide")
+    if MainActionBar then
+        MainActionBar:SetAlpha(0)
+        RegisterStateDriver(MainActionBar, "visibility", "hide")
+    end
+
+    if MainMenuBar then
+        MainMenuBar:SetAlpha(0)
+        RegisterStateDriver(MainMenuBar, "visibility", "hide")
+    end
 
     for i = 1, 12 do
         if not _G['ActionButton' .. i] then return end
