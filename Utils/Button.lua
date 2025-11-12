@@ -35,7 +35,7 @@ function ConsoleMenu:CreateActionButton(parent, slot)
     button:SetSize(width, height)
     
     -- Создание иконки внутри кнопки
-    local icon = ConsoleMenu:CreateIcon(button, width, height, iconTexture, true)
+    local icon = ConsoleMenu:CreateIcon(button, width, height, iconTexture)
     button.icon = icon
     
     -- Привязываем иконку к центру кнопки

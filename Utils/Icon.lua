@@ -92,7 +92,7 @@ local function GetTexCoord(region, texWidth, aspectRatio, xOffset, yOffset)
 end
 
 -- Создание иконки
-function ConsoleMenu:CreateIcon(parent, width, height, displayIcon, applyMask)
+function ConsoleMenu:CreateIcon(parent, width, height, displayIcon)
     width = width or 64
     height = height or 64
     displayIcon = displayIcon or "Interface\\Icons\\INV_Misc_QuestionMark"
