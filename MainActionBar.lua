@@ -50,7 +50,7 @@ end
 
 
 function ConsoleMenu:InitializeMainActionBar()
-    if ConsoleMenuDB.hideActionBar ~= 2 then
+    if ConsoleMenuDB.hideActionBar ~= 1 then
         return
     end
 

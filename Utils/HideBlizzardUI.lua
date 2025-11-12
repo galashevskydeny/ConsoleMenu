@@ -358,7 +358,7 @@ function ConsoleMenu:HideBlizzardUI()
         DisablePlayerCastingBarFrame()
     end
     
-    if ConsoleMenuDB.hidePlayerFrame == 2 then
+    if ConsoleMenuDB.hidePlayerFrame == 1 then
         DisablePlayerFrame()
     end
     
@@ -370,7 +370,7 @@ function ConsoleMenu:HideBlizzardUI()
         DisablePetActionBar()
     end
     
-    if ConsoleMenuDB.hideActionBar == 2 then
+    if ConsoleMenuDB.hideActionBar == 1 then
         DisableActionBar()
     end
     
