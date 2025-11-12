@@ -1,15 +1,13 @@
 local ConsoleMenu = _G.ConsoleMenu
 
--- Скрывает основную панель действий (MainMenuBar)
-local function HideActionBar()
+-- Отключает основную панель действий (MainMenuBar)
+local function DisableActionBar()
     if MainActionBar then
         MainActionBar:SetAlpha(0)
-        RegisterStateDriver(MainActionBar, "visibility", "hide")
     end
 
     if MainMenuBar then
         MainMenuBar:SetAlpha(0)
-        RegisterStateDriver(MainMenuBar, "visibility", "hide")
     end
 
     for i = 1, 12 do
@@ -19,12 +17,47 @@ local function HideActionBar()
         _G['ActionButton' .. i]:SetAttribute('statehidden', true)
     end
 
-    RegisterStateDriver(MainStatusTrackingBarContainer, "visibility", "hide")
+
+end
+
+-- Скрывает основную панель действий (MainMenuBar)
+function ConsoleMenu:HideActionBar()
+    if MainActionBar then
+        MainActionBar:SetAlpha(0)
+    end
+
+    if MainMenuBar then
+        MainMenuBar:SetAlpha(0)
+      end
+
+    for i = 1, 12 do
+        if not _G['ActionButton' .. i] then return end
+        _G['ActionButton' .. i]:SetAlpha(0)
+
+    end
+
+end
+
+-- Восстанавливает отображение основной панели действий (MainMenuBar)
+function ConsoleMenu:ShowActionBar()
+    if MainActionBar then
+
+        MainActionBar:SetAlpha(1)
+    end
+
+    if MainMenuBar then
+        MainMenuBar:SetAlpha(1)
+    end
+
+    for i = 1, 12 do
+        if not _G['ActionButton' .. i] then return end
+        _G['ActionButton' .. i]:SetAlpha(1)
+    end
 
 end
 
 -- Скрывает панель действий питомца (PetActionBar)
-local function HidePetActionBar()
+local function DisablePetActionBar()
     PetActionBar:SetAlpha(0)
     RegisterStateDriver(PetActionBar, "visibility", "hide")
 
@@ -52,34 +85,46 @@ local function HideTargetFrame()
     RegisterStateDriver(TargetFrame, "visibility", "hide")
 end
 
--- Скрывает фрейм игрока (PlayerFrame)
-local function HidePlayerFrame()
+-- Отключает фрейм игрока (PlayerFrame)
+local function DisablePlayerFrame()
     PlayerFrame:Hide()
     PlayerFrame:SetAlpha(0.0)
     PlayerFrame:UnregisterAllEvents()
     RegisterStateDriver(PlayerFrame, "visibility", "hide")
 end
 
--- Скрывает полосу заклинаний игрока (PlayerCastingBarFrame)
-local function HidePlayerCastingBarFrame()
+-- Скрывает фрейм игрока (PlayerFrame)
+function ConsoleMenu:HidePlayerFrame()
+    PlayerFrame:SetAlpha(0.0)
+end
+
+-- Показывает фрейм игрока (PlayerFrame)
+function ConsoleMenu:ShowPlayerFrame()
+    PlayerFrame:SetAlpha(1.0)
+end
+
+
+
+-- Отключает полосу заклинаний игрока (PlayerCastingBarFrame)
+local function DisablePlayerCastingBarFrame()
     PlayerCastingBarFrame:Hide()
     RegisterStateDriver(PlayerCastingBarFrame, "visibility", "hide")
     PlayerCastingBarFrame:UnregisterAllEvents()
 end
 
 -- Скрывает фрейм аддонов (AddonCompartmentFrame)
-local function HideAddonCompartmentFrame()
+local function DisableAddonCompartmentFrame()
     AddonCompartmentFrame:Hide()
     RegisterStateDriver(AddonCompartmentFrame, "visibility", "hide")
     AddonCompartmentFrame:UnregisterAllEvents()
 end
 
 -- Скрывает миникарту и связанные элементы (Minimap, GameTimeFrame, BuffFrame, DebuffFrame и т.д.)
-local function HideMinimap()
+local function DisableMinimap()
     Minimap:SetAlpha(0.0)
     Minimap:SetScale(0.01)
 
-    HideAddonCompartmentFrame()
+    DisableAddonCompartmentFrame()
 
     UIWidgetBelowMinimapContainerFrame:Hide()
     RegisterStateDriver(UIWidgetBelowMinimapContainerFrame, "visibility", "hide")
@@ -119,7 +164,7 @@ local function HideDebuffFrame()
 end
 
 -- Скрывает кнопку часов (TimeManagerClockButton)
-function ConsoleMenu:HideTimeManagerClockButton()
+function ConsoleMenu:DisableTimeManagerClockButton()
     if TimeManagerClockButton then
         TimeManagerClockButton:Hide()
         RegisterStateDriver(TimeManagerClockButton, "visibility", "hide")
@@ -129,7 +174,7 @@ function ConsoleMenu:HideTimeManagerClockButton()
 end
 
 -- Скрывает меню (MicroMenu)
-local function HideMicroMenu()
+local function DisableMicroMenu()
     MicroMenu:Hide()
     RegisterStateDriver(MicroMenu, "visibility", "hide")
     
@@ -151,7 +196,7 @@ local function HideBagsBagsBar()
 end
 
 -- Скрывает фрейм текста зоны (ZoneTextFrame и SubZoneTextFrame)
-local function HideZoneTextFrame()
+local function DisableZoneTextFrame()
     ZoneTextFrame:Hide()
     ZoneTextFrame:SetAlpha(0.0)
     ZoneTextFrame:UnregisterAllEvents()
@@ -183,21 +228,21 @@ local function HideCompactRaidFrame()
 end
 
 -- Скрывает фрейм предупреждений (AlertFrame)
-local function HideAlertFrame()
+local function DisableAlertFrame()
     AlertFrame:Hide()
     RegisterStateDriver(AlertFrame, "visibility", "hide")
     AlertFrame:UnregisterAllEvents()
 end
 
 -- Скрывает фрейм ошибок UI (UIErrorsFrame)
-local function HideUIErrorsFrame()
+local function DisableUIErrorsFrame()
     UIErrorsFrame:Hide()
     RegisterStateDriver(UIErrorsFrame, "visibility", "hide")
     UIErrorsFrame:UnregisterAllEvents()
 end
 
 -- Скрывает баннер трекера заданий (ObjectiveTrackerTopBannerFrame)
-function ConsoleMenu:HideObjectiveTrackerTopBannerFrame()
+function ConsoleMenu:DisableObjectiveTrackerTopBannerFrame()
     ObjectiveTrackerTopBannerFrame:Hide()
     ObjectiveTrackerTopBannerFrame:SetAlpha(0.0)
     ObjectiveTrackerTopBannerFrame:UnregisterAllEvents()
@@ -218,14 +263,14 @@ local function HideUIWidgetPowerBarContainerFrame()
 end
 
 -- Скрывает фрейм лута (LootFrame)
-local function HideLootFrame()
+local function DisableLootFrame()
     SetCVar("autoLootDefault", 1)
     LootFrame:Hide()
     LootFrame:UnregisterAllEvents()
 end
 
 -- Скрывает фрейм способностей зоны (ZoneAbilityFrame)
-local function HideZoneAbilityFrame()
+local function DisableZoneAbilityFrame()
     if ZoneAbilityFrame then
         ZoneAbilityFrame:Hide()
         RegisterStateDriver(ZoneAbilityFrame, "visibility", "hide")
@@ -234,7 +279,7 @@ local function HideZoneAbilityFrame()
 end
 
 -- Скрывает контейнер фреймов боссов (BossTargetFrameContainer)
-local function HideBossTargetFrameContainer()
+local function DisableBossTargetFrameContainer()
     if BossTargetFrameContainer then
         BossTargetFrameContainer:Hide()
         RegisterStateDriver(BossTargetFrameContainer, "visibility", "hide")
@@ -242,7 +287,7 @@ local function HideBossTargetFrameContainer()
     end
 end
 
-local function HideSpellActivationOverlay()
+local function DisableSpellActivationOverlay()
     SpellActivationOverlayFrame:Hide()
     RegisterStateDriver(SpellActivationOverlayFrame, "visibility", "hide")
     SpellActivationOverlayFrame:UnregisterAllEvents()
@@ -259,14 +304,14 @@ function ConsoleMenu:HideBlizzardUI()
     end
     
     if ConsoleMenuDB.hideObjectiveTrackerTopBannerFrame == 2 then
-        ConsoleMenu:RegisterEvent("QUEST_LOG_UPDATE", "HideObjectiveTrackerTopBannerFrame")
+        ConsoleMenu:RegisterEvent("QUEST_LOG_UPDATE", "DisableObjectiveTrackerTopBannerFrame")
     else
         ConsoleMenu:UnregisterEvent("QUEST_LOG_UPDATE")
     end
 
     -- Применяем функции скрытия только если значение настройки равно 2 (скрыть)
     if ConsoleMenuDB.hideLootFrame == 2 then
-        HideLootFrame()
+        DisableLootFrame()
     end
     
     if ConsoleMenuDB.hideUIWidgetPowerBarContainerFrame == 2 then
@@ -274,11 +319,11 @@ function ConsoleMenu:HideBlizzardUI()
     end
     
     if ConsoleMenuDB.hideUIErrorsFrame == 2 then
-        HideUIErrorsFrame()
+        DisableUIErrorsFrame()
     end
     
     if ConsoleMenuDB.hideAlertFrame == 2 then
-        HideAlertFrame()
+        DisableAlertFrame()
     end
     
     if ConsoleMenuDB.hideCompactPartyFrame == 2 then
@@ -294,7 +339,7 @@ function ConsoleMenu:HideBlizzardUI()
     end
     
     if ConsoleMenuDB.hideZoneTextFrame == 2 then
-        HideZoneTextFrame()
+        DisableZoneTextFrame()
     end
     
     if ConsoleMenuDB.hideBagsBarsBar == 2 then
@@ -302,19 +347,19 @@ function ConsoleMenu:HideBlizzardUI()
     end
     
     if ConsoleMenuDB.hideMicroMenu == 2 then
-        HideMicroMenu()
+        DisableMicroMenu()
     end
     
     if ConsoleMenuDB.hideMinimap == 2 then
-        HideMinimap()
+        DisableMinimap()
     end
     
     if ConsoleMenuDB.hidePlayerCastingBarFrame == 2 then
-        HidePlayerCastingBarFrame()
+        DisablePlayerCastingBarFrame()
     end
     
     if ConsoleMenuDB.hidePlayerFrame == 2 then
-        HidePlayerFrame()
+        DisablePlayerFrame()
     end
     
     if ConsoleMenuDB.hideTargetFrame == 2 then
@@ -322,11 +367,11 @@ function ConsoleMenu:HideBlizzardUI()
     end
     
     if ConsoleMenuDB.hidePetActionBar == 2 then
-        HidePetActionBar()
+        DisablePetActionBar()
     end
     
     if ConsoleMenuDB.hideActionBar == 2 then
-        HideActionBar()
+        DisableActionBar()
     end
     
     if ConsoleMenuDB.hideObjectiveTracker == 2 then
@@ -342,14 +387,14 @@ function ConsoleMenu:HideBlizzardUI()
     end
     
     if ConsoleMenuDB.hideZoneAbilityFrame == 2 then
-        HideZoneAbilityFrame()
+        DisableZoneAbilityFrame()
     end
     
     if ConsoleMenuDB.hideBossTargetFrameContainer == 2 then
-        HideBossTargetFrameContainer()
+        DisableBossTargetFrameContainer()
     end
 
     if ConsoleMenuDB.hideSpellActivationOverlay == 2 then
-        HideSpellActivationOverlay()
+        DisableSpellActivationOverlay()
     end
 end

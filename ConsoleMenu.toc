@@ -8,6 +8,7 @@
 ConsoleMenu.lua
 Utils/SettingsHelper.lua
 Options.lua
+MainActionBar.lua
 
 Assets/Assets.lua
 

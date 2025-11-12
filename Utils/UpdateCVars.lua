@@ -116,15 +116,20 @@ local function ResetMacBookSettings()
     SetCVar("NotchedDisplayMode", GetCVarDefault("NotchedDisplayMode"))
 end
 
+-- Применяет настройки GamePad CVars
+local function ApplyGamePadCVars()
+    SetCVar("GamePadEnabled", "1")
+    SetCVar("GamePadEmulateShift", "PADRTRIGGER")
+    SetCVar("GamePadEmulateCtrl", "PADRSHOULDER")
+end
+
 -- Применяет настройки CVars на основе значений в ConsoleMenuDB
 local function ApplyCVarSettings()
     if not ConsoleMenuDB then
         return
     end
 
-    SetCVar("GamePadEnabled", "1")
-    SetCVar("GamePadEmulateShift", "PADRTRIGGER")
-    SetCVar("GamePadEmulateCtrl", "PADRSHOULDER")
+    ApplyGamePadCVars()
     
     if ConsoleMenuDB.floatingText == 1 then
         DefaultFloatingText()
@@ -168,8 +173,9 @@ local function ApplyCVarSettings()
     
 end
 
--- Делаем функцию доступной глобально
+-- Делаем функции доступными глобально
 _G.ApplyCVarSettings = ApplyCVarSettings
+_G.ApplyGamePadCVars = ApplyGamePadCVars
 
 -- Устанавливает базовые для необходимого пользовательского опыта значения soft target
 local function SetBaseSoftTargetSettings()
@@ -237,6 +243,11 @@ function ConsoleMenu:UpdateCVars()
 
     ConsoleMenu:RegisterEvent("ZONE_CHANGED_NEW_AREA", function()
         UpdateZoneSoftTargetSettings()
+    end)
+    
+    -- Применяем настройки GamePad при изменении состояния контроллера
+    ConsoleMenu:RegisterEvent("GAME_PAD_ACTIVE_CHANGED", function()
+        ApplyGamePadCVars()
     end)
 
     SetBaseSoftTargetSettings()

@@ -8,6 +8,7 @@ if not ConsoleMenuDB then
 end
 
 local hudDropdownOptions = { "Не влиять", "Скрыть" }
+local hudUpdateDropdownOptions = { "Обновленный", "Стандартный", "Стандартный (скрываемый)" }
 local windowStyleOptions = { "Обновленное", "Стандартное" }
 local cvarDropdownOptions = { "По умолчанию", "Включить", "Выключить", "Не влиять" }
 local cvarHideDropdownOptions = { "По умолчанию", "Скрыть", "Не влиять" }
@@ -30,7 +31,7 @@ local hudSettingsMainElements = {
 
 -- Рамки интерфейса
 local hudSettingsFrames = {
-    { name = "Игрок", variable = "hidePlayerFrame", default = 1, tooltip = "Управляет отображением фрейма игрока (PlayerFrame).", options = hudDropdownOptions },
+    { name = "Игрок", variable = "hidePlayerFrame", default = 1, tooltip = "Управляет отображением фрейма игрока (PlayerFrame).", options = hudUpdateDropdownOptions },
     { name = "Цель и выделенная цель", variable = "hideTargetFrame", default = 1, tooltip = "Управляет отображением фрейма цели (TargetFrame).", options = hudDropdownOptions },
     { name = "Интерфейс группы", variable = "hideCompactPartyFrame", default = 1, tooltip = "Управляет отображением фрейма группы (CompactPartyFrame).", options = hudDropdownOptions },
     { name = "Интерфейс рейда", variable = "hideCompactRaidFrame", default = 1, tooltip = "Управляет отображением фрейма рейда (CompactRaidFrame).", options = hudDropdownOptions },
@@ -39,7 +40,7 @@ local hudSettingsFrames = {
 
 -- Бой
 local hudSettingsCombat = {
-    { name = "Панель команд", variable = "hideActionBar", default = 1, tooltip = "Управляет отображением основной панели действий (ActionBar).", options = hudDropdownOptions },
+    { name = "Панель команд", variable = "hideActionBar", default = 1, tooltip = "Управляет отображением основной панели действий (ActionBar).", options = hudUpdateDropdownOptions },
     { name = "Панель питомца", variable = "hidePetActionBar", default = 1, tooltip = "Управляет отображением панели действий питомца (PetActionBar).", options = hudDropdownOptions },
     { name = "Индикатор заклинаний", variable = "hidePlayerCastingBarFrame", default = 1, tooltip = "Управляет отображением полосы заклинаний игрока (PlayerCastingBarFrame).", options = hudDropdownOptions },
     { name = "Индикатор стойки", variable = "hideStanceBar", default = 1, tooltip = "Управляет отображением панели стоек (StanceBar).", options = hudDropdownOptions },

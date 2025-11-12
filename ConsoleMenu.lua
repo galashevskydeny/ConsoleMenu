@@ -56,6 +56,8 @@ local function Initialize()
     ConsoleMenu:SetCustomGossipFrame()
     ConsoleMenu:SetFastTravelFrame()
     
+    ConsoleMenu:InitializeMainActionBar()
+    
     ConsoleMenu:InitActionInfoFrame()
 
     ConsoleMenu:HideBlizzardUI()
@@ -63,8 +65,12 @@ local function Initialize()
     
     -- Установим бинды после полной инициализации игрока
     ConsoleMenu:RegisterEvent("PLAYER_LOGIN", function()
+        -- Применяем настройки GamePad при загрузке игрока
+        if _G.ApplyGamePadCVars then
+            _G.ApplyGamePadCVars()
+        end
         ConsoleMenu:SetBaseKeyBindings()
-        ConsoleMenu:HideTimeManagerClockButton()
+        ConsoleMenu:DisableTimeManagerClockButton()
         _G.ApplyMacroSettings()
         
         -- Интеграция с ConsolePort
