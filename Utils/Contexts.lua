@@ -118,18 +118,31 @@ local function SwitchActionBarPage()
         return
     end
 
-    if ConsoleMenu.PlayerContext.mount == 2 then
-        ChangeActionBarPage(ConsoleMenuDB.actionBarPageDragonriding or 1)
-    elseif ConsoleMenu.PlayerContext.vehicle then
-        ChangeActionBarPage(ConsoleMenuDB.actionBarPageVehicle or 1)
-    elseif ConsoleMenu.PlayerContext.mount == 1 then
-        ChangeActionBarPage(ConsoleMenuDB.actionBarPageMount or 1)
-    elseif ConsoleMenu.PlayerContext.softenemy.canAttack or ConsoleMenu.PlayerContext.target.canAttack then
-        ChangeActionBarPage(ConsoleMenuDB.actionBarPageCombat or 1)
-    elseif ConsoleMenu.PlayerContext.window then
-        ChangeActionBarPage(ConsoleMenuDB.actionBarPageWindow or 1)
+    if ConsoleMenu.PlayerContext.inCombat == true
+       and ConsoleMenu.PlayerContext.vehicle == false
+    then
+        ChangeActionBarPage(1)
+    elseif ConsoleMenu.PlayerContext.inCombat == false
+       and ConsoleMenu.PlayerContext.mount == 0
+       and ConsoleMenu.PlayerContext.vehicle == false
+       and (ConsoleMenu.PlayerContext.softenemy.canAttack == true or ConsoleMenu.PlayerContext.target.canAttack == true)
+    then
+        ChangeActionBarPage(1)
+    elseif ConsoleMenu.PlayerContext.mount == 1 and ConsoleMenu.PlayerContext.inCombat == false then
+        -- Обычное средство передвижения
+        ChangeActionBarPage(4)
+    elseif ConsoleMenu.PlayerContext.mount == 2 then
+        -- Полет на драконе
+        ChangeActionBarPage(1)
+    elseif ConsoleMenu.PlayerContext.inCombat == false
+        and ConsoleMenu.PlayerContext.vehicle == false
+        and (ConsoleMenu.PlayerContext.softfriend.isPlayer == true or ConsoleMenu.PlayerContext.target.isFriend == true)
+    then
+        -- Друг в фокусе
+        ChangeActionBarPage(3)
     else
-        ChangeActionBarPage(ConsoleMenuDB.actionBarPageExploring or 1)
+        -- Исследование
+        ChangeActionBarPage(2)
     end
 end
 
