@@ -332,6 +332,7 @@ function ConsoleMenu:CreateIcon(data)
     region:SetDesaturated(false)
     region:UpdateSize()
     region:UpdateIcon()
+    region:UpdateCooldown()
     
     -- Установка слоя
     region:SetFrameStrata("MEDIUM")
@@ -383,7 +384,7 @@ function ConsoleMenu:ModifyIcon(region, data)
     if data.desaturate ~= nil then
         region:SetDesaturated(data.desaturate)
     end
-
+    
     -- Добавляем данные о кулдауне, если они есть в data
     if data.duration ~= nil then
         region.duration = data.duration
@@ -394,4 +395,5 @@ function ConsoleMenu:ModifyIcon(region, data)
     
     region:UpdateSize()
     region:UpdateIcon()
+    region:UpdateCooldown()
 end
