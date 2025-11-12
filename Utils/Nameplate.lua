@@ -2,9 +2,8 @@ local ConsoleMenu = _G.ConsoleMenu
 
 -- Функция инициализации модуля Nameplate
 function ConsoleMenu:InitializeNameplate()
-    if not self.NameplateFrame then
-        self.NameplateFrame = CreateFrame("Frame")
-    end
+    
+    if ConsoleMenuDB.enemyNameplateStyle == 2 then return end
 
     hooksecurefunc(NamePlateUnitFrameMixin, "UpdateAnchors", function(self)
         local container = self.HealthBarsContainer;
