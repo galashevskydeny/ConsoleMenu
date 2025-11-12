@@ -64,18 +64,16 @@ function ConsoleMenu:CreateActionButton(parent, slot)
     
     -- Получение информации о слоте
     local actionType, actionID, subType = GetActionInfo(slot)
-
-    if not actionType then
-        return
-    end
-    
     local texture = GetActionTexture(slot)
     local text = GetActionText(slot)
     local actionCooldownDuration, actionCooldownExpiration = GetActionButtonCooldownInfo(slot)
 
+    -- Используем текстуру по умолчанию, если слот пустой
     if not texture then
-        return
+        texture = "Interface\\Icons\\INV_Misc_QuestionMark"
     end
+    
+    -- Создаем кнопку всегда, даже если слот пустой
 
     -- Получаем информацию о зарядах способности и кулдауне
     local currentCharges, maxCharges, cooldownStart, cooldownDuration, chargeModRate = GetActionCharges(slot)
@@ -89,14 +87,20 @@ function ConsoleMenu:CreateActionButton(parent, slot)
     button:SetSize(width, height)
     
     -- Создание иконки внутри кнопки
-    local icon = ConsoleMenu:CreateIcon({
+    local iconData = {
         parent = button,
         width = width,
         height = height,
-        displayIcon = texture,
-        duration = actionCooldownDuration or nil,
-        expiration = actionCooldownExpiration or nil
-    })
+        displayIcon = texture
+    }
+    
+    -- Добавляем данные о кулдауне, если они есть
+    if actionCooldownDuration and actionCooldownDuration ~= false and actionCooldownExpiration and actionCooldownExpiration ~= false then
+        iconData.duration = actionCooldownDuration
+        iconData.expiration = actionCooldownExpiration
+    end
+    
+    local icon = ConsoleMenu:CreateIcon(iconData)
     button.icon = icon
     
     -- Привязываем иконку к центру кнопки
@@ -124,10 +128,15 @@ function ConsoleMenu:CreateActionButton(parent, slot)
         -- Получаем свежую информацию о кулдауне слота
         local actionCooldownDuration, actionCooldownExpiration = GetActionButtonCooldownInfo(self.slot)
         -- Обновляем иконку с новыми данными о кулдауне
-        ConsoleMenu:ModifyIcon(self.icon, {
-            duration = actionCooldownDuration or nil,
-            expiration = actionCooldownExpiration or nil
-        })
+        local updateData = {}
+        if actionCooldownDuration and actionCooldownDuration ~= false and actionCooldownExpiration and actionCooldownExpiration ~= false then
+            updateData.duration = actionCooldownDuration
+            updateData.expiration = actionCooldownExpiration
+        else
+            updateData.duration = nil
+            updateData.expiration = nil
+        end
+        ConsoleMenu:ModifyIcon(self.icon, updateData)
     end)
     
     return button

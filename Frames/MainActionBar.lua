@@ -22,20 +22,24 @@ function ConsoleMenu:SetMainActionBar()
     local buttonSize = 52
     local totalWidth = numButtons * buttonSize + (numButtons - 1) * buttonSpacing
 
+    local lastButton = nil
     for slot = 1, numButtons do
         local button = self:CreateActionButton(mainBar, slot)
-        if not button then
-            return
-        end
-        button:SetParent(mainBar)
-        button:SetSize(buttonSize, buttonSize)
-        button:ClearAllPoints()
-        if slot == 1 then
-            button:SetPoint("LEFT", mainBar, "LEFT", 0, 0)
+        if button then
+            button:SetParent(mainBar)
+            button:SetSize(buttonSize, buttonSize)
+            button:ClearAllPoints()
+            if lastButton then
+                button:SetPoint("LEFT", lastButton, "RIGHT", buttonSpacing, 0)
+            else
+                button:SetPoint("LEFT", mainBar, "LEFT", 0, 0)
+            end
+            mainBar.buttons[slot] = button
+            lastButton = button
         else
-            button:SetPoint("LEFT", mainBar.buttons[slot - 1], "RIGHT", buttonSpacing, 0)
+            -- Если кнопка не создана, сохраняем nil в массиве
+            mainBar.buttons[slot] = nil
         end
-        mainBar.buttons[slot] = button
     end
 
     -- Центрируем фрейм под панелью
