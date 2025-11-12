@@ -3,8 +3,8 @@
 local ConsoleMenu = _G.ConsoleMenu
 
 local function DrawActionBarSlots(parentFrame)
-    local ICON_SIZE = 40
-    local ICON_SPACING = 6
+    local ICON_SIZE = 48
+    local ICON_SPACING = 8
     local icons = {}
 
     for slot = 1, 12 do
@@ -40,7 +40,7 @@ function ConsoleMenu:SetMainActionBar()
     -- Создаём кастомные слоты панели действий от ConsoleMenu
     if not self.MainActionBarFrame then
         self.MainActionBarFrame = CreateFrame("Frame", "ConsoleMenuMainActionBar", UIParent)
-        self.MainActionBarFrame:SetSize(12 * 40 + 11 * 6, 40) -- 12 слотов, 11 промежутков
+        self.MainActionBarFrame:SetSize(12 * 48 + 11 * 6, 48) -- 12 слотов, 11 промежутков
         self.MainActionBarFrame:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 80)
     end
 

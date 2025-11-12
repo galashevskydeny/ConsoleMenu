@@ -34,7 +34,7 @@ local function ApplyMaskToTexture(texture)
         local mask = texture:GetParent():CreateMaskTexture()
         
         -- Устанавливаем текстуру маски
-        mask:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\Mask")
+        mask:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\MaskCircle.png")
         mask:SetAllPoints(texture)
         
         -- Применяем маску
@@ -69,10 +69,19 @@ end
 local function GetTexCoord(region, texWidth, aspectRatio, xOffset, yOffset)
     region.currentCoord = region.currentCoord or {}
     
-    -- Базовые координаты (0,0,0,1,1,0,1,1)
+    -- Вычисляем растяжение на 4 пикселя
+    -- Чтобы растянуть текстуру, нужно показать большую часть текстуры
+    -- Для этого используем координаты, сжатые к центру
+    local width = region.width * math.abs(region.scalex or 1)
+    local height = region.height * math.abs(region.scaley or 1)
+    local stretchX = width > 0 and (4 / (width + 4)) or 0.0588
+    local stretchY = height > 0 and (4 / (height + 4)) or 0.0588
+    
+    -- Базовые координаты с растяжением на 4 пикселя
+    -- Используем координаты внутри 0-1, но сжатые к центру, чтобы показать большую часть текстуры
     region.currentCoord[1], region.currentCoord[2], region.currentCoord[3], region.currentCoord[4],
     region.currentCoord[5], region.currentCoord[6], region.currentCoord[7], region.currentCoord[8]
-    = 0, 0, 0, 1, 1, 0, 1, 1
+    = stretchX, stretchY, stretchX, 1 - stretchY, 1 - stretchX, stretchY, 1 - stretchX, 1 - stretchY
 
     local xRatio = aspectRatio < 1 and aspectRatio or 1
     local yRatio = aspectRatio > 1 and 1 / aspectRatio or 1
