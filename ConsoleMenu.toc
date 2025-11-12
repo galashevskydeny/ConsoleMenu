@@ -35,5 +35,6 @@ Utils/GamePad.lua
 Utils/KeyBindings.lua
 Utils/SuperTrackManager.lua
 Utils/Macro.lua
+Utils/Nameplate.lua
 
 BindingSuggestions.lua

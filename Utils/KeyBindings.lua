@@ -80,7 +80,7 @@ function ConsoleMenu:SetBaseKeyBindings()
         PADDRIGHT = "MULTIACTIONBAR1BUTTON7",
         PADLSTICK = "MULTIACTIONBAR1BUTTON5",
         PADRSTICK = "MULTIACTIONBAR1BUTTON4",
-        PADFORWARD = "CAMERAZOOMOUT",
+        PADFORWARD = "CAMERAZOOMIN",
 
         -- Тачпад DualSense
         PADBACK = "TOGGLEWORLDMAP",
@@ -98,7 +98,7 @@ function ConsoleMenu:SetBaseKeyBindings()
         PADDRIGHT = "MULTIACTIONBAR2BUTTON7",
         PADLSTICK = "MULTIACTIONBAR2BUTTON5",
         PADRSTICK = "MULTIACTIONBAR2BUTTON4",
-        PADFORWARD = "CAMERAZOOMIN",
+        PADFORWARD = "CAMERAZOOMOUT",
 
         -- Тачпад DualSense
         PADBACK = "TOGGLEWORLDMAP",

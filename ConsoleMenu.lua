@@ -99,6 +99,7 @@ local function Initialize()
     
     ConsoleMenu.InitializeOptions()
     ConsoleMenu:InitializeSuperTrackManager()
+    ConsoleMenu:InitializeNameplate()
     
 end
 
