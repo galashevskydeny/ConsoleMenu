@@ -26,7 +26,6 @@ BlizzardFrames/WorldMapFrame.lua
 
 Frames/GossipFrame.lua
 Frames/FastTravelFrame.lua
-Frames/MainActionBar.lua
 
 Utils/Contexts.lua
 Utils/HideBlizzardUI.lua
@@ -35,7 +34,5 @@ Utils/GamePad.lua
 Utils/KeyBindings.lua
 Utils/SuperTrackManager.lua
 Utils/Macro.lua
-Utils/Icon.lua
-Utils/Button.lua
 
 BindingSuggestions.lua
