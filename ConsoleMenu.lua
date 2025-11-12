@@ -38,6 +38,9 @@ local function Initialize()
 
     -- Инициализация модулей
     ConsoleMenu:RegisterAssets()
+    
+    -- Инициализируем контексты раньше, чтобы они были доступны для других модулей
+    ConsoleMenu:InitializeContexts()
 
     ConsoleMenu:SetCharacterFrame()
     ConsoleMenu:SetChatFrame()
@@ -90,7 +93,6 @@ local function Initialize()
     ConsoleMenu:InitZoneAbilityBindingFrame()
     
     ConsoleMenu.InitializeOptions()
-    ConsoleMenu:InitializeContexts()
     ConsoleMenu:InitializeSuperTrackManager()
     
 end
