@@ -71,7 +71,7 @@ function ConsoleMenu:CreateActionButton(parent, slot)
     
     local texture = GetActionTexture(slot)
     local text = GetActionText(slot)
-    local cooldownInfo = GetActionButtonCooldownInfo(slot)
+    local actionCooldownDuration, actionCooldownExpiration = GetActionButtonCooldownInfo(slot)
 
     if not texture then
         return
@@ -94,8 +94,8 @@ function ConsoleMenu:CreateActionButton(parent, slot)
         width = width,
         height = height,
         displayIcon = texture,
-        duration = cooldownInfo and cooldownInfo[1] or nil,
-        expiration = cooldownInfo and cooldownInfo[2] or nil
+        duration = actionCooldownDuration or nil,
+        expiration = actionCooldownExpiration or nil
     })
     button.icon = icon
     
@@ -122,11 +122,11 @@ function ConsoleMenu:CreateActionButton(parent, slot)
 
     button:SetScript("OnEvent", function(self, event, ...)
         -- Получаем свежую информацию о кулдауне слота
-        local cooldownInfo = GetActionButtonCooldownInfo(self.slot)
+        local actionCooldownDuration, actionCooldownExpiration = GetActionButtonCooldownInfo(self.slot)
         -- Обновляем иконку с новыми данными о кулдауне
         ConsoleMenu:ModifyIcon(self.icon, {
-            duration = cooldownInfo and cooldownInfo[1] or nil,
-            expiration = cooldownInfo and cooldownInfo[2] or nil
+            duration = actionCooldownDuration or nil,
+            expiration = actionCooldownExpiration or nil
         })
     end)
     
