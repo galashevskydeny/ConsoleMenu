@@ -70,7 +70,7 @@ function ConsoleMenu:CreateActionButton(parent, slot)
     end
     
     local texture = GetActionTexture(slot)
-    local text = GetActionText(actionSlot)
+    local text = GetActionText(slot)
     local cooldownInfo = GetActionButtonCooldownInfo(slot)
 
     if not texture then
