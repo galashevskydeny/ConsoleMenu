@@ -40,7 +40,7 @@ local hudSettingsFrames = {
 
 -- Бой
 local hudSettingsCombat = {
-    { name = "Вид nameplate", variable = "enemyNameplateStyle", default = 2, tooltip = "Управляет видом полосы здоровья противников (HealthBar).", options = windowStyleOptions },
+    { name = "Вид индикатора здоровья", variable = "enemyNameplateStyle", default = 2, tooltip = "Управляет видом полосы здоровья противников (HealthBar).", options = windowStyleOptions },
     { name = "Вид панели команд", variable = "hideActionBar", default = 1, tooltip = "Управляет отображением основной панели действий (ActionBar).", options = hudUpdateDropdownOptions },
     { name = "Панель питомца", variable = "hidePetActionBar", default = 1, tooltip = "Управляет отображением панели действий питомца (PetActionBar).", options = hudDropdownOptions },
     { name = "Индикатор заклинаний", variable = "hidePlayerCastingBarFrame", default = 1, tooltip = "Управляет отображением полосы заклинаний игрока (PlayerCastingBarFrame).", options = hudDropdownOptions },
