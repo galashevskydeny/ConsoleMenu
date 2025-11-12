@@ -146,18 +146,13 @@ function ConsoleMenu:CreateIcon(data)
         local data = self.data or {}
         if data.duration and data.expiration and data.duration > 0 then
             local now = GetTime()
-            local timeLeft = data.expiration - now
-            if timeLeft > 0 then
-                self.cooldownFrame:Show()
-                -- Округляем до 1 знака, если меньше 10 сек
-                if timeLeft < 10 then
-                    self.cooldownFrame.cooldownText:SetText(string.format("%.1f", timeLeft))
-                else
-                    self.cooldownFrame.cooldownText:SetText(string.format("%d", math.ceil(timeLeft)))
-                end
+            local timeLeft = math.max(0, data.expiration - now)
+            self.cooldownFrame:Show()
+            -- Округляем до 1 знака, если меньше 10 сек
+            if timeLeft < 10 then
+                self.cooldownFrame.cooldownText:SetText(string.format("%.1f", timeLeft))
             else
-                self.cooldownFrame:Hide()
-                self.cooldownFrame.cooldownText:SetText("")
+                self.cooldownFrame.cooldownText:SetText(string.format("%d", math.ceil(timeLeft)))
             end
         else
             self.cooldownFrame:Hide()
