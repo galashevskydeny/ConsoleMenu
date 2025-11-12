@@ -240,6 +240,5 @@ function ConsoleMenu:UpdateCVars()
     end)
 
     SetBaseSoftTargetSettings()
-
     ApplyCVarSettings()
 end
