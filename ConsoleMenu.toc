@@ -1,4 +1,4 @@
-## Interface: 110007
+## Interface: 120000
 ## Title: ConsoleMenu
 ## Notes: Добавляет консольное меню в игру.
 ## Author: Ден Галашевский

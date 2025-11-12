@@ -121,6 +121,10 @@ local function ApplyCVarSettings()
     if not ConsoleMenuDB then
         return
     end
+
+    SetCVar("GamePadEnabled", "1")
+    SetCVar("GamePadEmulateShift", "PADRTRIGGER")
+    SetCVar("GamePadEmulateCtrl", "PADRSHOULDER")
     
     if ConsoleMenuDB.floatingText == 1 then
         DefaultFloatingText()

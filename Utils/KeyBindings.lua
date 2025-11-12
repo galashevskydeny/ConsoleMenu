@@ -155,7 +155,11 @@ function ConsoleMenu:InitInteractBindingFrame()
             ConsoleMenu:SetInteractBinding(newTarget)
         elseif event == "PLAYER_SOFT_ENEMY_CHANGED" then
             -- Отменяем override бинды при появлении враждебной soft-target цели
-            ClearOverrideBindings(frame)
+            if not InCombatLockdown() then
+                ClearOverrideBindings(frame)
+            else
+
+            end
         end
     end)
 end
@@ -171,7 +175,15 @@ function ConsoleMenu:SetInteractBinding(newTarget)
         return
     end
 
-    if newTarget then
+    -- Проверяем, есть ли враг, перед установкой override бинда
+    local hasEnemy = false
+    if UnitExists("softenemy") and UnitCanAttack("player", "softenemy") then
+        hasEnemy = true
+    elseif UnitExists("target") and UnitCanAttack("player", "target") then
+        hasEnemy = true
+    end
+
+    if newTarget and not hasEnemy then
         SetOverrideBinding(self.InteractBindingFrame, true, ConsoleMenuDB.interactButton, "INTERACTTARGET")
     else
         ClearOverrideBindings(self.InteractBindingFrame)
@@ -201,12 +213,15 @@ end
 
 -- Устанавливает биндинг на первую способность зоны
 function ConsoleMenu:SetBindingsZoneAbility()
+    
     if ConsoleMenuDB.overrideZoneAbilityKey == 2 then
         ClearOverrideBindings(self.ZoneAbilityBindingFrame)
         return
     end
-    
-    if InCombatLockdown() then return end
+
+    if InCombatLockdown and InCombatLockdown() then
+        return
+    end
 
     -- Получаем активные зоновые способности
     local zoneAbilities = C_ZoneAbility.GetActiveAbilities()

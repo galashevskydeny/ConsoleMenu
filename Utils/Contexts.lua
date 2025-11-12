@@ -113,6 +113,10 @@ local function SwitchActionBarPage()
     if ConsoleMenuDB and ConsoleMenuDB.actionBarPageSwitching == 2 then
         return
     end
+    
+    if InCombatLockdown and InCombatLockdown() then
+        return
+    end
 
     if ConsoleMenu.PlayerContext.inCombat == true
        and ConsoleMenu.PlayerContext.vehicle == false
@@ -241,7 +245,6 @@ function ConsoleMenu:InitializeContexts()
             ConsoleMenu:RemoveWindow(...)
         end
 
-        if 
         local context = ConsoleMenu:GetPlayerContext()
         if WeakAuras then
             WeakAuras.ScanEvents("CHANGE_CONTEXT", context)

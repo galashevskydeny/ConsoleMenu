@@ -2,6 +2,19 @@
 
 local ConsoleMenu = _G.ConsoleMenu
 
+-- Функция для проверки, активен ли режим редактирования интерфейса
+local function IsEditModeActive()
+    -- Проверяем через API если доступен
+    if C_EditMode and C_EditMode.IsEditModeActive then
+        return C_EditMode.IsEditModeActive()
+    end
+    -- Проверяем через фрейм
+    if EditModeManagerFrame then
+        return EditModeManagerFrame:IsShown()
+    end
+    return false
+end
+
 -- Скрытие ненужных фреймов, регионов и текстур
 local function HideFramesAndRegions()
     QuickJoinToastButton:Hide()
@@ -53,9 +66,14 @@ local function HideFramesAndRegions()
                 end
             end
 
-            editBox:ClearAllPoints()
-            editBox:SetPoint("BOTTOMLEFT", _G["ChatFrame" .. i], "TOPLEFT", -10, 40)
-            editBox:SetPoint("BOTTOMRIGHT", _G["ChatFrame" .. i], "TOPRIGHT", 10, 0)
+            -- Не изменяем позицию в режиме редактирования
+            if not IsEditModeActive() then
+                pcall(function()
+                    editBox:ClearAllPoints()
+                    editBox:SetPoint("BOTTOMLEFT", _G["ChatFrame" .. i], "TOPLEFT", -10, 40)
+                    editBox:SetPoint("BOTTOMRIGHT", _G["ChatFrame" .. i], "TOPRIGHT", 10, 0)
+                end)
+            end
             editBox:SetFont("Fonts\\FRIZQT___CYR.TTF", 14, "")
             editBoxHeader:SetFont("Fonts\\FRIZQT___CYR.TTF", 14, "")
 
@@ -65,6 +83,10 @@ local function HideFramesAndRegions()
 end
 
 local function HideChatCommand()
+    -- Не выполняем операции с фреймами в режиме редактирования
+    if IsEditModeActive() then
+        return
+    end
 
     ConsoleMenu:RemoveWindow("chat")
     local context = ConsoleMenu:GetPlayerContext()
@@ -73,25 +95,29 @@ local function HideChatCommand()
         WeakAuras.ScanEvents("SHOW_CHAT_FRAME", false)
     end
 
-    ChatFrame1:SetHeight(1)
+    pcall(function()
+        ChatFrame1:SetHeight(1)
+        ChatFrame1:ClearAllPoints() -- Очищаем все текущие точки привязки
+        ChatFrame1:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, -4) -- Устанавливаем новую точку привязки
+        ChatFrame1:SetParent(UIParent)
+        ChatFrame1:SetUserPlaced(true)
+    end)
 
-    ChatFrame1:ClearAllPoints() -- Очищаем все текущие точки привязки
-    ChatFrame1:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, -4) -- Устанавливаем новую точку привязки
-    ChatFrame1:SetParent(UIParent)
-    
-    -- Помечаем фрейм как размещённый пользователем, чтобы защитить от сброса
-    pcall(function() ChatFrame1:SetUserPlaced(true) end)
-
-    ChatFrame1:Hide()
-    ChatFrame1ButtonFrame:Hide()
+    pcall(function()
+        ChatFrame1:Hide()
+        if ChatFrame1ButtonFrame then
+            ChatFrame1ButtonFrame:Hide()
+        end
+    end)
 
     for i = 1, 10 do
         local chatFrame = _G["ChatFrame" .. i]
         if chatFrame then
-            chatFrame:SetClampedToScreen(false)
-            chatFrame:SetClampRectInsets(0, 0, 0, 0)
-            -- Безопасно вызываем SetUserPlaced только если фрейм поддерживает это
-            pcall(function() chatFrame:SetUserPlaced(true) end)
+            pcall(function()
+                chatFrame:SetClampedToScreen(false)
+                chatFrame:SetClampRectInsets(0, 0, 0, 0)
+                chatFrame:SetUserPlaced(true)
+            end)
         end
     end
 
@@ -102,34 +128,42 @@ local function HideChatCommand()
 end
 
 local function ShowChatCommand()
+    -- Не выполняем операции с фреймами в режиме редактирования
+    if IsEditModeActive() then
+        return
+    end
 
     ConsoleMenu:AddWindow("chat")
 
+    local context = ConsoleMenu:GetPlayerContext()
     if WeakAuras then
         WeakAuras.ScanEvents("CHANGE_CONTEXT", context)
         WeakAuras.ScanEvents("SHOW_CHAT_FRAME", true)
     end
 
-    ChatFrame1:SetHeight(160)
+    pcall(function()
+        ChatFrame1:SetHeight(160)
+        ChatFrame1:ClearAllPoints() -- Очищаем все текущие точки привязки
+        ChatFrame1:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 32) -- Устанавливаем новую точку привязки
+        ChatFrame1:SetParent(UIParent)
+        ChatFrame1:SetUserPlaced(true)
+    end)
 
-    ChatFrame1:ClearAllPoints() -- Очищаем все текущие точки привязки
-    ChatFrame1:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 32) -- Устанавливаем новую точку привязки
-    ChatFrame1:SetParent(UIParent)
-    
-    -- Помечаем фрейм как размещённый пользователем, чтобы защитить от сброса
-    pcall(function() ChatFrame1:SetUserPlaced(true) end)
-
-    ChatFrame1:Show()
-
-    ChatFrame1ButtonFrame:Show()
+    pcall(function()
+        ChatFrame1:Show()
+        if ChatFrame1ButtonFrame then
+            ChatFrame1ButtonFrame:Show()
+        end
+    end)
 
     for i = 1, 10 do
         local chatFrame = _G["ChatFrame" .. i]
         if chatFrame then
-            chatFrame:SetClampedToScreen(true)
-            chatFrame:SetClampRectInsets(0, 0, 0, 0)
-            -- Безопасно вызываем SetUserPlaced только если фрейм поддерживает это
-            pcall(function() chatFrame:SetUserPlaced(true) end)
+            pcall(function()
+                chatFrame:SetClampedToScreen(true)
+                chatFrame:SetClampRectInsets(0, 0, 0, 0)
+                chatFrame:SetUserPlaced(true)
+            end)
         end
     end
 
@@ -203,8 +237,13 @@ local function CreateToggleChatButton()
     UpdateButtonText()
     
     -- Привязываем правый край кнопки к правому краю GeneralDockManagerScrollFrame
-    btn:ClearAllPoints()
-    btn:SetPoint("RIGHT", parentFrame, "RIGHT", -2, 0) -- -2: небольшой отступ от края, можно 0
+    -- Не изменяем позицию в режиме редактирования
+    if not IsEditModeActive() then
+        pcall(function()
+            btn:ClearAllPoints()
+            btn:SetPoint("RIGHT", parentFrame, "RIGHT", -2, 0) -- -2: небольшой отступ от края, можно 0
+        end)
+    end
 
     btn:SetScript("OnClick", function()
         ToggleChatCommand()
@@ -225,6 +264,10 @@ end
 
 
 function ToggleChatCommand()
+    -- Не выполняем переключение в режиме редактирования
+    if IsEditModeActive() then
+        return
+    end
 
     if ChatFrame1:GetHeight() <= 2 then
         ShowChatCommand()
@@ -235,17 +278,24 @@ end
 
 -- Функция для восстановления позиции чата после выхода из режима редактирования
 local function RestoreChatPosition()
-    if ChatFrame1:GetHeight() <= 2 then
-        -- Если чат скрыт, восстанавливаем позицию скрытого состояния
-        ChatFrame1:ClearAllPoints()
-        ChatFrame1:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, -4)
-        pcall(function() ChatFrame1:SetUserPlaced(true) end)
-    else
-        -- Если чат показан, восстанавливаем позицию показанного состояния
-        ChatFrame1:ClearAllPoints()
-        ChatFrame1:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 32)
-        pcall(function() ChatFrame1:SetUserPlaced(true) end)
+    -- Не восстанавливаем позицию в режиме редактирования
+    if IsEditModeActive() then
+        return
     end
+
+    pcall(function()
+        if ChatFrame1:GetHeight() <= 2 then
+            -- Если чат скрыт, восстанавливаем позицию скрытого состояния
+            ChatFrame1:ClearAllPoints()
+            ChatFrame1:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, -4)
+            ChatFrame1:SetUserPlaced(true)
+        else
+            -- Если чат показан, восстанавливаем позицию показанного состояния
+            ChatFrame1:ClearAllPoints()
+            ChatFrame1:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 32)
+            ChatFrame1:SetUserPlaced(true)
+        end
+    end)
 end
 
 -- Защита позиции чата от изменения при редактировании UI
@@ -254,29 +304,32 @@ local function SetupChatPositionProtection()
         return
     end
     
-    -- Защищаем от изменения позиции через SetUserPlaced
-    pcall(function() ChatFrame1:SetUserPlaced(true) end)
+    -- Защищаем от изменения позиции через SetUserPlaced (только если не в режиме редактирования)
+    if not IsEditModeActive() then
+        pcall(function() ChatFrame1:SetUserPlaced(true) end)
+    end
     
     -- Хук события EDIT_MODE_LAYOUTS_UPDATED
     local eventFrame = CreateFrame("Frame")
     eventFrame:RegisterEvent("EDIT_MODE_LAYOUTS_UPDATED")
     eventFrame:SetScript("OnEvent", function()
-        C_Timer.After(0.1, RestoreChatPosition)
+        -- Восстанавливаем позицию только после выхода из режима редактирования
+        if not IsEditModeActive() then
+            C_Timer.After(0.1, RestoreChatPosition)
+        end
     end)
     
     -- Дополнительная защита через OnUpdate (проверяем позицию периодически)
     -- Проверяем только когда не в режиме редактирования
     local positionGuard = CreateFrame("Frame")
     local lastCheck = 0
-    local isEditModeActive = false
     
-    -- Отслеживаем режим редактирования
+    -- Отслеживаем режим редактирования для восстановления позиции после выхода
     if EditModeManagerFrame then
         EditModeManagerFrame:HookScript("OnShow", function()
-            isEditModeActive = true
+            -- Не делаем ничего в режиме редактирования
         end)
         EditModeManagerFrame:HookScript("OnHide", function()
-            isEditModeActive = false
             -- Восстанавливаем позицию сразу после выхода из режима редактирования
             C_Timer.After(0.2, RestoreChatPosition)
         end)
@@ -284,24 +337,26 @@ local function SetupChatPositionProtection()
     
     positionGuard:SetScript("OnUpdate", function(self, elapsed)
         -- Не проверяем позицию в режиме редактирования
-        if isEditModeActive then
+        if IsEditModeActive() then
             return
         end
         
         lastCheck = lastCheck + elapsed
         if lastCheck >= 1.0 then -- Проверяем каждую секунду (реже для оптимизации)
             lastCheck = 0
-            if ChatFrame1:IsShown() and ChatFrame1:GetHeight() > 2 then
-                local point, relativeTo, relativePoint, xOfs, yOfs = ChatFrame1:GetPoint()
-                if relativeTo == UIParent and yOfs ~= 32 then
-                    RestoreChatPosition()
+            pcall(function()
+                if ChatFrame1:IsShown() and ChatFrame1:GetHeight() > 2 then
+                    local point, relativeTo, relativePoint, xOfs, yOfs = ChatFrame1:GetPoint()
+                    if relativeTo == UIParent and yOfs ~= 32 then
+                        RestoreChatPosition()
+                    end
+                elseif ChatFrame1:GetHeight() <= 2 then
+                    local point, relativeTo, relativePoint, xOfs, yOfs = ChatFrame1:GetPoint()
+                    if relativeTo == UIParent and yOfs ~= -4 then
+                        RestoreChatPosition()
+                    end
                 end
-            elseif ChatFrame1:GetHeight() <= 2 then
-                local point, relativeTo, relativePoint, xOfs, yOfs = ChatFrame1:GetPoint()
-                if relativeTo == UIParent and yOfs ~= -4 then
-                    RestoreChatPosition()
-                end
-            end
+            end)
         end
     end)
 end
