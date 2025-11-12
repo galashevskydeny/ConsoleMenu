@@ -1,5 +1,57 @@
 local ConsoleMenu = _G.ConsoleMenu
 
+-- Локальная функция для получения информации о кулдауне слота действия
+local function GetActionButtonCooldownInfo(slot)
+    if not slot then
+        return false
+    end
+
+    local actionType, id, subtype = GetActionInfo(slot)
+
+    if actionType == "macro" then
+        if subtype == "spell" then
+            actionType = "spell"
+        end
+    end
+
+    if actionType == "spell" then
+        local cd = C_Spell and C_Spell.GetSpellCooldown and C_Spell.GetSpellCooldown(id)
+        if not cd or cd.isEnabled == false or cd.duration == 0 then
+            return false
+        end
+
+        local gcd = C_Spell and C_Spell.GetSpellCooldown and C_Spell.GetSpellCooldown(61304)
+        local isGCD = false
+        if gcd and gcd.duration and gcd.duration > 0 then
+            if math.abs(cd.duration - gcd.duration) < 0.05 and math.abs(cd.startTime - gcd.startTime) < 0.05 then
+                isGCD = true
+            end
+        end
+        if isGCD then
+            return false
+        end
+
+        local expiration = cd.startTime + cd.duration
+        return cd.duration, expiration
+    end
+
+    if actionType == "item" then
+        local start, duration, enable
+        if C_Item and C_Item.GetItemCooldown then
+            start, duration, enable = C_Item.GetItemCooldown(id)
+        else
+            start, duration, enable = GetItemCooldown(id)
+        end
+        if enable == 0 or duration == 0 then
+            return false
+        end
+        return duration, start + duration
+    end
+
+    return
+end
+
+
 -- Создание кнопки action bar
 function ConsoleMenu:CreateActionButton(parent, slot)
     if not slot then
@@ -17,9 +69,11 @@ function ConsoleMenu:CreateActionButton(parent, slot)
         return
     end
     
-    local iconTexture = GetActionTexture(slot)
+    local texture = GetActionTexture(slot)
+    local text = GetActionText(actionSlot)
+    local cooldownInfo = GetActionButtonCooldownInfo(slot)
 
-    if not iconTexture then
+    if not texture then
         return
     end
 
@@ -35,7 +89,14 @@ function ConsoleMenu:CreateActionButton(parent, slot)
     button:SetSize(width, height)
     
     -- Создание иконки внутри кнопки
-    local icon = ConsoleMenu:CreateIcon(button, width, height, iconTexture)
+    local icon = ConsoleMenu:CreateIcon({
+        parent = button,
+        width = width,
+        height = height,
+        displayIcon = texture,
+        duration = cooldownInfo and cooldownInfo[1] or nil,
+        expiration = cooldownInfo and cooldownInfo[2] or nil
+    })
     button.icon = icon
     
     -- Привязываем иконку к центру кнопки
@@ -58,6 +119,16 @@ function ConsoleMenu:CreateActionButton(parent, slot)
     button:RegisterEvent("SPELL_ACTIVATION_OVERLAY_GLOW_SHOW")
     button:RegisterEvent("SPELL_ACTIVATION_OVERLAY_GLOW_HIDE")
     button:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
+
+    button:SetScript("OnEvent", function(self, event, ...)
+        -- Получаем свежую информацию о кулдауне слота
+        local cooldownInfo = GetActionButtonCooldownInfo(self.slot)
+        -- Обновляем иконку с новыми данными о кулдауне
+        ConsoleMenu:ModifyIcon(self.icon, {
+            duration = cooldownInfo and cooldownInfo[1] or nil,
+            expiration = cooldownInfo and cooldownInfo[2] or nil
+        })
+    end)
     
     return button
 end

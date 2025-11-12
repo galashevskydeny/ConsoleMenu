@@ -2,7 +2,13 @@
 -- Библиотека для работы с иконками по аналогии с WeakAuras Icon
 --
 -- Пример использования:
---   local icon = ConsoleMenu:CreateIcon(parentFrame, 64, 64, "Interface\\Icons\\Spell_Nature_HealingTouch", true)
+--   local icon = ConsoleMenu:CreateIcon({
+--       parent = parentFrame,
+--       width = 64,
+--       height = 64,
+--       displayIcon = "Interface\\Icons\\Spell_Nature_HealingTouch",
+--       applyMask = true
+--   })
 --
 --   -- Обновление иконки
 --   icon:SetIcon("Interface\\Icons\\Spell_Fire_Fireball")
@@ -92,11 +98,19 @@ local function GetTexCoord(region, texWidth, aspectRatio, xOffset, yOffset)
 end
 
 -- Создание иконки
-function ConsoleMenu:CreateIcon(parent, width, height, displayIcon)
-    width = width or 64
-    height = height or 64
-    displayIcon = displayIcon or "Interface\\Icons\\INV_Misc_QuestionMark"
-    applyMask = applyMask or true
+function ConsoleMenu:CreateIcon(data)
+    data = data or {}
+    local parent = data.parent
+    local width = data.width or 64
+    local height = data.height or 64
+    local displayIcon = data.displayIcon or "Interface\\Icons\\INV_Misc_QuestionMark"
+    local applyMask = data.applyMask ~= nil and data.applyMask or true
+    local duration = data.duration or nil
+    local expiration = data.expiration or nil
+    
+    if not parent then
+        error("CreateIcon: parent is required")
+    end
     
     local region = CreateFrame("Frame", nil, parent)
     region.regionType = "icon"
@@ -110,6 +124,68 @@ function ConsoleMenu:CreateIcon(parent, width, height, displayIcon)
     icon:SetTexelSnappingBias(0)
     icon:SetAllPoints(region)
     region.icon = icon
+
+    -- Фрейм для отображения кулдауна
+    local cooldownFrame = CreateFrame("Frame", nil, region)
+    cooldownFrame:SetAllPoints(region)
+    cooldownFrame:Raise() -- Поверх иконки
+    cooldownFrame:Hide()
+    region.cooldownFrame = cooldownFrame
+
+    -- Текст для отображения времени кулдауна
+    local cooldownText = cooldownFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    cooldownText:SetPoint("CENTER", cooldownFrame, "CENTER", 0, 0)
+    cooldownText:SetTextColor(1, 1, 0, 1)
+    cooldownText:SetText("")
+    cooldownFrame.cooldownText = cooldownText
+
+    -- Метод обновления кулдауна для региона и скрытия/показа текста
+    -- Теперь duration и expiration ожидается в self.data
+    function region:UpdateCooldown()
+        local data = self.data or {}
+        if data.duration and data.expiration and data.duration > 0 then
+            local now = GetTime and GetTime() or 0
+            local timeLeft = data.expiration - now
+            if timeLeft > 0 then
+                self.cooldownFrame:Show()
+                -- Округляем до 1 знака, если меньше 10 сек
+                if timeLeft < 10 then
+                    self.cooldownFrame.cooldownText:SetText(string.format("%.1f", timeLeft))
+                else
+                    self.cooldownFrame.cooldownText:SetText(string.format("%d", math.ceil(timeLeft)))
+                end
+            else
+                self.cooldownFrame:Hide()
+                self.cooldownFrame.cooldownText:SetText("")
+            end
+        else
+            self.cooldownFrame:Hide()
+            self.cooldownFrame.cooldownText:SetText("")
+        end
+    end
+
+    -- Обновление кулдауна по OnUpdate, только если нужно что-то показывать
+    cooldownFrame:SetScript("OnUpdate", function(self, elapsed)
+        local data = region.data or {}
+        if data.duration and data.expiration and data.duration > 0 then
+            region:UpdateCooldown()
+        else
+            self:Hide()
+        end
+    end)
+
+    -- Захватываем вызовы UpdateIcon, чтобы вызывать UpdateCooldown
+    local origUpdateIcon = region.UpdateIcon
+    function region:UpdateIcon(...)
+        if origUpdateIcon then origUpdateIcon(self, ...) end
+        self:UpdateCooldown()
+        local data = self.data or {}
+        if data.duration and data.expiration and data.duration > 0 then
+            self.cooldownFrame:Show()
+        else
+            self.cooldownFrame:Hide()
+        end
+    end
     
     -- Установка текстуры по умолчанию
     SetTextureOrAtlas(icon, displayIcon)
@@ -128,6 +204,7 @@ function ConsoleMenu:CreateIcon(parent, width, height, displayIcon)
     region.states = {}
     region.state = {}
     region.applyMask = applyMask
+    region.data = data
     
     -- Функция обновления размера
     function region:UpdateSize()
@@ -305,6 +382,14 @@ function ConsoleMenu:ModifyIcon(region, data)
     -- Применение изменений
     if data.desaturate ~= nil then
         region:SetDesaturated(data.desaturate)
+    end
+
+    -- Добавляем данные о кулдауне, если они есть в data
+    if data.duration ~= nil then
+        region.duration = data.duration
+    end
+    if data.expiration ~= nil then
+        region.expiration = data.expiration
     end
     
     region:UpdateSize()
