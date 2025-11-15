@@ -55,6 +55,7 @@ local function Initialize()
     
     ConsoleMenu:SetCustomGossipFrame()
     ConsoleMenu:SetFastTravelFrame()
+    ConsoleMenu:SetSubtitleFrame()
     
     ConsoleMenu:InitializeMainActionBar()
     

@@ -28,6 +28,7 @@ BlizzardFrames/MainActionBar.lua
 
 Frames/GossipFrame.lua
 Frames/FastTravelFrame.lua
+Frames/SubtitleFrame.lua
 
 Utils/Contexts.lua
 Utils/HideBlizzardUI.lua
