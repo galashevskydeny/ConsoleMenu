@@ -8,7 +8,6 @@
 ConsoleMenu.lua
 Utils/SettingsHelper.lua
 Options.lua
-MainActionBar.lua
 
 Assets/Assets.lua
 
@@ -25,6 +24,7 @@ BlizzardFrames/GossipFrame.lua
 BlizzardFrames/PVEFrame.lua
 BlizzardFrames/WorldMapFrame.lua
 BlizzardFrames/Nameplate.lua
+BlizzardFrames/MainActionBar.lua
 
 Frames/GossipFrame.lua
 Frames/FastTravelFrame.lua
