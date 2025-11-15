@@ -50,7 +50,12 @@ end
 
 
 function ConsoleMenu:InitializeMainActionBar()
-    if ConsoleMenuDB.hideActionBar ~= 1 then
+
+    if ConsoleMenuDB.actionBarStyle ~= 1 then
+        return
+    end
+
+    if not C_ActionBar.GetActionCooldown or not C_ActionBar.GetActionTexture then
         return
     end
 

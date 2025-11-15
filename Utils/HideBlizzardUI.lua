@@ -370,7 +370,7 @@ function ConsoleMenu:HideBlizzardUI()
         DisablePetActionBar()
     end
     
-    if ConsoleMenuDB.hideActionBar == 1 then
+    if ConsoleMenuDB.actionBarStyle == 1 then
         DisableActionBar()
     end
     
