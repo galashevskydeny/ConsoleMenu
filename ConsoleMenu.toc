@@ -24,6 +24,7 @@ BlizzardFrames/QuestFrame.lua
 BlizzardFrames/GossipFrame.lua
 BlizzardFrames/PVEFrame.lua
 BlizzardFrames/WorldMapFrame.lua
+BlizzardFrames/Nameplate.lua
 
 Frames/GossipFrame.lua
 Frames/FastTravelFrame.lua
@@ -35,6 +36,5 @@ Utils/GamePad.lua
 Utils/KeyBindings.lua
 Utils/SuperTrackManager.lua
 Utils/Macro.lua
-Utils/Nameplate.lua
 
 BindingSuggestions.lua

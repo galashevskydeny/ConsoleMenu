@@ -1,5 +1,14 @@
 local ConsoleMenu = _G.ConsoleMenu
 
+-- Функция для применения текстуры castbar с задержкой
+local function ApplyCastBarTextureWithDelay(castBar)
+    if not castBar then
+        return
+    end
+    
+    castBar:SetStatusBarTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\EnemyHealthBar.png")
+end
+
 -- Функция инициализации модуля Nameplate
 function ConsoleMenu:InitializeNameplate()
     
@@ -16,7 +25,7 @@ function ConsoleMenu:InitializeNameplate()
         name:ClearAllPoints()
         name:SetTextColor(1.0, 0.960784, 0.772549, 1.0)
         local fontName, _, _ = name:GetFont()
-        name:SetFont(fontName, 12, "SLUG")
+        name:SetFont(fontName, 14, "SLUG")
         PixelUtil.SetPoint(name, "BOTTOM", self.HealthBarsContainer.healthBar, "TOP",0, 8)
 
         -- Меняем вид полосы здоровья
@@ -28,23 +37,53 @@ function ConsoleMenu:InitializeNameplate()
         healthBar.bgTexture:SetAllPoints(container);
         healthBar.selectedBorder:Hide()
         healthBar.selectedBorder:SetAlpha(0)
-        -- Изменения вида контейнера полосы здоровья
         PixelUtil.SetHeight(self.HealthBarsContainer, 16)
         container:ClearAllPoints()
         PixelUtil.SetPoint(container, "BOTTOMLEFT", unitFrame, "LEFT", 36, 4)
         PixelUtil.SetPoint(container, "BOTTOMRIGHT", unitFrame, "RIGHT", -36, 4)
 
-        -- Изменения вида castBar
-        local setupOptions = NamePlateSetupOptions
-        local spellNameInsideCastBar = setupOptions and setupOptions.spellNameInsideCastBar
-
         PixelUtil.SetHeight(castBar, 12)
-        castBar:SetStatusBarTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\EnemyHealthBar.png");
+        castBar:SetStatusBarTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\EnemyHealthBar.png")
         castBar:SetStatusBarColor(1.0, 0.960784, 0.772549, 1.0)
         castBar:ClearAllPoints()
-        PixelUtil.SetPoint(castBar, "TOPLEFT", unitFrame, "LEFT", 48, 0);
-        PixelUtil.SetPoint(castBar, "TOPRIGHT", unitFrame, "RIGHT", -48, 0);
+        castBar.Background:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\EnemyHealthBar.png")
+        castBar.Background:SetVertexColor(0, 0, 0, 0.5)
+        PixelUtil.SetPoint(castBar, "TOPLEFT", unitFrame, "LEFT", 48, 0)
+        PixelUtil.SetPoint(castBar, "TOPRIGHT", unitFrame, "RIGHT", -48, 0)
+        castBar.Text:ClearAllPoints()
+        PixelUtil.SetPoint(castBar.Text, "TOP", castBar.Background, "BOTTOM", 0, -8)
+        castBar.Text:SetFont(fontName, 12, "SLUG")
 
+    end)
+
+    hooksecurefunc(NamePlateCastingBarMixin, "OnEvent", function(self, event, ...)
+        ApplyCastBarTextureWithDelay(self)
+    end)
+
+    hooksecurefunc(NamePlateCastingBarMixin, "HandleInterruptOrSpellFailed", function(self, empoweredInterrupt, event, ...)
+        ApplyCastBarTextureWithDelay(self)
+    end)
+
+    hooksecurefunc(NamePlateCastingBarMixin, "HandleCastStop", function(self, event, ...)
+        ApplyCastBarTextureWithDelay(self)
+    end)
+
+    hooksecurefunc(NamePlateCastingBarMixin, "UpdateInterruptibleState", function(self, notInterruptible)
+        ApplyCastBarTextureWithDelay(self)
+    end)
+
+    hooksecurefunc(NamePlateCastingBarMixin, "FinishSpell", function(self)
+        ApplyCastBarTextureWithDelay(self)
+    end)
+
+    hooksecurefunc(NamePlateCastingBarMixin, "SimulateCast", function(self, castData)
+        ApplyCastBarTextureWithDelay(self)
+    end)
+
+    hooksecurefunc(NamePlateCastingBarMixin, "UpdateIconShown", function(self)
+        if self.BorderShield then
+            self.BorderShield:Hide();
+        end
     end)
 
     hooksecurefunc("CompactUnitFrame_UpdateHealthColor", function(frame)
