@@ -17,7 +17,7 @@ local SubtitleEventPriority = {
 }
 
 -- Локальная функция для разбиения текста на строки с учетом максимальной длины
-local function splitTextIntoLines(text)
+local function SplitTextIntoLines(text)
     if not text or text == "" then
         return {}
     end
@@ -32,8 +32,8 @@ local function splitTextIntoLines(text)
         local current = ""
         
         -- Разбиваем текст на предложения (оптимизированное регулярное выражение)
-        for sentence in text:gmatch("([^%.%!%?]+[%.,%!%?]?)") do
-            sentence = sentence:match("^%s*(.-)%s*$") -- убираем пробелы одним вызовом
+        for sentence in text:gmatch("([^%.%!%?%.%.%.]+[%.,%!%?%.%.%.]*)") do
+            sentence = sentence:gsub("^%s+", "") -- убираем пробелы одним вызовом
             if sentence ~= "" then
                 sentences[#sentences + 1] = sentence
             end
@@ -85,7 +85,7 @@ local function splitTextIntoLines(text)
 end
 
 -- Функция для расчета длительности произнесения строки
-local function calculateSpeechDuration(line)
+local function CalculateSpeechDuration(line)
 
     -- Подсчет количества слов в строке
     local function countWords(str)
@@ -123,17 +123,15 @@ local function AddSubtitles(event, message, sender)
 
     local priority = SubtitleEventPriority[event] or 1
 
-    local lines = splitTextIntoLines(message)
+    local lines = SplitTextIntoLines(message)
 
     local currentTime = GetTime()
     local startTime = currentTime
     for i, line in ipairs(lines) do
-        local duration = calculateSpeechDuration(line)
+        local duration = CalculateSpeechDuration(line)
         local stopTime = startTime + duration
         
-        -- Вычисляем диапазон секунд для этого субтитра
-        local startSec = math.floor(startTime)
-        local stopSec = math.ceil(stopTime)
+
         
         -- Создаем таблицу субтитра
         local subtitleData = {
@@ -141,16 +139,12 @@ local function AddSubtitles(event, message, sender)
             sender = sender,
             priority = priority,
             event = event,
-            duration = duration
+            duration = duration,
+            startTime = startTime,
+            stopTime = stopTime,
         }
         
-        -- Добавляем субтитр в хэш-таблицу по секундам
-        for t = startSec, stopSec do
-            if not ConsoleMenu.Subtitles[t] then
-                ConsoleMenu.Subtitles[t] = {}
-            end
-            table.insert(ConsoleMenu.Subtitles[t], subtitleData)
-        end
+        table.insert(ConsoleMenu.Subtitles, subtitleData)
 
         startTime = stopTime -- последовательно, строки идут друг за другом
     end
@@ -162,23 +156,16 @@ local function RemoveOldSubtitles()
         return
     end
 
-    local nowSec = math.floor(GetTime())
-
-    -- Быстро найдём минимальный и максимальный ключи
-    local minKey, maxKey
-    for t in pairs(ConsoleMenu.Subtitles) do
-        if not minKey or t < minKey then minKey = t end
-        if not maxKey or t > maxKey then maxKey = t end
-    end
-
-    if not minKey or minKey >= nowSec then
-        return
-    end
-
-    -- Удаляем только ключи меньше nowSec, двигаясь подряд по диапазону
-    for t = minKey, nowSec - 1 do
-        if ConsoleMenu.Subtitles[t] then
-            ConsoleMenu.Subtitles[t] = nil
+    local now = GetTime()
+    local i = 1
+    
+    -- Удаляем все субтитры, у которых stopTime уже прошло
+    while i <= #ConsoleMenu.Subtitles do
+        local subtitle = ConsoleMenu.Subtitles[i]
+        if subtitle and subtitle.stopTime and subtitle.stopTime < now then
+            table.remove(ConsoleMenu.Subtitles, i)
+        else
+            i = i + 1
         end
     end
 end
@@ -190,17 +177,30 @@ local function GetCurrentSubtitleWithMaxPriority()
     end
 
     local now = GetTime()
-    local nowSec = math.floor(now)
-    local subs = ConsoleMenu.Subtitles[nowSec]
-    if not subs then return nil end
-
     local currentSubtitle = nil
     local minPriority = nil
 
-    for _, subtitle in ipairs(subs) do
-        if (not minPriority) or (subtitle.priority < minPriority) then
-            minPriority = subtitle.priority
-            currentSubtitle = subtitle
+
+    local displayedSpeaker = ""
+    if ConsoleMenu.SubtitleFrame and ConsoleMenu.SubtitleFrame.Speaker and ConsoleMenu.SubtitleFrame.Speaker:IsShown() then
+        displayedSpeaker = ConsoleMenu.SubtitleFrame.Speaker:GetText() or ""
+    end
+
+    -- Проходим по всем субтитрам от конца к началу и ищем активные
+    for i = #ConsoleMenu.Subtitles, 1, -1 do
+        local subtitle = ConsoleMenu.Subtitles[i]
+        if subtitle and subtitle.startTime and subtitle.stopTime then
+            if subtitle.startTime <= now and now <= subtitle.stopTime then
+                if not minPriority or subtitle.priority < minPriority then
+                    minPriority = subtitle.priority
+                    currentSubtitle = subtitle
+                elseif subtitle.priority == minPriority then
+                    -- При равных приоритетах сравниваем sender с отображаемым спикером
+                    if subtitle.sender and subtitle.sender == displayedSpeaker then
+                        currentSubtitle = subtitle
+                    end
+                end
+            end
         end
     end
 
@@ -211,6 +211,9 @@ local function SubtitleFrameUpdate()
     if not ConsoleMenu or not ConsoleMenu.SubtitleFrame then
         return
     end
+
+    -- Удаляем старые субтитры перед обновлением
+    RemoveOldSubtitles()
 
     local frame = ConsoleMenu.SubtitleFrame
     local current = GetCurrentSubtitleWithMaxPriority()
@@ -229,6 +232,14 @@ local function SubtitleFrameUpdate()
         -- Обновить текст субтитра
         frame.Subtitle:SetText(current.text or "")
         frame.Subtitle:Show()
+
+        -- Удаляем из таблицы ConsoleMenu.Subtitles элемент, равный current
+        for i = #ConsoleMenu.Subtitles, 1, -1 do
+            if ConsoleMenu.Subtitles[i] == current then
+                table.remove(ConsoleMenu.Subtitles, i)
+                break
+            end
+        end
 
         -- Узнать, сколько осталось времени показа этого субтитра
         local now = GetTime()
@@ -254,14 +265,11 @@ local function SubtitleFrameUpdate()
             subtitleUpdateTimer = nil
         end
 
-        -- Проверяем каждую секундочку снова
         subtitleUpdateTimer = C_Timer.NewTimer(1, SubtitleFrameUpdate)
     end
 end
 
 ConsoleMenu.SubtitleFrameUpdate = SubtitleFrameUpdate
-
-
 
 -- Функция инициализации SubtitleFrame
 function ConsoleMenu:SetSubtitleFrame()
@@ -281,18 +289,20 @@ function ConsoleMenu:SetSubtitleFrame()
 
     -- Фрейм для текста субтитра и имени говорящего
     local frame = self.SubtitleFrame
-    frame:SetSize(688, 120)
-    frame:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 310)
+    frame:SetSize(412, 60)
+    frame:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 186)
 
     -- Текст для имени говорящего
     if not frame.Speaker then
         frame.Speaker = frame:CreateFontString(nil, "OVERLAY", nil)
         frame.Speaker:SetPoint("TOP", frame, "TOP", 0, -10)
-        frame.Speaker:SetFont("Fonts\\FRIZQT___CYR.TTF", 12, "SLUG")
+        frame.Speaker:SetFont("Fonts\\FRIZQT___CYR.TTF", 14, "SLUG")
         frame.Speaker:SetTextColor(1.0, 0.960784, 0.772549, 0.5)
         frame.Speaker:SetJustifyH("CENTER")
-        frame.Speaker:SetWidth(688)
+        frame.Speaker:SetWidth(412)
         frame.Speaker:SetText("") -- Пустой по умолчанию
+        frame.Speaker:SetNonSpaceWrap(true)
+        frame.Speaker:SetWordWrap(true)
         frame.Speaker:Hide()
     end
 
@@ -300,29 +310,31 @@ function ConsoleMenu:SetSubtitleFrame()
     if not frame.Subtitle then
         frame.Subtitle = frame:CreateFontString(nil, "OVERLAY", nil)
         frame.Subtitle:SetPoint("TOP", frame.Speaker, "BOTTOM", 0, -8)
-        frame.Subtitle:SetFont("Fonts\\FRIZQT___CYR.TTF", 16, "SLUG")
+        frame.Subtitle:SetFont("Fonts\\FRIZQT___CYR.TTF", 18, "SLUG")
         frame.Subtitle:SetTextColor(1.0, 0.960784, 0.772549, 1.0)
         frame.Subtitle:SetJustifyH("CENTER")
-        frame.Subtitle:SetWidth(688)
+        frame.Subtitle:SetWidth(412)
         frame.Subtitle:SetText("") -- Пустой по умолчанию
+        frame.Subtitle:SetNonSpaceWrap(true)
+        frame.Subtitle:SetWordWrap(true)
         frame.Subtitle:Hide()
     end
 
-    self.ContextsFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+    self.SubtitleFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
     -- Необходимо добавлять субтитры
-    self.ContextsFrame:RegisterEvent("CHAT_MSG_MONSTER_SAY")
-    self.ContextsFrame:RegisterEvent("CHAT_MSG_MONSTER_YELL")
-    self.ContextsFrame:RegisterEvent("CHAT_MSG_MONSTER_WHISPER")
+    self.SubtitleFrame:RegisterEvent("CHAT_MSG_MONSTER_SAY")
+    self.SubtitleFrame:RegisterEvent("CHAT_MSG_MONSTER_YELL")
+    self.SubtitleFrame:RegisterEvent("CHAT_MSG_MONSTER_WHISPER")
 
-    self.ContextsFrame:RegisterEvent("GOSSIP_SHOW")
-    self.ContextsFrame:RegisterEvent("QUEST_DETAIL")
-    self.ContextsFrame:RegisterEvent("QUEST_PROGRESS")
-    self.ContextsFrame:RegisterEvent("QUEST_COMPLETE")
-    self.ContextsFrame:RegisterEvent("QUEST_GREETING")
+    self.SubtitleFrame:RegisterEvent("GOSSIP_SHOW")
+    self.SubtitleFrame:RegisterEvent("QUEST_DETAIL")
+    self.SubtitleFrame:RegisterEvent("QUEST_PROGRESS")
+    self.SubtitleFrame:RegisterEvent("QUEST_COMPLETE")
+    self.SubtitleFrame:RegisterEvent("QUEST_GREETING")
 
     -- Необходимо удалять субтитры
-    self.ContextsFrame:RegisterEvent("GOSSIP_CLOSED")
-    self.ContextsFrame:RegisterEvent("QUEST_FINISHED")
+    self.SubtitleFrame:RegisterEvent("GOSSIP_CLOSED")
+    self.SubtitleFrame:RegisterEvent("QUEST_FINISHED")
     
     -- Добавляем обработчики для событий субтитров
     local function OnSubtitleEvent(self, event, ...)
@@ -341,10 +353,9 @@ function ConsoleMenu:SetSubtitleFrame()
             SubtitleFrameUpdate()
         end
 
-        RemoveOldSubtitles()
     end
 
-    self.ContextsFrame:SetScript("OnEvent", OnSubtitleEvent)
+    self.SubtitleFrame:SetScript("OnEvent", OnSubtitleEvent)
 
 end
 
