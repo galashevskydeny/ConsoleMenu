@@ -2,7 +2,7 @@
 
 local ConsoleMenu = _G.ConsoleMenu
 local parentFrame
-local maxLineLength = 100
+local maxLineLength = 80
 local subtitleUpdateTimer = nil
 
 local SubtitleEventPriority = {
@@ -297,10 +297,10 @@ function ConsoleMenu:SetSubtitleFrame()
 
     -- Текст для имени говорящего
     if not frame.Speaker then
-        frame.Speaker = frame:CreateFontString(nil, "OVERLAY", nil)
+        frame.Speaker = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         frame.Speaker:SetPoint("TOP", frame, "TOP", 0, 0)
-        frame.Speaker:SetFont("Fonts\\FRIZQT___CYR.TTF", 15, "SLUG, OUTLINE")
-        frame.Speaker:SetShadowOffset(1.5, -1)
+        frame.Speaker:SetFont("Fonts\\FRIZQT___CYR.TTF", 15, "OUTLINE")
+        -- frame.Speaker:SetShadowOffset(1.5, -1)
         frame.Speaker:SetTextColor(1.0, 0.960784, 0.772549, 0.6)
         frame.Speaker:SetJustifyH("CENTER")
         frame.Speaker:SetWidth(412)
@@ -312,10 +312,10 @@ function ConsoleMenu:SetSubtitleFrame()
 
     -- Текст для самого субтитра
     if not frame.Subtitle then
-        frame.Subtitle = frame:CreateFontString(nil, "OVERLAY", nil)
+        frame.Subtitle = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         frame.Subtitle:SetPoint("TOP", frame.Speaker, "BOTTOM", 0, -6)
-        frame.Subtitle:SetFont("Fonts\\FRIZQT___CYR.TTF", 18, "SLUG, OUTLINE")
-        frame.Subtitle:SetShadowOffset(1.5, -1)
+        frame.Subtitle:SetFont("Fonts\\FRIZQT___CYR.TTF", 18, "OUTLINE")
+        -- frame.Subtitle:SetShadowOffset(1.5, -1)
         frame.Subtitle:SetTextColor(1.0, 0.960784, 0.772549, 1.0)
         frame.Subtitle:SetJustifyH("CENTER")
         frame.Subtitle:SetWidth(412)
