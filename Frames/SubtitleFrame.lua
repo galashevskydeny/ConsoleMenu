@@ -157,15 +157,12 @@ local function RemoveOldSubtitles()
     end
 
     local now = GetTime()
-    local i = 1
     
     -- Удаляем все субтитры, у которых stopTime уже прошло
-    while i <= #ConsoleMenu.Subtitles do
+    for i = #ConsoleMenu.Subtitles, 1, -1 do
         local subtitle = ConsoleMenu.Subtitles[i]
         if subtitle and subtitle.stopTime and subtitle.stopTime < now then
             table.remove(ConsoleMenu.Subtitles, i)
-        else
-            i = i + 1
         end
     end
 end
@@ -195,8 +192,8 @@ local function GetCurrentSubtitleWithMaxPriority()
                     minPriority = subtitle.priority
                     currentSubtitle = subtitle
                 elseif subtitle.priority == minPriority then
-                    -- При равных приоритетах сравниваем sender с отображаемым спикером
-                    if subtitle.sender and subtitle.sender == displayedSpeaker then
+                    -- При равных приоритетах выбираем субтитр с более поздним startTime
+                    if not currentSubtitle or (subtitle.startTime and currentSubtitle.startTime and subtitle.startTime > currentSubtitle.startTime) then
                         currentSubtitle = subtitle
                     end
                 end
@@ -232,14 +229,6 @@ local function SubtitleFrameUpdate()
         -- Обновить текст субтитра
         frame.Subtitle:SetText(current.text or "")
         frame.Subtitle:Show()
-
-        -- Удаляем из таблицы ConsoleMenu.Subtitles элемент, равный current
-        for i = #ConsoleMenu.Subtitles, 1, -1 do
-            if ConsoleMenu.Subtitles[i] == current then
-                table.remove(ConsoleMenu.Subtitles, i)
-                break
-            end
-        end
 
         -- Узнать, сколько осталось времени показа этого субтитра
         local now = GetTime()
@@ -290,7 +279,7 @@ function ConsoleMenu:SetSubtitleFrame()
     -- Фрейм для текста субтитра и имени говорящего
     local frame = self.SubtitleFrame
     frame:SetSize(412, 60)
-    frame:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 186)
+    frame:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 220)
 
     -- Текст для имени говорящего
     if not frame.Speaker then
