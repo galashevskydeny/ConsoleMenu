@@ -142,6 +142,7 @@ local function AddSubtitles(event, message, sender)
             duration = duration,
             startTime = startTime,
             stopTime = stopTime,
+            lastLine = (i == #lines),
         }
         
         table.insert(ConsoleMenu.Subtitles, subtitleData)
@@ -166,6 +167,20 @@ local function RemoveOldSubtitles()
         end
     end
 end
+
+-- Функция для удаления субтитров по приоритету
+local function RemoveSubtitlesByPriority(priorityToRemove)
+    if not ConsoleMenu or not ConsoleMenu.Subtitles then
+        return
+    end
+    for i = #ConsoleMenu.Subtitles, 1, -1 do
+        local subtitle = ConsoleMenu.Subtitles[i]
+        if subtitle and subtitle.priority == priorityToRemove then
+            table.remove(ConsoleMenu.Subtitles, i)
+        end
+    end
+end
+
 
 -- Функция возвращает строку субтитров с максимальным приоритетом, если её интервал отображения совпадает с текущим моментом
 local function GetCurrentSubtitleWithMaxPriority()
@@ -209,9 +224,6 @@ local function SubtitleFrameUpdate()
         return
     end
 
-    -- Удаляем старые субтитры перед обновлением
-    RemoveOldSubtitles()
-
     local frame = ConsoleMenu.SubtitleFrame
     local current = GetCurrentSubtitleWithMaxPriority()
 
@@ -241,7 +253,9 @@ local function SubtitleFrameUpdate()
             subtitleUpdateTimer:Cancel()
         end
 
-        subtitleUpdateTimer = C_Timer.NewTimer(durationLeft, SubtitleFrameUpdate)
+        if current.priority ~= 1 or (current.priority == 1 and not current.lastLine) then
+            subtitleUpdateTimer = C_Timer.NewTimer(durationLeft, SubtitleFrameUpdate)
+        end
     else
         -- Нет подходящего субтитра, скрываем оба текста
         frame.Speaker:SetText("")
@@ -279,14 +293,15 @@ function ConsoleMenu:SetSubtitleFrame()
     -- Фрейм для текста субтитра и имени говорящего
     local frame = self.SubtitleFrame
     frame:SetSize(412, 60)
-    frame:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 220)
+    frame:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 210)
 
     -- Текст для имени говорящего
     if not frame.Speaker then
         frame.Speaker = frame:CreateFontString(nil, "OVERLAY", nil)
-        frame.Speaker:SetPoint("TOP", frame, "TOP", 0, -10)
-        frame.Speaker:SetFont("Fonts\\FRIZQT___CYR.TTF", 14, "SLUG")
-        frame.Speaker:SetTextColor(1.0, 0.960784, 0.772549, 0.5)
+        frame.Speaker:SetPoint("TOP", frame, "TOP", 0, 0)
+        frame.Speaker:SetFont("Fonts\\FRIZQT___CYR.TTF", 15, "SLUG, OUTLINE")
+        frame.Speaker:SetShadowOffset(1.5, -1)
+        frame.Speaker:SetTextColor(1.0, 0.960784, 0.772549, 0.6)
         frame.Speaker:SetJustifyH("CENTER")
         frame.Speaker:SetWidth(412)
         frame.Speaker:SetText("") -- Пустой по умолчанию
@@ -298,8 +313,9 @@ function ConsoleMenu:SetSubtitleFrame()
     -- Текст для самого субтитра
     if not frame.Subtitle then
         frame.Subtitle = frame:CreateFontString(nil, "OVERLAY", nil)
-        frame.Subtitle:SetPoint("TOP", frame.Speaker, "BOTTOM", 0, -8)
-        frame.Subtitle:SetFont("Fonts\\FRIZQT___CYR.TTF", 18, "SLUG")
+        frame.Subtitle:SetPoint("TOP", frame.Speaker, "BOTTOM", 0, -6)
+        frame.Subtitle:SetFont("Fonts\\FRIZQT___CYR.TTF", 18, "SLUG, OUTLINE")
+        frame.Subtitle:SetShadowOffset(1.5, -1)
         frame.Subtitle:SetTextColor(1.0, 0.960784, 0.772549, 1.0)
         frame.Subtitle:SetJustifyH("CENTER")
         frame.Subtitle:SetWidth(412)
@@ -324,24 +340,42 @@ function ConsoleMenu:SetSubtitleFrame()
     -- Необходимо удалять субтитры
     self.SubtitleFrame:RegisterEvent("GOSSIP_CLOSED")
     self.SubtitleFrame:RegisterEvent("QUEST_FINISHED")
+    self.SubtitleFrame:RegisterEvent("GOSSIP_CONFIRM")
     
     -- Добавляем обработчики для событий субтитров
     local function OnSubtitleEvent(self, event, ...)
-        if event == "PLAYER_ENTERING_WORLD" then
-            SubtitleFrameUpdate()
-        end
+        RemoveOldSubtitles()
+
         if event == "CHAT_MSG_MONSTER_SAY" or
            event == "CHAT_MSG_MONSTER_YELL" or
-           event == "CHAT_MSG_MONSTER_WHISPER" or
-           event == "GOSSIP_SHOW" or
-           event == "QUEST_DETAIL" or
-           event == "QUEST_PROGRESS" or
-           event == "QUEST_COMPLETE" or
-           event == "QUEST_GREETING" then
+           event == "CHAT_MSG_MONSTER_WHISPER"
+        then
             AddSubtitles(event, ...)
-            SubtitleFrameUpdate()
+        elseif event == "GOSSIP_SHOW" then
+            local message = C_GossipInfo.GetText()
+            local sender = UnitName("npc")
+            AddSubtitles(event, message, sender)
+        elseif event == "QUEST_DETAIL" then
+            local message = GetQuestText()
+            local sender = UnitName("npc")
+            AddSubtitles(event, message, sender)
+        elseif event == "QUEST_COMPLETE" then
+            local message = GetRewardText()
+            local sender = UnitName("npc")
+            AddSubtitles(event, message, sender)
+        elseif event == "QUEST_PROGRESS" then
+            local message = GetProgressText()
+            local sender = UnitName("npc")
+            AddSubtitles(event, message, sender)
+        elseif event == "QUEST_GREETING" then
+            local message = GetGreetingText()
+            local sender = UnitName("npc")
+            AddSubtitles(event, message, sender)
+        elseif event == "GOSSIP_CLOSED" or event == "QUEST_FINISHED" or event == "GOSSIP_CONFIRM" then
+            RemoveSubtitlesByPriority(1)
         end
 
+        SubtitleFrameUpdate()
     end
 
     self.SubtitleFrame:SetScript("OnEvent", OnSubtitleEvent)
