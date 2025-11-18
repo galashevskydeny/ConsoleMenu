@@ -9,6 +9,14 @@ local SubtitleEventPriority = {
     CHAT_MSG_MONSTER_SAY = 3,
     CHAT_MSG_MONSTER_YELL = 3,
     CHAT_MSG_MONSTER_WHISPER = 3,
+    CHAT_MSG_MONSTER_EMOTE = 3,
+    CHAT_MSG_PARTY_LEADER = 2,
+    CHAT_MSG_PARTY = 2,
+    CHAT_MSG_INSTANCE_CHAT = 2,
+    CHAT_MSG_INSTANCE_CHAT_LEADER = 2,
+    CHAT_MSG_RAID = 2,
+    CHAT_MSG_RAID_LEADER = 2,
+    CHAT_MSG_TEXT_EMOTE = 3,
     GOSSIP_SHOW = 1,
     QUEST_DETAIL = 1,
     QUEST_PROGRESS = 1,
@@ -130,8 +138,6 @@ local function AddSubtitles(event, message, sender)
     for i, line in ipairs(lines) do
         local duration = CalculateSpeechDuration(line)
         local stopTime = startTime + duration
-        
-
         
         -- Создаем таблицу субтитра
         local subtitleData = {
@@ -330,6 +336,14 @@ function ConsoleMenu:SetSubtitleFrame()
     self.SubtitleFrame:RegisterEvent("CHAT_MSG_MONSTER_SAY")
     self.SubtitleFrame:RegisterEvent("CHAT_MSG_MONSTER_YELL")
     self.SubtitleFrame:RegisterEvent("CHAT_MSG_MONSTER_WHISPER")
+    self.SubtitleFrame:RegisterEvent("CHAT_MSG_MONSTER_EMOTE")
+    self.SubtitleFrame:RegisterEvent("CHAT_MSG_PARTY_LEADER")
+    self.SubtitleFrame:RegisterEvent("CHAT_MSG_PARTY")
+    self.SubtitleFrame:RegisterEvent("CHAT_MSG_INSTANCE_CHAT")
+    self.SubtitleFrame:RegisterEvent("CHAT_MSG_INSTANCE_CHAT_LEADER")
+    self.SubtitleFrame:RegisterEvent("CHAT_MSG_RAID")
+    self.SubtitleFrame:RegisterEvent("CHAT_MSG_RAID_LEADER")
+    self.SubtitleFrame:RegisterEvent("CHAT_MSG_TEXT_EMOTE")
 
     self.SubtitleFrame:RegisterEvent("GOSSIP_SHOW")
     self.SubtitleFrame:RegisterEvent("QUEST_DETAIL")
@@ -348,7 +362,15 @@ function ConsoleMenu:SetSubtitleFrame()
 
         if event == "CHAT_MSG_MONSTER_SAY" or
            event == "CHAT_MSG_MONSTER_YELL" or
-           event == "CHAT_MSG_MONSTER_WHISPER"
+           event == "CHAT_MSG_MONSTER_WHISPER" or
+           event == "CHAT_MSG_MONSTER_EMOTE" or
+           event == "CHAT_MSG_PARTY_LEADER" or
+           event == "CHAT_MSG_PARTY" or
+           event == "CHAT_MSG_INSTANCE_CHAT" or
+           event == "CHAT_MSG_INSTANCE_CHAT_LEADER" or
+           event == "CHAT_MSG_RAID" or
+           event == "CHAT_MSG_RAID_LEADER" or
+           event == "CHAT_MSG_TEXT_EMOTE"
         then
             AddSubtitles(event, ...)
         elseif event == "GOSSIP_SHOW" then
