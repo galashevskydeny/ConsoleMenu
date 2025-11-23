@@ -145,7 +145,7 @@ function ConsoleMenu:SetBaseKeyBindings()
     
 end
 
--- Жилье
+-- Модуль для отслеживания системы жилищ
 local function SetHousingButtonBinding(...)
     local currentEditMode = C_HouseEditor.GetActiveHouseEditorMode()
 
@@ -235,8 +235,6 @@ local function SetHousingButtonBinding(...)
     SetOverrideBindingsForSet(baseBindings, nil, ConsoleMenu.HousingBindingFrame)
 end
 
-
--- Модуль для отслеживания системы жилищ
 function ConsoleMenu:InitHousingBindingFrame()
     if not self.HousingBindingFrame then
         self.HousingBindingFrame = CreateFrame("Frame")
@@ -261,7 +259,6 @@ function ConsoleMenu:InitHousingBindingFrame()
         SetHousingButtonBinding(...)
     end)
 end
-
 
 -- Модуль для отслеживания взаимодействия
 function ConsoleMenu:InitInteractBindingFrame()
