@@ -43,6 +43,13 @@ function ConsoleMenu:ClearControllerBindings()
     SaveBindings(GetCurrentBindingSet())
 end
 
+local function SetBindingsForSet(bindings, modifier)
+    for key, action in pairs(bindings) do
+        local bindingKey = modifier and (modifier .. "-" .. key) or key
+        SetBinding(bindingKey, action)
+    end
+end
+
 
 function ConsoleMenu:SetBaseKeyBindings()
     -- Выполняем только если выбрана кастомная схема привязки
@@ -105,12 +112,84 @@ function ConsoleMenu:SetBaseKeyBindings()
         PAD6 = "TOGGLEWORLDMAP"
     }
 
-    local function SetBindingsForSet(bindings, modifier)
-        for key, action in pairs(bindings) do
-            local bindingKey = modifier and (modifier .. "-" .. key) or key
-            SetBinding(bindingKey, action)
-        end
+    -- Очистим старые биндинги
+    for key, _ in pairs(baseBindings) do
+        SetBinding(key)
+        SetBinding("SHIFT-" .. key)
+        SetBinding("CTRL-" .. key)
     end
+    
+    -- Установим основные биндинги
+    SetBindingsForSet(baseBindings)
+    
+    -- Установим SHIFT биндинги
+    SetBindingsForSet(shiftBindings, "SHIFT")
+    
+    -- Установим CTRL биндинги
+    SetBindingsForSet(ctrlBindings, "CTRL")
+    
+    -- Сохраним
+    SaveBindings(GetCurrentBindingSet())
+end
+
+-- Жилье
+
+local function SetHousingBasicDecorModeBindings()
+    local baseBindings = {
+        PAD1 = "",
+        PAD2 = "",
+        PAD3 = "",
+        PAD4 = "",
+        PADDUP = "",
+        PADDDOWN = "",
+        PADDLEFT = "",
+        PADDRIGHT = "",
+        PADLTRIGGER = "HOUSING_TOGGLELAYOUTMODE",
+        PADRTRIGGER = "HOUSING_TOGGLEEXPERTDECORMODE",
+        PADLSTICK = "",
+        PADRSTICK = "",
+        PADFORWARD = "",
+
+        -- Тачпад DualSense
+        PADBACK = "HOUSING_TOGGLEEDITOR",
+        PAD6 = "HOUSING_TOGGLEEDITOR"
+    }
+    
+    local shiftBindings = {
+        PAD1 = "",
+        PAD2 = "",
+        PAD3 = "",
+        PAD4 = "",
+        PADDUP = "",
+        PADDDOWN = "",
+        PADDLEFT = "",
+        PADDRIGHT = "",
+        PADLSTICK = "",
+        PADRSTICK = "",
+        PADFORWARD = "",
+
+        -- Тачпад DualSense
+        PADBACK = "",
+        PAD6 = ""
+    }
+    
+    local ctrlBindings = {
+        PAD1 = "",
+        PAD2 = "",
+        PAD3 = "",
+        PAD4 = "",
+        PADDUP = "",
+        PADDDOWN = "",
+        PADDLEFT = "",
+        PADDRIGHT = "",
+        PADLSTICK = "",
+        PADRSTICK = "",
+        PADFORWARD = "",
+
+        -- Тачпад DualSense
+        PADBACK = "",
+        PAD6 = ""
+    }
 
     -- Очистим старые биндинги
     for key, _ in pairs(baseBindings) do
@@ -131,6 +210,419 @@ function ConsoleMenu:SetBaseKeyBindings()
     -- Сохраним
     SaveBindings(GetCurrentBindingSet())
 end
+
+local function SetHousingExpertDecorModeBindings()
+    local baseBindings = {
+        PAD1 = "",
+        PAD2 = "",
+        PAD3 = "",
+        PAD4 = "",
+        PADDUP = "",
+        PADDDOWN = "",
+        PADDLEFT = "",
+        PADDRIGHT = "",
+        PADLTRIGGER = "HOUSING_TOGGLEBASICDECORMODE",
+        PADRTRIGGER = "HOUSING_TOGGLECUSTOMIZEMODE",
+        PADLSTICK = "",
+        PADRSTICK = "",
+        PADFORWARD = "",
+
+        -- Тачпад DualSense
+        PADBACK = "HOUSING_TOGGLEEDITOR",
+        PAD6 = "HOUSING_TOGGLEEDITOR"
+    }
+    
+    local shiftBindings = {
+        PAD1 = "",
+        PAD2 = "",
+        PAD3 = "",
+        PAD4 = "",
+        PADDUP = "",
+        PADDDOWN = "",
+        PADDLEFT = "",
+        PADDRIGHT = "",
+        PADLSTICK = "",
+        PADRSTICK = "",
+        PADFORWARD = "",
+
+        -- Тачпад DualSense
+        PADBACK = "",
+        PAD6 = ""
+    }
+    
+    local ctrlBindings = {
+        PAD1 = "",
+        PAD2 = "",
+        PAD3 = "",
+        PAD4 = "",
+        PADDUP = "",
+        PADDDOWN = "",
+        PADDLEFT = "",
+        PADDRIGHT = "",
+        PADLSTICK = "",
+        PADRSTICK = "",
+        PADFORWARD = "",
+
+        -- Тачпад DualSense
+        PADBACK = "",
+        PAD6 = ""
+    }
+
+    -- Очистим старые биндинги
+    for key, _ in pairs(baseBindings) do
+        SetBinding(key)
+        SetBinding("SHIFT-" .. key)
+        SetBinding("CTRL-" .. key)
+    end
+    
+    -- Установим основные биндинги
+    SetBindingsForSet(baseBindings)
+    
+    -- Установим SHIFT биндинги
+    SetBindingsForSet(shiftBindings, "SHIFT")
+    
+    -- Установим CTRL биндинги
+    SetBindingsForSet(ctrlBindings, "CTRL")
+    
+    -- Сохраним
+    SaveBindings(GetCurrentBindingSet())
+end
+
+local function SetHousingCustomizeModeBindings()
+    local baseBindings = {
+        PAD1 = "",
+        PAD2 = "",
+        PAD3 = "",
+        PAD4 = "",
+        PADDUP = "",
+        PADDDOWN = "",
+        PADDLEFT = "",
+        PADDRIGHT = "",
+        PADLTRIGGER = "HOUSING_TOGGLEEXPERTDECORMODE",
+        PADRTRIGGER = "HOUSING_TOGGLECLEANUPMODE",
+        PADLSTICK = "",
+        PADRSTICK = "",
+        PADFORWARD = "",
+
+        -- Тачпад DualSense
+        PADBACK = "HOUSING_TOGGLEEDITOR",
+        PAD6 = "HOUSING_TOGGLEEDITOR"
+    }
+    
+    local shiftBindings = {
+        PAD1 = "",
+        PAD2 = "",
+        PAD3 = "",
+        PAD4 = "",
+        PADDUP = "",
+        PADDDOWN = "",
+        PADDLEFT = "",
+        PADDRIGHT = "",
+        PADLSTICK = "",
+        PADRSTICK = "",
+        PADFORWARD = "",
+
+        -- Тачпад DualSense
+        PADBACK = "",
+        PAD6 = ""
+    }
+    
+    local ctrlBindings = {
+        PAD1 = "",
+        PAD2 = "",
+        PAD3 = "",
+        PAD4 = "",
+        PADDUP = "",
+        PADDDOWN = "",
+        PADDLEFT = "",
+        PADDRIGHT = "",
+        PADLSTICK = "",
+        PADRSTICK = "",
+        PADFORWARD = "",
+
+        -- Тачпад DualSense
+        PADBACK = "",
+        PAD6 = ""
+    }
+
+    -- Очистим старые биндинги
+    for key, _ in pairs(baseBindings) do
+        SetBinding(key)
+        SetBinding("SHIFT-" .. key)
+        SetBinding("CTRL-" .. key)
+    end
+    
+    -- Установим основные биндинги
+    SetBindingsForSet(baseBindings)
+    
+    -- Установим SHIFT биндинги
+    SetBindingsForSet(shiftBindings, "SHIFT")
+    
+    -- Установим CTRL биндинги
+    SetBindingsForSet(ctrlBindings, "CTRL")
+    
+    -- Сохраним
+    SaveBindings(GetCurrentBindingSet())
+end
+
+local function SetHousingCleanupModeBindings()
+    local baseBindings = {
+        PAD1 = "",
+        PAD2 = "",
+        PAD3 = "",
+        PAD4 = "",
+        PADDUP = "",
+        PADDDOWN = "",
+        PADDLEFT = "",
+        PADDRIGHT = "",
+        PADLTRIGGER = "HOUSING_TOGGLECUSTOMIZEMODE",
+        PADRTRIGGER = "HOUSING_TOGGLELAYOUTMODE",
+        PADLSTICK = "",
+        PADRSTICK = "",
+        PADFORWARD = "",
+
+        -- Тачпад DualSense
+        PADBACK = "HOUSING_TOGGLEEDITOR",
+        PAD6 = "HOUSING_TOGGLEEDITOR"
+    }
+    
+    local shiftBindings = {
+        PAD1 = "",
+        PAD2 = "",
+        PAD3 = "",
+        PAD4 = "",
+        PADDUP = "",
+        PADDDOWN = "",
+        PADDLEFT = "",
+        PADDRIGHT = "",
+        PADLSTICK = "",
+        PADRSTICK = "",
+        PADFORWARD = "",
+
+        -- Тачпад DualSense
+        PADBACK = "",
+        PAD6 = ""
+    }
+    
+    local ctrlBindings = {
+        PAD1 = "",
+        PAD2 = "",
+        PAD3 = "",
+        PAD4 = "",
+        PADDUP = "",
+        PADDDOWN = "",
+        PADDLEFT = "",
+        PADDRIGHT = "",
+        PADLSTICK = "",
+        PADRSTICK = "",
+        PADFORWARD = "",
+
+        -- Тачпад DualSense
+        PADBACK = "",
+        PAD6 = ""
+    }
+
+    -- Очистим старые биндинги
+    for key, _ in pairs(baseBindings) do
+        SetBinding(key)
+        SetBinding("SHIFT-" .. key)
+        SetBinding("CTRL-" .. key)
+    end
+    
+    -- Установим основные биндинги
+    SetBindingsForSet(baseBindings)
+    
+    -- Установим SHIFT биндинги
+    SetBindingsForSet(shiftBindings, "SHIFT")
+    
+    -- Установим CTRL биндинги
+    SetBindingsForSet(ctrlBindings, "CTRL")
+    
+    -- Сохраним
+    SaveBindings(GetCurrentBindingSet())
+end
+
+local function SetHousingLayoutModeBindings()
+    local baseBindings = {
+        PAD1 = "",
+        PAD2 = "",
+        PAD3 = "",
+        PAD4 = "",
+        PADDUP = "",
+        PADDDOWN = "",
+        PADDLEFT = "",
+        PADDRIGHT = "",
+        PADLTRIGGER = "HOUSING_TOGGLECLEANUPMODE",
+        PADRTRIGGER = "HOUSING_TOGGLEBASICDECORMODE",
+        PADLSTICK = "",
+        PADRSTICK = "",
+        PADFORWARD = "",
+
+        -- Тачпад DualSense
+        PADBACK = "HOUSING_TOGGLEEDITOR",
+        PAD6 = "HOUSING_TOGGLEEDITOR"
+    }
+    
+    local shiftBindings = {
+        PAD1 = "",
+        PAD2 = "",
+        PAD3 = "",
+        PAD4 = "",
+        PADDUP = "",
+        PADDDOWN = "",
+        PADDLEFT = "",
+        PADDRIGHT = "",
+        PADLSTICK = "",
+        PADRSTICK = "",
+        PADFORWARD = "",
+
+        -- Тачпад DualSense
+        PADBACK = "",
+        PAD6 = ""
+    }
+    
+    local ctrlBindings = {
+        PAD1 = "",
+        PAD2 = "",
+        PAD3 = "",
+        PAD4 = "",
+        PADDUP = "",
+        PADDDOWN = "",
+        PADDLEFT = "",
+        PADDRIGHT = "",
+        PADLSTICK = "",
+        PADRSTICK = "",
+        PADFORWARD = "",
+
+        -- Тачпад DualSense
+        PADBACK = "",
+        PAD6 = ""
+    }
+
+    -- Очистим старые биндинги
+    for key, _ in pairs(baseBindings) do
+        SetBinding(key)
+        SetBinding("SHIFT-" .. key)
+        SetBinding("CTRL-" .. key)
+    end
+    
+    -- Установим основные биндинги
+    SetBindingsForSet(baseBindings)
+    
+    -- Установим SHIFT биндинги
+    SetBindingsForSet(shiftBindings, "SHIFT")
+    
+    -- Установим CTRL биндинги
+    SetBindingsForSet(ctrlBindings, "CTRL")
+    
+    -- Сохраним
+    SaveBindings(GetCurrentBindingSet())
+end
+
+local function SetHousingExteriorCustomizeModeBindings()
+    local baseBindings = {
+        PAD1 = "",
+        PAD2 = "",
+        PAD3 = "",
+        PAD4 = "",
+        PADDUP = "",
+        PADDDOWN = "",
+        PADDLEFT = "",
+        PADDRIGHT = "",
+        PADLTRIGGER = "",
+        PADRTRIGGER = "",
+        PADLSTICK = "",
+        PADRSTICK = "",
+        PADFORWARD = "",
+
+        -- Тачпад DualSense
+        PADBACK = "HOUSING_TOGGLEEDITOR",
+        PAD6 = "HOUSING_TOGGLEEDITOR"
+    }
+    
+    local shiftBindings = {
+        PAD1 = "",
+        PAD2 = "",
+        PAD3 = "",
+        PAD4 = "",
+        PADDUP = "",
+        PADDDOWN = "",
+        PADDLEFT = "",
+        PADDRIGHT = "",
+        PADLSTICK = "",
+        PADRSTICK = "",
+        PADFORWARD = "",
+
+        -- Тачпад DualSense
+        PADBACK = "",
+        PAD6 = ""
+    }
+    
+    local ctrlBindings = {
+        PAD1 = "",
+        PAD2 = "",
+        PAD3 = "",
+        PAD4 = "",
+        PADDUP = "",
+        PADDDOWN = "",
+        PADDLEFT = "",
+        PADDRIGHT = "",
+        PADLSTICK = "",
+        PADRSTICK = "",
+        PADFORWARD = "",
+
+        -- Тачпад DualSense
+        PADBACK = "",
+        PAD6 = ""
+    }
+
+    -- Очистим старые биндинги
+    for key, _ in pairs(baseBindings) do
+        SetBinding(key)
+        SetBinding("SHIFT-" .. key)
+        SetBinding("CTRL-" .. key)
+    end
+    
+    -- Установим основные биндинги
+    SetBindingsForSet(baseBindings)
+    
+    -- Установим SHIFT биндинги
+    SetBindingsForSet(shiftBindings, "SHIFT")
+    
+    -- Установим CTRL биндинги
+    SetBindingsForSet(ctrlBindings, "CTRL")
+    
+    -- Сохраним
+    SaveBindings(GetCurrentBindingSet())
+end
+
+-- Модуль для отслеживания взаимодействия
+function ConsoleMenu:InitHousingBindingFrame()
+    if not self.HousingBindingFrame then
+        self.HousingBindingFrame = CreateFrame("Frame")
+    end
+    
+    self.HousingBindingFrame:RegisterEvent("HOUSE_EDITOR_MODE_CHANGED")
+
+    self.HousingBindingFrame:SetScript("OnEvent", function(frame, event, ...)
+        local currentEditMode = ...
+
+        if currentEditMode == Enum.HouseEditorMode.BasicDecor then
+            SetHousingBasicDecorModeBindings()
+        elseif currentEditMode == Enum.HouseEditorMode.ExpertDecor then
+            SetHousingExpertDecorModeBindings()
+        elseif currentEditMode == Enum.HouseEditorMode.Customize then
+            SetHousingCustomizeModeBindings()
+        elseif currentEditMode == Enum.HouseEditorMode.Cleanup then
+            SetHousingCleanupModeBindings()
+        elseif currentEditMode == Enum.HouseEditorMode.Layout then
+            SetHousingLayoutModeBindings()
+        elseif currentEditMode == Enum.HouseEditorMode.ExteriorCustomize then
+            SetHousingExteriorCustomizeModeBindings()
+        end
+    end)
+end
+
 
 -- Модуль для отслеживания взаимодействия
 function ConsoleMenu:InitInteractBindingFrame()

@@ -95,6 +95,7 @@ local function Initialize()
         ConsoleMenu:SetVibrationSpellGlow()
     end)
     
+    ConsoleMenu:InitHousingBindingFrame()
     ConsoleMenu:InitInteractBindingFrame()
     ConsoleMenu:InitZoneAbilityBindingFrame()
     
