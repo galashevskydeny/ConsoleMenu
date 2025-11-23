@@ -142,61 +142,61 @@ end
 
 -- Жилье
 local function SetHousingModeBindings()
-    local baseBindings = {
-        PAD1 = "",
-        PAD2 = "",
-        PAD3 = "",
-        PAD4 = "",
-        PADDUP = "",
-        PADDDOWN = "",
-        PADDLEFT = "",
-        PADDRIGHT = "",
-        PADLTRIGGER = "",
-        PADRTRIGGER = "",
-        PADLSTICK = "",
-        PADRSTICK = "",
-        PADFORWARD = "",
-
-        -- Тачпад DualSense
-        PADBACK = "HOUSING_TOGGLEEDITOR",
-        PAD6 = "HOUSING_TOGGLEEDITOR"
-    }
+    local baseBindings = {}
     
-    local shiftBindings = {
-        PAD1 = "",
-        PAD2 = "",
-        PAD3 = "",
-        PAD4 = "",
-        PADDUP = "",
-        PADDDOWN = "",
-        PADDLEFT = "",
-        PADDRIGHT = "",
-        PADLSTICK = "",
-        PADRSTICK = "",
-        PADFORWARD = "",
+    baseBindings["PAD1"] = ""
+    baseBindings["PAD2"] = ""
+    baseBindings["PAD3"] = ""
+    baseBindings["PAD4"] = ""
+    baseBindings["PADDUP"] = ""
+    baseBindings["PADDDOWN"] = ""
+    baseBindings["PADDLEFT"] = ""
+    baseBindings["PADDRIGHT"] = ""
+    baseBindings["PADLTRIGGER"] = ""
+    baseBindings["PADRTRIGGER"] = ""
+    baseBindings["PADLSTICK"] = ""
+    baseBindings["PADRSTICK"] = ""
+    baseBindings["PADFORWARD"] = ""
 
         -- Тачпад DualSense
-        PADBACK = "",
-        PAD6 = ""
-    }
+    baseBindings["PADBACK"] = "HOUSING_TOGGLEEDITOR"
+    baseBindings["PAD6"] = "HOUSING_TOGGLEEDITOR"
     
-    local ctrlBindings = {
-        PAD1 = "",
-        PAD2 = "",
-        PAD3 = "",
-        PAD4 = "",
-        PADDUP = "",
-        PADDDOWN = "",
-        PADDLEFT = "",
-        PADDRIGHT = "",
-        PADLSTICK = "",
-        PADRSTICK = "",
-        PADFORWARD = "",
+    
+    local shiftBindings = {}
 
-        -- Тачпад DualSense
-        PADBACK = "",
-        PAD6 = ""
-    }
+    shiftBindings["PAD1"] = ""
+    shiftBindings["PAD2"] = ""
+    shiftBindings["PAD3"] = ""
+    shiftBindings["PAD4"] = ""
+    shiftBindings["PADDUP"] = ""
+    shiftBindings["PADDDOWN"] = ""
+    shiftBindings["PADDLEFT"] = ""
+    shiftBindings["PADDRIGHT"] = ""
+    shiftBindings["PADLSTICK"] = ""
+    shiftBindings["PADRSTICK"] = ""
+    shiftBindings["PADFORWARD"] = ""
+
+    -- Тачпад DualSense
+    shiftBindings["PADBACK"] = ""
+    shiftBindings["PAD6"] = ""
+    
+    local ctrlBindings = {}
+
+    ctrlBindings["PAD1"] = ""
+    ctrlBindings["PAD2"] = ""
+    ctrlBindings["PAD3"] = ""
+    ctrlBindings["PAD4"] = ""
+    ctrlBindings["PADDUP"] = ""
+    ctrlBindings["PADDDOWN"] = ""
+    ctrlBindings["PADDLEFT"] = ""
+    ctrlBindings["PADDRIGHT"] = ""
+    ctrlBindings["PADLSTICK"] = ""
+    ctrlBindings["PADRSTICK"] = ""
+    ctrlBindings["PADFORWARD"] = ""
+    ctrlBindings["PADBACK"] = ""
+    ctrlBindings["PAD6"] = ""
+    
 
     -- Установим основные биндинги
     SetOverrideBindingsForSet(baseBindings, nil, ConsoleMenu.HousingBindingFrame)
@@ -209,61 +209,62 @@ local function SetHousingModeBindings()
 end
 
 local function SetHousingBasicDecorModeBindings()
-    local baseBindings = {
-        PAD1 = "",
-        PAD2 = "",
-        PAD3 = "",
-        PAD4 = "",
-        PADDUP = "",
-        PADDDOWN = "",
-        PADDLEFT = "",
-        PADDRIGHT = "",
-        PADLTRIGGER = "HOUSING_TOGGLELAYOUTMODE",
-        PADRTRIGGER = "HOUSING_TOGGLEEXPERTDECORMODE",
-        PADLSTICK = "",
-        PADRSTICK = "",
-        PADFORWARD = "",
+    local baseBindings = {}
 
-        -- Тачпад DualSense
-        PADBACK = "HOUSING_TOGGLEEDITOR",
-        PAD6 = "HOUSING_TOGGLEEDITOR"
-    }
+    baseBindings["PAD1"] = ""
+    baseBindings["PAD2"] = ""
+    baseBindings["PAD3"] = ""
+    baseBindings["PAD4"] = ""
+    baseBindings["PADDUP"] = ""
+    baseBindings["PADDDOWN"] = ""
+    baseBindings["PADDLEFT"] = ""
+    baseBindings["PADDRIGHT"] = ""
+    baseBindings["PADLTRIGGER"] = "HOUSING_TOGGLELAYOUTMODE"
+    baseBindings["PADRTRIGGER"] = "HOUSING_TOGGLEEXPERTDECORMODE"
+    baseBindings["PADLSTICK"] = ""
+    baseBindings["PADRSTICK"] = ""
+    baseBindings["PADFORWARD"] = ""
+
+    if not C_Housing.IsInsideHouse() then
+        baseBindings["PADLTRIGGER"] = "HOUSING_TOGGLEEXTERIORCUSTOMIZEMODE"
+    end
+
+    -- Тачпад DualSense
+    baseBindings["PADBACK"] = "HOUSING_TOGGLEEDITOR"
+    baseBindings["PAD6"] = "HOUSING_TOGGLEEDITOR"
     
-    local shiftBindings = {
-        PAD1 = "",
-        PAD2 = "",
-        PAD3 = "",
-        PAD4 = "",
-        PADDUP = "",
-        PADDDOWN = "",
-        PADDLEFT = "",
-        PADDRIGHT = "",
-        PADLSTICK = "",
-        PADRSTICK = "",
-        PADFORWARD = "",
+    local shiftBindings = {}
+    shiftBindings["PAD1"] = ""
+    shiftBindings["PAD2"] = ""
+    shiftBindings["PAD3"] = ""
+    shiftBindings["PAD4"] = ""
+    shiftBindings["PADDUP"] = ""
+    shiftBindings["PADDDOWN"] = ""
+    shiftBindings["PADDLEFT"] = ""
+    shiftBindings["PADDRIGHT"] = ""
+    shiftBindings["PADLSTICK"] = ""
+    shiftBindings["PADRSTICK"] = ""
+    shiftBindings["PADFORWARD"] = ""
 
         -- Тачпад DualSense
-        PADBACK = "",
-        PAD6 = ""
-    }
+    shiftBindings["PADBACK"] = ""
+    shiftBindings["PAD6"] = ""
     
-    local ctrlBindings = {
-        PAD1 = "",
-        PAD2 = "",
-        PAD3 = "",
-        PAD4 = "",
-        PADDUP = "",
-        PADDDOWN = "",
-        PADDLEFT = "",
-        PADDRIGHT = "",
-        PADLSTICK = "",
-        PADRSTICK = "",
-        PADFORWARD = "",
+    local ctrlBindings = {}
 
-        -- Тачпад DualSense
-        PADBACK = "",
-        PAD6 = ""
-    }
+    ctrlBindings["PAD1"] = ""
+    ctrlBindings["PAD2"] = ""
+    ctrlBindings["PAD3"] = ""
+    ctrlBindings["PAD4"] = ""
+    ctrlBindings["PADDUP"] = ""
+    ctrlBindings["PADDDOWN"] = ""
+    ctrlBindings["PADDLEFT"] = ""
+    ctrlBindings["PADDRIGHT"] = ""
+    ctrlBindings["PADLSTICK"] = ""
+    ctrlBindings["PADRSTICK"] = ""
+    ctrlBindings["PADFORWARD"] = ""
+    ctrlBindings["PADBACK"] = ""
+    ctrlBindings["PAD6"] = ""
 
     -- Установим основные биндинги
     SetOverrideBindingsForSet(baseBindings, nil, ConsoleMenu.HousingBindingFrame)
@@ -276,61 +277,60 @@ local function SetHousingBasicDecorModeBindings()
 end
 
 local function SetHousingExpertDecorModeBindings()
-    local baseBindings = {
-        PAD1 = "",
-        PAD2 = "",
-        PAD3 = "",
-        PAD4 = "",
-        PADDUP = "",
-        PADDDOWN = "",
-        PADDLEFT = "",
-        PADDRIGHT = "",
-        PADLTRIGGER = "HOUSING_TOGGLEBASICDECORMODE",
-        PADRTRIGGER = "HOUSING_TOGGLECUSTOMIZEMODE",
-        PADLSTICK = "",
-        PADRSTICK = "",
-        PADFORWARD = "",
-
-        -- Тачпад DualSense
-        PADBACK = "HOUSING_TOGGLEEDITOR",
-        PAD6 = "HOUSING_TOGGLEEDITOR"
-    }
+    local baseBindings = {}
     
-    local shiftBindings = {
-        PAD1 = "",
-        PAD2 = "",
-        PAD3 = "",
-        PAD4 = "",
-        PADDUP = "",
-        PADDDOWN = "",
-        PADDLEFT = "",
-        PADDRIGHT = "",
-        PADLSTICK = "",
-        PADRSTICK = "",
-        PADFORWARD = "",
+    baseBindings["PAD1"] = ""
+    baseBindings["PAD2"] = ""
+    baseBindings["PAD3"] = ""
+    baseBindings["PAD4"] = ""
+    baseBindings["PADDUP"] = ""
+    baseBindings["PADDDOWN"] = ""
+    baseBindings["PADDLEFT"] = ""
+    baseBindings["PADDRIGHT"] = ""
+    baseBindings["PADLTRIGGER"] = "HOUSING_TOGGLEBASICDECORMODE"
+    baseBindings["PADRTRIGGER"] = "HOUSING_TOGGLECUSTOMIZEMODE"
+    baseBindings["PADLSTICK"] = ""
+    baseBindings["PADRSTICK"] = ""
+    baseBindings["PADFORWARD"] = ""
 
         -- Тачпад DualSense
-        PADBACK = "",
-        PAD6 = ""
-    }
+    baseBindings["PADBACK"] = "HOUSING_TOGGLEEDITOR"
+    baseBindings["PAD6"] = "HOUSING_TOGGLEEDITOR"
     
-    local ctrlBindings = {
-        PAD1 = "",
-        PAD2 = "",
-        PAD3 = "",
-        PAD4 = "",
-        PADDUP = "",
-        PADDDOWN = "",
-        PADDLEFT = "",
-        PADDRIGHT = "",
-        PADLSTICK = "",
-        PADRSTICK = "",
-        PADFORWARD = "",
+    local shiftBindings = {}
 
-        -- Тачпад DualSense
-        PADBACK = "",
-        PAD6 = ""
-    }
+    shiftBindings["PAD1"] = ""
+    shiftBindings["PAD2"] = ""
+    shiftBindings["PAD3"] = ""
+    shiftBindings["PAD4"] = ""
+    shiftBindings["PADDUP"] = ""
+    shiftBindings["PADDDOWN"] = ""
+    shiftBindings["PADDLEFT"] = ""
+    shiftBindings["PADDRIGHT"] = ""
+    shiftBindings["PADLSTICK"] = ""
+    shiftBindings["PADRSTICK"] = ""
+    shiftBindings["PADFORWARD"] = ""
+
+    -- Тачпад DualSense
+    shiftBindings["PADBACK"] = ""
+    shiftBindings["PAD6"] = ""
+    
+    
+    local ctrlBindings = {}
+    
+    ctrlBindings["PAD1"] = ""
+    ctrlBindings["PAD2"] = ""
+    ctrlBindings["PAD3"] = ""
+    ctrlBindings["PAD4"] = ""
+    ctrlBindings["PADDUP"] = ""
+    ctrlBindings["PADDDOWN"] = ""
+    ctrlBindings["PADDLEFT"] = ""
+    ctrlBindings["PADDRIGHT"] = ""
+    ctrlBindings["PADLSTICK"] = ""
+    ctrlBindings["PADRSTICK"] = ""
+    ctrlBindings["PADFORWARD"] = ""
+    ctrlBindings["PADBACK"] = ""
+    ctrlBindings["PAD6"] = ""
 
     -- Установим основные биндинги
     SetOverrideBindingsForSet(baseBindings, nil, ConsoleMenu.HousingBindingFrame)
@@ -343,61 +343,61 @@ local function SetHousingExpertDecorModeBindings()
 end
 
 local function SetHousingCustomizeModeBindings()
-    local baseBindings = {
-        PAD1 = "",
-        PAD2 = "",
-        PAD3 = "",
-        PAD4 = "",
-        PADDUP = "",
-        PADDDOWN = "",
-        PADDLEFT = "",
-        PADDRIGHT = "",
-        PADLTRIGGER = "HOUSING_TOGGLEEXPERTDECORMODE",
-        PADRTRIGGER = "HOUSING_TOGGLECLEANUPMODE",
-        PADLSTICK = "",
-        PADRSTICK = "",
-        PADFORWARD = "",
-
-        -- Тачпад DualSense
-        PADBACK = "HOUSING_TOGGLEEDITOR",
-        PAD6 = "HOUSING_TOGGLEEDITOR"
-    }
+    local baseBindings = {}
     
-    local shiftBindings = {
-        PAD1 = "",
-        PAD2 = "",
-        PAD3 = "",
-        PAD4 = "",
-        PADDUP = "",
-        PADDDOWN = "",
-        PADDLEFT = "",
-        PADDRIGHT = "",
-        PADLSTICK = "",
-        PADRSTICK = "",
-        PADFORWARD = "",
+    baseBindings["PAD1"] = ""
+    baseBindings["PAD2"] = ""
+    baseBindings["PAD3"] = ""
+    baseBindings["PAD4"] = ""
+    baseBindings["PADDUP"] = ""
+    baseBindings["PADDDOWN"] = ""
+    baseBindings["PADDLEFT"] = ""
+    baseBindings["PADDRIGHT"] = ""
+    baseBindings["PADLTRIGGER"] = "HOUSING_TOGGLEEXPERTDECORMODE"
+    baseBindings["PADRTRIGGER"] = "HOUSING_TOGGLECLEANUPMODE"
+    baseBindings["PADLSTICK"] = ""
+    baseBindings["PADRSTICK"] = ""
+    baseBindings["PADFORWARD"] = ""
 
         -- Тачпад DualSense
-        PADBACK = "",
-        PAD6 = ""
-    }
+    baseBindings["PADBACK"] = "HOUSING_TOGGLEEDITOR"
+    baseBindings["PAD6"] = "HOUSING_TOGGLEEDITOR"
     
-    local ctrlBindings = {
-        PAD1 = "",
-        PAD2 = "",
-        PAD3 = "",
-        PAD4 = "",
-        PADDUP = "",
-        PADDDOWN = "",
-        PADDLEFT = "",
-        PADDRIGHT = "",
-        PADLSTICK = "",
-        PADRSTICK = "",
-        PADFORWARD = "",
+    local shiftBindings = {}
+    
+    shiftBindings["PAD1"] = ""
+    shiftBindings["PAD2"] = ""
+    shiftBindings["PAD3"] = ""
+    shiftBindings["PAD4"] = ""
+    shiftBindings["PADDUP"] = ""
+    shiftBindings["PADDDOWN"] = ""
+    shiftBindings["PADDLEFT"] = ""
+    shiftBindings["PADDRIGHT"] = ""
+    shiftBindings["PADLSTICK"] = ""
+    shiftBindings["PADRSTICK"] = ""
+    shiftBindings["PADFORWARD"] = ""
 
         -- Тачпад DualSense
-        PADBACK = "",
-        PAD6 = ""
-    }
+    shiftBindings["PADBACK"] = ""
+    shiftBindings["PAD6"] = ""
+    
+    local ctrlBindings = {}
+
+    ctrlBindings["PAD1"] = ""
+    ctrlBindings["PAD2"] = ""
+    ctrlBindings["PAD3"] = ""
+    ctrlBindings["PAD4"] = ""
+    ctrlBindings["PADDUP"] = ""
+    ctrlBindings["PADDDOWN"] = ""
+    ctrlBindings["PADDLEFT"] = ""
+    ctrlBindings["PADDRIGHT"] = ""
+    ctrlBindings["PADLSTICK"] = ""
+    ctrlBindings["PADRSTICK"] = ""
+    ctrlBindings["PADFORWARD"] = ""
+
+        -- Тачпад DualSense
+    ctrlBindings["PADBACK"] = ""
+    ctrlBindings["PAD6"] = ""
 
     -- Установим основные биндинги
     SetOverrideBindingsForSet(baseBindings, nil, ConsoleMenu.HousingBindingFrame)
@@ -410,61 +410,67 @@ local function SetHousingCustomizeModeBindings()
 end
 
 local function SetHousingCleanupModeBindings()
-    local baseBindings = {
-        PAD1 = "",
-        PAD2 = "",
-        PAD3 = "",
-        PAD4 = "",
-        PADDUP = "",
-        PADDDOWN = "",
-        PADDLEFT = "",
-        PADDRIGHT = "",
-        PADLTRIGGER = "HOUSING_TOGGLECUSTOMIZEMODE",
-        PADRTRIGGER = "HOUSING_TOGGLELAYOUTMODE",
-        PADLSTICK = "",
-        PADRSTICK = "",
-        PADFORWARD = "",
-
-        -- Тачпад DualSense
-        PADBACK = "HOUSING_TOGGLEEDITOR",
-        PAD6 = "HOUSING_TOGGLEEDITOR"
-    }
+    local baseBindings = {}
     
-    local shiftBindings = {
-        PAD1 = "",
-        PAD2 = "",
-        PAD3 = "",
-        PAD4 = "",
-        PADDUP = "",
-        PADDDOWN = "",
-        PADDLEFT = "",
-        PADDRIGHT = "",
-        PADLSTICK = "",
-        PADRSTICK = "",
-        PADFORWARD = "",
+    baseBindings["PAD1"] = ""
+    baseBindings["PAD2"] = ""
+    baseBindings["PAD3"] = ""
+    baseBindings["PAD4"] = ""
+    baseBindings["PADDUP"] = ""
+    baseBindings["PADDDOWN"] = ""
+    baseBindings["PADDLEFT"] = ""
+    baseBindings["PADDRIGHT"] = ""
+    baseBindings["PADLTRIGGER"] = "HOUSING_TOGGLECUSTOMIZEMODE"
+    baseBindings["PADRTRIGGER"] = "HOUSING_TOGGLELAYOUTMODE"
+
+    if not C_Housing.IsInsideHouse() then
+        baseBindings["PADRTRIGGER"] = "HOUSING_TOGGLEEXTERIORCUSTOMIZEMODE"
+    end
+
+    baseBindings["PADLSTICK"] = ""
+    baseBindings["PADRSTICK"] = ""
+    baseBindings["PADFORWARD"] = ""
 
         -- Тачпад DualSense
-        PADBACK = "",
-        PAD6 = ""
-    }
+    baseBindings["PADBACK"] = "HOUSING_TOGGLEEDITOR"
+    baseBindings["PAD6"] = "HOUSING_TOGGLEEDITOR"
     
-    local ctrlBindings = {
-        PAD1 = "",
-        PAD2 = "",
-        PAD3 = "",
-        PAD4 = "",
-        PADDUP = "",
-        PADDDOWN = "",
-        PADDLEFT = "",
-        PADDRIGHT = "",
-        PADLSTICK = "",
-        PADRSTICK = "",
-        PADFORWARD = "",
+    
+    local shiftBindings = {}
+    
+    shiftBindings["PAD1"] = ""
+    shiftBindings["PAD2"] = ""
+    shiftBindings["PAD3"] = ""
+    shiftBindings["PAD4"] = ""
+    shiftBindings["PADDUP"] = ""
+    shiftBindings["PADDDOWN"] = ""
+    shiftBindings["PADDLEFT"] = ""
+    shiftBindings["PADDRIGHT"] = ""
+    shiftBindings["PADLSTICK"] = ""
+    shiftBindings["PADRSTICK"] = ""
+    shiftBindings["PADFORWARD"] = ""
 
         -- Тачпад DualSense
-        PADBACK = "",
-        PAD6 = ""
-    }
+    shiftBindings["PADBACK"] = ""
+    shiftBindings["PAD6"] = ""
+    
+    local ctrlBindings = {}
+    
+    ctrlBindings["PAD1"] = ""
+    ctrlBindings["PAD2"] = ""
+    ctrlBindings["PAD3"] = ""
+    ctrlBindings["PAD4"] = ""
+    ctrlBindings["PADDUP"] = ""
+    ctrlBindings["PADDDOWN"] = ""
+    ctrlBindings["PADDLEFT"] = ""
+    ctrlBindings["PADDRIGHT"] = ""
+    ctrlBindings["PADLSTICK"] = ""
+    ctrlBindings["PADRSTICK"] = ""
+    ctrlBindings["PADFORWARD"] = ""
+
+    -- Тачпад DualSense
+    ctrlBindings["PADBACK"] = ""
+    ctrlBindings["PAD6"] = ""
 
     -- Установим основные биндинги
     SetOverrideBindingsForSet(baseBindings, nil, ConsoleMenu.HousingBindingFrame)
@@ -477,61 +483,61 @@ local function SetHousingCleanupModeBindings()
 end
 
 local function SetHousingLayoutModeBindings()
-    local baseBindings = {
-        PAD1 = "",
-        PAD2 = "",
-        PAD3 = "",
-        PAD4 = "",
-        PADDUP = "",
-        PADDDOWN = "",
-        PADDLEFT = "",
-        PADDRIGHT = "",
-        PADLTRIGGER = "HOUSING_TOGGLECLEANUPMODE",
-        PADRTRIGGER = "HOUSING_TOGGLEBASICDECORMODE",
-        PADLSTICK = "",
-        PADRSTICK = "",
-        PADFORWARD = "",
-
-        -- Тачпад DualSense
-        PADBACK = "HOUSING_TOGGLEEDITOR",
-        PAD6 = "HOUSING_TOGGLEEDITOR"
-    }
+    local baseBindings = {}
     
-    local shiftBindings = {
-        PAD1 = "",
-        PAD2 = "",
-        PAD3 = "",
-        PAD4 = "",
-        PADDUP = "",
-        PADDDOWN = "",
-        PADDLEFT = "",
-        PADDRIGHT = "",
-        PADLSTICK = "",
-        PADRSTICK = "",
-        PADFORWARD = "",
+    baseBindings["PAD1"] = ""
+    baseBindings["PAD2"] = ""
+    baseBindings["PAD3"] = ""
+    baseBindings["PAD4"] = ""
+    baseBindings["PADDUP"] = ""
+    baseBindings["PADDDOWN"] = ""
+    baseBindings["PADDLEFT"] = ""
+    baseBindings["PADDRIGHT"] = ""
+    baseBindings["PADLTRIGGER"] = "HOUSING_TOGGLECLEANUPMODE"
+    baseBindings["PADRTRIGGER"] = "HOUSING_TOGGLEBASICDECORMODE"
+    baseBindings["PADLSTICK"] = ""
+    baseBindings["PADRSTICK"] = ""
+    baseBindings["PADFORWARD"] = ""
 
         -- Тачпад DualSense
-        PADBACK = "",
-        PAD6 = ""
-    }
+    baseBindings["PADBACK"] = "HOUSING_TOGGLEEDITOR"
+    baseBindings["PAD6"] = "HOUSING_TOGGLEEDITOR"
     
-    local ctrlBindings = {
-        PAD1 = "",
-        PAD2 = "",
-        PAD3 = "",
-        PAD4 = "",
-        PADDUP = "",
-        PADDDOWN = "",
-        PADDLEFT = "",
-        PADDRIGHT = "",
-        PADLSTICK = "",
-        PADRSTICK = "",
-        PADFORWARD = "",
+    local shiftBindings = {}
+    
+    shiftBindings["PAD1"] = ""
+    shiftBindings["PAD2"] = ""
+    shiftBindings["PAD3"] = ""
+    shiftBindings["PAD4"] = ""
+    shiftBindings["PADDUP"] = ""
+    shiftBindings["PADDDOWN"] = ""
+    shiftBindings["PADDLEFT"] = ""
+    shiftBindings["PADDRIGHT"] = ""
+    shiftBindings["PADLSTICK"] = ""
+    shiftBindings["PADRSTICK"] = ""
+    shiftBindings["PADFORWARD"] = ""
 
         -- Тачпад DualSense
-        PADBACK = "",
-        PAD6 = ""
-    }
+    shiftBindings["PADBACK"] = ""
+    shiftBindings["PAD6"] = ""
+    
+    local ctrlBindings = {}
+    
+    ctrlBindings["PAD1"] = ""
+    ctrlBindings["PAD2"] = ""
+    ctrlBindings["PAD3"] = ""
+    ctrlBindings["PAD4"] = ""
+    ctrlBindings["PADDUP"] = ""
+    ctrlBindings["PADDDOWN"] = ""
+    ctrlBindings["PADDLEFT"] = ""
+    ctrlBindings["PADDRIGHT"] = ""
+    ctrlBindings["PADLSTICK"] = ""
+    ctrlBindings["PADRSTICK"] = ""
+    ctrlBindings["PADFORWARD"] = ""
+
+        -- Тачпад DualSense
+    ctrlBindings["PADBACK"] = ""
+    ctrlBindings["PAD6"] = ""
 
     -- Установим основные биндинги
     SetOverrideBindingsForSet(baseBindings, nil, ConsoleMenu.HousingBindingFrame)
@@ -544,61 +550,61 @@ local function SetHousingLayoutModeBindings()
 end
 
 local function SetHousingExteriorCustomizeModeBindings()
-    local baseBindings = {
-        PAD1 = "",
-        PAD2 = "",
-        PAD3 = "",
-        PAD4 = "",
-        PADDUP = "",
-        PADDDOWN = "",
-        PADDLEFT = "",
-        PADDRIGHT = "",
-        PADLTRIGGER = "",
-        PADRTRIGGER = "",
-        PADLSTICK = "",
-        PADRSTICK = "",
-        PADFORWARD = "",
-
-        -- Тачпад DualSense
-        PADBACK = "HOUSING_TOGGLEEDITOR",
-        PAD6 = "HOUSING_TOGGLEEDITOR"
-    }
+    local baseBindings = {}
     
-    local shiftBindings = {
-        PAD1 = "",
-        PAD2 = "",
-        PAD3 = "",
-        PAD4 = "",
-        PADDUP = "",
-        PADDDOWN = "",
-        PADDLEFT = "",
-        PADDRIGHT = "",
-        PADLSTICK = "",
-        PADRSTICK = "",
-        PADFORWARD = "",
+    baseBindings["PAD1"] = ""
+    baseBindings["PAD2"] = ""
+    baseBindings["PAD3"] = ""
+    baseBindings["PAD4"] = ""
+    baseBindings["PADDUP"] = ""
+    baseBindings["PADDDOWN"] = ""
+    baseBindings["PADDLEFT"] = ""
+    baseBindings["PADDRIGHT"] = ""
+    baseBindings["PADLTRIGGER"] = "HOUSING_TOGGLECLEANUPMODE"
+    baseBindings["PADRTRIGGER"] = "HOUSING_TOGGLEBASICDECORMODE"
+    baseBindings["PADLSTICK"] = ""
+    baseBindings["PADRSTICK"] = ""
+    baseBindings["PADFORWARD"] = ""
 
         -- Тачпад DualSense
-        PADBACK = "",
-        PAD6 = ""
-    }
+    baseBindings["PADBACK"] = "HOUSING_TOGGLEEDITOR"
+    baseBindings["PAD6"] = "HOUSING_TOGGLEEDITOR"
     
-    local ctrlBindings = {
-        PAD1 = "",
-        PAD2 = "",
-        PAD3 = "",
-        PAD4 = "",
-        PADDUP = "",
-        PADDDOWN = "",
-        PADDLEFT = "",
-        PADDRIGHT = "",
-        PADLSTICK = "",
-        PADRSTICK = "",
-        PADFORWARD = "",
+    local shiftBindings = {}
+    
+    shiftBindings["PAD1"] = ""
+    shiftBindings["PAD2"] = ""
+    shiftBindings["PAD3"] = ""
+    shiftBindings["PAD4"] = ""
+    shiftBindings["PADDUP"] = ""
+    shiftBindings["PADDDOWN"] = ""
+    shiftBindings["PADDLEFT"] = ""
+    shiftBindings["PADDRIGHT"] = ""
+    shiftBindings["PADLSTICK"] = ""
+    shiftBindings["PADRSTICK"] = ""
+    shiftBindings["PADFORWARD"] = ""
 
         -- Тачпад DualSense
-        PADBACK = "",
-        PAD6 = ""
-    }
+    shiftBindings["PADBACK"] = ""
+    shiftBindings["PAD6"] = ""
+    
+    local ctrlBindings = {}
+    
+    ctrlBindings["PAD1"] = ""
+    ctrlBindings["PAD2"] = ""
+    ctrlBindings["PAD3"] = ""
+    ctrlBindings["PAD4"] = ""
+    ctrlBindings["PADDUP"] = ""
+    ctrlBindings["PADDDOWN"] = ""
+    ctrlBindings["PADDLEFT"] = ""
+    ctrlBindings["PADDRIGHT"] = ""
+    ctrlBindings["PADLSTICK"] = ""
+    ctrlBindings["PADRSTICK"] = ""
+    ctrlBindings["PADFORWARD"] = ""
+
+    -- Тачпад DualSense
+    ctrlBindings["PADBACK"] = ""
+    ctrlBindings["PAD6"] = ""
 
     -- Установим основные биндинги
     SetOverrideBindingsForSet(baseBindings, nil, ConsoleMenu.HousingBindingFrame)
@@ -643,7 +649,7 @@ function ConsoleMenu:InitHousingBindingFrame()
                 SetHousingCleanupModeBindings()
             elseif currentEditMode == Enum.HouseEditorMode.Layout then
                 SetHousingLayoutModeBindings()
-            elseif currentEditMode == Enum.HouseEditorMode.ExteriorCustomize then
+            elseif currentEditMode == Enum.HouseEditorMode.ExteriorCustomization then
                 SetHousingExteriorCustomizeModeBindings()
             end
         elseif C_Housing.IsInsideHouseOrPlot() then
