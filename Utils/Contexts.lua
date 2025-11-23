@@ -142,7 +142,11 @@ local function SwitchActionBarPage()
         ChangeActionBarPage(3)
     else
         -- Исследование
-        ChangeActionBarPage(2)
+        if PlayerIsInCombat() then
+            ChangeActionBarPage(1)
+        else
+            ChangeActionBarPage(2)
+        end
     end
 end
 
