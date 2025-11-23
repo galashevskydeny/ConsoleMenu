@@ -50,6 +50,13 @@ local function SetBindingsForSet(bindings, modifier)
     end
 end
 
+local function SetOverrideBindingsForSet(bindings, modifier, frame)
+    for key, action in pairs(bindings) do
+        local bindingKey = modifier and (modifier .. "-" .. key) or key
+        SetOverrideBinding(frame, false, bindingKey, action)
+    end
+end
+
 
 function ConsoleMenu:SetBaseKeyBindings()
     -- Выполняем только если выбрана кастомная схема привязки
@@ -111,28 +118,95 @@ function ConsoleMenu:SetBaseKeyBindings()
         PADBACK = "TOGGLEWORLDMAP",
         PAD6 = "TOGGLEWORLDMAP"
     }
-
+    
     -- Очистим старые биндинги
     for key, _ in pairs(baseBindings) do
         SetBinding(key)
         SetBinding("SHIFT-" .. key)
         SetBinding("CTRL-" .. key)
     end
-    
+
     -- Установим основные биндинги
     SetBindingsForSet(baseBindings)
-    
+
     -- Установим SHIFT биндинги
     SetBindingsForSet(shiftBindings, "SHIFT")
-    
+
     -- Установим CTRL биндинги
     SetBindingsForSet(ctrlBindings, "CTRL")
-    
+
     -- Сохраним
     SaveBindings(GetCurrentBindingSet())
+    
 end
 
 -- Жилье
+local function SetHousingModeBindings()
+    local baseBindings = {
+        PAD1 = "",
+        PAD2 = "",
+        PAD3 = "",
+        PAD4 = "",
+        PADDUP = "",
+        PADDDOWN = "",
+        PADDLEFT = "",
+        PADDRIGHT = "",
+        PADLTRIGGER = "",
+        PADRTRIGGER = "",
+        PADLSTICK = "",
+        PADRSTICK = "",
+        PADFORWARD = "",
+
+        -- Тачпад DualSense
+        PADBACK = "HOUSING_TOGGLEEDITOR",
+        PAD6 = "HOUSING_TOGGLEEDITOR"
+    }
+    
+    local shiftBindings = {
+        PAD1 = "",
+        PAD2 = "",
+        PAD3 = "",
+        PAD4 = "",
+        PADDUP = "",
+        PADDDOWN = "",
+        PADDLEFT = "",
+        PADDRIGHT = "",
+        PADLSTICK = "",
+        PADRSTICK = "",
+        PADFORWARD = "",
+
+        -- Тачпад DualSense
+        PADBACK = "",
+        PAD6 = ""
+    }
+    
+    local ctrlBindings = {
+        PAD1 = "",
+        PAD2 = "",
+        PAD3 = "",
+        PAD4 = "",
+        PADDUP = "",
+        PADDDOWN = "",
+        PADDLEFT = "",
+        PADDRIGHT = "",
+        PADLSTICK = "",
+        PADRSTICK = "",
+        PADFORWARD = "",
+
+        -- Тачпад DualSense
+        PADBACK = "",
+        PAD6 = ""
+    }
+
+    -- Установим основные биндинги
+    SetOverrideBindingsForSet(baseBindings, nil, ConsoleMenu.HousingBindingFrame)
+    
+    -- Установим SHIFT биндинги
+    SetOverrideBindingsForSet(shiftBindings, "SHIFT", ConsoleMenu.HousingBindingFrame)
+    
+    -- Установим CTRL биндинги
+    SetOverrideBindingsForSet(ctrlBindings, "CTRL", ConsoleMenu.HousingBindingFrame)
+end
 
 local function SetHousingBasicDecorModeBindings()
     local baseBindings = {
@@ -191,24 +265,14 @@ local function SetHousingBasicDecorModeBindings()
         PAD6 = ""
     }
 
-    -- Очистим старые биндинги
-    for key, _ in pairs(baseBindings) do
-        SetBinding(key)
-        SetBinding("SHIFT-" .. key)
-        SetBinding("CTRL-" .. key)
-    end
-    
     -- Установим основные биндинги
-    SetBindingsForSet(baseBindings)
+    SetOverrideBindingsForSet(baseBindings, nil, ConsoleMenu.HousingBindingFrame)
     
     -- Установим SHIFT биндинги
-    SetBindingsForSet(shiftBindings, "SHIFT")
+    SetOverrideBindingsForSet(shiftBindings, "SHIFT", ConsoleMenu.HousingBindingFrame)
     
     -- Установим CTRL биндинги
-    SetBindingsForSet(ctrlBindings, "CTRL")
-    
-    -- Сохраним
-    SaveBindings(GetCurrentBindingSet())
+    SetOverrideBindingsForSet(ctrlBindings, "CTRL", ConsoleMenu.HousingBindingFrame)
 end
 
 local function SetHousingExpertDecorModeBindings()
@@ -268,24 +332,14 @@ local function SetHousingExpertDecorModeBindings()
         PAD6 = ""
     }
 
-    -- Очистим старые биндинги
-    for key, _ in pairs(baseBindings) do
-        SetBinding(key)
-        SetBinding("SHIFT-" .. key)
-        SetBinding("CTRL-" .. key)
-    end
-    
     -- Установим основные биндинги
-    SetBindingsForSet(baseBindings)
-    
+    SetOverrideBindingsForSet(baseBindings, nil, ConsoleMenu.HousingBindingFrame)
+        
     -- Установим SHIFT биндинги
-    SetBindingsForSet(shiftBindings, "SHIFT")
+    SetOverrideBindingsForSet(shiftBindings, "SHIFT", ConsoleMenu.HousingBindingFrame)
     
     -- Установим CTRL биндинги
-    SetBindingsForSet(ctrlBindings, "CTRL")
-    
-    -- Сохраним
-    SaveBindings(GetCurrentBindingSet())
+    SetOverrideBindingsForSet(ctrlBindings, "CTRL", ConsoleMenu.HousingBindingFrame)
 end
 
 local function SetHousingCustomizeModeBindings()
@@ -345,24 +399,14 @@ local function SetHousingCustomizeModeBindings()
         PAD6 = ""
     }
 
-    -- Очистим старые биндинги
-    for key, _ in pairs(baseBindings) do
-        SetBinding(key)
-        SetBinding("SHIFT-" .. key)
-        SetBinding("CTRL-" .. key)
-    end
-    
     -- Установим основные биндинги
-    SetBindingsForSet(baseBindings)
+    SetOverrideBindingsForSet(baseBindings, nil, ConsoleMenu.HousingBindingFrame)
     
     -- Установим SHIFT биндинги
-    SetBindingsForSet(shiftBindings, "SHIFT")
+    SetOverrideBindingsForSet(shiftBindings, "SHIFT", ConsoleMenu.HousingBindingFrame)
     
     -- Установим CTRL биндинги
-    SetBindingsForSet(ctrlBindings, "CTRL")
-    
-    -- Сохраним
-    SaveBindings(GetCurrentBindingSet())
+    SetOverrideBindingsForSet(ctrlBindings, "CTRL", ConsoleMenu.HousingBindingFrame)
 end
 
 local function SetHousingCleanupModeBindings()
@@ -422,24 +466,14 @@ local function SetHousingCleanupModeBindings()
         PAD6 = ""
     }
 
-    -- Очистим старые биндинги
-    for key, _ in pairs(baseBindings) do
-        SetBinding(key)
-        SetBinding("SHIFT-" .. key)
-        SetBinding("CTRL-" .. key)
-    end
-    
     -- Установим основные биндинги
-    SetBindingsForSet(baseBindings)
+    SetOverrideBindingsForSet(baseBindings, nil, ConsoleMenu.HousingBindingFrame)
     
     -- Установим SHIFT биндинги
-    SetBindingsForSet(shiftBindings, "SHIFT")
+    SetOverrideBindingsForSet(shiftBindings, "SHIFT", ConsoleMenu.HousingBindingFrame)
     
     -- Установим CTRL биндинги
-    SetBindingsForSet(ctrlBindings, "CTRL")
-    
-    -- Сохраним
-    SaveBindings(GetCurrentBindingSet())
+    SetOverrideBindingsForSet(ctrlBindings, "CTRL", ConsoleMenu.HousingBindingFrame)
 end
 
 local function SetHousingLayoutModeBindings()
@@ -499,24 +533,14 @@ local function SetHousingLayoutModeBindings()
         PAD6 = ""
     }
 
-    -- Очистим старые биндинги
-    for key, _ in pairs(baseBindings) do
-        SetBinding(key)
-        SetBinding("SHIFT-" .. key)
-        SetBinding("CTRL-" .. key)
-    end
-    
     -- Установим основные биндинги
-    SetBindingsForSet(baseBindings)
-    
+    SetOverrideBindingsForSet(baseBindings, nil, ConsoleMenu.HousingBindingFrame)
+        
     -- Установим SHIFT биндинги
-    SetBindingsForSet(shiftBindings, "SHIFT")
-    
+    SetOverrideBindingsForSet(shiftBindings, "SHIFT", ConsoleMenu.HousingBindingFrame)
+
     -- Установим CTRL биндинги
-    SetBindingsForSet(ctrlBindings, "CTRL")
-    
-    -- Сохраним
-    SaveBindings(GetCurrentBindingSet())
+    SetOverrideBindingsForSet(ctrlBindings, "CTRL", ConsoleMenu.HousingBindingFrame)
 end
 
 local function SetHousingExteriorCustomizeModeBindings()
@@ -576,24 +600,14 @@ local function SetHousingExteriorCustomizeModeBindings()
         PAD6 = ""
     }
 
-    -- Очистим старые биндинги
-    for key, _ in pairs(baseBindings) do
-        SetBinding(key)
-        SetBinding("SHIFT-" .. key)
-        SetBinding("CTRL-" .. key)
-    end
-    
     -- Установим основные биндинги
-    SetBindingsForSet(baseBindings)
+    SetOverrideBindingsForSet(baseBindings, nil, ConsoleMenu.HousingBindingFrame)
     
     -- Установим SHIFT биндинги
-    SetBindingsForSet(shiftBindings, "SHIFT")
+    SetOverrideBindingsForSet(shiftBindings, "SHIFT", ConsoleMenu.HousingBindingFrame)
     
     -- Установим CTRL биндинги
-    SetBindingsForSet(ctrlBindings, "CTRL")
-    
-    -- Сохраним
-    SaveBindings(GetCurrentBindingSet())
+    SetOverrideBindingsForSet(ctrlBindings, "CTRL", ConsoleMenu.HousingBindingFrame)
 end
 
 -- Модуль для отслеживания взаимодействия
@@ -603,22 +617,37 @@ function ConsoleMenu:InitHousingBindingFrame()
     end
     
     self.HousingBindingFrame:RegisterEvent("HOUSE_EDITOR_MODE_CHANGED")
+    self.HousingBindingFrame:RegisterEvent("HOUSE_EDITOR_AVAILABILITY_CHANGED")
+    self.HousingBindingFrame:RegisterEvent("HOUSE_INFO_UPDATED")
+    self.HousingBindingFrame:RegisterEvent("CURRENT_HOUSE_INFO_RECIEVED")
+    self.HousingBindingFrame:RegisterEvent("HOUSE_PLOT_ENTERED")
+    self.HousingBindingFrame:RegisterEvent("HOUSE_PLOT_EXITED")
 
     self.HousingBindingFrame:SetScript("OnEvent", function(frame, event, ...)
-        local currentEditMode = ...
 
-        if currentEditMode == Enum.HouseEditorMode.BasicDecor then
-            SetHousingBasicDecorModeBindings()
-        elseif currentEditMode == Enum.HouseEditorMode.ExpertDecor then
-            SetHousingExpertDecorModeBindings()
-        elseif currentEditMode == Enum.HouseEditorMode.Customize then
-            SetHousingCustomizeModeBindings()
-        elseif currentEditMode == Enum.HouseEditorMode.Cleanup then
-            SetHousingCleanupModeBindings()
-        elseif currentEditMode == Enum.HouseEditorMode.Layout then
-            SetHousingLayoutModeBindings()
-        elseif currentEditMode == Enum.HouseEditorMode.ExteriorCustomize then
-            SetHousingExteriorCustomizeModeBindings()
+        if not C_Housing.IsInsideHouseOrPlot() then
+            ClearOverrideBindings(ConsoleMenu.HousingBindingFrame)
+            return
+        end
+
+        if event == "HOUSE_EDITOR_MODE_CHANGED" then
+            local currentEditMode = ...
+
+            if currentEditMode == Enum.HouseEditorMode.BasicDecor then
+                SetHousingBasicDecorModeBindings()
+            elseif currentEditMode == Enum.HouseEditorMode.ExpertDecor then
+                SetHousingExpertDecorModeBindings()
+            elseif currentEditMode == Enum.HouseEditorMode.Customize then
+                SetHousingCustomizeModeBindings()
+            elseif currentEditMode == Enum.HouseEditorMode.Cleanup then
+                SetHousingCleanupModeBindings()
+            elseif currentEditMode == Enum.HouseEditorMode.Layout then
+                SetHousingLayoutModeBindings()
+            elseif currentEditMode == Enum.HouseEditorMode.ExteriorCustomize then
+                SetHousingExteriorCustomizeModeBindings()
+            end
+        elseif C_Housing.IsInsideHouseOrPlot() then
+            SetHousingModeBindings()
         end
     end)
 end
