@@ -179,10 +179,10 @@ local function SetHousingButtonBinding(...)
         local submode = C_HousingExpertMode.GetPrecisionSubmode()
 
         if submode == Enum.HousingPrecisionSubmode.Translate then
-            baseBindings["PADDUP"] = "HOUSING_EXPERTDECORINCREMENT_BACK"
-            baseBindings["PADDDOWN"] = "HOUSING_EXPERTDECORINCREMENT_FORWARD"
-            baseBindings["PADDLEFT"] = "HOUSING_EXPERTDECORINCREMENT_RIGHT"
-            baseBindings["PADDRIGHT"] = "HOUSING_EXPERTDECORINCREMENT_LEFT"  
+            baseBindings["PADDUP"] = "HOUSING_EXPERTDECORINCREMENT_FORWARD"
+            baseBindings["PADDDOWN"] = "HOUSING_EXPERTDECORINCREMENT_BACK"
+            baseBindings["PADDLEFT"] = "HOUSING_EXPERTDECORINCREMENT_LEFT"
+            baseBindings["PADDRIGHT"] = "HOUSING_EXPERTDECORINCREMENT_RIGHT"  
 
             if C_HousingExpertMode.GetSelectedDecorInfo() then
                 SetCVar("GamePadStickAxisButtons", "1")
