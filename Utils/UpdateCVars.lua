@@ -118,7 +118,7 @@ end
 
 -- Применяет настройки GamePad CVars
 local function ApplyGamePadCVars()
-    SetCVar("GamePadEnabled", "1")
+    SetCVar("GamePadEnable", "1")
     SetCVar("GamePadEmulateShift", "PADRSHOULDER")
     SetCVar("GamePadEmulateCtrl", "PADRTRIGGER")
 end
