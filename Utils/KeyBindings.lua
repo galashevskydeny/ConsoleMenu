@@ -182,7 +182,7 @@ local function NavigateStorageCategory(currentCategoryID, currentSubcategoryID, 
                 resultSubcategoryID = nil
                 subcategories = GetStorageSubcategories(resultCategoryID)
                 if subcategories and #subcategories > 1 then
-                    resultSubcategoryID = subcategories[1]
+                    resultSubcategoryID = subcategories[0]
                 end
             elseif currentSubcatIndex then
                 resultCategoryID = currentCategoryID
@@ -196,7 +196,7 @@ local function NavigateStorageCategory(currentCategoryID, currentSubcategoryID, 
             resultSubcategoryID = nil
             subcategories = GetStorageSubcategories(resultCategoryID)
             if subcategories and #subcategories > 1 then
-                resultSubcategoryID = subcategories[1]
+                resultSubcategoryID = subcategories[0]
             end
         end
     else
