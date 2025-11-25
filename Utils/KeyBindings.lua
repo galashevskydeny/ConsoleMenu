@@ -201,7 +201,49 @@ local function NavigateStorageCategory(currentCategoryID, currentSubcategoryID, 
         end
     else
         -- Движение назад
-        
+        if currentCatIndex and currentCatIndex == 1 then
+            -- Если сейчас на первой категории, перейти к последней
+            resultCategoryID = categories[#categories]
+            resultSubcategoryID = nil
+            subcategories = GetStorageSubcategories(resultCategoryID)
+            if subcategories and #subcategories > 1 then
+                resultSubcategoryID = subcategories[#subcategories]
+            end
+
+            return resultCategoryID, resultSubcategoryID
+        end
+
+        if #subcategories > 1 then
+            if currentSubcatIndex and currentSubcatIndex == 0 then
+                -- Если сейчас на первой подкатегории, перейти к предыдущей категории и к последней ее подкатегории
+                resultCategoryID = categories[currentCatIndex - 1]
+                resultSubcategoryID = nil
+                subcategories = GetStorageSubcategories(resultCategoryID)
+                if subcategories and #subcategories > 1 then
+                    resultSubcategoryID = subcategories[#subcategories]
+                end
+            elseif currentSubcatIndex then
+                -- Переместиться к предыдущей подкатегории в рамках текущей категории
+                resultCategoryID = currentCategoryID
+                resultSubcategoryID = subcategories[currentSubcatIndex - 1]
+            else
+                -- Нет активной подкатегории, выбрать последнюю
+                resultCategoryID = categories[currentCatIndex - 1]
+                resultSubcategoryID = nil
+                subcategories = GetStorageSubcategories(resultCategoryID)
+                if subcategories and #subcategories > 1 then
+                    resultSubcategoryID = subcategories[#subcategories]
+                end
+            end
+        else
+            -- Нет подкатегорий, сдвинуться к предыдущей категории
+            resultCategoryID = categories[currentCatIndex - 1]
+            resultSubcategoryID = nil
+            subcategories = GetStorageSubcategories(resultCategoryID)
+            if subcategories and #subcategories > 1 then
+                resultSubcategoryID = subcategories[#subcategories]
+            end
+        end
     end
     
     return resultCategoryID, resultSubcategoryID
