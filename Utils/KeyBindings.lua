@@ -62,6 +62,426 @@ local function SetOverrideBindingsForSet(bindings, modifier, frame)
     end
 end
 
+-- Модуль для отслеживания системы жилищ
+
+-- Вспомогательная функция для вывода таблицы
+local function PrintTable(tbl, indent)
+    indent = indent or 0
+    local indentStr = string.rep("  ", indent)
+    for k, v in pairs(tbl) do
+        if type(v) == "table" then
+            print(indentStr .. tostring(k) .. " = {")
+            PrintTable(v, indent + 1)
+            print(indentStr .. "}")
+        else
+            print(indentStr .. tostring(k) .. " = " .. tostring(v))
+        end
+    end
+end
+
+-- Вспомогательная функция для получения списка категорий из StoragePanel
+local function GetStorageCategories()
+    local storagePanel = HouseEditorFrame and HouseEditorFrame.StoragePanel
+    if not storagePanel or not storagePanel.Categories then
+        return {}
+    end
+    
+    local categories = storagePanel.Categories.categories
+
+    local categoriesToShow = {};
+    
+	for categoryID, category in pairs(categories) do
+        if storagePanel.Categories:DoesCategoryPassFilters(categoryID) then
+			table.insert(categoriesToShow, category);
+		end
+	end
+
+    table.sort(categoriesToShow, function (c1, c2) return c1.categoryInfo.orderIndex < c2.categoryInfo.orderIndex; end )
+
+    local categoryIDs = {}
+    for i, category in ipairs(categoriesToShow) do
+        table.insert(categoryIDs, category.categoryInfo.ID)
+    end
+
+    return categoryIDs
+end
+
+-- Вспомогательная функция для получения списка подкатегорий из StoragePanel
+local function GetStorageSubcategories(categoryID)
+    local storagePanel = HouseEditorFrame and HouseEditorFrame.StoragePanel
+    if not storagePanel or not storagePanel.Categories then
+        return {}
+    end
+
+    local categories = storagePanel.Categories.categories
+
+    local subcategoriesToShow = {}
+	for subcategoryID, subcategoryInfo in pairs(categories[categoryID].subcategoryInfos) do
+        if storagePanel.Categories:DoesSubcategoryPassFilters(subcategoryID) then
+			table.insert(subcategoriesToShow, subcategoryInfo);
+		end
+	end
+
+	if #subcategoriesToShow <= 1 then
+		return nil
+	end
+
+	table.sort(subcategoriesToShow, function (s1, s2) return s1.orderIndex < s2.orderIndex; end );
+    print("--------------------------------")
+    print(categories[categoryID].categoryInfo.name)
+    local categoryIDs = {}
+    for i, category in ipairs(subcategoriesToShow) do
+        table.insert(categoryIDs, category.ID)
+        print("subcategoryInfos:")
+        PrintTable(category)
+    end
+
+    return categoryIDs
+end
+
+-- Вспомогательная функция для поиска индекса категории
+local function FindCategoryIndex(categoryIDs, categoryID)
+    if not categoryIDs then
+        return nil
+    end
+    for idx, catID in ipairs(categoryIDs) do
+        if catID == categoryID then
+            return idx
+        end
+    end
+    return nil
+end
+
+-- Общая функция для навигации по категориям (forward = true для следующей, false для предыдущей)
+local function NavigateStorageCategory(currentCategoryID, currentSubcategoryID, forward)
+
+    local resultCategoryID, resultSubcategoryID
+
+    local categories = GetStorageCategories()
+    local subcategories = GetStorageSubcategories(currentCategoryID) or {}
+
+    local currentCatIndex = FindCategoryIndex(categories, currentCategoryID)
+    local currentSubcatIndex = FindCategoryIndex(subcategories, currentSubcategoryID)
+
+    if forward then
+
+        if currentCatIndex and currentCatIndex == #categories then
+            resultCategoryID = categories[1]
+            resultSubcategoryID = nil
+            subcategories = GetStorageSubcategories(resultCategoryID)
+            if subcategories and #subcategories > 1 then
+                resultSubcategoryID = subcategories[1]
+            end
+
+            return resultCategoryID, resultSubcategoryID
+        end
+
+        if #subcategories > 1 then
+            if currentSubcatIndex and currentSubcatIndex == #subcategories then
+                resultCategoryID = categories[currentCatIndex + 1]
+                resultSubcategoryID = nil
+                subcategories = GetStorageSubcategories(resultCategoryID)
+                if subcategories and #subcategories > 1 then
+                    resultSubcategoryID = subcategories[1]
+                end
+            elseif currentSubcatIndex then
+                resultCategoryID = currentCategoryID
+                resultSubcategoryID = subcategories[currentSubcatIndex + 1]
+            else
+                resultCategoryID = currentCategoryID
+                resultSubcategoryID = subcategories[1]
+            end
+        else
+            resultCategoryID = categories[currentCatIndex + 1]
+            resultSubcategoryID = nil
+            subcategories = GetStorageSubcategories(resultCategoryID)
+            if subcategories and #subcategories > 1 then
+                resultSubcategoryID = subcategories[1]
+            end
+        end
+    else
+        -- Движение назад
+        
+    end
+    
+    return resultCategoryID, resultSubcategoryID
+end
+
+-- Общая функция для установки следующей/предыдущей категории и подкатегории в StoragePanel
+local function SetStorageCategory(forward)
+    local storagePanel = HouseEditorFrame and HouseEditorFrame.StoragePanel
+    if not storagePanel or not storagePanel.Categories then
+        return
+    end
+    
+    local currentCategoryID = storagePanel.Categories.focusedCategoryID
+    local currentSubcategoryID = storagePanel.Categories.focusedSubcategoryID
+    
+    local categoryID, subcategoryID = NavigateStorageCategory(currentCategoryID, currentSubcategoryID, forward)
+    if categoryID then
+        storagePanel.Categories:SetFocus(categoryID, subcategoryID)
+    end
+end
+
+-- Функция для установки следующей категории и подкатегории в StoragePanel
+local function SetNextStorageCategory()
+    SetStorageCategory(true)
+end
+
+-- Функция для установки предыдущей категории и подкатегории в StoragePanel
+local function SetPreviousStorageCategory()
+    SetStorageCategory(false)
+end
+
+local function SetHousingButtonBinding(...)
+    local currentEditMode = C_HouseEditor.GetActiveHouseEditorMode()
+
+    local baseBindings = {}
+
+    baseBindings["PAD4"] = "HOUSING_REMOVEDECOR"
+    
+    -- Тачпад DualSense
+    baseBindings["PADBACK"] = "HOUSING_TOGGLEEDITOR"
+    baseBindings["PAD6"] = "HOUSING_TOGGLEEDITOR"
+
+    SetCVar("GamePadStickAxisButtons", "0")
+    SetCVar("GamePadCameraPitchSpeed", "1")
+    SetCVar("GamePadCameraYawSpeed", "1")
+
+    if currentEditMode == Enum.HouseEditorMode.BasicDecor then
+        baseBindings["PADLTRIGGER"] = "HOUSING_TOGGLELAYOUTMODE"
+        baseBindings["PADRTRIGGER"] = "HOUSING_TOGGLEEXPERTDECORMODE"
+
+        baseBindings["PADDLEFT"] = "HOUSING_BASICDECOR_ROTATELEFT"
+        baseBindings["PADDRIGHT"] = "HOUSING_BASICDECOR_ROTATERIGHT"  
+
+        baseBindings["PADRSHOULDER"] = "CLICK ConsoleMenuHousingNextCategoryButton:LeftButton"
+        baseBindings["PADLSHOULDER"] = "CLICK ConsoleMenuHousingPrevCategoryButton:LeftButton"
+
+        if not C_Housing.IsInsideHouse() then
+            baseBindings["PADLTRIGGER"] = "HOUSING_TOGGLEEXTERIORCUSTOMIZEMODE"
+        end
+    elseif currentEditMode == Enum.HouseEditorMode.ExpertDecor then
+        baseBindings["PADLTRIGGER"] = "HOUSING_TOGGLEBASICDECORMODE"
+        baseBindings["PADRTRIGGER"] = "HOUSING_TOGGLECUSTOMIZEMODE"
+
+        local submode = C_HousingExpertMode.GetPrecisionSubmode()
+
+        if submode == Enum.HousingPrecisionSubmode.Translate then
+            baseBindings["PADDUP"] = "HOUSING_EXPERTDECORINCREMENT_FORWARD"
+            baseBindings["PADDDOWN"] = "HOUSING_EXPERTDECORINCREMENT_BACK"
+            baseBindings["PADDLEFT"] = "HOUSING_EXPERTDECORINCREMENT_LEFT"
+            baseBindings["PADDRIGHT"] = "HOUSING_EXPERTDECORINCREMENT_RIGHT"  
+
+            if C_HousingExpertMode.GetSelectedDecorInfo() then
+                SetCVar("GamePadStickAxisButtons", "1")
+                SetCVar("GamePadCameraPitchSpeed", "0")
+                SetCVar("GamePadCameraYawSpeed", "0")
+            end
+
+            baseBindings["PADRSTICKUP"] = "HOUSING_EXPERTDECORINCREMENT_UP"
+            baseBindings["PADRSTICKDOWN"] = "HOUSING_EXPERTDECORINCREMENT_DOWN"
+    
+            baseBindings["PADRSHOULDER"] = "HOUSING_EXPERTDECORROTATESUBMODE"
+            baseBindings["PADLSHOULDER"] = "HOUSING_EXPERTDECORSCALESUBMODE"
+        elseif submode == Enum.HousingPrecisionSubmode.Rotate then
+            baseBindings["PADDLEFT"] = "HOUSING_EXPERTDECORINCREMENT_ROTATELEFT"
+            baseBindings["PADDRIGHT"] = "HOUSING_EXPERTDECORINCREMENT_ROTATERIGHT" 
+    
+            baseBindings["PADDUP"] = "HOUSING_EXPERTDECORROTATION_NEXTAXIS"
+            baseBindings["PADDDOWN"] = "HOUSING_EXPERTDECORROTATION_NEXTAXIS"
+    
+            baseBindings["PADRSHOULDER"] = "HOUSING_EXPERTDECORSCALESUBMODE"
+            baseBindings["PADLSHOULDER"] = "HOUSING_EXPERTDECORTRANSLATESUBMODE"
+    
+        elseif submode == Enum.HousingPrecisionSubmode.Scale then
+            baseBindings["PADDLEFT"] = "HOUSING_EXPERTDECORINCREMENT_SCALEDOWN"
+            baseBindings["PADDRIGHT"] = "HOUSING_EXPERTDECORINCREMENT_SCALEUP" 
+    
+            baseBindings["PADRSHOULDER"] = "HOUSING_EXPERTDECORTRANSLATESUBMODE"
+            baseBindings["PADLSHOULDER"] = "HOUSING_EXPERTDECORROTATESUBMODE"
+        end
+
+    elseif currentEditMode == Enum.HouseEditorMode.Customize then
+        baseBindings["PADLTRIGGER"] = "HOUSING_TOGGLEEXPERTDECORMODE"
+        baseBindings["PADRTRIGGER"] = "HOUSING_TOGGLECLEANUPMODE"
+    elseif currentEditMode == Enum.HouseEditorMode.Cleanup then
+        baseBindings["PADLTRIGGER"] = "HOUSING_TOGGLECUSTOMIZEMODE"
+        baseBindings["PADRTRIGGER"] = "HOUSING_TOGGLELAYOUTMODE"
+
+        if not C_Housing.IsInsideHouse() then
+            baseBindings["PADRTRIGGER"] = "HOUSING_TOGGLEEXTERIORCUSTOMIZEMODE"
+        end
+    elseif currentEditMode == Enum.HouseEditorMode.Layout then
+        baseBindings["PADLTRIGGER"] = "HOUSING_TOGGLECLEANUPMODE"
+        baseBindings["PADRTRIGGER"] = "HOUSING_TOGGLEBASICDECORMODE"
+    elseif currentEditMode == Enum.HouseEditorMode.ExteriorCustomization then
+        baseBindings["PADLTRIGGER"] = "HOUSING_TOGGLECLEANUPMODE"
+        baseBindings["PADRTRIGGER"] = "HOUSING_TOGGLEBASICDECORMODE"
+    end
+
+    -- Установим основные биндинги
+    SetOverrideBindingsForSet(baseBindings, nil, ConsoleMenu.HousingBindingFrame)
+end
+
+function ConsoleMenu:InitHousingBindingFrame()
+    if not C_Housing then
+        return
+    end
+
+    if not self.HousingBindingFrame then
+        self.HousingBindingFrame = CreateFrame("Frame")
+        
+        -- Создаем кнопку для переключения категории/подкатегории вперед
+        local nextCategoryButton = CreateFrame("Button", "ConsoleMenuHousingNextCategoryButton", HouseEditorFrame)
+        nextCategoryButton:SetSize(1, 1)
+        nextCategoryButton:SetPoint("TOPLEFT", HouseEditorFrame, "TOPLEFT", 0, 0)
+        nextCategoryButton:SetScript("OnClick", function(self, button)
+            SetNextStorageCategory()
+        end)
+        
+        -- Создаем кнопку для переключения категории/подкатегории назад
+        local prevCategoryButton = CreateFrame("Button", "ConsoleMenuHousingPrevCategoryButton", HouseEditorFrame)
+        prevCategoryButton:SetSize(1, 1)
+        prevCategoryButton:SetPoint("TOPLEFT", HouseEditorFrame, "TOPLEFT", 0, 0)
+        prevCategoryButton:SetScript("OnClick", function(self, button)
+            SetPreviousStorageCategory()
+        end)
+        
+    end
+    
+    self.HousingBindingFrame:RegisterEvent("HOUSE_EDITOR_MODE_CHANGED")
+    self.HousingBindingFrame:RegisterEvent("HOUSING_DECOR_PRECISION_SUBMODE_CHANGED")
+    self.HousingBindingFrame:RegisterEvent("HOUSING_EXPERT_MODE_SELECTED_TARGET_CHANGED")
+    self.HousingBindingFrame:RegisterEvent("HOUSE_EDITOR_AVAILABILITY_CHANGED")
+    self.HousingBindingFrame:RegisterEvent("HOUSE_INFO_UPDATED")
+    self.HousingBindingFrame:RegisterEvent("CURRENT_HOUSE_INFO_RECIEVED")
+    self.HousingBindingFrame:RegisterEvent("HOUSE_PLOT_ENTERED")
+    self.HousingBindingFrame:RegisterEvent("HOUSE_PLOT_EXITED")
+
+    self.HousingBindingFrame:SetScript("OnEvent", function(frame, event, ...)
+
+        if not C_Housing.IsInsideHouseOrPlot() then
+            ClearOverrideBindings(ConsoleMenu.HousingBindingFrame)
+            return
+        end
+
+        SetHousingButtonBinding(...)
+    end)
+end
+
+-- Модуль для отслеживания взаимодействия
+function ConsoleMenu:InitInteractBindingFrame()
+    if not self.InteractBindingFrame then
+        self.InteractBindingFrame = CreateFrame("Frame")
+    end
+    
+    self.InteractBindingFrame:RegisterEvent("PLAYER_SOFT_INTERACT_CHANGED")
+    self.InteractBindingFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+    self.InteractBindingFrame:RegisterEvent("PLAYER_SOFT_ENEMY_CHANGED")
+
+    self.InteractBindingFrame:SetScript("OnEvent", function(frame, event, ...)
+        if not ConsoleMenu or not ConsoleMenu.SetInteractBinding then
+            return
+        end
+        
+        if event == "PLAYER_SOFT_INTERACT_CHANGED" then
+            local oldTarget, newTarget = ...
+            ConsoleMenu:SetInteractBinding(newTarget)
+        elseif event == "PLAYER_ENTERING_WORLD" then
+            local oldTarget, newTarget
+            ConsoleMenu:SetInteractBinding(newTarget)
+        elseif event == "PLAYER_SOFT_ENEMY_CHANGED" then
+            -- Отменяем override бинды при появлении враждебной soft-target цели
+            if not InCombatLockdown() then
+                ClearOverrideBindings(frame)
+            else
+
+            end
+        end
+    end)
+end
+
+function ConsoleMenu:SetInteractBinding(newTarget)
+
+    if ConsoleMenuDB and ConsoleMenuDB.overrideInteractKey == 2 then
+        return
+    end
+
+    if InCombatLockdown and InCombatLockdown() then
+        return
+    end
+
+    -- Проверяем, есть ли враг, перед установкой override бинда
+    local hasEnemy = false
+    if UnitExists("softenemy") and UnitCanAttack("player", "softenemy") then
+        hasEnemy = true
+    elseif UnitExists("target") and UnitCanAttack("player", "target") then
+        hasEnemy = true
+    end
+
+    if newTarget and not hasEnemy then
+        SetOverrideBinding(self.InteractBindingFrame, true, ConsoleMenuDB.interactButton, "INTERACTTARGET")
+    else
+        ClearOverrideBindings(self.InteractBindingFrame)
+    end
+end
+
+-- Модуль для отслеживания способности зоны PAD6 и PADBACK
+function ConsoleMenu:InitZoneAbilityBindingFrame()
+    if not self.ZoneAbilityBindingFrame then
+        self.ZoneAbilityBindingFrame = CreateFrame("Frame")
+    end
+    
+    self.ZoneAbilityBindingFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+    self.ZoneAbilityBindingFrame:RegisterEvent("PLAYER_LOSES_VEHICLE_DATA")
+    self.ZoneAbilityBindingFrame:RegisterEvent("PLAYER_GAINS_VEHICLE_DATA")
+    self.ZoneAbilityBindingFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+    self.ZoneAbilityBindingFrame:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED")
+
+    self.ZoneAbilityBindingFrame:SetScript("OnEvent", function(self, event, ...)
+        if not ConsoleMenu or not ConsoleMenu.SetBindingsZoneAbility then
+            return
+        end
+        
+        ConsoleMenu:SetBindingsZoneAbility()
+    end)
+end
+
+function ConsoleMenu:SetBindingsZoneAbility()
+    
+    if ConsoleMenuDB.overrideZoneAbilityKey == 2 then
+        ClearOverrideBindings(self.ZoneAbilityBindingFrame)
+        return
+    end
+
+    if InCombatLockdown and InCombatLockdown() then
+        return
+    end
+
+    -- Получаем активные зоновые способности
+    local zoneAbilities = C_ZoneAbility.GetActiveAbilities()
+    
+    if zoneAbilities and #zoneAbilities > 0 then
+        local firstAbility = zoneAbilities[1]
+        if firstAbility and firstAbility.spellID then
+            local spellID = firstAbility.spellID
+            local spellInfo = spellID and C_Spell.GetSpellInfo(spellID)
+            if spellInfo and spellInfo.name then
+                ClearOverrideBindings(self.ZoneAbilityBindingFrame)
+                SetOverrideBindingSpell(self.ZoneAbilityBindingFrame, true, "PAD6", spellInfo.name)
+                SetOverrideBindingSpell(self.ZoneAbilityBindingFrame, true, "PADBACK", spellInfo.name)
+            else
+                ClearOverrideBindings(self.ZoneAbilityBindingFrame)
+            end
+        else
+            ClearOverrideBindings(self.ZoneAbilityBindingFrame)
+        end
+    else
+        ClearOverrideBindings(self.ZoneAbilityBindingFrame)
+    end
+end
+
 -- Авторская схема привязок
 function ConsoleMenu:SetBaseKeyBindings()
     -- Выполняем только если выбрана кастомная схема привязки
@@ -143,233 +563,4 @@ function ConsoleMenu:SetBaseKeyBindings()
     -- Сохраним
     SaveBindings(GetCurrentBindingSet())
     
-end
-
--- Модуль для отслеживания системы жилищ
-local function SetHousingButtonBinding(...)
-    local currentEditMode = C_HouseEditor.GetActiveHouseEditorMode()
-
-    local baseBindings = {}
-
-    baseBindings["PAD4"] = "HOUSING_REMOVEDECOR"
-    
-    -- Тачпад DualSense
-    baseBindings["PADBACK"] = "HOUSING_TOGGLEEDITOR"
-    baseBindings["PAD6"] = "HOUSING_TOGGLEEDITOR"
-
-    SetCVar("GamePadStickAxisButtons", "0")
-    SetCVar("GamePadCameraPitchSpeed", "1")
-    SetCVar("GamePadCameraYawSpeed", "1")
-
-    if currentEditMode == Enum.HouseEditorMode.BasicDecor then
-        baseBindings["PADLTRIGGER"] = "HOUSING_TOGGLELAYOUTMODE"
-        baseBindings["PADRTRIGGER"] = "HOUSING_TOGGLEEXPERTDECORMODE"
-
-        baseBindings["PADDLEFT"] = "HOUSING_BASICDECOR_ROTATELEFT"
-        baseBindings["PADDRIGHT"] = "HOUSING_BASICDECOR_ROTATERIGHT"  
-
-
-        if not C_Housing.IsInsideHouse() then
-            baseBindings["PADLTRIGGER"] = "HOUSING_TOGGLEEXTERIORCUSTOMIZEMODE"
-        end
-    elseif currentEditMode == Enum.HouseEditorMode.ExpertDecor then
-        baseBindings["PADLTRIGGER"] = "HOUSING_TOGGLEBASICDECORMODE"
-        baseBindings["PADRTRIGGER"] = "HOUSING_TOGGLECUSTOMIZEMODE"
-
-        local submode = C_HousingExpertMode.GetPrecisionSubmode()
-
-        if submode == Enum.HousingPrecisionSubmode.Translate then
-            baseBindings["PADDUP"] = "HOUSING_EXPERTDECORINCREMENT_FORWARD"
-            baseBindings["PADDDOWN"] = "HOUSING_EXPERTDECORINCREMENT_BACK"
-            baseBindings["PADDLEFT"] = "HOUSING_EXPERTDECORINCREMENT_LEFT"
-            baseBindings["PADDRIGHT"] = "HOUSING_EXPERTDECORINCREMENT_RIGHT"  
-
-            if C_HousingExpertMode.GetSelectedDecorInfo() then
-                SetCVar("GamePadStickAxisButtons", "1")
-                SetCVar("GamePadCameraPitchSpeed", "0")
-                SetCVar("GamePadCameraYawSpeed", "0")
-            end
-
-            baseBindings["PADRSTICKUP"] = "HOUSING_EXPERTDECORINCREMENT_UP"
-            baseBindings["PADRSTICKDOWN"] = "HOUSING_EXPERTDECORINCREMENT_DOWN"
-    
-            baseBindings["PADRSHOULDER"] = "HOUSING_EXPERTDECORROTATESUBMODE"
-            baseBindings["PADLSHOULDER"] = "HOUSING_EXPERTDECORSCALESUBMODE"
-        elseif submode == Enum.HousingPrecisionSubmode.Rotate then
-            baseBindings["PADDLEFT"] = "HOUSING_EXPERTDECORINCREMENT_ROTATELEFT"
-            baseBindings["PADDRIGHT"] = "HOUSING_EXPERTDECORINCREMENT_ROTATERIGHT" 
-    
-            baseBindings["PADDUP"] = "HOUSING_EXPERTDECORROTATION_NEXTAXIS"
-            baseBindings["PADDDOWN"] = "HOUSING_EXPERTDECORROTATION_NEXTAXIS"
-    
-            baseBindings["PADRSHOULDER"] = "HOUSING_EXPERTDECORSCALESUBMODE"
-            baseBindings["PADLSHOULDER"] = "HOUSING_EXPERTDECORTRANSLATESUBMODE"
-    
-        elseif submode == Enum.HousingPrecisionSubmode.Scale then
-            baseBindings["PADDLEFT"] = "HOUSING_EXPERTDECORINCREMENT_SCALEDOWN"
-            baseBindings["PADDRIGHT"] = "HOUSING_EXPERTDECORINCREMENT_SCALEUP" 
-    
-            baseBindings["PADRSHOULDER"] = "HOUSING_EXPERTDECORTRANSLATESUBMODE"
-            baseBindings["PADLSHOULDER"] = "HOUSING_EXPERTDECORROTATESUBMODE"
-        end
-
-    elseif currentEditMode == Enum.HouseEditorMode.Customize then
-        baseBindings["PADLTRIGGER"] = "HOUSING_TOGGLEEXPERTDECORMODE"
-        baseBindings["PADRTRIGGER"] = "HOUSING_TOGGLECLEANUPMODE"
-    elseif currentEditMode == Enum.HouseEditorMode.Cleanup then
-        baseBindings["PADLTRIGGER"] = "HOUSING_TOGGLECUSTOMIZEMODE"
-        baseBindings["PADRTRIGGER"] = "HOUSING_TOGGLELAYOUTMODE"
-
-        if not C_Housing.IsInsideHouse() then
-            baseBindings["PADRTRIGGER"] = "HOUSING_TOGGLEEXTERIORCUSTOMIZEMODE"
-        end
-    elseif currentEditMode == Enum.HouseEditorMode.Layout then
-        baseBindings["PADLTRIGGER"] = "HOUSING_TOGGLECLEANUPMODE"
-        baseBindings["PADRTRIGGER"] = "HOUSING_TOGGLEBASICDECORMODE"
-    elseif currentEditMode == Enum.HouseEditorMode.ExteriorCustomization then
-        baseBindings["PADLTRIGGER"] = "HOUSING_TOGGLECLEANUPMODE"
-        baseBindings["PADRTRIGGER"] = "HOUSING_TOGGLEBASICDECORMODE"
-    end
-
-    -- Установим основные биндинги
-    SetOverrideBindingsForSet(baseBindings, nil, ConsoleMenu.HousingBindingFrame)
-end
-
-function ConsoleMenu:InitHousingBindingFrame()
-    if not self.HousingBindingFrame then
-        self.HousingBindingFrame = CreateFrame("Frame")
-    end
-    
-    self.HousingBindingFrame:RegisterEvent("HOUSE_EDITOR_MODE_CHANGED")
-    self.HousingBindingFrame:RegisterEvent("HOUSING_DECOR_PRECISION_SUBMODE_CHANGED")
-    self.HousingBindingFrame:RegisterEvent("HOUSING_EXPERT_MODE_SELECTED_TARGET_CHANGED")
-    self.HousingBindingFrame:RegisterEvent("HOUSE_EDITOR_AVAILABILITY_CHANGED")
-    self.HousingBindingFrame:RegisterEvent("HOUSE_INFO_UPDATED")
-    self.HousingBindingFrame:RegisterEvent("CURRENT_HOUSE_INFO_RECIEVED")
-    self.HousingBindingFrame:RegisterEvent("HOUSE_PLOT_ENTERED")
-    self.HousingBindingFrame:RegisterEvent("HOUSE_PLOT_EXITED")
-
-    self.HousingBindingFrame:SetScript("OnEvent", function(frame, event, ...)
-
-        if not C_Housing.IsInsideHouseOrPlot() then
-            ClearOverrideBindings(ConsoleMenu.HousingBindingFrame)
-            return
-        end
-
-        SetHousingButtonBinding(...)
-    end)
-end
-
--- Модуль для отслеживания взаимодействия
-function ConsoleMenu:InitInteractBindingFrame()
-    if not self.InteractBindingFrame then
-        self.InteractBindingFrame = CreateFrame("Frame")
-    end
-    
-    self.InteractBindingFrame:RegisterEvent("PLAYER_SOFT_INTERACT_CHANGED")
-    self.InteractBindingFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
-    self.InteractBindingFrame:RegisterEvent("PLAYER_SOFT_ENEMY_CHANGED")
-
-    self.InteractBindingFrame:SetScript("OnEvent", function(frame, event, ...)
-        if not ConsoleMenu or not ConsoleMenu.SetInteractBinding then
-            return
-        end
-        
-        if event == "PLAYER_SOFT_INTERACT_CHANGED" then
-            local oldTarget, newTarget = ...
-            ConsoleMenu:SetInteractBinding(newTarget)
-        elseif event == "PLAYER_ENTERING_WORLD" then
-            local oldTarget, newTarget
-            ConsoleMenu:SetInteractBinding(newTarget)
-        elseif event == "PLAYER_SOFT_ENEMY_CHANGED" then
-            -- Отменяем override бинды при появлении враждебной soft-target цели
-            if not InCombatLockdown() then
-                ClearOverrideBindings(frame)
-            else
-
-            end
-        end
-    end)
-end
-
--- Устанавливает биндинг на взаимодействие
-function ConsoleMenu:SetInteractBinding(newTarget)
-
-    if ConsoleMenuDB and ConsoleMenuDB.overrideInteractKey == 2 then
-        return
-    end
-
-    if InCombatLockdown and InCombatLockdown() then
-        return
-    end
-
-    -- Проверяем, есть ли враг, перед установкой override бинда
-    local hasEnemy = false
-    if UnitExists("softenemy") and UnitCanAttack("player", "softenemy") then
-        hasEnemy = true
-    elseif UnitExists("target") and UnitCanAttack("player", "target") then
-        hasEnemy = true
-    end
-
-    if newTarget and not hasEnemy then
-        SetOverrideBinding(self.InteractBindingFrame, true, ConsoleMenuDB.interactButton, "INTERACTTARGET")
-    else
-        ClearOverrideBindings(self.InteractBindingFrame)
-    end
-end
-
--- Модуль для отслеживания способности зоны PAD6 и PADBACK
-function ConsoleMenu:InitZoneAbilityBindingFrame()
-    if not self.ZoneAbilityBindingFrame then
-        self.ZoneAbilityBindingFrame = CreateFrame("Frame")
-    end
-    
-    self.ZoneAbilityBindingFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
-    self.ZoneAbilityBindingFrame:RegisterEvent("PLAYER_LOSES_VEHICLE_DATA")
-    self.ZoneAbilityBindingFrame:RegisterEvent("PLAYER_GAINS_VEHICLE_DATA")
-    self.ZoneAbilityBindingFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
-    self.ZoneAbilityBindingFrame:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED")
-
-    self.ZoneAbilityBindingFrame:SetScript("OnEvent", function(self, event, ...)
-        if not ConsoleMenu or not ConsoleMenu.SetBindingsZoneAbility then
-            return
-        end
-        
-        ConsoleMenu:SetBindingsZoneAbility()
-    end)
-end
-
--- Устанавливает биндинг на первую способность зоны
-function ConsoleMenu:SetBindingsZoneAbility()
-    
-    if ConsoleMenuDB.overrideZoneAbilityKey == 2 then
-        ClearOverrideBindings(self.ZoneAbilityBindingFrame)
-        return
-    end
-
-    if InCombatLockdown and InCombatLockdown() then
-        return
-    end
-
-    -- Получаем активные зоновые способности
-    local zoneAbilities = C_ZoneAbility.GetActiveAbilities()
-    
-    if zoneAbilities and #zoneAbilities > 0 then
-        local firstAbility = zoneAbilities[1]
-        if firstAbility and firstAbility.spellID then
-            local spellID = firstAbility.spellID
-            local spellInfo = spellID and C_Spell.GetSpellInfo(spellID)
-            if spellInfo and spellInfo.name then
-                ClearOverrideBindings(self.ZoneAbilityBindingFrame)
-                SetOverrideBindingSpell(self.ZoneAbilityBindingFrame, true, "PAD6", spellInfo.name)
-                SetOverrideBindingSpell(self.ZoneAbilityBindingFrame, true, "PADBACK", spellInfo.name)
-            else
-                ClearOverrideBindings(self.ZoneAbilityBindingFrame)
-            end
-        else
-            ClearOverrideBindings(self.ZoneAbilityBindingFrame)
-        end
-    else
-        ClearOverrideBindings(self.ZoneAbilityBindingFrame)
-    end
 end
