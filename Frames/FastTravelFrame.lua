@@ -82,6 +82,12 @@ local function setIcon(frame, data)
         ApplyMaskToTexture(frame.icon.texture)
         frame.icon.border:Show()
         frame.icon.texture:Show()
+    elseif data.type == "housing" then
+        frame.icon.texture:SetAllPoints()
+        frame.icon.texture:SetAtlas(data.texture)
+        ApplyMaskToTexture(frame.icon.texture)
+        frame.icon.border:Show()
+        frame.icon.texture:Show()
     else
         frame.icon.texture:Hide()
     end
@@ -142,22 +148,22 @@ local function CreateFastTravelScrollBox()
                 SetBinding("PAD1", nil) -- обязательно сначала удалить постоянную привязку!
             end
 
+            local bindString
+
             if item.type == "item" then
-                local bindString = "item:" .. item.id
-                SetOverrideBindingItem(
-                    parentFrame, -- владелец бинда
-                    false, 
-                    "PAD1", 
-                    bindString
-                )
+                bindString = "ITEM " .. item.name
             elseif item.type == "spell" then
-                SetOverrideBindingSpell(
-                    parentFrame, -- владелец бинда
-                    false, 
-                    "PAD1", 
-                    item.name
-                )
+                bindString = "SPELL " .. item.name
+            elseif item.type == "housing" then
+                bindString = "CLICK FastTravelHousingTeleportButton:LeftButton"
             end
+
+            SetOverrideBinding(
+                parentFrame, -- владелец бинда
+                false, 
+                "PAD1", 
+                bindString
+            )
         end
     end
 
@@ -248,6 +254,33 @@ local function CreateFastTravelScrollBox()
             name = itemName,
             texture = itemTexture,
         })
+
+        -- Добавляем телепорты в жилище / из него
+        if C_Housing and C_Housing.GetCurrentHouseInfo() then
+            local teleportToPlot = true
+            if C_HousingNeighborhood.CanReturnAfterVisitingHouse() then
+                local currentNeighborhoodGUID = C_Housing.GetCurrentNeighborhoodGUID()
+                if currentNeighborhoodGUID and C_Housing.GetCurrentHouseInfo() and currentNeighborhoodGUID == C_Housing.GetCurrentHouseInfo().neighborhoodGUID then
+                    teleportToPlot = false
+                end
+            end
+            local texture
+            local name
+            if teleportToPlot then
+                texture = "dashboard-panel-homestone-teleport-button"
+                name = HOUSING_DASHBOARD_TELEPORT_TO_PLOT
+            else
+                texture = "dashboard-panel-homestone-teleport-out-button"
+                name = HOUSING_DASHBOARD_RETURN
+            end
+
+            DataProvider:Insert({
+                id = "house_teleport",
+                type = "housing",
+                name = name,
+                texture = texture,
+            })
+        end
     
         -- Проверяем, что игрок - маг
         local className, classFile = UnitClass("player")
@@ -333,6 +366,28 @@ function ConsoleMenu:SetFastTravelFrame()
             SaveBindings(GetCurrentBindingSet())
         end
         parentFrame:Hide()
+    end)
+
+    -- Кнопка для телепорта домой внутри housing
+    local teleportButton = CreateFrame("Button", "FastTravelHousingTeleportButton", parentFrame)
+    teleportButton:SetSize(1, 1)
+    teleportButton:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 0, 60)
+    teleportButton:SetScript("OnClick", function(self)
+        local houseInfo = C_Housing.GetCurrentHouseInfo()
+        local teleportToPlot = true
+            if C_HousingNeighborhood.CanReturnAfterVisitingHouse() then
+                local currentNeighborhoodGUID = C_Housing.GetCurrentNeighborhoodGUID()
+                if currentNeighborhoodGUID and houseInfo and currentNeighborhoodGUID == houseInfo.neighborhoodGUID then
+                    teleportToPlot = false
+                end
+            end
+        if houseInfo then
+            if teleportToPlot then
+                C_Housing.TeleportHome(houseInfo.neighborhoodGUID, houseInfo.houseGUID, houseInfo.plotID)
+            else
+                C_Housing.ReturnAfterVisitingHouse()
+            end
+        end
     end)
 
     -- Вешаем бинды, когда окно показывается:
