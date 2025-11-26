@@ -441,7 +441,9 @@ local function CreateGossipScrollBox()
 
     -- Кастомный инициализатор
     local function Initializer(frame, data)
+        local frameIndex = #frames + 1
         table.insert(frames, frame) -- Добавляем элемент в массив
+        frame.index = frameIndex -- Сохраняем индекс фрейма
 
         -- Иконка
         if not frame.icon then
@@ -516,13 +518,13 @@ local function CreateGossipScrollBox()
             end
         end
 
-        -- -- Фокус (изменение подложки при наведении)
-        -- frame:SetScript("OnEnter", function()
-        --     frame:SetFocused(true)
-        -- end)
-        -- frame:SetScript("OnLeave", function()
-        --     frame:SetFocused(false)
-        -- end)
+        -- Фокус (изменение подложки при наведении)
+        frame:SetScript("OnEnter", function()
+            UpdateFocus(frameIndex)
+        end)
+        frame:SetScript("OnLeave", function()
+            -- При уходе мыши фокус остается на текущем элементе
+        end)
 
         frame:SetScript("OnMouseDown", function()
             frame:SelectOption()
