@@ -53,6 +53,32 @@ local mageTeleports = {
     88344,  -- Teleport: Tol Barad (Horde)
 }
 
+-- Функция для телепорта домой или возврата из жилища
+local function TeleportToHouse()
+    if not C_Housing then
+        return
+    end
+    
+    local houseInfo = C_Housing.GetCurrentHouseInfo()
+    if not houseInfo then
+        return
+    end
+    
+    local teleportToPlot = true
+    if C_HousingNeighborhood.CanReturnAfterVisitingHouse() then
+        local currentNeighborhoodGUID = C_Housing.GetCurrentNeighborhoodGUID()
+        if currentNeighborhoodGUID and houseInfo and currentNeighborhoodGUID == houseInfo.neighborhoodGUID then
+            teleportToPlot = false
+        end
+    end
+    
+    if teleportToPlot then
+        C_Housing.TeleportHome(houseInfo.neighborhoodGUID, houseInfo.houseGUID, houseInfo.plotID)
+    else
+        C_Housing.ReturnAfterVisitingHouse()
+    end
+end
+
 -- Установка иконки пункту списка
 local function setIcon(frame, data)
     if not frame.icon then
@@ -98,6 +124,21 @@ local function CreateFastTravelScrollBox()
     local FastTravelScrollBox = CreateFrame("Frame", "FastTravelScroll", UIParent)
     FastTravelScrollBox:SetSize(480, 48 * 4)
     FastTravelScrollBox:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 48, 48)
+    
+    -- Включаем обработку клавиатуры для ESC
+    FastTravelScrollBox:EnableKeyboard(true)
+    FastTravelScrollBox:SetScript("OnKeyDown", function(self, key)
+        if key == "ESCAPE" then
+            if PAD1_COMMON_BINDING ~= nil then
+                SetBinding("PAD1", PAD1_COMMON_BINDING)
+                SaveBindings(GetCurrentBindingSet())
+            end
+            self:Hide()
+        end
+    end)
+    
+    -- Добавляем в UISpecialFrames для обработки ESC
+    tinsert(UISpecialFrames, "FastTravelScroll")
 
     -- Скрытие при начале боя или начале произнесения заклинания
     FastTravelScrollBox:RegisterEvent("PLAYER_REGEN_DISABLED") -- Начало боя
@@ -192,10 +233,34 @@ local function CreateFastTravelScrollBox()
 
         hearthstoneButton:SetAllPoints()
         hearthstoneButton:RegisterForClicks("AnyDown")
+        
+        -- Включаем обработку мыши для переключения фокуса при наведении
+        hearthstoneButton:EnableMouse(true)
 
-        -- Необходимо для клика мышкой
-        --hearthstoneButton:SetAttribute("type1", data.type)
-        --hearthstoneButton:SetAttribute("item1", data.name)
+        -- Настройка атрибутов для SecureActionButton (работает в бою)
+        if data.type == "item" then
+            hearthstoneButton:SetAttribute("type", "item")
+            hearthstoneButton:SetAttribute("item", data.name)
+        elseif data.type == "spell" then
+            hearthstoneButton:SetAttribute("type", "spell")
+            hearthstoneButton:SetAttribute("spell", data.name)
+        elseif data.type == "housing" then
+            -- Для housing используем OnClick, так как нет стандартного атрибута
+            hearthstoneButton:SetScript("OnClick", function(self, button)
+                TeleportToHouse()
+            end)
+        end
+        
+        -- Обработчик наведения мыши для переключения фокуса (после table.insert)
+        hearthstoneButton:SetScript("OnEnter", function(self)
+            -- Находим индекс этого фрейма в массиве frames
+            for index, f in ipairs(frames) do
+                if f == frame then
+                    UpdateFocus(index)
+                    break
+                end
+            end
+        end)
 
         -- Иконка
         if not frame.icon then
@@ -269,17 +334,18 @@ local function CreateFastTravelScrollBox()
             if teleportToPlot then
                 texture = "dashboard-panel-homestone-teleport-button"
                 name = HOUSING_DASHBOARD_TELEPORT_TO_PLOT
+                DataProvider:Insert({
+                    id = "house_teleport",
+                    type = "housing",
+                    name = name,
+                    texture = texture,
+                })
             else
                 texture = "dashboard-panel-homestone-teleport-out-button"
                 name = HOUSING_DASHBOARD_RETURN
             end
 
-            DataProvider:Insert({
-                id = "house_teleport",
-                type = "housing",
-                name = name,
-                texture = texture,
-            })
+            
         end
     
         -- Проверяем, что игрок - маг
@@ -373,21 +439,7 @@ function ConsoleMenu:SetFastTravelFrame()
     teleportButton:SetSize(1, 1)
     teleportButton:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 0, 60)
     teleportButton:SetScript("OnClick", function(self)
-        local houseInfo = C_Housing.GetCurrentHouseInfo()
-        local teleportToPlot = true
-            if C_HousingNeighborhood.CanReturnAfterVisitingHouse() then
-                local currentNeighborhoodGUID = C_Housing.GetCurrentNeighborhoodGUID()
-                if currentNeighborhoodGUID and houseInfo and currentNeighborhoodGUID == houseInfo.neighborhoodGUID then
-                    teleportToPlot = false
-                end
-            end
-        if houseInfo then
-            if teleportToPlot then
-                C_Housing.TeleportHome(houseInfo.neighborhoodGUID, houseInfo.houseGUID, houseInfo.plotID)
-            else
-                C_Housing.ReturnAfterVisitingHouse()
-            end
-        end
+        TeleportToHouse()
     end)
 
     -- Вешаем бинды, когда окно показывается:
