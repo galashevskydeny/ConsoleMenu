@@ -64,21 +64,6 @@ end
 
 -- Модуль для отслеживания системы жилищ
 
--- Вспомогательная функция для вывода таблицы
-local function PrintTable(tbl, indent)
-    indent = indent or 0
-    local indentStr = string.rep("  ", indent)
-    for k, v in pairs(tbl) do
-        if type(v) == "table" then
-            print(indentStr .. tostring(k) .. " = {")
-            PrintTable(v, indent + 1)
-            print(indentStr .. "}")
-        else
-            print(indentStr .. tostring(k) .. " = " .. tostring(v))
-        end
-    end
-end
-
 -- Вспомогательная функция для получения списка категорий из StoragePanel
 local function GetStorageCategories()
     local storagePanel = HouseEditorFrame and HouseEditorFrame.StoragePanel
@@ -127,13 +112,10 @@ local function GetStorageSubcategories(categoryID)
 	end
 
 	table.sort(subcategoriesToShow, function (s1, s2) return s1.orderIndex < s2.orderIndex; end );
-    print("--------------------------------")
-    print(categories[categoryID].categoryInfo.name)
+
     local categoryIDs = {}
     for i, category in ipairs(subcategoriesToShow) do
         table.insert(categoryIDs, category.ID)
-        print("subcategoryInfos:")
-        PrintTable(category)
     end
 
     return categoryIDs
@@ -280,7 +262,7 @@ local function SetHousingButtonBinding(...)
 
     local baseBindings = {}
 
-    baseBindings["PAD4"] = "HOUSING_REMOVEDECOR"
+    baseBindings["PAD2"] = "HOUSING_REMOVEDECOR"
     
     -- Тачпад DualSense
     baseBindings["PADBACK"] = "HOUSING_TOGGLEEDITOR"
@@ -291,11 +273,20 @@ local function SetHousingButtonBinding(...)
     SetCVar("GamePadCameraYawSpeed", "1")
 
     if currentEditMode == Enum.HouseEditorMode.BasicDecor then
+
+        baseBindings["PAD3"] = "HOUSING_TOGGLEDECORSNAPMODE"
+        baseBindings["PAD4"] = "HOUSING_TOGGLEDECORNUDGEMODE"
+
         baseBindings["PADLTRIGGER"] = "HOUSING_TOGGLELAYOUTMODE"
         baseBindings["PADRTRIGGER"] = "HOUSING_TOGGLEEXPERTDECORMODE"
 
-        baseBindings["PADDLEFT"] = "HOUSING_BASICDECOR_ROTATELEFT"
-        baseBindings["PADDRIGHT"] = "HOUSING_BASICDECOR_ROTATERIGHT"  
+        if C_HousingBasicMode.IsDecorSelected() then
+            baseBindings["PADDLEFT"] = "HOUSING_BASICDECOR_ROTATELEFT"
+            baseBindings["PADDRIGHT"] = "HOUSING_BASICDECOR_ROTATERIGHT"
+        else
+            baseBindings["PADDLEFT"] = ""
+            baseBindings["PADDRIGHT"] = ""
+        end
 
         baseBindings["PADRSHOULDER"] = "CLICK ConsoleMenuHousingNextCategoryButton:LeftButton"
         baseBindings["PADLSHOULDER"] = "CLICK ConsoleMenuHousingPrevCategoryButton:LeftButton"
@@ -315,7 +306,7 @@ local function SetHousingButtonBinding(...)
             baseBindings["PADDLEFT"] = "HOUSING_EXPERTDECORINCREMENT_LEFT"
             baseBindings["PADDRIGHT"] = "HOUSING_EXPERTDECORINCREMENT_RIGHT"  
 
-            if C_HousingExpertMode.GetSelectedDecorInfo() then
+            if C_HousingExpertMode.IsDecorSelected() then
                 SetCVar("GamePadStickAxisButtons", "1")
                 SetCVar("GamePadCameraPitchSpeed", "0")
                 SetCVar("GamePadCameraYawSpeed", "0")
@@ -393,6 +384,7 @@ function ConsoleMenu:InitHousingBindingFrame()
     end
     
     self.HousingBindingFrame:RegisterEvent("HOUSE_EDITOR_MODE_CHANGED")
+    self.HousingBindingFrame:RegisterEvent("HOUSING_BASIC_MODE_SELECTED_TARGET_CHANGED")
     self.HousingBindingFrame:RegisterEvent("HOUSING_DECOR_PRECISION_SUBMODE_CHANGED")
     self.HousingBindingFrame:RegisterEvent("HOUSING_EXPERT_MODE_SELECTED_TARGET_CHANGED")
     self.HousingBindingFrame:RegisterEvent("HOUSE_EDITOR_AVAILABILITY_CHANGED")
