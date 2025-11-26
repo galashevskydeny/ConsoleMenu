@@ -8,6 +8,7 @@ local frames = {}
 local focusedIndex = 1
 local PAD1_COMMON_BINDING
 local softTargetEnemy
+local gamePadActive = false
 
 local mageTeleports = {
     -- War Within
@@ -143,8 +144,14 @@ local function CreateFastTravelScrollBox()
     -- Скрытие при начале боя или начале произнесения заклинания
     FastTravelScrollBox:RegisterEvent("PLAYER_REGEN_DISABLED") -- Начало боя
     FastTravelScrollBox:RegisterUnitEvent("UNIT_SPELLCAST_START", "player") -- Игрок начал каст
+    FastTravelScrollBox:RegisterEvent("GAME_PAD_ACTIVE_CHANGED") -- Событие изменения режима геймпада
 
-    FastTravelScrollBox:SetScript("OnEvent", function(_, event)
+    FastTravelScrollBox:SetScript("OnEvent", function(self, event, ...)
+        if event == "GAME_PAD_ACTIVE_CHANGED" then
+            gamePadActive = ...
+            return
+        end
+
         if FastTravelScrollBox:IsShown() then
             FastTravelScrollBox:Hide()
         end
@@ -179,7 +186,9 @@ local function CreateFastTravelScrollBox()
             frames[focusedIndex]:SetFocused(true)
 
             -- Прокрутить ScrollBox до текущего элемента
-            parentFrame.ScrollBox:ScrollToElementDataIndex(newIndex)
+            if gamePadActive then
+                parentFrame.ScrollBox:ScrollToElementDataIndex(newIndex)
+            end
 
             -- Устанавливаем бинд: при нажатии PAD1 будет использоваться предмет, 
             -- соответствующий текущему элементу (через SetOverrideBindingItem)

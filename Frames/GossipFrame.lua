@@ -9,6 +9,7 @@ local questsInQuestLine = {}
 local questsWithoutQuestline = {}
 local previousGossip = false
 local softTargetEnemy
+local gamePadActive = false
 
 -- Провкрка элемента на вхождение в массив
 local function isElementInTable(element, table)
@@ -299,6 +300,14 @@ local function CreateGossipScrollBox()
         end
 
     end)
+
+    -- Регистрация события изменения режима геймпада
+    GossipScrollBox:RegisterEvent("GAME_PAD_ACTIVE_CHANGED")
+    GossipScrollBox:SetScript("OnEvent", function(self, event, ...)
+        if event == "GAME_PAD_ACTIVE_CHANGED" then
+            gamePadActive = ...
+        end
+    end)
     
     -- Создаем ScrollBox
     local ScrollBox = CreateFrame("Frame", "GossipScrollBox", GossipScrollBox, "WowScrollBoxList")
@@ -412,8 +421,10 @@ local function CreateGossipScrollBox()
         if frames[focusedIndex] then
             frames[focusedIndex]:SetFocused(true)
 
-            -- Смещаем скролл до текущего элемента
-            parentFrame.ScrollBox:ScrollToElementDataIndex(newIndex)
+            -- Смещаем скролл до текущего элемента (только если геймпад активен)
+            if gamePadActive then
+                parentFrame.ScrollBox:ScrollToElementDataIndex(newIndex)
+            end
         end
     end
 
