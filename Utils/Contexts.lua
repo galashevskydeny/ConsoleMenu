@@ -26,7 +26,7 @@ local function UpdatePlayerVehicle()
 end
 
 local function UpdatePlayerTarget()
-    if not UnitExists("target") then
+    if not UnitExists("target") or UnitIsDead("target") then
         ConsoleMenu.PlayerContext.target = {}
     elseif UnitCanAttack("player", "target") then
         ConsoleMenu.PlayerContext.target.isPlayer = UnitIsPlayer("target")
