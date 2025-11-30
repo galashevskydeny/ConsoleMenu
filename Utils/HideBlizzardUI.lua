@@ -103,8 +103,6 @@ function ConsoleMenu:ShowPlayerFrame()
     PlayerFrame:SetAlpha(1.0)
 end
 
-
-
 -- Отключает полосу заклинаний игрока (PlayerCastingBarFrame)
 local function DisablePlayerCastingBarFrame()
     PlayerCastingBarFrame:Hide()
@@ -122,7 +120,7 @@ end
 -- Скрывает миникарту и связанные элементы (Minimap, GameTimeFrame, BuffFrame, DebuffFrame и т.д.)
 local function DisableMinimap()
     Minimap:SetAlpha(0.0)
-    Minimap:SetScale(0.01)
+    Minimap:SetScale(0.00001)
 
     DisableAddonCompartmentFrame()
 
