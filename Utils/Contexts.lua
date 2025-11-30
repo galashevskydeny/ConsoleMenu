@@ -61,13 +61,27 @@ function ConsoleMenu:AddWindow(type)
         return
     end
     self.PlayerContext.window[type] = true
+    
+    for i, window in pairs(self.PlayerContext.window) do
+        if i ~= type then
+            self.PlayerContext.window[i] = nil
+        end
+    end
 end
 
 function ConsoleMenu:RemoveWindow(type)
     if not self.PlayerContext or not self.PlayerContext.window then
         return
     end
-    self.PlayerContext.window[type] = nil
+
+    if type == 0 then
+        for type, window in pairs(self.PlayerContext.window) do
+            self.PlayerContext.window[type] = nil
+        end
+    else
+        self.PlayerContext.window[type] = nil
+    end
+
 end
 
 function ConsoleMenu:HasWindows()
