@@ -39,11 +39,10 @@ end
 -- Обработчик событий SuperTrackManager
 local function OnEvent(self, event, ...)
 
-    if ConsoleMenuDB.questSuperTrackEnable == 2 then return end
-
     if event == "QUEST_REMOVED" then
         local questID = ...
         if not questID then return end
+        if ConsoleMenuDB.questSuperTrackEnable == 2 then return end
 
         -- Очистка трекинга, если удаленный квест был отслеживаемым
         if C_SuperTrack.GetHighestPrioritySuperTrackingType() == 0 and questID == C_SuperTrack.GetSuperTrackedQuestID() then
@@ -51,7 +50,7 @@ local function OnEvent(self, event, ...)
         end
 
         -- Возврат фокуса после выхода из локального задания
-        if ConsoleMenuDB.questFocusLocalQuests and C_QuestLog.IsWorldQuest(questID) and ConsoleMenuDB.superTrackPreviousQuestId then
+        if ConsoleMenuDB.questFocusLocalQuests == 1 and C_QuestLog.IsWorldQuest(questID) and ConsoleMenuDB.superTrackPreviousQuestId then
             C_SuperTrack.SetSuperTrackedQuestID(ConsoleMenuDB.superTrackPreviousQuestId)
             return
         end
@@ -73,6 +72,12 @@ local function OnEvent(self, event, ...)
     elseif event == "QUEST_LOG_UPDATE" and C_SuperTrack.GetHighestPrioritySuperTrackingType() == 0 then
         local questID = ...
         if not questID then return end
+        if ConsoleMenuDB.questSuperTrackEnable == 2 then return end
+
+        if ConsoleMenuDB.questFocusLocalQuests == 2 and C_QuestLog.IsWorldQuest(questID) then
+            return
+        end
+
         -- Установка фокуса на незавершенном квесте из этой же цепочки, чтобы не оставлять фокус на фактически выполненном квесте
         local trackedQuestID = C_SuperTrack.GetSuperTrackedQuestID()
         
@@ -104,9 +109,10 @@ local function OnEvent(self, event, ...)
     elseif event == "QUEST_ACCEPTED" and C_SuperTrack.GetHighestPrioritySuperTrackingType() == 0 then
         local questID = ...
         if not questID then return end
+        if ConsoleMenuDB.questSuperTrackEnable == 2 then return end
 
         -- Установка фокуса на локальном задании
-        if ConsoleMenuDB.questFocusLocalQuests and C_QuestLog.IsWorldQuest(questID) then
+        if ConsoleMenuDB.questFocusLocalQuests == 1 and C_QuestLog.IsWorldQuest(questID) then
             ConsoleMenuDB.superTrackPreviousQuestId = C_SuperTrack.GetSuperTrackedQuestID()
             C_SuperTrack.SetSuperTrackedQuestID(questID)
             return
@@ -125,11 +131,21 @@ local function OnEvent(self, event, ...)
             -- Если нет предыдущей цепочки, устанавливаем фокус на первый незавершенный квест в журнале
             SetFirstIncompleteQuest()
         end
+    elseif event == "SUPER_TRACKING_CHANGED" then
+        local questID = C_SuperTrack.GetSuperTrackedQuestID()
+
+        -- Возвращаем фокус на предыдущее задание, если текущее задание локальное, афокус на локальных заданиях отключен
+        -- Потому что иной раз игра самостоятельно вызывает событие SUPER_TRACKING_CHANGED на локальное задание
+        if ConsoleMenuDB.questFocusLocalQuests == 2 and questID and C_QuestLog.IsWorldQuest(questID) and ConsoleMenuDB.superTrackPreviousQuestId then
+            C_SuperTrack.SetSuperTrackedQuestID(ConsoleMenuDB.superTrackPreviousQuestId)
+            return
+        end
     end
 end
 
 -- Функция инициализации SuperTrackManager
 function ConsoleMenu:InitializeSuperTrackManager()
+    
     -- Инициализируем сохраненные данные
     InitializeSuperTrackData()
     
@@ -140,6 +156,7 @@ function ConsoleMenu:InitializeSuperTrackManager()
     self.SuperTrackManager:RegisterEvent("QUEST_LOG_UPDATE")
     self.SuperTrackManager:RegisterEvent("QUEST_ACCEPTED")
     self.SuperTrackManager:RegisterEvent("QUEST_REMOVED")
+    self.SuperTrackManager:RegisterEvent("SUPER_TRACKING_CHANGED")
     
     self.SuperTrackManager:SetScript("OnEvent", OnEvent)
 end
