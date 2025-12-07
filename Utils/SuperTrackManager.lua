@@ -65,7 +65,7 @@ local function OnEvent(self, event, ...)
         end
 
         -- Установка фокуса на первом квесте в журнале
-        if ConsoleMenuDB.questAutoSelectFirstIncomplete then
+        if ConsoleMenuDB.questAutoSelectFirstIncomplete == 1 then
             SetFirstIncompleteQuest()
         end
 
