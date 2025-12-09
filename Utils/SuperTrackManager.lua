@@ -133,7 +133,7 @@ local function OnEvent(self, event, ...)
         end
     elseif event == "SUPER_TRACKING_CHANGED" then
         local questID = C_SuperTrack.GetSuperTrackedQuestID()
-
+        
         -- Возвращаем фокус на предыдущее задание, если текущее задание локальное, афокус на локальных заданиях отключен
         -- Потому что иной раз игра самостоятельно вызывает событие SUPER_TRACKING_CHANGED на локальное задание
         if ConsoleMenuDB.questFocusLocalQuests == 2 and questID and C_QuestLog.IsWorldQuest(questID) and ConsoleMenuDB.superTrackPreviousQuestId then

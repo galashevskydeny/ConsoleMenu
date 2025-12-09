@@ -261,19 +261,14 @@ local function SetHousingButtonBinding(...)
     local currentEditMode = C_HouseEditor.GetActiveHouseEditorMode()
 
     local baseBindings = {}
-
-    baseBindings["PAD2"] = "HOUSING_REMOVEDECOR"
     
     -- Тачпад DualSense
     baseBindings["PADBACK"] = "HOUSING_TOGGLEEDITOR"
     baseBindings["PAD6"] = "HOUSING_TOGGLEEDITOR"
 
-    SetCVar("GamePadStickAxisButtons", "0")
-    SetCVar("GamePadCameraPitchSpeed", "1")
-    SetCVar("GamePadCameraYawSpeed", "1")
-
     if currentEditMode == Enum.HouseEditorMode.BasicDecor then
 
+        baseBindings["PAD2"] = "HOUSING_REMOVEDECOR"
         baseBindings["PAD3"] = "HOUSING_TOGGLEDECORSNAPMODE"
         baseBindings["PAD4"] = "HOUSING_TOGGLEDECORNUDGEMODE"
 
@@ -295,6 +290,7 @@ local function SetHousingButtonBinding(...)
             baseBindings["PADLTRIGGER"] = "HOUSING_TOGGLEEXTERIORCUSTOMIZEMODE"
         end
     elseif currentEditMode == Enum.HouseEditorMode.ExpertDecor then
+        baseBindings["PAD2"] = "HOUSING_REMOVEDECOR"
         baseBindings["PADLTRIGGER"] = "HOUSING_TOGGLEBASICDECORMODE"
         baseBindings["PADRTRIGGER"] = "HOUSING_TOGGLECUSTOMIZEMODE"
 
@@ -305,12 +301,6 @@ local function SetHousingButtonBinding(...)
             baseBindings["PADDDOWN"] = "HOUSING_EXPERTDECORINCREMENT_BACK"
             baseBindings["PADDLEFT"] = "HOUSING_EXPERTDECORINCREMENT_LEFT"
             baseBindings["PADDRIGHT"] = "HOUSING_EXPERTDECORINCREMENT_RIGHT"  
-
-            if C_HousingExpertMode.IsDecorSelected() then
-                SetCVar("GamePadStickAxisButtons", "1")
-                SetCVar("GamePadCameraPitchSpeed", "0")
-                SetCVar("GamePadCameraYawSpeed", "0")
-            end
 
             baseBindings["PADRSTICKUP"] = "HOUSING_EXPERTDECORINCREMENT_UP"
             baseBindings["PADRSTICKDOWN"] = "HOUSING_EXPERTDECORINCREMENT_DOWN"
