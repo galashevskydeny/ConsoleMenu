@@ -98,6 +98,7 @@ local function Initialize()
     ConsoleMenu:InitHousingBindingFrame()
     ConsoleMenu:InitInteractBindingFrame()
     ConsoleMenu:InitZoneAbilityBindingFrame()
+    ConsoleMenu:InitStopCastingBindingFrame()
     
     ConsoleMenu.InitializeOptions()
     ConsoleMenu:InitializeSuperTrackManager()

@@ -87,6 +87,7 @@ local keyBindingSettings = {
     { name = "Макросы панели общения с игроком", variable = "actionBarPagePlayerInteraction", default = 2, tooltip = "Устанавливает фиксированный набор преднастроенных макросов для панели общения с игроком.", options = toggleOptions },
     { name = "Макросы панели верховой езды", variable = "actionBarPageMount", default = 2, tooltip = "Устанавливает фиксированный набор преднастроенных макросов для панели верховой езды.", options = toggleOptions },
     { name = "Способности и макросы панели полета на драконе", variable = "actionBarPageDragonriding", default = 2, tooltip = "Устанавливает фиксированный набор преднастроенных способностей и макросов для панели полета на драконе.", options = toggleOptions }, 
+    { name = "Переопределять кнопку при произнесении заклинания", variable = "overrideStopCastingKey", default = 1, tooltip = "Если включено, выбранная кнопка автоматически используется для остановки заклинания (действует только вне боя).", options = toggleOptions },
 }
 
 local contextsSettings = {
@@ -244,6 +245,26 @@ local function registerKeyBindingOptions(category, layout)
         },
         function(newKey)
             ConsoleMenuDB.interactButton = newKey
+        end
+    )
+
+    layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Прерывание заклинания (вне боя)"))
+
+    registerDropdown(category, keyBindingSettings[9], function(value)
+        ConsoleMenuDB[keyBindingSettings[9].variable] = value
+    end)
+
+    registerKeyBindingPicker(
+        category,
+        layout,
+        {
+            name = "Клавиша для прерывания заклинания",
+            variable = "stopCastingButton",
+            defaultKey = "PAD2",
+            tooltip = "Выберите, какая кнопка будет использоваться для прерывания заклинания.",
+        },
+        function(newKey)
+            ConsoleMenuDB.stopCastingButton = newKey
         end
     )
 

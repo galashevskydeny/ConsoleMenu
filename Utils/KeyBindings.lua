@@ -419,9 +419,7 @@ function ConsoleMenu:InitInteractBindingFrame()
             local oldTarget, newTarget
             ConsoleMenu:SetInteractBinding(newTarget)
         elseif event == "PLAYER_REGEN_ENABLED" then
-            if UnitIsInteractable("target") then
-                ConsoleMenu:SetInteractBinding("target")
-            elseif UnitIsInteractable("softenemy") then
+            if UnitIsInteractable("softenemy") then
                 ConsoleMenu:SetInteractBinding("softenemy")
             elseif UnitIsInteractable("softinteract") then
                 ConsoleMenu:SetInteractBinding("softinteract")
@@ -515,6 +513,70 @@ function ConsoleMenu:SetBindingsZoneAbility()
     else
         ClearOverrideBindings(self.ZoneAbilityBindingFrame)
     end
+end
+
+-- Модуль для отслеживания прерывания заклинания
+function ConsoleMenu:SetStopCastingBinding()
+
+    if ConsoleMenuDB.overrideStopCastingKey == 2 then
+        ClearOverrideBindings(self.StopCastingBindingFrame)
+        return
+    end
+
+    if InCombatLockdown() then
+        return
+    end
+
+    if ConsoleMenuDB.overrideStopCastingKey == 2 then
+        ClearOverrideBindings(self.StopCastingBindingFrame)
+        return
+    end
+
+    ClearOverrideBindings(self.StopCastingBindingFrame)
+    SetOverrideBinding(self.StopCastingBindingFrame, true, ConsoleMenuDB.stopCastingButton, "STOPCASTING")
+end
+
+function ConsoleMenu:InitStopCastingBindingFrame()
+    if not self.StopCastingBindingFrame then
+        self.StopCastingBindingFrame = CreateFrame("Frame")
+    end
+    
+    self.StopCastingBindingFrame:RegisterEvent("UNIT_SPELLCAST_SENT")
+    self.StopCastingBindingFrame:RegisterEvent("UNIT_SPELLCAST_STOP")
+    self.StopCastingBindingFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
+    self.StopCastingBindingFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+    self.StopCastingBindingFrame:RegisterEvent("PLAYER_SOFT_ENEMY_CHANGED")
+
+
+    self.StopCastingBindingFrame:SetScript("OnEvent", function(frame, event, ...)
+        if event == "UNIT_SPELLCAST_SENT" then
+            local unit, target, _, _ = ...
+            
+            if unit ~= "player" then
+                return
+            end
+
+            if target ~= nil or UnitExists("target") or UnitExists("softenemy") then
+                return
+            end
+
+            ConsoleMenu:SetStopCastingBinding()
+        elseif event == "UNIT_SPELLCAST_STOP" then
+            local unit = ...
+            
+            if unit ~= "player" then
+                return
+            end
+            
+            ClearOverrideBindings(ConsoleMenu.StopCastingBindingFrame)
+        elseif event == "PLAYER_SOFT_ENEMY_CHANGED" then
+            if UnitExists("softenemy") then
+                ClearOverrideBindings(ConsoleMenu.StopCastingBindingFrame)
+            end
+        elseif event == "PLAYER_REGEN_DISABLED" or event == "PLAYER_ENTERING_WORLD" then
+            ClearOverrideBindings(ConsoleMenu.StopCastingBindingFrame)
+        end
+    end)
 end
 
 -- Авторская схема привязок
