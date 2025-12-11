@@ -527,6 +527,10 @@ function ConsoleMenu:SetStopCastingBinding()
         return
     end
 
+    if IsMounted() then
+        return
+    end
+
     if ConsoleMenuDB.overrideStopCastingKey == 2 then
         ClearOverrideBindings(self.StopCastingBindingFrame)
         return
@@ -546,6 +550,7 @@ function ConsoleMenu:InitStopCastingBindingFrame()
     self.StopCastingBindingFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
     self.StopCastingBindingFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
     self.StopCastingBindingFrame:RegisterEvent("PLAYER_SOFT_ENEMY_CHANGED")
+    self.StopCastingBindingFrame:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED")
 
 
     self.StopCastingBindingFrame:SetScript("OnEvent", function(frame, event, ...)
@@ -577,7 +582,7 @@ function ConsoleMenu:InitStopCastingBindingFrame()
             if UnitExists("softenemy") then
                 ClearOverrideBindings(ConsoleMenu.StopCastingBindingFrame)
             end
-        elseif event == "PLAYER_REGEN_DISABLED" or event == "PLAYER_ENTERING_WORLD" then
+        elseif event == "PLAYER_REGEN_DISABLED" or event == "PLAYER_ENTERING_WORLD" or event == "PLAYER_MOUNT_DISPLAY_CHANGED" then
             ClearOverrideBindings(ConsoleMenu.StopCastingBindingFrame)
         end
     end)
