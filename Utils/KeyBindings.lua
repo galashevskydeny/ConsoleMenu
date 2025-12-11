@@ -552,10 +552,12 @@ function ConsoleMenu:InitStopCastingBindingFrame()
         if event == "UNIT_SPELLCAST_SENT" then
             local unit, target, _, _ = ...
             
+            -- Если заклинание не относится к игроку
             if unit ~= "player" then
                 return
             end
 
+            -- После применения может начаться бой, во время которого нельзя откатить привязку
             if target ~= nil or UnitExists("target") or UnitExists("softenemy") then
                 return
             end
@@ -564,12 +566,14 @@ function ConsoleMenu:InitStopCastingBindingFrame()
         elseif event == "UNIT_SPELLCAST_STOP" then
             local unit = ...
             
+            -- Если заклинание не относится к игроку
             if unit ~= "player" then
                 return
             end
             
             ClearOverrideBindings(ConsoleMenu.StopCastingBindingFrame)
         elseif event == "PLAYER_SOFT_ENEMY_CHANGED" then
+            -- При наличии врага может начаться бой, во время которого нельзя откатить привязку
             if UnitExists("softenemy") then
                 ClearOverrideBindings(ConsoleMenu.StopCastingBindingFrame)
             end
