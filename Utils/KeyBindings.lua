@@ -55,6 +55,8 @@ local function SetOverrideBindingsForSet(bindings, modifier, frame)
     if not bindings then
         return
     end
+
+    ClearOverrideBindings(frame)
     
     for key, action in pairs(bindings) do
         local bindingKey = modifier and (modifier .. "-" .. key) or key
@@ -403,6 +405,7 @@ function ConsoleMenu:InitInteractBindingFrame()
     self.InteractBindingFrame:RegisterEvent("PLAYER_SOFT_INTERACT_CHANGED")
     self.InteractBindingFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
     self.InteractBindingFrame:RegisterEvent("PLAYER_SOFT_ENEMY_CHANGED")
+    self.InteractBindingFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 
     self.InteractBindingFrame:SetScript("OnEvent", function(frame, event, ...)
         if not ConsoleMenu or not ConsoleMenu.SetInteractBinding then
@@ -415,6 +418,14 @@ function ConsoleMenu:InitInteractBindingFrame()
         elseif event == "PLAYER_ENTERING_WORLD" then
             local oldTarget, newTarget
             ConsoleMenu:SetInteractBinding(newTarget)
+        elseif event == "PLAYER_REGEN_ENABLED" then
+            if UnitIsInteractable("target") then
+                ConsoleMenu:SetInteractBinding("target")
+            elseif UnitIsInteractable("softenemy") then
+                ConsoleMenu:SetInteractBinding("softenemy")
+            elseif UnitIsInteractable("softinteract") then
+                ConsoleMenu:SetInteractBinding("softinteract")
+            end
         elseif event == "PLAYER_SOFT_ENEMY_CHANGED" then
             -- Отменяем override бинды при появлении враждебной soft-target цели
             if not InCombatLockdown() then
