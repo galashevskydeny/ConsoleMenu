@@ -124,7 +124,7 @@ local function CalculateSpeechDuration(line)
 end
 
 -- Функция для добавления субтитров
-local function AddSubtitles(event, message, sender)
+function ConsoleMenu:AddSubtitles(event, message, sender)
     if not ConsoleMenu or not ConsoleMenu.Subtitles then
         return
     end
@@ -225,7 +225,7 @@ local function GetCurrentSubtitleWithMaxPriority()
     return currentSubtitle
 end
 
-local function SubtitleFrameUpdate()
+ function ConsoleMenu:SubtitleFrameUpdate()
     if not ConsoleMenu or not ConsoleMenu.SubtitleFrame then
         return
     end
@@ -260,7 +260,9 @@ local function SubtitleFrameUpdate()
         end
 
         if current.priority ~= 1 or (current.priority == 1 and not current.lastLine) then
-            subtitleUpdateTimer = C_Timer.NewTimer(durationLeft, SubtitleFrameUpdate)
+            subtitleUpdateTimer = C_Timer.NewTimer(durationLeft, function()
+                ConsoleMenu:SubtitleFrameUpdate()
+            end)
         end
     else
         -- Нет подходящего субтитра, скрываем оба текста
@@ -274,11 +276,11 @@ local function SubtitleFrameUpdate()
             subtitleUpdateTimer = nil
         end
 
-        subtitleUpdateTimer = C_Timer.NewTimer(1, SubtitleFrameUpdate)
+        subtitleUpdateTimer = C_Timer.NewTimer(1, function()
+            ConsoleMenu:SubtitleFrameUpdate()
+        end)
     end
 end
-
-ConsoleMenu.SubtitleFrameUpdate = SubtitleFrameUpdate
 
 -- Функция инициализации SubtitleFrame
 function ConsoleMenu:SetSubtitleFrame()
@@ -372,32 +374,32 @@ function ConsoleMenu:SetSubtitleFrame()
            event == "CHAT_MSG_RAID_LEADER" or
            event == "CHAT_MSG_TEXT_EMOTE"
         then
-            AddSubtitles(event, ...)
+            ConsoleMenu:AddSubtitles(event, ...)
         elseif event == "GOSSIP_SHOW" then
             local message = C_GossipInfo.GetText()
             local sender = UnitName("npc")
-            AddSubtitles(event, message, sender)
+            ConsoleMenu:AddSubtitles(event, message, sender)
         elseif event == "QUEST_DETAIL" then
             local message = GetQuestText()
             local sender = UnitName("npc")
-            AddSubtitles(event, message, sender)
+            ConsoleMenu:AddSubtitles(event, message, sender)
         elseif event == "QUEST_COMPLETE" then
             local message = GetRewardText()
             local sender = UnitName("npc")
-            AddSubtitles(event, message, sender)
+            ConsoleMenu:AddSubtitles(event, message, sender)
         elseif event == "QUEST_PROGRESS" then
             local message = GetProgressText()
             local sender = UnitName("npc")
-            AddSubtitles(event, message, sender)
+            ConsoleMenu:AddSubtitles(event, message, sender)
         elseif event == "QUEST_GREETING" then
             local message = GetGreetingText()
             local sender = UnitName("npc")
-            AddSubtitles(event, message, sender)
+            ConsoleMenu:AddSubtitles(event, message, sender)
         elseif event == "GOSSIP_CLOSED" or event == "QUEST_FINISHED" or event == "GOSSIP_CONFIRM" then
             RemoveSubtitlesByPriority(1)
         end
 
-        SubtitleFrameUpdate()
+        ConsoleMenu:SubtitleFrameUpdate()
     end
 
     self.SubtitleFrame:SetScript("OnEvent", OnSubtitleEvent)

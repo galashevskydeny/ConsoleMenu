@@ -23,16 +23,30 @@ local function IsQuestAllObjectivesComplete(questID)
     return true
 end
 
--- Установка фокуса на первом незавершенном квесте в журнале
-local function SetFirstIncompleteQuest()
-    local totalEntries, _ = C_QuestLog.GetNumQuestLogEntries()
+-- Сохранение идентификатора цепочки квестов
+local function SaveQuestLineID(questID)
+    if not questID then return end
+    if ConsoleMenuDB.questLineFocus ~= 1 then
+        return
+    end
+
+    if C_QuestLog.IsWorldQuest(questID) then
+        return
+    end
     
-    for i = 1, totalEntries do
-        local info = C_QuestLog.GetInfo(i)
-        if info and not info.isHeader and not info.isHidden and info.questID > 0 then
-            C_SuperTrack.SetSuperTrackedQuestID(info.questID)
-            return
+    -- Запись идентификатора цепочки на будущее
+    local questLineInfo = C_QuestLine.GetQuestLineInfo(questID)
+    
+    if questLineInfo and questLineInfo.questLineID then
+        local isComplete = C_QuestLine.IsComplete(questLineInfo.questLineID)
+
+        if isComplete == true then
+            ConsoleMenuDB.superTrackPreviousQuestLineID = nil
+        else 
+            ConsoleMenuDB.superTrackPreviousQuestLineID = questLineInfo.questLineID
         end
+    else
+        ConsoleMenuDB.superTrackPreviousQuestLineID = nil
     end
 end
 
@@ -55,52 +69,46 @@ local function OnEvent(self, event, ...)
             return
         end
 
-        -- Запись идентификатора цепочки на будущее
-        local questLineInfo = C_QuestLine.GetQuestLineInfo(questID)
-        
-        if questLineInfo and questLineInfo.questLineID then
-            ConsoleMenuDB.superTrackPreviousQuestLineID = questLineInfo.questLineID
-        else
-            ConsoleMenuDB.superTrackPreviousQuestLineID = nil
-        end
-
-        -- Установка фокуса на первом квесте в журнале
-        if ConsoleMenuDB.questAutoSelectFirstIncomplete == 1 then
-            SetFirstIncompleteQuest()
-        end
+        -- Сохранение идентификатора цепочки квестов
+        SaveQuestLineID(questID)
 
     elseif event == "QUEST_LOG_UPDATE" and C_SuperTrack.GetHighestPrioritySuperTrackingType() == 0 then
         local questID = ...
         if not questID then return end
         if ConsoleMenuDB.questSuperTrackEnable == 2 then return end
 
-        if ConsoleMenuDB.questFocusLocalQuests == 2 and C_QuestLog.IsWorldQuest(questID) then
+        if ConsoleMenuDB.questLineFocus == 2 or C_QuestLog.IsWorldQuest(questID) then
             return
         end
 
-        -- Установка фокуса на незавершенном квесте из этой же цепочки, чтобы не оставлять фокус на фактически выполненном квесте
-        local trackedQuestID = C_SuperTrack.GetSuperTrackedQuestID()
-        
-        if not trackedQuestID or trackedQuestID == 0 then return end
+        if ConsoleMenuDB.questLineFocus == 1 then
+            -- Переключение фокуса на незавершенном квесте из этой же цепочки, после выполнения всех целей текущего отслеживаемого квеста
+            local trackedQuestID = C_SuperTrack.GetSuperTrackedQuestID()
+            if not trackedQuestID or trackedQuestID == 0 then return end
 
-        -- Проверяем, все ли цели текущего квеста выполнены
-        if not IsQuestAllObjectivesComplete(trackedQuestID) then return end
+            -- Проверяем, все ли цели текущего квеста выполнены
+            if not IsQuestAllObjectivesComplete(trackedQuestID) then return end
 
-        -- Ищем следующий незавершенный квест из той же цепочки
-        local lineInfo = C_QuestLine.GetQuestLineInfo(trackedQuestID)
-        local currentLineID = lineInfo and lineInfo.questLineID
-        
-        if not currentLineID then return end
-        
-        local totalEntries, _ = C_QuestLog.GetNumQuestLogEntries()
-        for i = 1, totalEntries do
-            local info = C_QuestLog.GetInfo(i)
-            if info and not info.isHeader and not info.isHidden and info.questID ~= trackedQuestID then
-                local otherLine = C_QuestLine.GetQuestLineInfo(info.questID)
-                if otherLine ~= nil and currentLineID ~= nil and otherLine.questLineID == currentLineID then
-                    if not IsQuestAllObjectivesComplete(info.questID) then
-                        C_SuperTrack.SetSuperTrackedQuestID(info.questID)
-                        return
+            local lineInfo = C_QuestLine.GetQuestLineInfo(trackedQuestID)
+            local currentLineID = lineInfo and lineInfo.questLineID
+            
+            -- Если нет цепочки, то переключение фокуса невозможно
+            if not currentLineID then return end
+
+            -- Если изменение прогресса не связано с отслеживаемой цепочкой
+            if currentLineID ~= nil and currentLineID ~= ConsoleMenuDB.superTrackPreviousQuestLineID then return end
+            
+            -- Ищем следующий незавершенный квест из той же цепочки среди квестов в журнале заданий
+            local totalEntries, _ = C_QuestLog.GetNumQuestLogEntries()
+            for i = 1, totalEntries do
+                local info = C_QuestLog.GetInfo(i)
+                if info and not info.isHeader and not info.isHidden and info.questID ~= trackedQuestID then
+                    local otherLine = C_QuestLine.GetQuestLineInfo(info.questID)
+                    if otherLine ~= nil and currentLineID ~= nil and otherLine.questLineID == currentLineID then
+                        if not IsQuestAllObjectivesComplete(info.questID) then
+                            C_SuperTrack.SetSuperTrackedQuestID(info.questID)
+                            return
+                        end
                     end
                 end
             end
@@ -119,18 +127,21 @@ local function OnEvent(self, event, ...)
         end
 
         -- Установка фокуса на новом взятом квесте текущей цепочки
-        local questLineInfo = C_QuestLine.GetQuestLineInfo(questID)
-        
-        if ConsoleMenuDB.superTrackPreviousQuestLineID and questLineInfo and questLineInfo.questLineID then
-            if ConsoleMenuDB.superTrackPreviousQuestLineID == questLineInfo.questLineID then
-                C_SuperTrack.ClearAllSuperTracked()
-                C_SuperTrack.SetSuperTrackedQuestID(questID)
-                return
+        if ConsoleMenuDB.questLineFocus == 1 then
+
+            if C_QuestLog.IsWorldQuest(questID) then return end
+
+            local questLineInfo = C_QuestLine.GetQuestLineInfo(questID)
+            
+            if ConsoleMenuDB.superTrackPreviousQuestLineID and questLineInfo and questLineInfo.questLineID then
+                if ConsoleMenuDB.superTrackPreviousQuestLineID == questLineInfo.questLineID then
+                    C_SuperTrack.ClearAllSuperTracked()
+                    C_SuperTrack.SetSuperTrackedQuestID(questID)
+                    return
+                end
             end
-        else
-            -- Если нет предыдущей цепочки, устанавливаем фокус на первый незавершенный квест в журнале
-            SetFirstIncompleteQuest()
         end
+
     elseif event == "SUPER_TRACKING_CHANGED" then
         local questID = C_SuperTrack.GetSuperTrackedQuestID()
         
@@ -140,6 +151,12 @@ local function OnEvent(self, event, ...)
             C_SuperTrack.SetSuperTrackedQuestID(ConsoleMenuDB.superTrackPreviousQuestId)
             return
         end
+
+        -- Сохранение идентификатора цепочки квестов выбранного квеста, если выбранный квест не является локальным заданием
+        if C_SuperTrack.GetHighestPrioritySuperTrackingType() == 0 and not C_QuestLog.IsWorldQuest(questID)then
+            SaveQuestLineID(questID)
+        end
+
     end
 end
 

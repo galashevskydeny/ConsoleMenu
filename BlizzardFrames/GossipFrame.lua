@@ -85,6 +85,7 @@ local function hideFramesAndRegions()
         parentFrame.PortraitContainer.portrait,
         parentFrame.Bg,
         parentFrame.Background,
+        parentFrame.FriendshipStatusBar,
 
         parentFrame.GreetingPanel,
         parentFrame.CloseButton,

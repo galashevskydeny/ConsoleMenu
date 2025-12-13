@@ -98,9 +98,9 @@ local contextsSettings = {
 }
 
 local questSettings = {
-    { name = "Автом. переключение активного задания (Super Track)", variable = "questSuperTrackEnable", default = 2, tooltip = "Автоматическое переключение активного задания (Super Track).", options = toggleOptions },
-    { name = "Первый незавершенный квест", variable = "questAutoSelectFirstIncomplete", default = 2, tooltip = "Выбрать первый незавершенный квест из журнала заданий, если не было выбрано задание из цепочки предыдущего задания.", options = toggleOptions },
-    { name = "Фокус на локальных заданиях", variable = "questFocusLocalQuests", default = 2, tooltip = "Автоматически выбирать локальные задания при вхождении в область их выполнения с последующим возвратом предыдущего задания (если оно было выбрано).", options = toggleOptions },
+    { name = "Переключение активного задания", variable = "questSuperTrackEnable", default = 2, tooltip = "Автоматическое переключение активного задания (Super Track).", options = toggleOptions },
+    { name = "Внимание на локальные задания", variable = "questFocusLocalQuests", default = 2, tooltip = "Автоматически выбирать локальные задания при вхождении в область их выполнения с последующим возвратом предыдущего задания (если оно было выбрано).", options = toggleOptions },
+    { name = "Внимание на главе сюжета", variable = "questLineFocus", default = 2, tooltip = "Автоматически выбирать задания из той же цепочки, что и текущее активное задание (если оно было выбрано).", options = toggleOptions },
 }
 
 -- Используем библиотеку SettingsHelper

@@ -180,6 +180,15 @@ local function setIcon(frame, data)
         frame.icon.texture:Show()
     end
 
+    -- Иконка отношений с NPC
+    local function SetInspectorIcon()
+        frame.icon.texture:SetPoint("TOPLEFT", frame.icon, "TOPLEFT", 0, 0)
+        frame.icon.texture:SetPoint("BOTTOMRIGHT", frame.icon, "BOTTOMRIGHT", 0, 0)
+        frame.icon.texture:SetAtlas("Crosshair_Inspect_128")
+
+        frame.icon.texture:Show()
+    end
+
     -- Смена текстур и их видимости
 
     if not frame.icon.texture then
@@ -263,6 +272,10 @@ local function setIcon(frame, data)
         frame.icon.border:Show()
         frame.icon.texture:Show()
     elseif data.type == "goodbye" then
+        SetSpeakIcon()
+    elseif data.type == "reputation" then
+        SetInspectorIcon()
+    elseif data.type == "reputationBack" then
         SetSpeakIcon()
     else
         frame.icon.texture:Hide()
@@ -367,6 +380,18 @@ local function CreateGossipScrollBox()
             })
         end
 
+        -- Добавить опцию просмотра отношений с NPC
+        local reputationInfo = C_GossipInfo.GetFriendshipReputation(factionID or 0);
+        if ( reputationInfo and reputationInfo.friendshipFactionID and  reputationInfo.friendshipFactionID > 0 ) then
+            -- Добавить опцию выхода
+            DataProvider:Insert({
+                type = "reputation",
+                name = "Отношения с " .. reputationInfo.name,
+                reputationText = reputationInfo.text,
+                reputationName = reputationInfo.name,
+            })
+        end
+
         -- Добавить опцию выхода
         DataProvider:Insert({
             type = "goodbye",
@@ -450,6 +475,43 @@ local function CreateGossipScrollBox()
         })
     end
 
+    -- Показать отношения с NPC
+    local function ShowReputation(reputationText, reputationName)
+        -- Очищаем DataProvider и добавляем новые данные
+        DataProvider:Flush()
+        frames = {} -- Сбрасываем список фреймов
+
+        ConsoleMenu:AddSubtitles("GOSSIP_SHOW", reputationText, reputationName)
+        ConsoleMenu:SubtitleFrameUpdate()
+
+        -- Добавить опцию выхода
+        DataProvider:Insert({
+            type = "reputationBack",
+            name = "Давай поговорим о чем-то другом.",
+            reputationName = reputationName,
+        })
+
+        -- Добавить опцию выхода
+        DataProvider:Insert({
+            type = "goodbye",
+            name = GOODBYE,
+        })
+
+        UpdateFocus(1)
+        UpdateScrollBarVisibility()
+    end
+
+    local function BackToGossip(reputationName)
+
+        local gossipText = C_GossipInfo.GetText()
+        ConsoleMenu:AddSubtitles("GOSSIP_SHOW", gossipText, reputationName)
+        ConsoleMenu:SubtitleFrameUpdate()
+
+        GetGossip()
+        UpdateFocus(1)
+        UpdateScrollBarVisibility()
+    end
+
     -- Кастомный инициализатор
     local function Initializer(frame, data)
         local frameIndex = #frames + 1
@@ -524,6 +586,10 @@ local function CreateGossipScrollBox()
                 else
                     GetQuestReward(1)
                 end
+            elseif data.type == "reputation" then
+                ShowReputation(data.reputationText, data.reputationName)
+            elseif data.type == "reputationBack" then
+                BackToGossip(data.reputationName)
             else
                 print("Unknown data type:", data.type)
             end
