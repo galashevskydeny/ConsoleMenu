@@ -602,10 +602,9 @@ local function CreateGossipScrollBox()
 
             local questID = GetQuestID()
             local isComplete = C_QuestLog.IsComplete(questID)
+            local numRequiredItems = GetNumQuestItems()
 
             if isComplete then
-                local numRequiredItems = GetNumQuestItems()
-
                 if numRequiredItems == 0 then
                     -- Добавить опцию выхода
                     DataProvider:Insert({
@@ -626,6 +625,23 @@ local function CreateGossipScrollBox()
                     DataProvider:Insert({
                         type = "progressQuest",
                         name = "Готово!",
+                    })
+                end
+            elseif numRequiredItems == 1 then
+                local name, texture, count, quality, isUsable, itemID = GetQuestItemInfo("required", 1)
+                local currentCount = C_Item.GetItemCount(itemID)
+
+                if currentCount >= count then
+                    -- Добавить опцию выхода
+                    DataProvider:Insert({
+                        type = "progressQuest",
+                        name = name .. " при мне.",
+                    })
+                else
+                    -- Добавить опцию выхода
+                    DataProvider:Insert({
+                        type = "goodbye",
+                        name = "Мне нужно больше времени",
                     })
                 end
             else
