@@ -21,8 +21,8 @@ local mainCategorySettings = {
 
 -- Основные элементы
 local hudSettingsMainElements = {
-    { name = "Отслеживание цели", variable = "hideObjectiveTracker", default = 1, tooltip = "Управляет отображением трекера заданий (ObjectiveTracker).", options = hudDropdownOptions },
-    { name = "Оповещения о целях", variable = "hideObjectiveTrackerTopBannerFrame", default = 1, tooltip = "Управляет отображением баннера трекера заданий (ObjectiveTrackerTopBannerFrame).", options = hudDropdownOptions },
+    { name = "Задания", variable = "hideObjectiveTracker", default = 1, tooltip = "Управляет отображением трекера заданий (ObjectiveTracker).", options = hudDropdownOptions },
+    { name = "Оповещения о локальных заданиях", variable = "hideObjectiveTrackerTopBannerFrame", default = 1, tooltip = "Управляет отображением баннера трекера заданий (ObjectiveTrackerTopBannerFrame).", options = hudDropdownOptions },
     { name = "Миникарта", variable = "hideMinimap", default = 1, tooltip = "Управляет отображением миникарты (Minimap).", options = hudDropdownOptions },
     { name = "Главное меню", variable = "hideMicroMenu", default = 1, tooltip = "Управляет отображением главного меню (MicroMenu).", options = hudDropdownOptions },
     { name = "Поиск группы", variable = "hideGroupFinderFrame", default = 1, tooltip = "Управляет отображением фрейма поиска группы (GroupFinderFrame).", options = hudDropdownOptions },
