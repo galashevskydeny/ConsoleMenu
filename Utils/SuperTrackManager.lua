@@ -73,18 +73,16 @@ local function OnEvent(self, event, ...)
         SaveQuestLineID(questID)
 
     elseif event == "QUEST_LOG_UPDATE" and C_SuperTrack.GetHighestPrioritySuperTrackingType() == 0 then
-        local questID = ...
-        if not questID then return end
+
         if ConsoleMenuDB.questSuperTrackEnable == 2 then return end
 
-        if ConsoleMenuDB.questLineFocus == 2 or C_QuestLog.IsWorldQuest(questID) then
-            return
-        end
-
         if ConsoleMenuDB.questLineFocus == 1 then
+
             -- Переключение фокуса на незавершенном квесте из этой же цепочки, после выполнения всех целей текущего отслеживаемого квеста
             local trackedQuestID = C_SuperTrack.GetSuperTrackedQuestID()
             if not trackedQuestID or trackedQuestID == 0 then return end
+
+            if C_QuestLog.IsWorldQuest(trackedQuestID) then return end
 
             -- Проверяем, все ли цели текущего квеста выполнены
             if not IsQuestAllObjectivesComplete(trackedQuestID) then return end
@@ -94,9 +92,6 @@ local function OnEvent(self, event, ...)
             
             -- Если нет цепочки, то переключение фокуса невозможно
             if not currentLineID then return end
-
-            -- Если изменение прогресса не связано с отслеживаемой цепочкой
-            if currentLineID ~= nil and currentLineID ~= ConsoleMenuDB.superTrackPreviousQuestLineID then return end
             
             -- Ищем следующий незавершенный квест из той же цепочки среди квестов в журнале заданий
             local totalEntries, _ = C_QuestLog.GetNumQuestLogEntries()
@@ -130,6 +125,7 @@ local function OnEvent(self, event, ...)
         if ConsoleMenuDB.questLineFocus == 1 then
 
             if C_QuestLog.IsWorldQuest(questID) then return end
+            if C_SuperTrack.GetSuperTrackedQuestID() ~= nil then return end
 
             local questLineInfo = C_QuestLine.GetQuestLineInfo(questID)
             
