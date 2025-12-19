@@ -2,14 +2,14 @@
 
 local ConsoleMenu = _G.ConsoleMenu
 local parentFrame
-local maxLineLength = 80
+local maxLineLength = 200
 local subtitleUpdateTimer = nil
 
 local SubtitleEventPriority = {
+    CHAT_MSG_MONSTER_EMOTE = 4,
     CHAT_MSG_MONSTER_SAY = 3,
     CHAT_MSG_MONSTER_YELL = 3,
     CHAT_MSG_MONSTER_WHISPER = 3,
-    CHAT_MSG_MONSTER_EMOTE = 3,
     CHAT_MSG_PARTY_LEADER = 2,
     CHAT_MSG_PARTY = 2,
     CHAT_MSG_INSTANCE_CHAT = 2,
@@ -74,6 +74,47 @@ local function SplitTextIntoLines(text)
         return result
     end
     
+    -- Вспомогательная функция для разбиения текста по запятым
+    local function split_by_commas(text, max_length)
+        local parts = {}
+        local result = {}
+        local current = ""
+        
+        -- Разбиваем текст по запятым
+        for part in text:gmatch("([^,]+)") do
+            part = part:match("^%s*(.-)%s*$") -- убираем пробелы в начале и конце
+            if part ~= "" then
+                parts[#parts + 1] = part
+            end
+        end
+        
+        if #parts == 0 then
+            return {text}
+        end
+        
+        -- Группируем части по длине
+        for i = 1, #parts do
+            local part = parts[i]
+            local needComma = current ~= "" and 2 or 0 -- запятая + пробел
+            local newLength = #current + needComma + #part
+            
+            if newLength <= max_length then
+                current = current ~= "" and (current .. ", " .. part) or part
+            else
+                if current ~= "" then
+                    result[#result + 1] = current
+                end
+                current = part
+            end
+        end
+        
+        if current ~= "" then
+            result[#result + 1] = current
+        end
+        
+        return result
+    end
+    
     -- Разбиваем текст на строки, убираем лишние переносы и пустые строки
     for line in text:gmatch("[^\r\n]+") do
         local trimmedLine = line:match("^%s*(.-)%s*$")
@@ -83,7 +124,16 @@ local function SplitTextIntoLines(text)
             else
                 local grouped = split_and_group_text(trimmedLine, maxLen)
                 for i = 1, #grouped do
-                    lines[#lines + 1] = grouped[i]
+                    local groupedLine = grouped[i]
+                    if #groupedLine < maxLen then
+                        lines[#lines + 1] = groupedLine
+                    else
+                        -- Если строка все еще длиннее maxLen, разбиваем по запятым
+                        local commaSplit = split_by_commas(groupedLine, maxLen)
+                        for j = 1, #commaSplit do
+                            lines[#lines + 1] = commaSplit[j]
+                        end
+                    end
                 end
             end
         end
@@ -138,22 +188,29 @@ function ConsoleMenu:AddSubtitles(event, message, sender)
     for i, line in ipairs(lines) do
         local duration = CalculateSpeechDuration(line)
         local stopTime = startTime + duration
-        
-        -- Создаем таблицу субтитра
-        local subtitleData = {
-            text = line,
-            sender = sender,
-            priority = priority,
-            event = event,
-            duration = duration,
-            startTime = startTime,
-            stopTime = stopTime,
-            lastLine = (i == #lines),
-        }
-        
-        table.insert(ConsoleMenu.Subtitles, subtitleData)
 
-        startTime = stopTime -- последовательно, строки идут друг за другом
+        if event == "CHAT_MSG_MONSTER_EMOTE" then
+            line = string.gsub(line, "%%s", sender or "")
+        end
+
+        if line:gsub("[<>]", "") ~= "" then
+            -- Создаем таблицу субтитра
+            local subtitleData = {
+                text = line:gsub("[<>]", ""),
+                sender = sender,
+                priority = priority,
+                event = event,
+                duration = duration,
+                startTime = startTime,
+                stopTime = stopTime,
+                emotion = (event == "CHAT_MSG_MONSTER_EMOTE" or line:match("<") ~= nil or line:match(">") ~= nil),
+                lastLine = (i == #lines),
+            }
+            
+            table.insert(ConsoleMenu.Subtitles, subtitleData)
+
+            startTime = stopTime -- последовательно, строки идут друг за другом
+        end
     end
 end
 
@@ -234,19 +291,31 @@ end
     local current = GetCurrentSubtitleWithMaxPriority()
 
     if current then
-        -- Обновить имя говорящего
-        local speaker = current.sender or ""
-        if speaker ~= "" then
-            frame.Speaker:SetText(speaker)
-            frame.Speaker:Show()
-        else
-            frame.Speaker:SetText("")
-            frame.Speaker:Hide()
-        end
+        if current.emotion then
+            -- Обновить текст субтитра
+            frame.Emotion:SetText(current.text or "")
+            frame.Emotion:Show()
 
-        -- Обновить текст субтитра
-        frame.Subtitle:SetText(current.text or "")
-        frame.Subtitle:Show()
+            frame.Speaker:Hide()
+            frame.Subtitle:Hide()
+        else
+            -- Обновить имя говорящего
+            local speaker = current.sender or ""
+
+            if speaker ~= "" then
+                frame.Speaker:SetText(speaker)
+                frame.Speaker:Show()
+            else
+                frame.Speaker:SetText("")
+                frame.Speaker:Hide()
+            end
+
+            -- Обновить текст субтитра
+            frame.Subtitle:SetText(current.text or "")
+            frame.Subtitle:Show()
+
+            frame.Emotion:Hide()
+        end
 
         -- Узнать, сколько осталось времени показа этого субтитра
         local now = GetTime()
@@ -264,12 +333,15 @@ end
                 ConsoleMenu:SubtitleFrameUpdate()
             end)
         end
+
     else
         -- Нет подходящего субтитра, скрываем оба текста
         frame.Speaker:SetText("")
         frame.Speaker:Hide()
         frame.Subtitle:SetText("")
         frame.Subtitle:Hide()
+        frame.Emotion:SetText("")
+        frame.Emotion:Hide()
 
         if subtitleUpdateTimer then
             subtitleUpdateTimer:Cancel()
@@ -331,6 +403,20 @@ function ConsoleMenu:SetSubtitleFrame()
         frame.Subtitle:SetNonSpaceWrap(true)
         frame.Subtitle:SetWordWrap(true)
         frame.Subtitle:Hide()
+    end
+
+    -- Текст для самого субтитра
+    if not frame.Emotion then
+        frame.Emotion = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        frame.Emotion:SetPoint("BOTTOM", frame, "BOTTOM", 0, 0)
+        frame.Emotion:SetFont("Fonts\\FRIZQT___CYR.TTF", 18, "OUTLINE")
+        frame.Emotion:SetTextColor(1.0, 0.960784, 0.772549, 0.6)
+        frame.Emotion:SetJustifyH("CENTER")
+        frame.Emotion:SetWidth(412)
+        frame.Emotion:SetText("") -- Пустой по умолчанию
+        frame.Emotion:SetNonSpaceWrap(true)
+        frame.Emotion:SetWordWrap(true)
+        frame.Emotion:Hide()
     end
 
     self.SubtitleFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
