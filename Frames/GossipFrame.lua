@@ -189,6 +189,15 @@ local function setIcon(frame, data)
         frame.icon.texture:Show()
     end
 
+    -- Иконка отряда
+    local function SetWarbandIcon()
+        frame.icon.texture:SetPoint("TOPLEFT", frame.icon, "TOPLEFT", 0, 6)
+        frame.icon.texture:SetPoint("BOTTOMRIGHT", frame.icon, "BOTTOMRIGHT", 0, -6)
+        frame.icon.texture:SetAtlas("warbands-icon")
+
+        frame.icon.texture:Show()
+    end
+
     -- Смена текстур и их видимости
 
     if not frame.icon.texture then
@@ -276,6 +285,8 @@ local function setIcon(frame, data)
     elseif data.type == "reputation" then
         SetInspectorIcon()
     elseif data.type == "reputationBack" then
+        SetSpeakIcon()
+    elseif data.type == "completedAccountQuest" then
         SetSpeakIcon()
     else
         frame.icon.texture:Hide()
@@ -468,6 +479,13 @@ local function CreateGossipScrollBox()
             questID = questID,
         })
 
+        if C_QuestLog.IsQuestFlaggedCompletedOnAccount(questID) then
+            DataProvider:Insert({
+                type = "completedAccountQuest",
+                name = "Кажется мой отряд уже выполнял это задание.",
+            })
+        end
+
         -- Добавить опцию выхода
         DataProvider:Insert({
             type = "goodbye",
@@ -590,6 +608,8 @@ local function CreateGossipScrollBox()
                 ShowReputation(data.reputationText, data.reputationName)
             elseif data.type == "reputationBack" then
                 BackToGossip(data.reputationName)
+            elseif data.type == "completedAccountQuest" then
+                CloseQuest()
             else
                 print("Unknown data type:", data.type)
             end
