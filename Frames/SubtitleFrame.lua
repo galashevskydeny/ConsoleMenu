@@ -42,8 +42,12 @@ local function SplitTextIntoLines(text)
         -- Разбиваем текст на предложения (оптимизированное регулярное выражение)
         for sentence in text:gmatch("([^%.%!%?%.%.%.]+[%.,%!%?%.%.%.]*)") do
             sentence = sentence:gsub("^%s+", "") -- убираем пробелы одним вызовом
-            if sentence ~= "" then
+            -- Пропускаем предложения, состоящие только из символов < и >
+            if sentence ~= "" and not sentence:match("^[<>%s]*$") then
                 sentences[#sentences + 1] = sentence
+            elseif sentence ~= "" and #sentences > 0 then
+                -- Если это только < или >, объединяем с предыдущим предложением
+                sentences[#sentences] = sentences[#sentences] .. sentence
             end
         end
         
@@ -372,8 +376,8 @@ function ConsoleMenu:SetSubtitleFrame()
 
     -- Фрейм для текста субтитра и имени говорящего
     local frame = self.SubtitleFrame
-    frame:SetSize(412, 60)
-    frame:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 210)
+    frame:SetSize(412, 120)
+    frame:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 140)
 
     -- Текст для имени говорящего
     if not frame.Speaker then
@@ -408,7 +412,7 @@ function ConsoleMenu:SetSubtitleFrame()
     -- Текст для самого субтитра
     if not frame.Emotion then
         frame.Emotion = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        frame.Emotion:SetPoint("BOTTOM", frame, "BOTTOM", 0, 0)
+        frame.Emotion:SetPoint("TOP", frame.Speaker, "TOP", 0, 0)
         frame.Emotion:SetFont("Fonts\\FRIZQT___CYR.TTF", 18, "OUTLINE")
         frame.Emotion:SetTextColor(1.0, 0.960784, 0.772549, 0.6)
         frame.Emotion:SetJustifyH("CENTER")
