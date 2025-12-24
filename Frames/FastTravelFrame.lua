@@ -5,8 +5,9 @@ local parentFrame
 local updateFocus
 local setItemList
 local frames = {}
+local houseList = {}
+local currentHouseInfo = nil
 local focusedIndex = 1
-local PAD1_COMMON_BINDING
 local softTargetEnemy
 local gamePadActive = false
 
@@ -60,12 +61,14 @@ local function TeleportToHouse()
         return
     end
     
-    local houseInfo = C_Housing.GetCurrentHouseInfo()
+    local houseInfo = currentHouseInfo
+
     if not houseInfo then
         return
     end
     
     local teleportToPlot = true
+
     if C_HousingNeighborhood.CanReturnAfterVisitingHouse() then
         local currentNeighborhoodGUID = C_Housing.GetCurrentNeighborhoodGUID()
         if currentNeighborhoodGUID and houseInfo and currentNeighborhoodGUID == houseInfo.neighborhoodGUID then
@@ -111,7 +114,7 @@ local function setIcon(frame, data)
         frame.icon.texture:Show()
     elseif data.type == "housing" then
         frame.icon.texture:SetAllPoints()
-        frame.icon.texture:SetAtlas(data.texture)
+        frame.icon.texture:SetAtlas("dashboard-panel-homestone-teleport-button")
         ApplyMaskToTexture(frame.icon.texture)
         frame.icon.border:Show()
         frame.icon.texture:Show()
@@ -130,10 +133,6 @@ local function CreateFastTravelScrollBox()
     FastTravelScrollBox:EnableKeyboard(true)
     FastTravelScrollBox:SetScript("OnKeyDown", function(self, key)
         if key == "ESCAPE" then
-            if PAD1_COMMON_BINDING ~= nil then
-                SetBinding("PAD1", PAD1_COMMON_BINDING)
-                SaveBindings(GetCurrentBindingSet())
-            end
             self:Hide()
         end
     end)
@@ -145,10 +144,17 @@ local function CreateFastTravelScrollBox()
     FastTravelScrollBox:RegisterEvent("PLAYER_REGEN_DISABLED") -- Начало боя
     FastTravelScrollBox:RegisterUnitEvent("UNIT_SPELLCAST_START", "player") -- Игрок начал каст
     FastTravelScrollBox:RegisterEvent("GAME_PAD_ACTIVE_CHANGED") -- Событие изменения режима геймпада
+    FastTravelScrollBox:RegisterEvent("PLAYER_HOUSE_LIST_UPDATED")
+
 
     FastTravelScrollBox:SetScript("OnEvent", function(self, event, ...)
         if event == "GAME_PAD_ACTIVE_CHANGED" then
             gamePadActive = ...
+            return
+        end
+
+        if event == "PLAYER_HOUSE_LIST_UPDATED" then
+            houseList = ...
             return
         end
 
@@ -194,10 +200,6 @@ local function CreateFastTravelScrollBox()
             -- соответствующий текущему элементу (через SetOverrideBindingItem)
             local item = frames[focusedIndex]:GetData()
 
-            if PAD1_COMMON_BINDING ~= nil then
-                SetBinding("PAD1", nil) -- обязательно сначала удалить постоянную привязку!
-            end
-
             local bindString
 
             if item.type == "item" then
@@ -205,12 +207,13 @@ local function CreateFastTravelScrollBox()
             elseif item.type == "spell" then
                 bindString = "SPELL " .. item.name
             elseif item.type == "housing" then
+                currentHouseInfo = item.houseInfo
                 bindString = "CLICK FastTravelHousingTeleportButton:LeftButton"
             end
 
             SetOverrideBinding(
                 parentFrame, -- владелец бинда
-                false, 
+                true, 
                 "PAD1", 
                 bindString
             )
@@ -256,7 +259,7 @@ local function CreateFastTravelScrollBox()
         elseif data.type == "housing" then
             -- Для housing используем OnClick, так как нет стандартного атрибута
             hearthstoneButton:SetScript("OnClick", function(self, button)
-                TeleportToHouse()
+                TeleportToHouse(data.houseInfo)
             end)
         end
         
@@ -320,6 +323,7 @@ local function CreateFastTravelScrollBox()
         DataProvider:Flush()
         frames = {}
     
+        -- Добавляем камень возвращения
         local itemInfo = 6948
         local itemName, _, _, _, _, _, _, _, _, itemTexture = C_Item.GetItemInfo(itemInfo)
         DataProvider:Insert({
@@ -330,34 +334,30 @@ local function CreateFastTravelScrollBox()
         })
 
         -- Добавляем телепорты в жилище / из него
-        if C_Housing and C_Housing.GetCurrentHouseInfo() then
+        if C_Housing then
             local teleportToPlot = true
+        
             if C_HousingNeighborhood.CanReturnAfterVisitingHouse() then
                 local currentNeighborhoodGUID = C_Housing.GetCurrentNeighborhoodGUID()
                 if currentNeighborhoodGUID and C_Housing.GetCurrentHouseInfo() and currentNeighborhoodGUID == C_Housing.GetCurrentHouseInfo().neighborhoodGUID then
                     teleportToPlot = false
                 end
             end
-            local texture
-            local name
+
             if teleportToPlot then
                 texture = "dashboard-panel-homestone-teleport-button"
-                name = HOUSING_DASHBOARD_TELEPORT_TO_PLOT
-                DataProvider:Insert({
-                    id = "house_teleport",
-                    type = "housing",
-                    name = name,
-                    texture = texture,
-                })
-            else
-                texture = "dashboard-panel-homestone-teleport-out-button"
-                name = HOUSING_DASHBOARD_RETURN
+                for _, houseInfo in ipairs(houseList) do
+                    DataProvider:Insert({
+                        id = "house_teleport",
+                        type = "housing",
+                        name = houseInfo.houseName,
+                        houseInfo = houseInfo,
+                    })
+                end
             end
-
-            
         end
     
-        -- Проверяем, что игрок - маг
+        -- Добавляем телепорты мага
         local className, classFile = UnitClass("player")
         if classFile == "MAGE" then
     
@@ -396,8 +396,8 @@ local function MoveFocus(delta)
     updateFocus(newIndex)
 end
 
-function ConsoleMenu:SetFastTravelFrame()
-    -- Предзагрузка данных
+-- Функция предзагрузки данных
+local function PreloadData()
     local itemsToPreload = {
         6948,    -- Hearthstone
     }
@@ -414,6 +414,12 @@ function ConsoleMenu:SetFastTravelFrame()
     for _, spellID in ipairs(mageTeleports) do
         C_Spell.RequestLoadSpellData(spellID)
     end
+
+    C_Housing.GetPlayerOwnedHouses()
+end
+
+function ConsoleMenu:SetFastTravelFrame()
+    PreloadData()
 
     parentFrame, updateFocus, setItemList = CreateFastTravelScrollBox()
 
@@ -436,10 +442,6 @@ function ConsoleMenu:SetFastTravelFrame()
     hideButton:SetSize(1,1)
     hideButton:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 0, 40)
     hideButton:SetScript("OnClick", function()
-        if PAD1_COMMON_BINDING ~= nil then
-            SetBinding("PAD1", PAD1_COMMON_BINDING)
-            SaveBindings(GetCurrentBindingSet())
-        end
         parentFrame:Hide()
     end)
 
@@ -455,7 +457,6 @@ function ConsoleMenu:SetFastTravelFrame()
     parentFrame:HookScript("OnShow", function()
         softTargetEnemy = GetCVar("SoftTargetEnemy")
         SetCVar("SoftTargetEnemy", 0)
-        PAD1_COMMON_BINDING = GetBindingAction("PAD1")
         
         -- Привязываем PADDUP к клику по FocusUpButton
         SetOverrideBindingClick(focusUpButton, true, "PADDUP", "FocusUpButton", "LeftButton")
@@ -486,10 +487,6 @@ function ConsoleMenu:SetFastTravelFrame()
         ClearOverrideBindings(focusUpButton)
         ClearOverrideBindings(focusDownButton)
         ClearOverrideBindings(hideButton)
-        if PAD1_COMMON_BINDING ~= nil then
-            SetBinding("PAD1", PAD1_COMMON_BINDING)
-            SaveBindings(GetCurrentBindingSet())
-        end
 
         if WeakAuras then
             WAGlobal = WAGlobal or {}  -- Создаем таблицу, если её ещё нет
