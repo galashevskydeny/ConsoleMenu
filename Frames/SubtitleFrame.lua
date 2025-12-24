@@ -186,15 +186,26 @@ function ConsoleMenu:AddSubtitles(event, message, sender)
     local priority = SubtitleEventPriority[event] or 1
 
     local lines = SplitTextIntoLines(message)
-
     local currentTime = GetTime()
     local startTime = currentTime
+
+    local emotion = false
+
+    if event == "CHAT_MSG_MONSTER_EMOTE" then
+        emotion = true
+    end
+
     for i, line in ipairs(lines) do
         local duration = CalculateSpeechDuration(line)
         local stopTime = startTime + duration
 
         if event == "CHAT_MSG_MONSTER_EMOTE" then
             line = string.gsub(line, "%%s", sender or "")
+        end
+
+        if line:find("<") then
+            -- Строка содержит символ <
+            emotion = true
         end
 
         if line:gsub("[<>]", "") ~= "" then
@@ -207,13 +218,18 @@ function ConsoleMenu:AddSubtitles(event, message, sender)
                 duration = duration,
                 startTime = startTime,
                 stopTime = stopTime,
-                emotion = (event == "CHAT_MSG_MONSTER_EMOTE" or line:match("<") ~= nil or line:match(">") ~= nil),
+                emotion = emotion,
                 lastLine = (i == #lines),
             }
             
             table.insert(ConsoleMenu.Subtitles, subtitleData)
 
             startTime = stopTime -- последовательно, строки идут друг за другом
+        end
+
+        if line:find(">") then
+            -- Строка содержит символ >
+            emotion = false
         end
     end
 end
