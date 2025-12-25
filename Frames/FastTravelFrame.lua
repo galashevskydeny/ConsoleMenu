@@ -2,12 +2,14 @@
 
 local ConsoleMenu = _G.ConsoleMenu
 local parentFrame
-local updateFocus
-local setItemList
-local frames = {}
+
+local viewedItemCount = 4
+
+local focusedIndex
+
 local houseList = {}
 local currentHouseInfo = nil
-local focusedIndex = 1
+
 local softTargetEnemy
 local gamePadActive = false
 
@@ -123,10 +125,68 @@ local function setIcon(frame, data)
     end
 end
 
+-- Обновление фокуса
+local function UpdateFocus(element, changeFocus)
+
+    if not element then
+        return
+    end
+
+    local frames = parentFrame.ScrollBox:GetFrames()
+
+    local elements = parentFrame.ScrollBox:GetDataProvider().collection
+    
+    -- Сброс фокуса для всех элементов
+    for _, frame in ipairs(frames) do
+        frame:SetFocused(false)
+    end
+
+    focusedIndex = parentFrame.ScrollBox:FindElementDataIndex(element)
+
+    local frame = parentFrame.ScrollBox:FindFrameByPredicate(function(frame, elementData)
+		return elementData == element;
+	end)
+    
+    if frame and changeFocus then
+        frame:SetFocused(true)
+
+        -- Прокрутить ScrollBox до текущего элемента
+        if gamePadActive then
+            parentFrame.ScrollBox:ScrollToElementDataIndex(focusedIndex)
+        end
+    end
+
+    -- Устанавливаем бинд: при нажатии PAD1 будет использоваться предмет, 
+    local bindString
+
+    if element.type == "item" then
+        bindString = "ITEM " .. element.name
+    elseif element.type == "spell" then
+        bindString = "SPELL " .. element.name
+    elseif element.type == "housing" then
+        currentHouseInfo = element.houseInfo
+        bindString = "CLICK FastTravelHousingTeleportButton:LeftButton"
+    end
+
+    SetOverrideBinding(
+        parentFrame, -- владелец бинда
+        true, 
+        "PAD1", 
+        bindString
+    )
+end
+
+-- Функция переключения фокуса
+local function MoveFocus(delta)
+    local newIndex = math.max(1, math.min(focusedIndex + delta, FastTravelScrollBox:GetDataProviderSize()))
+    local element = parentFrame.ScrollBox:GetDataProvider().collection[newIndex]
+    UpdateFocus(element, true)
+end
+
 -- Создание ScrollBox
 local function CreateFastTravelScrollBox()
     local FastTravelScrollBox = CreateFrame("Frame", "FastTravelScroll", UIParent)
-    FastTravelScrollBox:SetSize(480, 48 * 4)
+    FastTravelScrollBox:SetSize(480, 48 * viewedItemCount)
     FastTravelScrollBox:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 48, 48)
     
     -- Включаем обработку клавиатуры для ESC
@@ -140,12 +200,10 @@ local function CreateFastTravelScrollBox()
     -- Добавляем в UISpecialFrames для обработки ESC
     tinsert(UISpecialFrames, "FastTravelScroll")
 
-    -- Скрытие при начале боя или начале произнесения заклинания
     FastTravelScrollBox:RegisterEvent("PLAYER_REGEN_DISABLED") -- Начало боя
     FastTravelScrollBox:RegisterUnitEvent("UNIT_SPELLCAST_START", "player") -- Игрок начал каст
     FastTravelScrollBox:RegisterEvent("GAME_PAD_ACTIVE_CHANGED") -- Событие изменения режима геймпада
     FastTravelScrollBox:RegisterEvent("PLAYER_HOUSE_LIST_UPDATED")
-
 
     FastTravelScrollBox:SetScript("OnEvent", function(self, event, ...)
         if event == "GAME_PAD_ACTIVE_CHANGED" then
@@ -177,49 +235,6 @@ local function CreateFastTravelScrollBox()
     local DataProvider = CreateDataProvider()
     local ScrollView = CreateScrollBoxListLinearView()
 
-        -- Обновление фокуса
-    local function UpdateFocus(newIndex)
-        -- Сброс фокуса для всех элементов
-        for _, frame in ipairs(frames) do
-            if frame and frame.SetFocused then
-                frame:SetFocused(false)
-            end
-        end
-
-        focusedIndex = newIndex
-        
-        if frames[focusedIndex] then
-            frames[focusedIndex]:SetFocused(true)
-
-            -- Прокрутить ScrollBox до текущего элемента
-            if gamePadActive then
-                parentFrame.ScrollBox:ScrollToElementDataIndex(newIndex)
-            end
-
-            -- Устанавливаем бинд: при нажатии PAD1 будет использоваться предмет, 
-            -- соответствующий текущему элементу (через SetOverrideBindingItem)
-            local item = frames[focusedIndex]:GetData()
-
-            local bindString
-
-            if item.type == "item" then
-                bindString = "ITEM " .. item.name
-            elseif item.type == "spell" then
-                bindString = "SPELL " .. item.name
-            elseif item.type == "housing" then
-                currentHouseInfo = item.houseInfo
-                bindString = "CLICK FastTravelHousingTeleportButton:LeftButton"
-            end
-
-            SetOverrideBinding(
-                parentFrame, -- владелец бинда
-                true, 
-                "PAD1", 
-                bindString
-            )
-        end
-    end
-
     -- Обновление видимости скролл бара
     local function UpdateScrollBarVisibility()
         local totalHeight = ScrollView:GetExtent() - 1
@@ -238,40 +253,33 @@ local function CreateFastTravelScrollBox()
             return
         end
 
-        table.insert(frames, frame)
-
         local hearthstoneButton = CreateFrame("Button", nil, frame, "SecureActionButtonTemplate")
         frame.SecureActionButton = hearthstoneButton
 
-        hearthstoneButton:SetAllPoints()
+        hearthstoneButton:SetAllPoints(frame)
         hearthstoneButton:RegisterForClicks("AnyDown")
         
         -- Включаем обработку мыши для переключения фокуса при наведении
         hearthstoneButton:EnableMouse(true)
 
-        -- Настройка атрибутов для SecureActionButton (работает в бою)
+        -- Настройка атрибутов для SecureActionButton
         if data.type == "item" then
-            hearthstoneButton:SetAttribute("type", "item")
-            hearthstoneButton:SetAttribute("item", data.name)
+            frame.SecureActionButton:SetAttribute("type", "item")
+            frame.SecureActionButton:SetAttribute("item", data.name)
         elseif data.type == "spell" then
-            hearthstoneButton:SetAttribute("type", "spell")
-            hearthstoneButton:SetAttribute("spell", data.name)
+            frame.SecureActionButton:SetAttribute("type", "spell")
+            frame.SecureActionButton:SetAttribute("spell", data.name)
         elseif data.type == "housing" then
             -- Для housing используем OnClick, так как нет стандартного атрибута
-            hearthstoneButton:SetScript("OnClick", function(self, button)
+            frame.SecureActionButton:SetScript("OnClick", function(self, button)
                 TeleportToHouse(data.houseInfo)
             end)
         end
         
-        -- Обработчик наведения мыши для переключения фокуса (после table.insert)
+        -- Обработчик наведения мыши для переключения фокуса
         hearthstoneButton:SetScript("OnEnter", function(self)
-            -- Находим индекс этого фрейма в массиве frames
-            for index, f in ipairs(frames) do
-                if f == frame then
-                    UpdateFocus(index)
-                    break
-                end
-            end
+            UpdateFocus(data, false)
+            frame:SetFocused(true)
         end)
 
         -- Иконка
@@ -311,17 +319,11 @@ local function CreateFastTravelScrollBox()
             end
         end
 
-        -- Сохраняем данные, чтобы потом получить их через frame:GetData()
-        frame.data = data
-        function frame:GetData()
-            return self.data
-        end
     end
 
     -- Наполнение списка элементами
     local function SetItemList()
         DataProvider:Flush()
-        frames = {}
     
         -- Добавляем камень возвращения
         local itemInfo = 6948
@@ -348,7 +350,7 @@ local function CreateFastTravelScrollBox()
                 texture = "dashboard-panel-homestone-teleport-button"
                 for _, houseInfo in ipairs(houseList) do
                     DataProvider:Insert({
-                        id = "house_teleport",
+                        id = houseInfo.houseGUID,
                         type = "housing",
                         name = houseInfo.houseName,
                         houseInfo = houseInfo,
@@ -387,13 +389,7 @@ local function CreateFastTravelScrollBox()
 
     FastTravelScrollBox:Hide()
 
-    return FastTravelScrollBox, UpdateFocus, SetItemList
-end
-
--- Функция переключения фокуса
-local function MoveFocus(delta)
-    local newIndex = math.max(1, math.min(focusedIndex + delta, #frames))
-    updateFocus(newIndex)
+    return FastTravelScrollBox, SetItemList
 end
 
 -- Функция предзагрузки данных
@@ -421,7 +417,7 @@ end
 function ConsoleMenu:SetFastTravelFrame()
     PreloadData()
 
-    parentFrame, updateFocus, setItemList = CreateFastTravelScrollBox()
+    parentFrame, setItemList = CreateFastTravelScrollBox()
 
     -- Создаём «невидимые» кнопки для перемещения фокуса и скрытия окна:
     local focusUpButton = CreateFrame("Button", "FocusUpButton", parentFrame)
@@ -465,10 +461,7 @@ function ConsoleMenu:SetFastTravelFrame()
         -- Привязываем PAD2 к клику по FastTravelHideButton (чтобы закрывать окно)
         SetOverrideBindingClick(hideButton, true, "PAD2", "FastTravelHideButton", "LeftButton")
 
-        -- Устанавливаем фокус на первый элемент (по желанию)
-        if updateFocus then
-            updateFocus(1)
-        end
+        UpdateFocus(parentFrame.ScrollBox:GetDataProvider().collection[1], true)
 
         if WeakAuras then
             WeakAuras.ScanEvents("CHANGE_CONTEXT", "window")
@@ -507,7 +500,7 @@ SlashCmdList["FASTTRAVEL"] = function()
         return
     end
 
-    if not parentFrame or not updateFocus then
+    if not parentFrame then
         ConsoleMenu:SetFastTravelFrame()
     end
 
