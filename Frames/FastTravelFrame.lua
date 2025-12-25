@@ -132,12 +132,9 @@ local function UpdateFocus(element, changeFocus)
         return
     end
 
-    local frames = parentFrame.ScrollBox:GetFrames()
-
-    local elements = parentFrame.ScrollBox:GetDataProvider().collection
-    
     -- Сброс фокуса для всех элементов
-    for _, frame in ipairs(frames) do
+    local frames = parentFrame.ScrollBox:GetFrames()
+        for _, frame in ipairs(frames) do
         frame:SetFocused(false)
     end
 
@@ -149,11 +146,11 @@ local function UpdateFocus(element, changeFocus)
     
     if frame and changeFocus then
         frame:SetFocused(true)
+    end
 
-        -- Прокрутить ScrollBox до текущего элемента
-        if gamePadActive then
-            parentFrame.ScrollBox:ScrollToElementDataIndex(focusedIndex)
-        end
+    -- Прокрутить ScrollBox до текущего элемента
+    if gamePadActive then
+        parentFrame.ScrollBox:ScrollToElementDataIndex(focusedIndex)
     end
 
     -- Устанавливаем бинд: при нажатии PAD1 будет использоваться предмет, 
@@ -262,19 +259,19 @@ local function CreateFastTravelScrollBox()
         -- Включаем обработку мыши для переключения фокуса при наведении
         hearthstoneButton:EnableMouse(true)
 
-        -- Настройка атрибутов для SecureActionButton
-        if data.type == "item" then
-            frame.SecureActionButton:SetAttribute("type", "item")
-            frame.SecureActionButton:SetAttribute("item", data.name)
-        elseif data.type == "spell" then
-            frame.SecureActionButton:SetAttribute("type", "spell")
-            frame.SecureActionButton:SetAttribute("spell", data.name)
-        elseif data.type == "housing" then
-            -- Для housing используем OnClick, так как нет стандартного атрибута
-            frame.SecureActionButton:SetScript("OnClick", function(self, button)
-                TeleportToHouse(data.houseInfo)
-            end)
-        end
+        -- -- Настройка атрибутов для SecureActionButton
+        -- if data.type == "item" then
+        --     frame.SecureActionButton:SetAttribute("type", "item")
+        --     frame.SecureActionButton:SetAttribute("item", data.name)
+        -- elseif data.type == "spell" then
+        --     frame.SecureActionButton:SetAttribute("type", "spell")
+        --     frame.SecureActionButton:SetAttribute("spell", data.name)
+        -- elseif data.type == "housing" then
+        --     -- Для housing используем OnClick, так как нет стандартного атрибута
+        --     frame.SecureActionButton:SetScript("OnClick", function(self, button)
+        --         TeleportToHouse(data.houseInfo)
+        --     end)
+        -- end
         
         -- Обработчик наведения мыши для переключения фокуса
         hearthstoneButton:SetScript("OnEnter", function(self)
