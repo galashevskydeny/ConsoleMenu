@@ -56,7 +56,6 @@ local function Initialize()
     ConsoleMenu:SetGossipFrame()
     
     ConsoleMenu:SetCustomGossipFrame()
-    ConsoleMenu:SetFastTravelFrame()
     ConsoleMenu:SetSubtitleFrame()
     
     ConsoleMenu:InitializeMainActionBar()
@@ -74,6 +73,8 @@ local function Initialize()
         end
         ConsoleMenu:SetBaseKeyBindings()
         ConsoleMenu:DisableTimeManagerClockButton()
+        ConsoleMenu:SetFastTravelFrame()
+
         _G.ApplyMacroSettings()
         
         -- Интеграция с ConsolePort

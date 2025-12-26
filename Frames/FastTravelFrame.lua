@@ -11,7 +11,7 @@ local titleFontSize = 20
 local tabFontSize = 18
 local itemFontSize = 20
 
-local focusedIndex
+local focusedIndex = 1
 local focusedTab = 1
 local tabs = {}
 
@@ -21,103 +21,45 @@ local currentHouseInfo = nil
 local softTargetEnemy
 local gamePadActive = false
 
--- Функция для получения телепортов для класса
-local function GetClassTeleports()
-    -- Добавляем телепорты мага
-    local className, classFile = UnitClass("player")
-    if classFile == "MAGE" then  
-        local mageTeleports = {
-            -- War Within
-            446540,
-        
-            -- Dragonflight
-            395277, -- Teleport: Valdrakken
-        
-            -- Shadowlands
-            344587, -- Teleport: Oribos
-        
-            -- Battle for Azeroth
-            281403, -- Teleport: Boralus (Alliance)
-            281404, -- Teleport: Dazar'alor (Horde)
-        
-            -- Legion
-            224869, -- Teleport: Dalaran (Broken Isles)
-            193759, -- Телепортация: Оплот Хранителя
-        
-            -- Warlords of Draenor
-            176248, -- Teleport: Stormshield (Alliance)
-            176242, -- Teleport: Warspear (Horde)
-        
-            -- Mists of Pandaria
-            132621, -- Teleport: Vale of Eternal Blossoms (Alliance, Shrine of Seven Stars)
-            132627, -- Teleport: Vale of Eternal Blossoms (Horde, Shrine of Two Moons)
-        
-            -- Классические города
-            3561,   -- Teleport: Stormwind
-            3567,   -- Teleport: Orgrimmar
-            3562,   -- Teleport: Ironforge
-            3563,   -- Teleport: Undercity
-            3565,   -- Teleport: Darnassus
-            3566,   -- Teleport: Thunder Bluff
-            
-            -- Прочие старые телепорты
-            49359,  -- Teleport: Stonard (Horde)
-            49358,  -- Teleport: Theramore (Alliance)
-            33690,  -- Teleport: Silvermoon
-            35715,  -- Teleport: Shattrath (Outland)
-            53140,  -- Teleport: Dalaran (Northrend)
-            88342,  -- Teleport: Tol Barad (Alliance)
-            88344,  -- Teleport: Tol Barad (Horde)
-        }
-        
-        local magePortals = {
-            -- War Within
-            446534,
-        
-            -- Dragonflight
-            395289, -- Teleport: Valdrakken
-        
-            -- Shadowlands
-            344597, -- Teleport: Oribos
-        
-            -- Battle for Azeroth
-            281400, -- Teleport: Boralus (Alliance)
-            281402, -- Teleport: Dazar'alor (Horde)
-        
-            -- Legion
-            224871, -- Teleport: Dalaran (Broken Isles)
-        
-            -- Warlords of Draenor
-            176246, -- Teleport: Stormshield (Alliance)
-            176244, -- Teleport: Warspear (Horde)
-        
-            -- Mists of Pandaria
-            132620, -- Teleport: Vale of Eternal Blossoms (Alliance, Shrine of Seven Stars)
-            132626, -- Teleport: Vale of Eternal Blossoms (Horde, Shrine of Two Moons)
-        
-            -- Классические города
-            10059,   -- Teleport: Stormwind
-            11417,   -- Teleport: Orgrimmar
-            11416,   -- Teleport: Ironforge
-            11418,   -- Teleport: Undercity
-            11419,   -- Teleport: Darnassus
-            11420,   -- Teleport: Thunder Bluff
-            
-            -- Прочие старые телепорты
-            49361,  -- Teleport: Stonard (Horde)
-            49360,  -- Teleport: Theramore (Alliance)
-            32267,  -- Teleport: Silvermoon
-            33691,  -- Teleport: Shattrath (Outland)
-            53142,  -- Teleport: Dalaran (Northrend)
-            88345,  -- Teleport: Tol Barad (Alliance)
-            88346,  -- Teleport: Tol Barad (Horde)
-        }
+local mageSpells = {
+    azeroth = {
+        single = {446540, 395277, 281403, 281404, 224869, 132621, 132627, 88342, 88344, 53140, 32272, 3561, 3567, 3562, 3563, 3565, 3566, 49359, 49358},
+        group = {446534, 395289, 281400, 281402, 224871, 132620, 132626, 88345, 88346, 53142, 32267, 10059, 11417, 11416, 11418, 11419, 11420, 49361, 49360}
+    },
+    world = {
+        single = {344587, 176248, 176242, 35715, 33690},
+        group = {344597, 176246, 176244, 33691, 35717}
+    },
+}
 
-        if IsInGroup() then
-            return magePortals
-        else
-            return mageTeleports
+-- Функция для инициализации вкладок
+local function InitTabs()
+    local currentIndex = 1
+    -- Создаем вкладки
+    tabs[currentIndex] = { title = "Избранное"}
+    currentIndex = currentIndex + 1
+
+    local flyoutSpellID = 244
+    _, _, numSlots, isKnown = GetFlyoutInfo(flyoutSpellID)
+
+    if isKnown then
+        tabs[currentIndex] = { title = "Путь героя", spells = {} }
+        currentIndex = currentIndex + 1
+        for i = 1, numSlots do
+            local flyoutSpellID, _, isKnown, _, _ = GetFlyoutSlotInfo(flyoutSpellID, i)
+            if flyoutSpellID and isKnown then
+                table.insert(tabs[2].spells, flyoutSpellID)
+            end
         end
+    end 
+
+    local className, classFile = UnitClass("player")
+
+    if classFile == "MAGE" then
+        tabs[currentIndex] = { title = "Азерот", spells = {} }
+        currentIndex = currentIndex + 1
+        tabs[currentIndex] = { title = "Мир", spells = {} }
+        currentIndex = currentIndex + 1
     end
 end
 
@@ -352,54 +294,67 @@ local function CreateFastTravelScrollBox()
     -- Наполнение списка элементами
     local function SetItemList()
         DataProvider:Flush()
-    
-        -- Добавляем камень возвращения
-        local itemInfo = 6948
-        local itemName, _, _, _, _, _, _, _, _, itemTexture = C_Item.GetItemInfo(itemInfo)
-        DataProvider:Insert({
-            id = itemInfo,
-            type = "item",
-            name = itemName,
-            texture = itemTexture,
-        })
 
-        -- Добавляем телепорты в жилище / из него
-        if C_Housing then
-            local teleportToPlot = true
-        
-            if C_HousingNeighborhood.CanReturnAfterVisitingHouse() then
-                local currentNeighborhoodGUID = C_Housing.GetCurrentNeighborhoodGUID()
-                if currentNeighborhoodGUID and C_Housing.GetCurrentHouseInfo() and currentNeighborhoodGUID == C_Housing.GetCurrentHouseInfo().neighborhoodGUID then
-                    teleportToPlot = false
-                end
-            end
-
-            if teleportToPlot then
-                texture = "dashboard-panel-homestone-teleport-button"
-                for _, houseInfo in ipairs(houseList) do
-                    DataProvider:Insert({
-                        id = houseInfo.houseGUID,
-                        type = "housing",
-                        name = houseInfo.houseName,
-                        houseInfo = houseInfo,
-                    })
-                end
+        -- Обновляем списки заклинаний для вкладок мага, если они существуют
+        if tabs[3] and tabs[4] then
+            if IsInGroup() then
+                tabs[3].spells = mageSpells.azeroth.group
+                tabs[4].spells = mageSpells.world.group
+            else
+                tabs[3].spells = mageSpells.azeroth.single
+                tabs[4].spells = mageSpells.world.single
             end
         end
+    
+        if focusedTab == 1 then
+            -- Добавляем камень возвращения
+            local itemInfo = 6948
+            local itemName, _, _, _, _, _, _, _, _, itemTexture = C_Item.GetItemInfo(itemInfo)
+            DataProvider:Insert({
+                id = itemInfo,
+                type = "item",
+                name = itemName,
+                texture = itemTexture,
+            })
 
-        local spells = GetClassTeleports()
+            -- Добавляем телепорты в жилище / из него
+            if C_Housing then
+                local teleportToPlot = true
+            
+                if C_HousingNeighborhood.CanReturnAfterVisitingHouse() then
+                    local currentNeighborhoodGUID = C_Housing.GetCurrentNeighborhoodGUID()
+                    if currentNeighborhoodGUID and C_Housing.GetCurrentHouseInfo() and currentNeighborhoodGUID == C_Housing.GetCurrentHouseInfo().neighborhoodGUID then
+                        teleportToPlot = false
+                    end
+                end
 
-        for _, spellID in ipairs(spells) do
-            if IsSpellKnown(spellID) then
-                -- Получаем инфо о заклинании
-                local spellInfo = C_Spell.GetSpellInfo(spellID)
+                if teleportToPlot then
+                    texture = "dashboard-panel-homestone-teleport-button"
+                    for _, houseInfo in ipairs(houseList) do
+                        DataProvider:Insert({
+                            id = houseInfo.houseGUID,
+                            type = "housing",
+                            name = houseInfo.houseName,
+                            houseInfo = houseInfo,
+                        })
+                    end
+                end
+            end
+        else
+            local spells = tabs[focusedTab].spells or {}
 
-                DataProvider:Insert({
-                    id = spellInfo.spellID,
-                    type = "spell",
-                    name = spellInfo.name,
-                    texture = spellInfo.iconID,
-                })
+            for _, spellID in ipairs(spells) do
+                if IsSpellKnown(spellID) then
+                    -- Получаем инфо о заклинании
+                    local spellInfo = C_Spell.GetSpellInfo(spellID)
+
+                    DataProvider:Insert({
+                        id = spellInfo.spellID,
+                        type = "spell",
+                        name = spellInfo.name,
+                        texture = spellInfo.iconID,
+                    })
+                end
             end
         end
     
@@ -432,7 +387,23 @@ local function PreloadData()
         end)
     end
 
-    local spells = GetClassTeleports()
+    local spells = {}
+
+    local className, classFile = UnitClass("player")
+    if classFile == "MAGE" then
+        for _, spellID in ipairs(mageSpells.azeroth.single) do
+            table.insert(spells, spellID)
+        end
+        for _, spellID in ipairs(mageSpells.azeroth.group) do
+            table.insert(spells, spellID)
+        end
+        for _, spellID in ipairs(mageSpells.world.single) do
+            table.insert(spells, spellID)
+        end
+        for _, spellID in ipairs(mageSpells.world.group) do
+            table.insert(spells, spellID)
+        end
+    end
 
     for _, spellID in ipairs(spells) do
         C_Spell.RequestLoadSpellData(spellID)
@@ -543,16 +514,13 @@ function ConsoleMenu:SetFastTravelFrame()
     FastTravel.Title.Text:SetText("Быстрое перемещение")
     FastTravel.Title.Text:SetJustifyH("LEFT")
 
-    -- Создаем вкладки
-    tabs[1] = "Избранное"
-    tabs[2] = "Путь героя"
-    tabs[3] = "Азерот"
-    tabs[4] = "Мир"
-
     FastTravel.Tabs = CreateFrame("Frame", "FastTravelTabs", FastTravel)
     FastTravel.Tabs:SetPoint("BOTTOMLEFT", FastTravel, "BOTTOMLEFT", 0, 0)
     FastTravel.Tabs:SetPoint("BOTTOMRIGHT", FastTravel, "BOTTOMRIGHT", 0, 0)
     FastTravel.Tabs:SetHeight(sectionHeight)
+
+    -- Инициализируем вкладки
+    InitTabs()
 
     local previousTab = nil
     for i = 1, #tabs do
@@ -564,7 +532,7 @@ function ConsoleMenu:SetFastTravelFrame()
         end
 
         -- Установка текста таба
-        local text = tabs[i]
+        local text = tabs[i].title
         local tabFont = "Fonts\\FRIZQT___CYR.TTF"
         if not tab.text then
             tab.text = tab:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -616,6 +584,9 @@ function ConsoleMenu:SetFastTravelFrame()
 
     UpdateTabs()
 
+    -- Создаём ScrollBox
+    parentFrame, setItemList = CreateFastTravelScrollBox()
+
     -- Создаём «невидимые» кнопки для перемещения фокуса и скрытия окна:
     local focusUpButton = CreateFrame("Button", "FocusUpButton", parentFrame)
     focusUpButton:SetSize(1,1)  -- крошечная, невидимая
@@ -637,6 +608,9 @@ function ConsoleMenu:SetFastTravelFrame()
     tabLeftButton:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 0, 80)
     tabLeftButton:SetScript("OnClick", function()
         SwitchTab(-1)
+        setItemList()
+        local element = parentFrame.ScrollBox:GetDataProvider().collection[1]
+        UpdateFocus(element, true)
     end)
 
     -- Кнопка для переключения вкладки вправо
@@ -645,6 +619,9 @@ function ConsoleMenu:SetFastTravelFrame()
     tabRightButton:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 0, 100)
     tabRightButton:SetScript("OnClick", function()
         SwitchTab(1)
+        setItemList()
+        local element = parentFrame.ScrollBox:GetDataProvider().collection[1]
+        UpdateFocus(element, true)
     end)
 
     local hideButton = CreateFrame("Button", "FastTravelHideButton", parentFrame)
@@ -661,9 +638,6 @@ function ConsoleMenu:SetFastTravelFrame()
     teleportButton:SetScript("OnClick", function(self)
         TeleportToHouse()
     end)
-
-    -- Создаём ScrollBox
-    parentFrame, setItemList = CreateFastTravelScrollBox()
 
     -- Вешаем бинды, когда окно показывается:
     parentFrame:HookScript("OnShow", function()
