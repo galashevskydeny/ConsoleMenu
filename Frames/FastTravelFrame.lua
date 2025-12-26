@@ -514,13 +514,14 @@ function ConsoleMenu:SetFastTravelFrame()
     FastTravel.Title.Text:SetText("Быстрое перемещение")
     FastTravel.Title.Text:SetJustifyH("LEFT")
 
+
+    -- Создаем вкладки
+    InitTabs()
+
     FastTravel.Tabs = CreateFrame("Frame", "FastTravelTabs", FastTravel)
     FastTravel.Tabs:SetPoint("BOTTOMLEFT", FastTravel, "BOTTOMLEFT", 0, 0)
     FastTravel.Tabs:SetPoint("BOTTOMRIGHT", FastTravel, "BOTTOMRIGHT", 0, 0)
     FastTravel.Tabs:SetHeight(sectionHeight)
-
-    -- Инициализируем вкладки
-    InitTabs()
 
     local previousTab = nil
     for i = 1, #tabs do
