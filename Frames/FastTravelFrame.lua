@@ -703,6 +703,8 @@ function ConsoleMenu:SetFastTravelFrame()
         ClearOverrideBindings(focusUpButton)
         ClearOverrideBindings(focusDownButton)
         ClearOverrideBindings(hideButton)
+        ClearOverrideBindings(tabLeftButton)
+        ClearOverrideBindings(tabRightButton)
 
         if WeakAuras then
             WAGlobal = WAGlobal or {}  -- Создаем таблицу, если её ещё нет
