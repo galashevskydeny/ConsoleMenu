@@ -537,6 +537,8 @@ function ConsoleMenu:SetFastTravelFrame()
     FastTravel.Title.Text:SetText("Быстрое перемещение")
     FastTravel.Title.Text:SetJustifyH("LEFT")
 
+    -- Создаём ScrollBox
+    parentFrame, setItemList = CreateFastTravelScrollBox()
 
     -- Создаем вкладки
     InitTabs()
@@ -601,15 +603,15 @@ function ConsoleMenu:SetFastTravelFrame()
         tab:SetScript("OnClick", function()
             focusedTab = i
             UpdateTabs()
+            setItemList()
+            local element = parentFrame.ScrollBox:GetDataProvider().collection[1]
+            UpdateFocus(element, true)
         end)
 
         previousTab = tab
     end
 
     UpdateTabs()
-
-    -- Создаём ScrollBox
-    parentFrame, setItemList = CreateFastTravelScrollBox()
 
     -- Создаём «невидимые» кнопки для перемещения фокуса и скрытия окна:
     local focusUpButton = CreateFrame("Button", "FocusUpButton", parentFrame)
