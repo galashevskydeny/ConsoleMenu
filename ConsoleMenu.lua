@@ -36,6 +36,8 @@ end
 -- Инициализация аддона
 local function Initialize()
 
+    ConsoleMenu:SetCommonFrame()
+
     -- Инициализация модулей
     ConsoleMenu:RegisterAssets()
     

@@ -3,7 +3,12 @@
 local ConsoleMenu = _G.ConsoleMenu
 local parentFrame
 
-local viewedItemCount = 4
+local viewedItemCount = 3
+local sectionHeight = 52
+local sectionPadding = 8
+local iconSize = sectionHeight - sectionPadding * 2
+local titleFontSize = 18
+local itemFontSize = 20
 
 local focusedIndex
 
@@ -13,49 +18,105 @@ local currentHouseInfo = nil
 local softTargetEnemy
 local gamePadActive = false
 
-local mageTeleports = {
-    -- War Within
-    446540,
+-- Функция для получения телепортов для класса
+local function GetClassTeleports()
+    -- Добавляем телепорты мага
+    local className, classFile = UnitClass("player")
+    if classFile == "MAGE" then  
+        local mageTeleports = {
+            -- War Within
+            446540,
+        
+            -- Dragonflight
+            395277, -- Teleport: Valdrakken
+        
+            -- Shadowlands
+            344587, -- Teleport: Oribos
+        
+            -- Battle for Azeroth
+            281403, -- Teleport: Boralus (Alliance)
+            281404, -- Teleport: Dazar'alor (Horde)
+        
+            -- Legion
+            224869, -- Teleport: Dalaran (Broken Isles)
+            193759, -- Телепортация: Оплот Хранителя
+        
+            -- Warlords of Draenor
+            176248, -- Teleport: Stormshield (Alliance)
+            176242, -- Teleport: Warspear (Horde)
+        
+            -- Mists of Pandaria
+            132621, -- Teleport: Vale of Eternal Blossoms (Alliance, Shrine of Seven Stars)
+            132627, -- Teleport: Vale of Eternal Blossoms (Horde, Shrine of Two Moons)
+        
+            -- Классические города
+            3561,   -- Teleport: Stormwind
+            3567,   -- Teleport: Orgrimmar
+            3562,   -- Teleport: Ironforge
+            3563,   -- Teleport: Undercity
+            3565,   -- Teleport: Darnassus
+            3566,   -- Teleport: Thunder Bluff
+            
+            -- Прочие старые телепорты
+            49359,  -- Teleport: Stonard (Horde)
+            49358,  -- Teleport: Theramore (Alliance)
+            33690,  -- Teleport: Silvermoon
+            35715,  -- Teleport: Shattrath (Outland)
+            53140,  -- Teleport: Dalaran (Northrend)
+            88342,  -- Teleport: Tol Barad (Alliance)
+            88344,  -- Teleport: Tol Barad (Horde)
+        }
+        
+        local magePortals = {
+            -- War Within
+            446534,
+        
+            -- Dragonflight
+            395289, -- Teleport: Valdrakken
+        
+            -- Shadowlands
+            344597, -- Teleport: Oribos
+        
+            -- Battle for Azeroth
+            281400, -- Teleport: Boralus (Alliance)
+            281402, -- Teleport: Dazar'alor (Horde)
+        
+            -- Legion
+            224871, -- Teleport: Dalaran (Broken Isles)
+        
+            -- Warlords of Draenor
+            176246, -- Teleport: Stormshield (Alliance)
+            176244, -- Teleport: Warspear (Horde)
+        
+            -- Mists of Pandaria
+            132620, -- Teleport: Vale of Eternal Blossoms (Alliance, Shrine of Seven Stars)
+            132626, -- Teleport: Vale of Eternal Blossoms (Horde, Shrine of Two Moons)
+        
+            -- Классические города
+            10059,   -- Teleport: Stormwind
+            11417,   -- Teleport: Orgrimmar
+            11416,   -- Teleport: Ironforge
+            11418,   -- Teleport: Undercity
+            11419,   -- Teleport: Darnassus
+            11420,   -- Teleport: Thunder Bluff
+            
+            -- Прочие старые телепорты
+            49361,  -- Teleport: Stonard (Horde)
+            49360,  -- Teleport: Theramore (Alliance)
+            32267,  -- Teleport: Silvermoon
+            33691,  -- Teleport: Shattrath (Outland)
+            53142,  -- Teleport: Dalaran (Northrend)
+            88345,  -- Teleport: Tol Barad (Alliance)
+            88346,  -- Teleport: Tol Barad (Horde)
+        }
 
-    -- Dragonflight
-    395277, -- Teleport: Valdrakken
-
-    -- Shadowlands
-    344587, -- Teleport: Oribos
-
-    -- Battle for Azeroth
-    281403, -- Teleport: Boralus (Alliance)
-    281404, -- Teleport: Dazar'alor (Horde)
-
-    -- Legion
-    224869, -- Teleport: Dalaran (Broken Isles)
-    193759, -- Телепортация: Оплот Хранителя
-
-    -- Warlords of Draenor
-    176248, -- Teleport: Stormshield (Alliance)
-    176242, -- Teleport: Warspear (Horde)
-
-    -- Mists of Pandaria
-    132621, -- Teleport: Vale of Eternal Blossoms (Alliance, Shrine of Seven Stars)
-    132627, -- Teleport: Vale of Eternal Blossoms (Horde, Shrine of Two Moons)
-
-    -- Классические города
-    3561,   -- Teleport: Stormwind
-    3567,   -- Teleport: Orgrimmar
-    3562,   -- Teleport: Ironforge
-    3563,   -- Teleport: Undercity
-    3565,   -- Teleport: Darnassus
-    3566,   -- Teleport: Thunder Bluff
-    
-    -- Прочие старые телепорты
-    49359,  -- Teleport: Stonard (Horde)
-    49358,  -- Teleport: Theramore (Alliance)
-    33690,  -- Teleport: Silvermoon
-    35715,  -- Teleport: Shattrath (Outland)
-    53140,  -- Teleport: Dalaran (Northrend)
-    88342,  -- Teleport: Tol Barad (Alliance)
-    88344,  -- Teleport: Tol Barad (Horde)
-}
+        if IsInGroup() then
+            return magePortals
+        else
+            return mageTeleports
+        end
+    end
+end
 
 -- Функция для телепорта домой или возврата из жилища
 local function TeleportToHouse()
@@ -182,46 +243,13 @@ end
 
 -- Создание ScrollBox
 local function CreateFastTravelScrollBox()
-    local FastTravelScrollBox = CreateFrame("Frame", "FastTravelScroll", UIParent)
-    FastTravelScrollBox:SetSize(480, 48 * viewedItemCount)
-    FastTravelScrollBox:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 48, 48)
-    
-    -- Включаем обработку клавиатуры для ESC
-    FastTravelScrollBox:EnableKeyboard(true)
-    FastTravelScrollBox:SetScript("OnKeyDown", function(self, key)
-        if key == "ESCAPE" then
-            self:Hide()
-        end
-    end)
-    
-    -- Добавляем в UISpecialFrames для обработки ESC
-    tinsert(UISpecialFrames, "FastTravelScroll")
 
-    FastTravelScrollBox:RegisterEvent("PLAYER_REGEN_DISABLED") -- Начало боя
-    FastTravelScrollBox:RegisterUnitEvent("UNIT_SPELLCAST_START", "player") -- Игрок начал каст
-    FastTravelScrollBox:RegisterEvent("GAME_PAD_ACTIVE_CHANGED") -- Событие изменения режима геймпада
-    FastTravelScrollBox:RegisterEvent("PLAYER_HOUSE_LIST_UPDATED")
-
-    FastTravelScrollBox:SetScript("OnEvent", function(self, event, ...)
-        if event == "GAME_PAD_ACTIVE_CHANGED" then
-            gamePadActive = ...
-            return
-        end
-
-        if event == "PLAYER_HOUSE_LIST_UPDATED" then
-            houseList = ...
-            return
-        end
-
-        if FastTravelScrollBox:IsShown() then
-            FastTravelScrollBox:Hide()
-        end
-    end)
+    local FastTravelScrollBox = ConsoleMenuFrame.FastTravel
 
     local ScrollBox = CreateFrame("Frame", "FastTravelScrollBox", FastTravelScrollBox, "WowScrollBoxList")
     FastTravelScrollBox.ScrollBox = ScrollBox
-    ScrollBox:SetPoint("TOPLEFT", FastTravelScrollBox, "TOPLEFT", 0, 0)
-    ScrollBox:SetAllPoints()
+    ScrollBox:SetPoint("TOPLEFT", FastTravelScrollBox, "TOPLEFT", 0, -sectionHeight)
+    ScrollBox:SetPoint("BOTTOMRIGHT", FastTravelScrollBox, "BOTTOMRIGHT", 0, 0)
 
     local ScrollBar = CreateFrame("EventFrame", "FastTravelScrollBar", FastTravelScrollBox, "MinimalScrollBar")
     FastTravelScrollBox.ScrollBox.ScrollBar = ScrollBar
@@ -282,8 +310,8 @@ local function CreateFastTravelScrollBox()
         -- Иконка
         if not frame.icon then
             frame.icon = CreateFrame("Frame", nil, frame)
-            frame.icon:SetSize(32, 32)
-            frame.icon:SetPoint("LEFT", 10, 0)
+            frame.icon:SetSize(iconSize, iconSize)
+            frame.icon:SetPoint("LEFT", sectionPadding, 0)
         end
 
         setIcon(frame, data)
@@ -291,12 +319,12 @@ local function CreateFastTravelScrollBox()
         -- Текст
         if not frame.text then
             frame.text = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-            frame.text:SetPoint("LEFT", frame.icon, "RIGHT", 10, 0)
-            frame.text:SetPoint("RIGHT", -10, 0)
+            frame.text:SetPoint("LEFT", frame.icon, "RIGHT", sectionPadding * 1.5, 0)
+            frame.text:SetPoint("RIGHT", -sectionPadding, 0)
             frame.text:SetJustifyH("LEFT")
         end
 
-        frame.text:SetFont("Fonts\\FRIZQT___CYR.TTF", 20, "OUTLINE")
+        frame.text:SetFont("Fonts\\FRIZQT___CYR.TTF", itemFontSize, "OUTLINE")
         frame.text:SetText(data.name)
         frame.text:SetTextColor(1, 0.976, 0.855) -- Цвет текста FFF9DA
 
@@ -355,30 +383,27 @@ local function CreateFastTravelScrollBox()
                 end
             end
         end
-    
-        -- Добавляем телепорты мага
-        local className, classFile = UnitClass("player")
-        if classFile == "MAGE" then
-    
-            for _, spellID in ipairs(mageTeleports) do
-                if IsSpellKnown(spellID) then
-                    -- Получаем инфо о заклинании
-                    local spellInfo = C_Spell.GetSpellInfo(spellID)
-    
-                    DataProvider:Insert({
-                        id = spellInfo.spellID,
-                        type = "spell",
-                        name = spellInfo.name,
-                        texture = spellInfo.iconID,
-                    })
-                end
+
+        local spells = GetClassTeleports()
+
+        for _, spellID in ipairs(spells) do
+            if IsSpellKnown(spellID) then
+                -- Получаем инфо о заклинании
+                local spellInfo = C_Spell.GetSpellInfo(spellID)
+
+                DataProvider:Insert({
+                    id = spellInfo.spellID,
+                    type = "spell",
+                    name = spellInfo.name,
+                    texture = spellInfo.iconID,
+                })
             end
         end
     
         UpdateScrollBarVisibility()
     end
 
-    ScrollView:SetElementExtent(48)
+    ScrollView:SetElementExtent(sectionHeight)
     ScrollView:SetElementInitializer("Button", Initializer, "SecureActionButtonTemplate")
 
     ScrollUtil.InitScrollBoxListWithScrollBar(ScrollBox, ScrollBar, ScrollView)
@@ -404,7 +429,9 @@ local function PreloadData()
         end)
     end
 
-    for _, spellID in ipairs(mageTeleports) do
+    local spells = GetClassTeleports()
+
+    for _, spellID in ipairs(spells) do
         C_Spell.RequestLoadSpellData(spellID)
     end
 
@@ -414,7 +441,54 @@ end
 function ConsoleMenu:SetFastTravelFrame()
     PreloadData()
 
-    parentFrame, setItemList = CreateFastTravelScrollBox()
+    if ConsoleMenuFrame.FastTravel then
+        return
+    end
+
+    local FastTravel = CreateFrame("Frame", "FastTravel", ConsoleMenuFrame)
+    ConsoleMenuFrame.FastTravel = FastTravel
+
+    FastTravel:SetSize(480, sectionHeight * (viewedItemCount + 1))
+    FastTravel:SetPoint("BOTTOMLEFT", ConsoleMenuFrame, "BOTTOMLEFT", 48, 48)
+    
+    -- Включаем обработку клавиатуры для ESC
+    FastTravel:EnableKeyboard(true)
+    FastTravel:SetScript("OnKeyDown", function(self, key)
+        if key == "ESCAPE" then
+            self:Hide()
+        end
+    end)
+
+    FastTravel:RegisterEvent("PLAYER_REGEN_DISABLED") -- Начало боя
+    FastTravel:RegisterUnitEvent("UNIT_SPELLCAST_START", "player") -- Игрок начал каст
+    FastTravel:RegisterEvent("GAME_PAD_ACTIVE_CHANGED") -- Событие изменения режима геймпада
+    FastTravel:RegisterEvent("PLAYER_HOUSE_LIST_UPDATED")
+
+    FastTravel:SetScript("OnEvent", function(self, event, ...)
+        if event == "GAME_PAD_ACTIVE_CHANGED" then
+            gamePadActive = ...
+            return
+        end
+
+        if event == "PLAYER_HOUSE_LIST_UPDATED" then
+            houseList = ...
+            return
+        end
+
+        if FastTravel:IsShown() then
+            FastTravel:Hide()
+        end
+    end)
+
+    -- Создаем заголовок
+    FastTravel.Title = FastTravel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    FastTravel.Title:SetPoint("TOPLEFT", FastTravel, "TOPLEFT", sectionPadding, -(sectionHeight-titleFontSize-sectionPadding*1.5))
+    FastTravel.Title:SetPoint("TOPRIGHT", FastTravel, "TOPRIGHT", sectionPadding, -(sectionHeight-titleFontSize-sectionPadding*1.5))
+    FastTravel.Title:SetFont("Fonts\\FRIZQT___CYR.TTF", titleFontSize, "OUTLINE")
+    FastTravel.Title:SetTextColor(1.0, 0.960784, 0.772549, 0.6)
+    FastTravel.Title:SetText("Быстрое перемещение")
+    FastTravel.Title:SetJustifyH("LEFT")
+
 
     -- Создаём «невидимые» кнопки для перемещения фокуса и скрытия окна:
     local focusUpButton = CreateFrame("Button", "FocusUpButton", parentFrame)
@@ -445,6 +519,9 @@ function ConsoleMenu:SetFastTravelFrame()
     teleportButton:SetScript("OnClick", function(self)
         TeleportToHouse()
     end)
+
+    -- Создаём ScrollBox
+    parentFrame, setItemList = CreateFastTravelScrollBox()
 
     -- Вешаем бинды, когда окно показывается:
     parentFrame:HookScript("OnShow", function()

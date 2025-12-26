@@ -26,6 +26,7 @@ BlizzardFrames/WorldMapFrame.lua
 BlizzardFrames/Nameplate.lua
 BlizzardFrames/MainActionBar.lua
 
+Frames/CommonFrame.lua
 Frames/GossipFrame.lua
 Frames/FastTravelFrame.lua
 Frames/SubtitleFrame.lua

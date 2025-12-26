@@ -2,7 +2,7 @@
 
 local ConsoleMenu = _G.ConsoleMenu
 local parentFrame
-local maxLineLength = 200
+local maxLineLength = 160
 local subtitleUpdateTimer = nil
 
 local SubtitleEventPriority = {
@@ -303,11 +303,11 @@ local function GetCurrentSubtitleWithMaxPriority()
 end
 
  function ConsoleMenu:SubtitleFrameUpdate()
-    if not ConsoleMenu or not ConsoleMenu.SubtitleFrame then
+    if not ConsoleMenuFrame or not ConsoleMenuFrame.SubtitleFrame then
         return
     end
 
-    local frame = ConsoleMenu.SubtitleFrame
+    local frame = ConsoleMenuFrame.SubtitleFrame
     local current = GetCurrentSubtitleWithMaxPriority()
 
     if current then
@@ -384,26 +384,27 @@ function ConsoleMenu:SetSubtitleFrame()
         ConsoleMenu.Subtitles = {}
     end
 
-    if not self.SubtitleFrame then
-        self.SubtitleFrame = CreateFrame("Frame")
+    if not ConsoleMenuFrame.SubtitleFrame then
+        local frame = CreateFrame("Frame", "SubtitleFrame", ConsoleMenuFrame)
+        ConsoleMenuFrame.SubtitleFrame = frame
     end
 
     -- Внутри SubtitleFrame создаём два FontString для имени говорящего и субтитра
 
     -- Фрейм для текста субтитра и имени говорящего
-    local frame = self.SubtitleFrame
-    frame:SetSize(412, 120)
-    frame:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 140)
+    local frame = ConsoleMenuFrame.SubtitleFrame
+    frame:SetSize(688, 96)
+    frame:SetPoint("BOTTOM", ConsoleMenuFrame, "BOTTOM", 0, 260)
 
     -- Текст для имени говорящего
     if not frame.Speaker then
         frame.Speaker = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        frame.Speaker:SetPoint("TOP", frame, "TOP", 0, 0)
-        frame.Speaker:SetFont("Fonts\\FRIZQT___CYR.TTF", 15, "OUTLINE")
+        frame.Speaker:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
+        frame.Speaker:SetPoint("TOPRIGHT", frame, "TOPRIGHT", 0, 0)
+        frame.Speaker:SetFont("Fonts\\FRIZQT___CYR.TTF", 22, "OUTLINE")
         -- frame.Speaker:SetShadowOffset(1.5, -1)
         frame.Speaker:SetTextColor(1.0, 0.960784, 0.772549, 0.6)
         frame.Speaker:SetJustifyH("CENTER")
-        frame.Speaker:SetWidth(412)
         frame.Speaker:SetText("") -- Пустой по умолчанию
         frame.Speaker:SetNonSpaceWrap(true)
         frame.Speaker:SetWordWrap(true)
@@ -413,12 +414,12 @@ function ConsoleMenu:SetSubtitleFrame()
     -- Текст для самого субтитра
     if not frame.Subtitle then
         frame.Subtitle = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        frame.Subtitle:SetPoint("TOP", frame.Speaker, "BOTTOM", 0, -6)
-        frame.Subtitle:SetFont("Fonts\\FRIZQT___CYR.TTF", 18, "OUTLINE")
+        frame.Subtitle:SetPoint("TOPLEFT", frame.Speaker, "BOTTOMLEFT", 0, -6)
+        frame.Subtitle:SetPoint("TOPRIGHT", frame.Speaker, "BOTTOMRIGHT", 0, -6)
+        frame.Subtitle:SetFont("Fonts\\FRIZQT___CYR.TTF", 26, "OUTLINE")
         -- frame.Subtitle:SetShadowOffset(1.5, -1)
         frame.Subtitle:SetTextColor(1.0, 0.960784, 0.772549, 1.0)
         frame.Subtitle:SetJustifyH("CENTER")
-        frame.Subtitle:SetWidth(412)
         frame.Subtitle:SetText("") -- Пустой по умолчанию
         frame.Subtitle:SetNonSpaceWrap(true)
         frame.Subtitle:SetWordWrap(true)
@@ -428,41 +429,40 @@ function ConsoleMenu:SetSubtitleFrame()
     -- Текст для самого субтитра
     if not frame.Emotion then
         frame.Emotion = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        frame.Emotion:SetPoint("TOP", frame.Speaker, "TOP", 0, 0)
-        frame.Emotion:SetFont("Fonts\\FRIZQT___CYR.TTF", 18, "OUTLINE")
+        frame.Emotion:SetPoint("LEFT", frame, "LEFT", 0, 0)
+        frame.Emotion:SetPoint("RIGHT", frame, "RIGHT", 0, 0)
+        frame.Emotion:SetFont("Fonts\\FRIZQT___CYR.TTF", 26, "OUTLINE")
         frame.Emotion:SetTextColor(1.0, 0.960784, 0.772549, 0.6)
         frame.Emotion:SetJustifyH("CENTER")
-        frame.Emotion:SetWidth(412)
         frame.Emotion:SetText("") -- Пустой по умолчанию
         frame.Emotion:SetNonSpaceWrap(true)
         frame.Emotion:SetWordWrap(true)
         frame.Emotion:Hide()
     end
 
-    self.SubtitleFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+    frame:RegisterEvent("PLAYER_ENTERING_WORLD")
     -- Необходимо добавлять субтитры
-    self.SubtitleFrame:RegisterEvent("CHAT_MSG_MONSTER_SAY")
-    self.SubtitleFrame:RegisterEvent("CHAT_MSG_MONSTER_YELL")
-    self.SubtitleFrame:RegisterEvent("CHAT_MSG_MONSTER_WHISPER")
-    self.SubtitleFrame:RegisterEvent("CHAT_MSG_MONSTER_EMOTE")
-    self.SubtitleFrame:RegisterEvent("CHAT_MSG_PARTY_LEADER")
-    self.SubtitleFrame:RegisterEvent("CHAT_MSG_PARTY")
-    self.SubtitleFrame:RegisterEvent("CHAT_MSG_INSTANCE_CHAT")
-    self.SubtitleFrame:RegisterEvent("CHAT_MSG_INSTANCE_CHAT_LEADER")
-    self.SubtitleFrame:RegisterEvent("CHAT_MSG_RAID")
-    self.SubtitleFrame:RegisterEvent("CHAT_MSG_RAID_LEADER")
-    self.SubtitleFrame:RegisterEvent("CHAT_MSG_TEXT_EMOTE")
+    frame:RegisterEvent("CHAT_MSG_MONSTER_SAY")
+    frame:RegisterEvent("CHAT_MSG_MONSTER_YELL")
+    frame:RegisterEvent("CHAT_MSG_MONSTER_WHISPER")
+    frame:RegisterEvent("CHAT_MSG_MONSTER_EMOTE")
+    frame:RegisterEvent("CHAT_MSG_PARTY_LEADER")
+    frame:RegisterEvent("CHAT_MSG_PARTY")
+    frame:RegisterEvent("CHAT_MSG_INSTANCE_CHAT")
+    frame:RegisterEvent("CHAT_MSG_INSTANCE_CHAT_LEADER")
+    frame:RegisterEvent("CHAT_MSG_RAID")
+    frame:RegisterEvent("CHAT_MSG_RAID_LEADER")
+    frame:RegisterEvent("CHAT_MSG_TEXT_EMOTE")
 
-    self.SubtitleFrame:RegisterEvent("GOSSIP_SHOW")
-    self.SubtitleFrame:RegisterEvent("QUEST_DETAIL")
-    self.SubtitleFrame:RegisterEvent("QUEST_PROGRESS")
-    self.SubtitleFrame:RegisterEvent("QUEST_COMPLETE")
-    self.SubtitleFrame:RegisterEvent("QUEST_GREETING")
-
+    frame:RegisterEvent("GOSSIP_SHOW")
+    frame:RegisterEvent("QUEST_DETAIL")
+    frame:RegisterEvent("QUEST_PROGRESS")
+    frame:RegisterEvent("QUEST_COMPLETE")
+    frame:RegisterEvent("QUEST_GREETING")
     -- Необходимо удалять субтитры
-    self.SubtitleFrame:RegisterEvent("GOSSIP_CLOSED")
-    self.SubtitleFrame:RegisterEvent("QUEST_FINISHED")
-    self.SubtitleFrame:RegisterEvent("GOSSIP_CONFIRM")
+    frame:RegisterEvent("GOSSIP_CLOSED")
+    frame:RegisterEvent("QUEST_FINISHED")
+    frame:RegisterEvent("GOSSIP_CONFIRM")
     
     -- Добавляем обработчики для событий субтитров
     local function OnSubtitleEvent(self, event, ...)
@@ -508,7 +508,7 @@ function ConsoleMenu:SetSubtitleFrame()
         ConsoleMenu:SubtitleFrameUpdate()
     end
 
-    self.SubtitleFrame:SetScript("OnEvent", OnSubtitleEvent)
+    frame:SetScript("OnEvent", OnSubtitleEvent)
 
 end
 
