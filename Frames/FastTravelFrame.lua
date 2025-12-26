@@ -11,6 +11,8 @@ local titleFontSize = 20
 local tabFontSize = 18
 local itemFontSize = 20
 
+local className, classFile = UnitClass("player")
+
 local focusedIndex = 1
 local focusedTab = 1
 local tabs = {}
@@ -23,14 +25,19 @@ local gamePadActive = false
 
 local mageSpells = {
     azeroth = {
-        single = {446540, 395277, 281403, 281404, 224869, 132621, 132627, 88342, 88344, 53140, 32272, 3561, 3567, 3562, 3563, 3565, 3566, 49359, 49358},
-        group = {446534, 395289, 281400, 281402, 224871, 132620, 132626, 88345, 88346, 53142, 32267, 10059, 11417, 11416, 11418, 11419, 11420, 49361, 49360}
+        single = {446540, 395277, 281403, 281404, 224869, 193759, 132621, 132627, 88342, 88344, 53140, 32272, 3561, 3567, 3562, 3563, 3565, 3566, 49359, 49358},
+        group = {446534, 395289, 281400, 281402, 224871, 193759, 132620, 132626, 88345, 88346, 53142, 32267, 10059, 11417, 11416, 11418, 11419, 11420, 49361, 49360}
     },
     world = {
         single = {344587, 176248, 176242, 35715, 33690},
         group = {344597, 176246, 176244, 33691, 35717}
     },
+    actual = {
+        single = {446540},
+        group = {446534}
+    }
 }
+local hearthstonesToys = {}
 
 -- Функция для инициализации вкладок
 local function InitTabs()
@@ -52,8 +59,6 @@ local function InitTabs()
             end
         end
     end 
-
-    local className, classFile = UnitClass("player")
 
     if classFile == "MAGE" then
         tabs[currentIndex] = { title = "Азерот", spells = {} }
@@ -296,11 +301,13 @@ local function CreateFastTravelScrollBox()
         DataProvider:Flush()
 
         -- Обновляем списки заклинаний для вкладок мага, если они существуют
-        if tabs[3] and tabs[4] then
+        if classFile == "MAGE" and tabs[1] and tabs[3] and tabs[4] then
             if IsInGroup() then
+                tabs[1].spells = mageSpells.actual.group
                 tabs[3].spells = mageSpells.azeroth.group
                 tabs[4].spells = mageSpells.world.group
             else
+                tabs[1].spells = mageSpells.actual.single
                 tabs[3].spells = mageSpells.azeroth.single
                 tabs[4].spells = mageSpells.world.single
             end
@@ -338,6 +345,22 @@ local function CreateFastTravelScrollBox()
                             houseInfo = houseInfo,
                         })
                     end
+                end
+            end
+
+            local spells = tabs[focusedTab].spells or {}
+
+            for _, spellID in ipairs(spells) do
+                if IsSpellKnown(spellID) then
+                    -- Получаем инфо о заклинании
+                    local spellInfo = C_Spell.GetSpellInfo(spellID)
+
+                    DataProvider:Insert({
+                        id = spellInfo.spellID,
+                        type = "spell",
+                        name = spellInfo.name,
+                        texture = spellInfo.iconID,
+                    })
                 end
             end
         else
