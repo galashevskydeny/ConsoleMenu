@@ -7,10 +7,13 @@ local viewedItemCount = 3
 local sectionHeight = 52
 local sectionPadding = 8
 local iconSize = sectionHeight - sectionPadding * 2
-local titleFontSize = 18
+local titleFontSize = 20
+local tabFontSize = 18
 local itemFontSize = 20
 
 local focusedIndex
+local focusedTab = 1
+local tabs = {}
 
 local houseList = {}
 local currentHouseInfo = nil
@@ -249,7 +252,7 @@ local function CreateFastTravelScrollBox()
     local ScrollBox = CreateFrame("Frame", "FastTravelScrollBox", FastTravelScrollBox, "WowScrollBoxList")
     FastTravelScrollBox.ScrollBox = ScrollBox
     ScrollBox:SetPoint("TOPLEFT", FastTravelScrollBox, "TOPLEFT", 0, -sectionHeight)
-    ScrollBox:SetPoint("BOTTOMRIGHT", FastTravelScrollBox, "BOTTOMRIGHT", 0, 0)
+    ScrollBox:SetPoint("BOTTOMRIGHT", FastTravelScrollBox, "BOTTOMRIGHT", 0, sectionHeight)
 
     local ScrollBar = CreateFrame("EventFrame", "FastTravelScrollBar", FastTravelScrollBox, "MinimalScrollBar")
     FastTravelScrollBox.ScrollBox.ScrollBar = ScrollBar
@@ -438,6 +441,52 @@ local function PreloadData()
     C_Housing.GetPlayerOwnedHouses()
 end
 
+-- Обновление фреймов вкладок в зависимости от фокуса
+local function UpdateTabs()
+    for i = 1, #tabs do
+        local tab = _G["FastTravelTab" .. i]
+        if not tab then
+            return
+        end
+        if i == focusedTab then
+            tab.circle:Hide()
+            tab.text:Show()
+            -- Установка ширины таба по ширине текста
+            local textWidth = tab.text:GetStringWidth()
+            tab:SetWidth(textWidth)
+        else
+            tab.circle:Show()
+            tab.text:Hide()
+
+            local diff = math.abs(focusedTab - i)
+
+            if diff == 1 then
+                tab.circle:SetSize(sectionPadding, sectionPadding)
+                tab:SetWidth(sectionPadding)
+            else
+                local newSize = sectionPadding * ((#tabs - diff) / #tabs + 0.35)
+                tab.circle:SetSize(newSize, newSize)
+                tab:SetWidth(newSize)
+            end
+        end
+    end
+end
+
+-- Функция для смены текущей вкладки
+local function SwitchTab(direction)
+    local tabCount = #tabs
+    local newTabIndex = focusedTab + direction
+
+    if newTabIndex < 1 then
+        newTabIndex = 1
+    elseif newTabIndex > tabCount then
+        newTabIndex = tabCount
+    end
+
+    focusedTab = newTabIndex
+    UpdateTabs()
+end
+
 function ConsoleMenu:SetFastTravelFrame()
     PreloadData()
 
@@ -448,7 +497,7 @@ function ConsoleMenu:SetFastTravelFrame()
     local FastTravel = CreateFrame("Frame", "FastTravel", ConsoleMenuFrame)
     ConsoleMenuFrame.FastTravel = FastTravel
 
-    FastTravel:SetSize(480, sectionHeight * (viewedItemCount + 1))
+    FastTravel:SetSize(480, sectionHeight * (viewedItemCount + 2))
     FastTravel:SetPoint("BOTTOMLEFT", ConsoleMenuFrame, "BOTTOMLEFT", 48, 48)
     
     -- Включаем обработку клавиатуры для ESC
@@ -481,14 +530,91 @@ function ConsoleMenu:SetFastTravelFrame()
     end)
 
     -- Создаем заголовок
-    FastTravel.Title = FastTravel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    FastTravel.Title:SetPoint("TOPLEFT", FastTravel, "TOPLEFT", sectionPadding, -(sectionHeight-titleFontSize-sectionPadding*1.5))
-    FastTravel.Title:SetPoint("TOPRIGHT", FastTravel, "TOPRIGHT", sectionPadding, -(sectionHeight-titleFontSize-sectionPadding*1.5))
-    FastTravel.Title:SetFont("Fonts\\FRIZQT___CYR.TTF", titleFontSize, "OUTLINE")
-    FastTravel.Title:SetTextColor(1.0, 0.960784, 0.772549, 0.6)
-    FastTravel.Title:SetText("Быстрое перемещение")
-    FastTravel.Title:SetJustifyH("LEFT")
+    FastTravel.Title = CreateFrame("Frame", "FastTravelTitle", FastTravel)
+    FastTravel.Title:SetPoint("TOPLEFT", FastTravel, "TOPLEFT", 0, 0)
+    FastTravel.Title:SetPoint("TOPRIGHT", FastTravel, "TOPRIGHT", 0, 0)
+    FastTravel.Title:SetHeight(sectionHeight)
 
+    FastTravel.Title.Text = FastTravel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    FastTravel.Title.Text:SetPoint("LEFT", FastTravelTitle, "LEFT", sectionPadding, 0)
+    FastTravel.Title.Text:SetPoint("RIGHT", FastTravelTitle, "RIGHT", sectionPadding, 0)
+    FastTravel.Title.Text:SetFont("Fonts\\FRIZQT___CYR.TTF", titleFontSize, "OUTLINE")
+    FastTravel.Title.Text:SetTextColor(1.0, 0.960784, 0.772549, 0.6)
+    FastTravel.Title.Text:SetText("Быстрое перемещение")
+    FastTravel.Title.Text:SetJustifyH("LEFT")
+
+    -- Создаем вкладки
+    tabs[1] = "Избранное"
+    tabs[2] = "Путь героя"
+    tabs[3] = "Азерот"
+    tabs[4] = "Мир"
+
+    FastTravel.Tabs = CreateFrame("Frame", "FastTravelTabs", FastTravel)
+    FastTravel.Tabs:SetPoint("BOTTOMLEFT", FastTravel, "BOTTOMLEFT", 0, 0)
+    FastTravel.Tabs:SetPoint("BOTTOMRIGHT", FastTravel, "BOTTOMRIGHT", 0, 0)
+    FastTravel.Tabs:SetHeight(sectionHeight)
+
+    local previousTab = nil
+    for i = 1, #tabs do
+        local tab = CreateFrame("Button", "FastTravelTab" .. i, FastTravelTabs)
+        if i == 1 then
+            tab:SetPoint("LEFT", FastTravelTabs, "LEFT", sectionPadding, 0)
+        else
+            tab:SetPoint("LEFT", previousTab, "RIGHT", sectionPadding, 0)
+        end
+
+        -- Установка текста таба
+        local text = tabs[i]
+        local tabFont = "Fonts\\FRIZQT___CYR.TTF"
+        if not tab.text then
+            tab.text = tab:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+            tab.text:SetFont(tabFont, tabFontSize, "OUTLINE")
+            tab.text:SetTextColor(1.0, 0.960784, 0.772549, 0.4)
+            tab.text:SetPoint("CENTER")
+        end
+        tab.text:SetText(text)
+
+        -- Добавляем окружность в центр каждого таба
+        if not tab.circle then
+            tab.circle = CreateFrame("Frame", nil, tab)
+            tab.circle:SetSize(sectionPadding, sectionPadding)
+            tab.circle:SetPoint("CENTER", tab, "CENTER", 0, 0)
+        
+            -- Текстура заливки
+            tab.circle.texture = tab.circle:CreateTexture(nil, "ARTWORK")
+            tab.circle.texture:SetAllPoints(tab.circle)
+            tab.circle.texture:SetColorTexture(1.0, 0.960784, 0.772549, 0.4)
+            tab.circle.texture:SetTexCoord(0, 1, 0, 1)
+        
+            -- Маска круга
+            tab.circle.mask = tab.circle:CreateMaskTexture()
+            tab.circle.mask:SetAllPoints(tab.circle)
+            tab.circle.mask:SetTexture(
+                "Interface\\AddOns\\ConsoleMenu\\Assets\\MaskCircle.png",
+                "CLAMPTOBLACK"
+            )
+        
+            -- Применяем маску
+            tab.circle.texture:AddMaskTexture(tab.circle.mask)
+        end
+
+        tab.circle:Hide()
+
+        -- Установка ширины таба по ширине текста
+        local textWidth = tab.text:GetStringWidth()
+        tab:SetWidth(textWidth)
+        -- Установка высоты
+        tab:SetHeight(sectionHeight)
+
+        tab:SetScript("OnClick", function()
+            focusedTab = i
+            UpdateTabs()
+        end)
+
+        previousTab = tab
+    end
+
+    UpdateTabs()
 
     -- Создаём «невидимые» кнопки для перемещения фокуса и скрытия окна:
     local focusUpButton = CreateFrame("Button", "FocusUpButton", parentFrame)
@@ -503,6 +629,22 @@ function ConsoleMenu:SetFastTravelFrame()
     focusDownButton:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 0, 20)
     focusDownButton:SetScript("OnClick", function()
         MoveFocus(1)
+    end)
+
+    -- Кнопка для переключения вкладки влево
+    local tabLeftButton = CreateFrame("Button", "FastTravelTabLeftButton", parentFrame)
+    tabLeftButton:SetSize(1,1)
+    tabLeftButton:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 0, 80)
+    tabLeftButton:SetScript("OnClick", function()
+        SwitchTab(-1)
+    end)
+
+    -- Кнопка для переключения вкладки вправо
+    local tabRightButton = CreateFrame("Button", "FastTravelTabRightButton", parentFrame)
+    tabRightButton:SetSize(1,1)
+    tabRightButton:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 0, 100)
+    tabRightButton:SetScript("OnClick", function()
+        SwitchTab(1)
     end)
 
     local hideButton = CreateFrame("Button", "FastTravelHideButton", parentFrame)
@@ -532,6 +674,12 @@ function ConsoleMenu:SetFastTravelFrame()
         SetOverrideBindingClick(focusUpButton, true, "PADDUP", "FocusUpButton", "LeftButton")
         -- Привязываем PADDDOWN к клику по FocusDownButton
         SetOverrideBindingClick(focusDownButton, true, "PADDDOWN", "FocusDownButton", "LeftButton")
+
+        -- Привязываем PADLEFT к клику по FastTravelTabLeftButton
+        SetOverrideBindingClick(tabLeftButton, true, "PADDLEFT", "FastTravelTabLeftButton", "LeftButton")
+        -- Привязываем PADRIGHT к клику по FastTravelTabRightButton
+        SetOverrideBindingClick(tabRightButton, true, "PADDRIGHT", "FastTravelTabRightButton", "LeftButton")
+
         -- Привязываем PAD2 к клику по FastTravelHideButton (чтобы закрывать окно)
         SetOverrideBindingClick(hideButton, true, "PAD2", "FastTravelHideButton", "LeftButton")
 
