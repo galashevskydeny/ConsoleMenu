@@ -3,6 +3,7 @@
 local ConsoleMenu = _G.ConsoleMenu
 local parentFrame
 
+local frameWidth = 440
 local viewedItemCount = 3
 local sectionHeight = 52
 local sectionPadding = 8
@@ -491,7 +492,7 @@ function ConsoleMenu:SetFastTravelFrame()
     local FastTravel = CreateFrame("Frame", "FastTravel", ConsoleMenuFrame)
     ConsoleMenuFrame.FastTravel = FastTravel
 
-    FastTravel:SetSize(480, sectionHeight * (viewedItemCount + 2))
+    FastTravel:SetSize(frameWidth, sectionHeight * (viewedItemCount + 2))
     FastTravel:SetPoint("BOTTOMLEFT", ConsoleMenuFrame, "BOTTOMLEFT", 48, 48)
     
     -- Включаем обработку клавиатуры для ESC
