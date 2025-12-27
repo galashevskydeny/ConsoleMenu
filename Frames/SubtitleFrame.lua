@@ -191,7 +191,7 @@ function ConsoleMenu:AddSubtitles(event, message, sender)
 
     local emotion = false
 
-    if event == "CHAT_MSG_MONSTER_EMOTE" then
+    if event == "CHAT_MSG_MONSTER_EMOTE" or event == "CHAT_MSG_TEXT_EMOTE" then
         emotion = true
     end
 
