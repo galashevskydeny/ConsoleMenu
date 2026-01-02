@@ -39,17 +39,28 @@ local function SplitTextIntoLines(text)
         local result = {}
         local current = ""
         
-        -- Разбиваем текст на предложения (оптимизированное регулярное выражение)
-        for sentence in text:gmatch("([^%.%!%?%.%.%.]+[%.,%!%?%.%.%.]*)") do
-            sentence = sentence:gsub("^%s+", "") -- убираем пробелы одним вызовом
-            -- Пропускаем предложения, состоящие только из символов < и >
-            if sentence ~= "" and not sentence:match("^[<>%s]*$") then
-                sentences[#sentences + 1] = sentence
-            elseif sentence ~= "" and #sentences > 0 then
-                -- Если это только < или >, объединяем с предыдущим предложением
-                sentences[#sentences] = sentences[#sentences] .. sentence
+        -- Разбиваем текст на части: теги <...> и обычный текст
+        local function addSentences(str, isTag)
+            if isTag then
+                sentences[#sentences + 1] = str
+            else
+                for s in str:gmatch("([^%.%!%?%.%.%.]+[%.,%!%?%.%.%.]*)") do
+                    s = s:gsub("^%s+", ""):gsub("%s+$", "")
+                    if s ~= "" then sentences[#sentences + 1] = s end
+                end
             end
         end
+        
+        -- Обрабатываем все части: теги и текст между ними
+        local pos = 1
+        for tagStart, tagEnd in text:gmatch("()<[^>]*>()") do
+            if pos < tagStart then
+                addSentences(text:sub(pos, tagStart - 1), false)
+            end
+            addSentences(text:sub(tagStart, tagEnd), true)
+            pos = tagEnd + 1
+        end
+        addSentences(text:sub(pos), false)
         
         if #sentences == 0 then
             return {text}
@@ -58,16 +69,27 @@ local function SplitTextIntoLines(text)
         -- Группируем предложения по длине
         for i = 1, #sentences do
             local sentence = sentences[i]
-            local needSpace = current ~= "" and 1 or 0
-            local newLength = #current + needSpace + #sentence
+            local hasTag = sentence:find("[<>]")
             
-            if newLength <= max_length then
-                current = current ~= "" and (current .. " " .. sentence) or sentence
-            else
+            -- Предложения с тегами не группируются
+            if hasTag then
                 if current ~= "" then
                     result[#result + 1] = current
+                    current = ""
                 end
-                current = sentence
+                result[#result + 1] = sentence
+            else
+                local needSpace = current ~= "" and 1 or 0
+                local newLength = #current + needSpace + #sentence
+                
+                if newLength <= max_length then
+                    current = current ~= "" and (current .. " " .. sentence) or sentence
+                else
+                    if current ~= "" then
+                        result[#result + 1] = current
+                    end
+                    current = sentence
+                end
             end
         end
         
@@ -84,26 +106,29 @@ local function SplitTextIntoLines(text)
         local result = {}
         local current = ""
         
-        -- Разбиваем текст по запятым
-        for part in text:gmatch("([^,]+)") do
-            part = part:match("^%s*(.-)%s*$") -- убираем пробелы в начале и конце
-            if part ~= "" then
-                parts[#parts + 1] = part
-            end
+        -- Разбиваем текст по запятым, сохраняя запятые и их форматирование
+        local lastPos = 1
+        for commaPos in text:gmatch("()[,]") do
+            local part = text:sub(lastPos, commaPos)
+            parts[#parts + 1] = part
+            lastPos = commaPos + 1
+        end
+        -- Добавляем оставшуюся часть после последней запятой
+        if lastPos <= #text then
+            parts[#parts + 1] = text:sub(lastPos)
         end
         
         if #parts == 0 then
             return {text}
         end
         
-        -- Группируем части по длине
+        -- Группируем части по длине, сохраняя оригинальные запятые
         for i = 1, #parts do
             local part = parts[i]
-            local needComma = current ~= "" and 2 or 0 -- запятая + пробел
-            local newLength = #current + needComma + #part
+            local newLength = #current + #part
             
             if newLength <= max_length then
-                current = current ~= "" and (current .. ", " .. part) or part
+                current = current .. part
             else
                 if current ~= "" then
                     result[#result + 1] = current
@@ -123,20 +148,16 @@ local function SplitTextIntoLines(text)
     for line in text:gmatch("[^\r\n]+") do
         local trimmedLine = line:match("^%s*(.-)%s*$")
         if trimmedLine ~= "" then
-            if #trimmedLine < maxLen then
-                lines[#lines + 1] = trimmedLine
-            else
-                local grouped = split_and_group_text(trimmedLine, maxLen)
-                for i = 1, #grouped do
-                    local groupedLine = grouped[i]
-                    if #groupedLine < maxLen then
-                        lines[#lines + 1] = groupedLine
-                    else
-                        -- Если строка все еще длиннее maxLen, разбиваем по запятым
-                        local commaSplit = split_by_commas(groupedLine, maxLen)
-                        for j = 1, #commaSplit do
-                            lines[#lines + 1] = commaSplit[j]
-                        end
+            local grouped = split_and_group_text(trimmedLine, maxLen)
+            for i = 1, #grouped do
+                local groupedLine = grouped[i]
+                if #groupedLine < maxLen then
+                    lines[#lines + 1] = groupedLine
+                else
+                    -- Если строка все еще длиннее maxLen, разбиваем по запятым
+                    local commaSplit = split_by_commas(groupedLine, maxLen)
+                    for j = 1, #commaSplit do
+                        lines[#lines + 1] = commaSplit[j]
                     end
                 end
             end
