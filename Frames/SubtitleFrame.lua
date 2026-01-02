@@ -217,26 +217,12 @@ local function GetCurrentSubtitleWithMaxPriority()
     local currentSubtitle = nil
     local minPriority = nil
 
-
-    local displayedSpeaker = ""
-    if ConsoleMenu.SubtitleFrame and ConsoleMenu.SubtitleFrame.Speaker and ConsoleMenu.SubtitleFrame.Speaker:IsShown() then
-        displayedSpeaker = ConsoleMenu.SubtitleFrame.Speaker:GetText() or ""
-    end
-
     -- Проходим по всем субтитрам от конца к началу и ищем активные
-    for i = #ConsoleMenu.Subtitles, 1, -1 do
-        local subtitle = ConsoleMenu.Subtitles[i]
-        if subtitle and subtitle.startTime and subtitle.stopTime then
-            if subtitle.startTime <= now and now <= subtitle.stopTime then
-                if not minPriority or subtitle.priority < minPriority then
-                    minPriority = subtitle.priority
-                    currentSubtitle = subtitle
-                elseif subtitle.priority == minPriority then
-                    -- При равных приоритетах выбираем субтитр с более поздним startTime
-                    if not currentSubtitle or (subtitle.startTime and currentSubtitle.startTime and subtitle.startTime > currentSubtitle.startTime) then
-                        currentSubtitle = subtitle
-                    end
-                end
+    for i, subtitle in ipairs(ConsoleMenu.Subtitles) do
+        if subtitle.startTime <= now and now <= subtitle.stopTime then
+            if not minPriority or subtitle.priority < minPriority then
+                minPriority = subtitle.priority
+                currentSubtitle = subtitle
             end
         end
     end
@@ -253,11 +239,8 @@ local function RemoveOldSubtitles()
     local now = GetTime()
     
     -- Удаляем все субтитры, у которых stopTime уже прошло
-    for i = #ConsoleMenu.Subtitles, 1, -1 do
-        local subtitle = ConsoleMenu.Subtitles[i]
-        if subtitle and subtitle.stopTime and subtitle.stopTime <= now then
-            table.remove(ConsoleMenu.Subtitles, i)
-        end
+    for i, subtitle in ipairs(ConsoleMenu.Subtitles) do
+        table.remove(ConsoleMenu.Subtitles, i)
     end
 end
 
@@ -293,7 +276,6 @@ function ConsoleMenu:AddSubtitles(event, message, sender)
     end
 
     for i, line in ipairs(lines) do
-        print(line)
         local duration = CalculateSpeechDuration(line, event)
         local stopTime = startTime + duration
 
@@ -340,13 +322,13 @@ function ConsoleMenu:SkipCurrentSubtitle()
     local currentSubtitle = ConsoleMenuFrame.SubtitleFrame.CurrentSubtitle
 
     for i, subtitle in ipairs(ConsoleMenu.Subtitles) do
-        if subtitle.text == currentSubtitle.text then
-            ConsoleMenu.Subtitles[i].stopTime = startTime
-            break
-        end
-    end
 
-    RemoveOldSubtitles()
+        if subtitle.event == currentSubtitle.event then
+            table.remove(ConsoleMenu.Subtitles, i)
+        end
+
+        if subtitle.text == currentSubtitle.text then break end
+    end
 
     for i, subtitle in ipairs(ConsoleMenu.Subtitles) do
         if subtitle.event == currentSubtitle.event then
