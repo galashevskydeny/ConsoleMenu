@@ -240,7 +240,9 @@ local function RemoveOldSubtitles()
     
     -- Удаляем все субтитры, у которых stopTime уже прошло
     for i, subtitle in ipairs(ConsoleMenu.Subtitles) do
-        table.remove(ConsoleMenu.Subtitles, i)
+        if subtitle.stopTime <= now then
+            table.remove(ConsoleMenu.Subtitles, i)
+        end
     end
 end
 
