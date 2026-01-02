@@ -279,14 +279,14 @@ function ConsoleMenu:AddSubtitles(event, message, sender)
 
     for i, line in ipairs(lines) do
         local duration = CalculateSpeechDuration(line, event)
+        if priority == 1 and i == #lines then
+            duration = duration + 24 * 60 * 60
+        end
+        
         local stopTime = startTime + duration
 
         if event == "CHAT_MSG_MONSTER_EMOTE" then
             line = string.gsub(line, "%%s", sender or "")
-        end
-
-        if priority == 1 and i == #lines then
-            duration = duration + 24 * 60 * 60
         end
 
         if line:find("<") then
