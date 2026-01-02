@@ -53,10 +53,10 @@ local function Initialize()
     ConsoleMenu:SetMerchantFrame()
     ConsoleMenu:SetOpenMailFrame()
     ConsoleMenu:SetQuestFrame()
-    ConsoleMenu:SetGossipFrame()
     
-    ConsoleMenu:SetCustomGossipFrame()
     ConsoleMenu:SetSubtitleFrame()
+    ConsoleMenu:SetCustomGossipFrame()
+    ConsoleMenu:SetGossipFrame()
     
     ConsoleMenu:InitializeMainActionBar()
     

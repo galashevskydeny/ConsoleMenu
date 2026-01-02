@@ -2,13 +2,23 @@
 
 local ConsoleMenu = _G.ConsoleMenu
 local parentFrame
+
+local frameWidth = 688
+local viewedItemCount = 3
+local sectionHeight = 52
+local sectionPadding = 8
+local iconSize = sectionHeight - sectionPadding * 2
+local titleFontSize = 20
+local tabFontSize = 18
+local itemFontSize = 20
+
 local updateFocus
 local frames = {} -- Хранение всех созданных элементов
 local focusedIndex = 1 -- Индекс текущего элемента в фокусе
-local questsInQuestLine = {}
-local questsWithoutQuestline = {}
+
 local previousGossip = false
 local softTargetEnemy
+
 local gamePadActive = false
 
 -- Провкрка элемента на вхождение в массив
@@ -296,47 +306,11 @@ end
 -- Создание ScrollBox
 local function CreateGossipScrollBox()
     -- Главный фрейм
-    local GossipScrollBox = CreateFrame("Frame", "GossipScroll", UIParent)
-    GossipScrollBox:SetSize(640, 48*3)
-    GossipScrollBox:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 96)
-
-    GossipScrollBox:HookScript("OnShow", function()
-        softTargetEnemy = GetCVar("SoftTargetEnemy")
-        SetCVar("SoftTargetEnemy", 0)
-
-        if WeakAuras then
-            WeakAuras.ScanEvents("CHANGE_CONTEXT", "window")
-            WeakAuras.ScanEvents("SHOW_GOSSIP_FRAME", true)
-        end
-
-    end)
-
-    GossipScrollBox:HookScript("OnHide", function()
-        if softTargetEnemy then
-            SetCVar("SoftTargetEnemy", softTargetEnemy)
-        end
-
-        if WeakAuras then
-            WAGlobal = WAGlobal or {}  -- Создаем таблицу, если её ещё нет
-            local previousContext = WAGlobal.previousContext or "exploring"
-            WeakAuras.ScanEvents("CHANGE_CONTEXT", previousContext)
-            WeakAuras.ScanEvents("SHOW_GOSSIP_FRAME", false)
-        end
-
-    end)
-
-    -- Регистрация события изменения режима геймпада
-    GossipScrollBox:RegisterEvent("GAME_PAD_ACTIVE_CHANGED")
-    GossipScrollBox:SetScript("OnEvent", function(self, event, ...)
-        if event == "GAME_PAD_ACTIVE_CHANGED" then
-            gamePadActive = ...
-        end
-    end)
+    local GossipScrollBox = ConsoleMenuFrame.GossipFrame
     
     -- Создаем ScrollBox
     local ScrollBox = CreateFrame("Frame", "GossipScrollBox", GossipScrollBox, "WowScrollBoxList")
     GossipScrollBox.ScrollBox = ScrollBox
-    ScrollBox:SetPoint("TOPLEFT", GossipScrollBox, "TOPLEFT", 0, 0)
     ScrollBox:SetAllPoints()
 
     -- Создаем ScrollBar
@@ -353,7 +327,7 @@ local function CreateGossipScrollBox()
         -- Обновление отображения ScrollBar
     local function UpdateScrollBarVisibility()
         local totalHeight = ScrollView:GetExtent() - 1
-        if totalHeight <= GossipScroll:GetHeight() then
+        if totalHeight <= GossipScrollBox:GetHeight() then
             GossipScrollBar:Hide()
         else
             GossipScrollBar:Show()
@@ -931,6 +905,45 @@ function ConsoleMenu:SetCustomGossipFrame()
     if ConsoleMenuDB.dialogQuestWindowStyle == 2 then
         return
     end
+
+    local GossipFrame = CreateFrame("Frame", "GossipFrame", ConsoleMenuFrame)
+    ConsoleMenuFrame.GossipFrame = GossipFrame
+
+    GossipFrame:SetSize(frameWidth, sectionHeight * viewedItemCount)
+    GossipFrame:SetPoint("TOP", SubtitleFrame, "BOTTOM", 0, -16)
+
+    GossipFrame:HookScript("OnShow", function()
+        softTargetEnemy = GetCVar("SoftTargetEnemy")
+        SetCVar("SoftTargetEnemy", 0)
+
+        if WeakAuras then
+            WeakAuras.ScanEvents("CHANGE_CONTEXT", "window")
+            WeakAuras.ScanEvents("SHOW_GOSSIP_FRAME", true)
+        end
+
+    end)
+
+    GossipFrame:HookScript("OnHide", function()
+        if softTargetEnemy then
+            SetCVar("SoftTargetEnemy", softTargetEnemy)
+        end
+
+        if WeakAuras then
+            WAGlobal = WAGlobal or {}  -- Создаем таблицу, если её ещё нет
+            local previousContext = WAGlobal.previousContext or "exploring"
+            WeakAuras.ScanEvents("CHANGE_CONTEXT", previousContext)
+            WeakAuras.ScanEvents("SHOW_GOSSIP_FRAME", false)
+        end
+
+    end)
+
+    -- Регистрация события изменения режима геймпада
+    GossipFrame:RegisterEvent("GAME_PAD_ACTIVE_CHANGED")
+    GossipFrame:SetScript("OnEvent", function(self, event, ...)
+        if event == "GAME_PAD_ACTIVE_CHANGED" then
+            gamePadActive = ...
+        end
+    end)
     
     -- Создаем основной фрейм
     parentFrame, updateFocus = CreateGossipScrollBox()
