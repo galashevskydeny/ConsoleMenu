@@ -23,12 +23,6 @@ local NotificationDuration = {
     PERKS_PROGRAM_CURRENCY_AWARDED = 5
 }
 
--- Функция для очистки текста от UI кодов и пробелов
-local function CleanText(s)
-
-    return s
-end
-
 -- Функция для добавления уведомлений
 function ConsoleMenu:AddNotification(event, message, identifier)
     if not ConsoleMenu or not ConsoleMenu.Notifications then
@@ -41,7 +35,7 @@ function ConsoleMenu:AddNotification(event, message, identifier)
 
     -- Создаем таблицу субтитра
     local notificationData = {
-        text = CleanText(message),
+        text = message,
         event = event,
         combined = false,
         identifier = identifier,
