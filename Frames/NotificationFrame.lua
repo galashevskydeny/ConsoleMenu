@@ -25,13 +25,7 @@ local NotificationDuration = {
 
 -- Функция для очистки текста от UI кодов и пробелов
 local function CleanText(s)
-    -- Удаляем UI коды
-    s = s:gsub("|3%-%d+%b()", "")
-    s = s:gsub("|4[^;]-;", "")
-    s = s:gsub("|c%x%x%x%x%x%x%x%x", "")
-    s = s:gsub("|r", "")
-    -- Очищаем пробелы
-    s = s:gsub("%s%s+", " "):gsub("^%s+", ""):gsub("%s+$", "")
+
     return s
 end
 
@@ -60,7 +54,7 @@ function ConsoleMenu:AddNotification(event, message, identifier)
     else
         table.insert(ConsoleMenu.Notifications, notificationData)
         -- Через секунду запускаем объединение уведомлений
-        C_Timer.After(1, function()
+        C_Timer.After(2, function()
             ConsoleMenu:CombineNotifications(event, identifier)
         end)
     end
