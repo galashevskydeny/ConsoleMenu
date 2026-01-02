@@ -108,7 +108,7 @@ local function SplitTextIntoLines(text)
         
         -- Разбиваем текст по запятым, двоеточиям и тире, сохраняя разделители и их форматирование
         local lastPos = 1
-        for commaPos in text:gmatch("()[,:%–]") do
+        for commaPos in text:gmatch("()[,:]") do
             local part = text:sub(lastPos, commaPos)
             parts[#parts + 1] = part
             lastPos = commaPos + 1
@@ -185,8 +185,8 @@ local function CalculateSpeechDuration(line, event)
     local additionalDuration = 1.5
 
     if event and not event:find("CHAT") then
-        additionalDuration = 1
-        wordsPerMinute = 230
+        additionalDuration = 0.5
+        wordsPerMinute = 240
     end
 
     -- Минимальная длительность в секундах
