@@ -239,8 +239,10 @@ local function RemoveOldSubtitles()
     local now = GetTime()
     
     -- Удаляем все субтитры, у которых stopTime уже прошло
-    for i, subtitle in ipairs(ConsoleMenu.Subtitles) do
-        if subtitle.stopTime <= now then
+    -- Безопасное удаление: итерация в обратном порядке
+    for i = #ConsoleMenu.Subtitles, 1, -1 do
+        local subtitle = ConsoleMenu.Subtitles[i]
+        if subtitle and subtitle.stopTime <= now then
             table.remove(ConsoleMenu.Subtitles, i)
         end
     end
@@ -327,14 +329,23 @@ function ConsoleMenu:SkipCurrentSubtitle()
     local nextSubtitle = nil
     local currentSubtitle = ConsoleMenuFrame.SubtitleFrame.CurrentSubtitle
 
-    for i, subtitle in ipairs(ConsoleMenu.Subtitles) do
-
-        if subtitle.event == currentSubtitle.event then
-            table.remove(ConsoleMenu.Subtitles, i)
-        end
-
-        if subtitle.text == currentSubtitle.text then break end
+    if not currentSubtitle then
+        return
     end
+
+    -- Находим индекс текущего элемента
+    local currentIndex = nil
+    for i, subtitle in ipairs(ConsoleMenu.Subtitles) do
+        if subtitle and subtitle.text == currentSubtitle.text then
+            currentIndex = i
+        end
+    end
+
+    if currentIndex and not currentSubtitle.lastLine then
+        ConsoleMenu.Subtitles[currentIndex].stopTime = GetTime()
+    end
+
+    RemoveOldSubtitles()
 
     for i, subtitle in ipairs(ConsoleMenu.Subtitles) do
         if subtitle.event == currentSubtitle.event then
