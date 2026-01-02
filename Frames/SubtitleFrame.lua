@@ -246,7 +246,7 @@ local function RemoveOldSubtitles()
     -- Удаляем все субтитры, у которых stopTime уже прошло
     for i = #ConsoleMenu.Subtitles, 1, -1 do
         local subtitle = ConsoleMenu.Subtitles[i]
-        if subtitle and subtitle.stopTime and subtitle.stopTime < now then
+        if subtitle and subtitle.stopTime and subtitle.stopTime <= now then
             table.remove(ConsoleMenu.Subtitles, i)
         end
     end
@@ -273,16 +273,6 @@ function ConsoleMenu:AddSubtitles(event, message, sender)
 
     local priority = SubtitleEventPriority[event] or 1
 
-    -- Функция для генерации UUID (упрощённая версия)
-    local function GenerateUUID()
-        local template = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx"
-        return string.gsub(template, "[xy]", function (c)
-            local v = (c == "x") and math.random(0, 0xf) or math.random(8, 0xb)
-            return string.format("%x", v)
-        end)
-    end
-
-    local eventIdentifier = GenerateUUID()
     local lines = SplitTextIntoLines(message)
     local currentTime = GetTime()
     local startTime = currentTime
@@ -319,7 +309,6 @@ function ConsoleMenu:AddSubtitles(event, message, sender)
                 stopTime = stopTime,
                 emotion = emotion,
                 lastLine = (i == #lines),
-                eventIdentifier = eventIdentifier,
             }
             
             table.insert(ConsoleMenu.Subtitles, subtitleData)
@@ -343,12 +332,15 @@ function ConsoleMenu:SkipCurrentSubtitle()
 
     for i, subtitle in ipairs(ConsoleMenu.Subtitles) do
         if subtitle.text == currentSubtitle.text then
-            table.remove(ConsoleMenu.Subtitles, i)
+            ConsoleMenu.Subtitles[i].stopTime = startTime
+            break
         end
     end
 
+    RemoveOldSubtitles()
+
     for i, subtitle in ipairs(ConsoleMenu.Subtitles) do
-        if subtitle.eventIdentifier == currentSubtitle.eventIdentifier then
+        if subtitle.event == currentSubtitle.event then
             
             subtitle.startTime = startTime
             subtitle.stopTime = startTime + subtitle.duration
@@ -366,13 +358,20 @@ function ConsoleMenu:SkipCurrentSubtitle()
 end
 
 -- Функция для обновления субтитра
-function ConsoleMenu:SubtitleFrameUpdate(current)
+function ConsoleMenu:SubtitleFrameUpdate(subtitle)
     if not ConsoleMenuFrame or not ConsoleMenuFrame.SubtitleFrame then
         return
     end
 
     local frame = ConsoleMenuFrame.SubtitleFrame
-    local current = current or GetCurrentSubtitleWithMaxPriority()
+    local current
+
+    if subtitle then
+        current = subtitle
+    else
+        current = GetCurrentSubtitleWithMaxPriority()
+    end
+
     ConsoleMenuFrame.SubtitleFrame.CurrentSubtitle = current
 
     if current then
