@@ -100,20 +100,20 @@ local function SplitTextIntoLines(text)
         return result
     end
     
-    -- Вспомогательная функция для разбиения текста по запятым
+    -- Вспомогательная функция для разбиения текста по запятым, двоеточиям и тире
     local function split_by_commas(text, max_length)
         local parts = {}
         local result = {}
         local current = ""
         
-        -- Разбиваем текст по запятым, сохраняя запятые и их форматирование
+        -- Разбиваем текст по запятым, двоеточиям и тире, сохраняя разделители и их форматирование
         local lastPos = 1
-        for commaPos in text:gmatch("()[,]") do
+        for commaPos in text:gmatch("()[,:%–]") do
             local part = text:sub(lastPos, commaPos)
             parts[#parts + 1] = part
             lastPos = commaPos + 1
         end
-        -- Добавляем оставшуюся часть после последней запятой
+        -- Добавляем оставшуюся часть после последнего разделителя
         if lastPos <= #text then
             parts[#parts + 1] = text:sub(lastPos)
         end
@@ -122,7 +122,7 @@ local function SplitTextIntoLines(text)
             return {text}
         end
         
-        -- Группируем части по длине, сохраняя оригинальные запятые
+        -- Группируем части по длине, сохраняя оригинальные разделители
         for i = 1, #parts do
             local part = parts[i]
             local newLength = #current + #part
@@ -184,7 +184,7 @@ local function CalculateSpeechDuration(line, event)
     -- Дополнительная длительность в секундах
     local additionalDuration = 1.5
 
-    if event and event:find("QUEST") then
+    if event and not event:find("CHAT") then
         additionalDuration = 1
         wordsPerMinute = 230
     end
