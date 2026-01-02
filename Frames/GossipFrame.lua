@@ -11,8 +11,6 @@ local sectionPadding = 8
 local iconSize = sectionHeight - sectionPadding * 2
 local itemFontSize = 20
 
-local updateFocus
-local frames = {} -- Хранение всех созданных элементов
 local focusedIndex = 1 -- Индекс текущего элемента в фокусе
 
 local previousGossip = false
@@ -302,6 +300,51 @@ local function setIcon(frame, data)
     end
 end
 
+-- Обновление фокуса
+local function UpdateFocus(element, changeFocus)
+    if not element then
+        return
+    end
+
+    -- Сброс фокуса для всех элементов
+    local frames = parentFrame.ScrollBox:GetFrames()
+    for _, frame in ipairs(frames) do
+        frame:SetFocused(false)
+    end
+
+    focusedIndex = parentFrame.ScrollBox:FindElementDataIndex(element)
+
+    local frame = parentFrame.ScrollBox:FindFrameByPredicate(function(frame, elementData)
+        return elementData == element
+    end)
+    
+    if frame and changeFocus then
+        frame:SetFocused(true)
+    end
+
+    -- Прокрутить ScrollBox до текущего элемента
+    if gamePadActive then
+        parentFrame.ScrollBox:ScrollToElementDataIndex(focusedIndex)
+    end
+end
+
+-- Функция переключения фокуса
+local function MoveFocus(delta)
+    if not parentFrame or not parentFrame.ScrollBox then
+        return
+    end
+    local dataProvider = parentFrame.ScrollBox:GetDataProvider()
+    if not dataProvider then
+        return
+    end
+    local dataProviderSize = #dataProvider.collection
+    local newIndex = math.max(1, math.min(focusedIndex + delta, dataProviderSize))
+    local element = dataProvider.collection[newIndex]
+    if element and UpdateFocus then
+        UpdateFocus(element, true)
+    end
+end
+
 -- Создание ScrollBox
 local function CreateGossipScrollBox()
     -- Главный фрейм
@@ -336,9 +379,8 @@ local function CreateGossipScrollBox()
 
     -- Получение Gossip меню
     local function GetGossip()
-        -- Очищаем DataProvider и хранимые данные
+        -- Очищаем DataProvider
         DataProvider:Flush()
-        frames = {}
 
         -- Получаем данные квестов
         local quests = GetGossipQuests()
@@ -388,9 +430,8 @@ local function CreateGossipScrollBox()
 
     -- Получение Gossip меню
     local function GetGreeting()
-        -- Очищаем DataProvider и хранимые данные
+        -- Очищаем DataProvider
         DataProvider:Flush()
-        frames = {}
 
         -- Получаем данные квестов
         local quests = GetGreetingQuests()
@@ -417,32 +458,10 @@ local function CreateGossipScrollBox()
         UpdateScrollBarVisibility()
     end
 
-    -- Обновление фокуса
-    local function UpdateFocus(newIndex)
-        -- Сброс фокуса для всех элементов
-        for _, frame in ipairs(frames) do
-            if frame and frame.SetFocused then
-                frame:SetFocused(false)
-            end
-        end
-
-        focusedIndex = newIndex
-        
-        if frames[focusedIndex] then
-            frames[focusedIndex]:SetFocused(true)
-
-            -- Смещаем скролл до текущего элемента (только если геймпад активен)
-            if gamePadActive then
-                parentFrame.ScrollBox:ScrollToElementDataIndex(newIndex)
-            end
-        end
-    end
-
     -- Обновить меню квеста
     local function UpdateQuestDetail()
         -- Очищаем DataProvider и добавляем новые данные
         DataProvider:Flush()
-        frames = {} -- Сбрасываем список фреймов
 
         local questID = GetQuestID()
 
@@ -471,7 +490,6 @@ local function CreateGossipScrollBox()
     local function ShowReputation(reputationText, reputationName)
         -- Очищаем DataProvider и добавляем новые данные
         DataProvider:Flush()
-        frames = {} -- Сбрасываем список фреймов
 
         ConsoleMenu:AddSubtitles("GOSSIP_SHOW", reputationText, reputationName)
         ConsoleMenu:SubtitleFrameUpdate()
@@ -489,7 +507,10 @@ local function CreateGossipScrollBox()
             name = GOODBYE,
         })
 
-        UpdateFocus(1)
+        local element = parentFrame.ScrollBox:GetDataProvider().collection[1]
+        if element then
+            UpdateFocus(element, true)
+        end
         UpdateScrollBarVisibility()
     end
 
@@ -501,15 +522,19 @@ local function CreateGossipScrollBox()
         ConsoleMenu:SubtitleFrameUpdate()
 
         GetGossip()
-        UpdateFocus(1)
+        local element = parentFrame.ScrollBox:GetDataProvider().collection[1]
+        if element then
+            UpdateFocus(element, true)
+        end
         UpdateScrollBarVisibility()
     end
 
     -- Кастомный инициализатор
     local function Initializer(frame, data)
-        local frameIndex = #frames + 1
-        table.insert(frames, frame) -- Добавляем элемент в массив
-        frame.index = frameIndex -- Сохраняем индекс фрейма
+        if not data then
+            -- Если по какой-то причине data == nil, не обрабатываем
+            return
+        end
 
         -- Иконка
         if not frame.icon then
@@ -592,7 +617,8 @@ local function CreateGossipScrollBox()
 
         -- Фокус (изменение подложки при наведении)
         frame:SetScript("OnEnter", function()
-            UpdateFocus(frameIndex)
+            UpdateFocus(data, false)
+            frame:SetFocused(true)
         end)
         frame:SetScript("OnLeave", function()
             -- При уходе мыши фокус остается на текущем элементе
@@ -636,7 +662,10 @@ local function CreateGossipScrollBox()
             GossipScrollBox:Show()
             previousGossip = false
 
-            UpdateFocus(1) -- Устанавливаем фокус на первый элемент
+            local element = parentFrame.ScrollBox:GetDataProvider().collection[1]
+            if element then
+                UpdateFocus(element, true) -- Устанавливаем фокус на первый элемент
+            end
 
         elseif event == "QUEST_GREETING" then
 
@@ -645,7 +674,10 @@ local function CreateGossipScrollBox()
             GossipScrollBox:Show()
             previousGossip = false
 
-            UpdateFocus(1)
+            local element = parentFrame.ScrollBox:GetDataProvider().collection[1]
+            if element then
+                UpdateFocus(element, true)
+            end
             
         elseif event == "QUEST_DETAIL" then
             local questID = GetQuestID()
@@ -653,13 +685,15 @@ local function CreateGossipScrollBox()
             if questID ~= 0 then
                 UpdateQuestDetail()
                 GossipScrollBox:Show()
-                UpdateFocus(1) -- Устанавливаем фокус на первый элемент
+                local element = parentFrame.ScrollBox:GetDataProvider().collection[1]
+                if element then
+                    UpdateFocus(element, true) -- Устанавливаем фокус на первый элемент
+                end
             end
             
         elseif event == "QUEST_PROGRESS" then
             -- Очищаем DataProvider и добавляем новые данные
             DataProvider:Flush()
-            frames = {} -- Сбрасываем список фреймов
 
             local questID = GetQuestID()
             local isComplete = C_QuestLog.IsComplete(questID)
@@ -745,12 +779,14 @@ local function CreateGossipScrollBox()
             })
 
             GossipScrollBox:Show()
-            UpdateFocus(1) -- Устанавливаем фокус на первый элемент
+            local element = parentFrame.ScrollBox:GetDataProvider().collection[1]
+            if element then
+                UpdateFocus(element, true) -- Устанавливаем фокус на первый элемент
+            end
 
         elseif event == "QUEST_COMPLETE" then
             -- Очищаем DataProvider и добавляем новые данные
             DataProvider:Flush()
-            frames = {} -- Сбрасываем список фреймов
 
             local questID = GetQuestID()
             local questLineInfo = C_QuestLine.GetQuestLineInfo(questID)
@@ -844,7 +880,10 @@ local function CreateGossipScrollBox()
             })
 
             GossipScrollBox:Show()
-            UpdateFocus(1) -- Устанавливаем фокус на первый элемент
+            local element = parentFrame.ScrollBox:GetDataProvider().collection[1]
+            if element then
+                UpdateFocus(element, true) -- Устанавливаем фокус на первый элемент
+            end
 
         elseif event == "GOSSIP_CLOSED" then
             previousGossip = true
@@ -865,11 +904,6 @@ local function CreateGossipScrollBox()
     return GossipScrollBox, UpdateFocus
 end
 
-local function MoveFocus(delta)
-    local newIndex = math.max(1, math.min(focusedIndex + delta, #frames))
-    updateFocus(newIndex)
-end
-
 -- Подключение контроллера
 local function toggleController(updateFocus)
 
@@ -884,8 +918,14 @@ local function toggleController(updateFocus)
             elseif button == "PADDDOWN" then
                 MoveFocus(1)
             elseif button == "PAD1" then
-                if frames[focusedIndex] then
-                    frames[focusedIndex]:SelectOption()
+                local element = parentFrame.ScrollBox:GetDataProvider().collection[focusedIndex]
+                if element then
+                    local frame = parentFrame.ScrollBox:FindFrameByPredicate(function(frame, elementData)
+                        return elementData == element
+                    end)
+                    if frame and frame.SelectOption then
+                        frame:SelectOption()
+                    end
                 end
             elseif button == "PAD2" then
                 C_GossipInfo.CloseGossip()
@@ -902,6 +942,7 @@ local function toggleController(updateFocus)
     end)
 end
 
+-- Создание фрейма
 function ConsoleMenu:SetCustomGossipFrame()
     if ConsoleMenuDB.dialogQuestWindowStyle == 2 then
         return
@@ -909,6 +950,7 @@ function ConsoleMenu:SetCustomGossipFrame()
 
     local GossipFrame = CreateFrame("Frame", "GossipFrame", ConsoleMenuFrame)
     ConsoleMenuFrame.GossipFrame = GossipFrame
+    
 
     GossipFrame:SetSize(frameWidth, sectionHeight * viewedItemCount)
     GossipFrame:SetPoint("TOP", SubtitleFrame, "BOTTOM", 0, -16)
@@ -916,6 +958,8 @@ function ConsoleMenu:SetCustomGossipFrame()
     GossipFrame:HookScript("OnShow", function()
         softTargetEnemy = GetCVar("SoftTargetEnemy")
         SetCVar("SoftTargetEnemy", 0)
+
+        UpdateFocus(parentFrame.ScrollBox:GetDataProvider().collection[1], true)
 
         if WeakAuras then
             WeakAuras.ScanEvents("CHANGE_CONTEXT", "window")
@@ -947,7 +991,7 @@ function ConsoleMenu:SetCustomGossipFrame()
     end)
     
     -- Создаем основной фрейм
-    parentFrame, updateFocus = CreateGossipScrollBox()
+    parentFrame, UpdateFocus = CreateGossipScrollBox()
 
     -- Добавляем обработку геймпада
     toggleController(updateFocus)
