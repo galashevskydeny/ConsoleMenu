@@ -915,6 +915,8 @@ local function toggleController(updateFocus)
             elseif button == "PAD2" then
                 C_GossipInfo.CloseGossip()
                 CloseQuest()
+            elseif button == "PAD4" then
+                ConsoleMenu:SkipCurrentSubtitle()
             end
         end)
     end)

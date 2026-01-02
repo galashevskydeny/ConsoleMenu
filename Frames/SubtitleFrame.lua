@@ -198,94 +198,6 @@ local function CalculateSpeechDuration(line)
     return duration
 end
 
--- Функция для добавления субтитров
-function ConsoleMenu:AddSubtitles(event, message, sender)
-    if not ConsoleMenu or not ConsoleMenu.Subtitles then
-        return
-    end
-
-    local priority = SubtitleEventPriority[event] or 1
-
-    local lines = SplitTextIntoLines(message)
-    local currentTime = GetTime()
-    local startTime = currentTime
-
-    local emotion = false
-
-    if event == "CHAT_MSG_MONSTER_EMOTE" or event == "CHAT_MSG_TEXT_EMOTE" then
-        emotion = true
-    end
-
-    for i, line in ipairs(lines) do
-        local duration = CalculateSpeechDuration(line)
-        local stopTime = startTime + duration
-
-        if event == "CHAT_MSG_MONSTER_EMOTE" then
-            line = string.gsub(line, "%%s", sender or "")
-        end
-
-        if line:find("<") then
-            -- Строка содержит символ <
-            emotion = true
-        end
-
-        if line:gsub("[<>]", "") ~= "" then
-            -- Создаем таблицу субтитра
-            local subtitleData = {
-                text = line:gsub("[<>]", ""),
-                sender = sender,
-                priority = priority,
-                event = event,
-                duration = duration,
-                startTime = startTime,
-                stopTime = stopTime,
-                emotion = emotion,
-                lastLine = (i == #lines),
-            }
-            
-            table.insert(ConsoleMenu.Subtitles, subtitleData)
-
-            startTime = stopTime -- последовательно, строки идут друг за другом
-        end
-
-        if line:find(">") then
-            -- Строка содержит символ >
-            emotion = false
-        end
-    end
-end
-
--- Функция для удаления старых субтитров
-local function RemoveOldSubtitles()
-    if not ConsoleMenu or not ConsoleMenu.Subtitles then
-        return
-    end
-
-    local now = GetTime()
-    
-    -- Удаляем все субтитры, у которых stopTime уже прошло
-    for i = #ConsoleMenu.Subtitles, 1, -1 do
-        local subtitle = ConsoleMenu.Subtitles[i]
-        if subtitle and subtitle.stopTime and subtitle.stopTime < now then
-            table.remove(ConsoleMenu.Subtitles, i)
-        end
-    end
-end
-
--- Функция для удаления субтитров по приоритету
-local function RemoveSubtitlesByPriority(priorityToRemove)
-    if not ConsoleMenu or not ConsoleMenu.Subtitles then
-        return
-    end
-    for i = #ConsoleMenu.Subtitles, 1, -1 do
-        local subtitle = ConsoleMenu.Subtitles[i]
-        if subtitle and subtitle.priority == priorityToRemove then
-            table.remove(ConsoleMenu.Subtitles, i)
-        end
-    end
-end
-
-
 -- Функция возвращает строку субтитров с максимальным приоритетом, если её интервал отображения совпадает с текущим моментом
 local function GetCurrentSubtitleWithMaxPriority()
     if not ConsoleMenu or not ConsoleMenu.Subtitles then
@@ -323,13 +235,145 @@ local function GetCurrentSubtitleWithMaxPriority()
     return currentSubtitle
 end
 
- function ConsoleMenu:SubtitleFrameUpdate()
+-- Функция для удаления старых субтитров
+local function RemoveOldSubtitles()
+    if not ConsoleMenu or not ConsoleMenu.Subtitles then
+        return
+    end
+
+    local now = GetTime()
+    
+    -- Удаляем все субтитры, у которых stopTime уже прошло
+    for i = #ConsoleMenu.Subtitles, 1, -1 do
+        local subtitle = ConsoleMenu.Subtitles[i]
+        if subtitle and subtitle.stopTime and subtitle.stopTime < now then
+            table.remove(ConsoleMenu.Subtitles, i)
+        end
+    end
+end
+
+-- Функция для удаления субтитров по приоритету
+local function RemoveSubtitlesByPriority(priorityToRemove)
+    if not ConsoleMenu or not ConsoleMenu.Subtitles then
+        return
+    end
+    for i = #ConsoleMenu.Subtitles, 1, -1 do
+        local subtitle = ConsoleMenu.Subtitles[i]
+        if subtitle and subtitle.priority == priorityToRemove then
+            table.remove(ConsoleMenu.Subtitles, i)
+        end
+    end
+end
+
+-- Функция для добавления субтитров
+function ConsoleMenu:AddSubtitles(event, message, sender)
+    if not ConsoleMenu or not ConsoleMenu.Subtitles then
+        return
+    end
+
+    local priority = SubtitleEventPriority[event] or 1
+
+    -- Функция для генерации UUID (упрощённая версия)
+    local function GenerateUUID()
+        local template = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx"
+        return string.gsub(template, "[xy]", function (c)
+            local v = (c == "x") and math.random(0, 0xf) or math.random(8, 0xb)
+            return string.format("%x", v)
+        end)
+    end
+
+    local eventIdentifier = GenerateUUID()
+    local lines = SplitTextIntoLines(message)
+    local currentTime = GetTime()
+    local startTime = currentTime
+
+    local emotion = false
+
+    if event == "CHAT_MSG_MONSTER_EMOTE" or event == "CHAT_MSG_TEXT_EMOTE" then
+        emotion = true
+    end
+
+    for i, line in ipairs(lines) do
+        print(line)
+        local duration = CalculateSpeechDuration(line)
+        local stopTime = startTime + duration
+
+        if event == "CHAT_MSG_MONSTER_EMOTE" then
+            line = string.gsub(line, "%%s", sender or "")
+        end
+
+        if line:find("<") then
+            -- Строка содержит символ <
+            emotion = true
+        end
+
+        if line:gsub("[<>]", "") ~= "" then
+            -- Создаем таблицу субтитра
+            local subtitleData = {
+                text = line:gsub("[<>]", ""),
+                sender = sender,
+                priority = priority,
+                event = event,
+                duration = duration,
+                startTime = startTime,
+                stopTime = stopTime,
+                emotion = emotion,
+                lastLine = (i == #lines),
+                eventIdentifier = eventIdentifier,
+            }
+            
+            table.insert(ConsoleMenu.Subtitles, subtitleData)
+
+            startTime = stopTime -- последовательно, строки идут друг за другом
+        end
+
+        if line:find(">") then
+            -- Строка содержит символ >
+            emotion = false
+        end
+    end
+end
+
+-- Функция для пропуска субтитра
+function ConsoleMenu:SkipCurrentSubtitle()
+    
+    local startTime = GetTime()
+    local nextSubtitle = nil
+    local currentSubtitle = ConsoleMenuFrame.SubtitleFrame.CurrentSubtitle
+
+    for i, subtitle in ipairs(ConsoleMenu.Subtitles) do
+        if subtitle.text == currentSubtitle.text then
+            table.remove(ConsoleMenu.Subtitles, i)
+        end
+    end
+
+    for i, subtitle in ipairs(ConsoleMenu.Subtitles) do
+        if subtitle.eventIdentifier == currentSubtitle.eventIdentifier then
+            
+            subtitle.startTime = startTime
+            subtitle.stopTime = startTime + subtitle.duration
+            startTime = subtitle.stopTime
+            
+            if not nextSubtitle then
+                nextSubtitle = subtitle
+            end
+        end
+    end
+    
+    if nextSubtitle then
+        ConsoleMenu:SubtitleFrameUpdate(nextSubtitle)
+    end
+end
+
+-- Функция для обновления субтитра
+function ConsoleMenu:SubtitleFrameUpdate(current)
     if not ConsoleMenuFrame or not ConsoleMenuFrame.SubtitleFrame then
         return
     end
 
     local frame = ConsoleMenuFrame.SubtitleFrame
-    local current = GetCurrentSubtitleWithMaxPriority()
+    local current = current or GetCurrentSubtitleWithMaxPriority()
+    ConsoleMenuFrame.SubtitleFrame.CurrentSubtitle = current
 
     if current then
         if current.emotion then
