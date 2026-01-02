@@ -168,7 +168,7 @@ local function SplitTextIntoLines(text)
 end
 
 -- Функция для расчета длительности произнесения строки
-local function CalculateSpeechDuration(line)
+local function CalculateSpeechDuration(line, event)
 
     -- Подсчет количества слов в строке
     local function countWords(str)
@@ -183,6 +183,11 @@ local function CalculateSpeechDuration(line)
 
     -- Дополнительная длительность в секундах
     local additionalDuration = 1.5
+
+    if event and event:find("QUEST") then
+        additionalDuration = 1
+        wordsPerMinute = 230
+    end
 
     -- Минимальная длительность в секундах
     local minDuration = 3
@@ -285,7 +290,7 @@ function ConsoleMenu:AddSubtitles(event, message, sender)
 
     for i, line in ipairs(lines) do
         print(line)
-        local duration = CalculateSpeechDuration(line)
+        local duration = CalculateSpeechDuration(line, event)
         local stopTime = startTime + duration
 
         if event == "CHAT_MSG_MONSTER_EMOTE" then
