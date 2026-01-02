@@ -30,6 +30,7 @@ Frames/CommonFrame.lua
 Frames/GossipFrame.lua
 Frames/FastTravelFrame.lua
 Frames/SubtitleFrame.lua
+Frames/NotificationFrame.lua
 
 Utils/Contexts.lua
 Utils/HideBlizzardUI.lua

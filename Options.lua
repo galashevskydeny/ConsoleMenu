@@ -76,6 +76,7 @@ local standardUISettings = {
     { name = "Окно торговца", variable = "merchantWindowStyle", default = 2, tooltip = "Выберите стиль окна торговца: обновленную версию или стандартную.", options = windowStyleOptions },
     { name = "Окна диалогов и квестов", variable = "dialogQuestWindowStyle", default = 2, tooltip = "Выберите стиль окна диалогов и квестов: обновленную (более имерсивную) версию или стандартную.", options = windowStyleOptions },
     { name = "Окно чата", variable = "chatWindowStyle", default = 2, tooltip = "Выберите стиль окна чата: обновленную версию (скрытую по умолчанию в центре экрана) или стандартную.", options = windowStyleOptions },
+    { name = "Уведомления", variable = "notificationFrame", default = 2, tooltip = "Обновленное отображение уведомлений.", options = toggleOptions },
 }
 
 local keyBindingSettings = {

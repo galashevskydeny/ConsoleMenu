@@ -6,7 +6,7 @@ local parentFrame
 local frameWidth = 688
 local frameHeight = 96
 
-local maxLineLength = 170
+local maxLineLength = 160
 local subtitleUpdateTimer = nil
 
 local SubtitleEventPriority = {
