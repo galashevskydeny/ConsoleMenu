@@ -4,12 +4,11 @@ local ConsoleMenu = _G.ConsoleMenu
 local parentFrame
 
 local frameWidth = 688
+
 local viewedItemCount = 3
 local sectionHeight = 52
 local sectionPadding = 8
 local iconSize = sectionHeight - sectionPadding * 2
-local titleFontSize = 20
-local tabFontSize = 18
 local itemFontSize = 20
 
 local updateFocus
@@ -311,8 +310,9 @@ local function CreateGossipScrollBox()
     -- Создаем ScrollBox
     local ScrollBox = CreateFrame("Frame", "GossipScrollBox", GossipScrollBox, "WowScrollBoxList")
     GossipScrollBox.ScrollBox = ScrollBox
-    ScrollBox:SetAllPoints()
-
+    ScrollBox:SetPoint("TOPLEFT", GossipScrollBox, "TOPLEFT", iconSize, 0)
+    ScrollBox:SetPoint("BOTTOMRIGHT", GossipScrollBox, "BOTTOMRIGHT", -iconSize, 0)
+    
     -- Создаем ScrollBar
     local ScrollBar = CreateFrame("EventFrame", "GossipScrollBar", GossipScrollBox, "MinimalScrollBar")
     GossipScrollBox.ScrollBox.ScrollBar = ScrollBar
@@ -493,6 +493,7 @@ local function CreateGossipScrollBox()
         UpdateScrollBarVisibility()
     end
 
+    -- Вернуться к Gossip
     local function BackToGossip(reputationName)
 
         local gossipText = C_GossipInfo.GetText()
@@ -513,8 +514,8 @@ local function CreateGossipScrollBox()
         -- Иконка
         if not frame.icon then
             frame.icon = CreateFrame("Frame", nil, frame)
-            frame.icon:SetSize(32, 32)
-            frame.icon:SetPoint("LEFT", 10, 0)
+            frame.icon:SetSize(iconSize, iconSize)
+            frame.icon:SetPoint("LEFT", sectionPadding, 0)
         end
 
         setIcon(frame, data)
@@ -522,12 +523,12 @@ local function CreateGossipScrollBox()
         -- Текст
         if not frame.text then
             frame.text = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-            frame.text:SetPoint("LEFT", frame.icon, "RIGHT", 10, 0)
-            frame.text:SetPoint("RIGHT", -10, 0)
+            frame.text:SetPoint("LEFT", frame.icon, "RIGHT", sectionPadding, 0)
+            frame.text:SetPoint("RIGHT", -sectionPadding, 0)
             frame.text:SetJustifyH("LEFT")
         end
 
-        frame.text:SetFont("Fonts\\FRIZQT___CYR.TTF", 20, "OUTLINE")
+        frame.text:SetFont("Fonts\\FRIZQT___CYR.TTF", itemFontSize, "OUTLINE")
         frame.text:SetText(data.name)
         frame.text:SetTextColor(1, 0.976, 0.855) -- Цвет текста FFF9DA
 
@@ -604,7 +605,7 @@ local function CreateGossipScrollBox()
     end
 
     -- Устанавливаем кастомный элемент как шаблон
-    ScrollView:SetElementExtent(48)
+    ScrollView:SetElementExtent(sectionHeight)
     ScrollView:SetElementInitializer("Frame", Initializer)
 
     -- Инициализируем ScrollBox с ScrollBar

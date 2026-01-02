@@ -2,6 +2,10 @@
 
 local ConsoleMenu = _G.ConsoleMenu
 local parentFrame
+
+local frameWidth = 688
+local frameHeight = 96
+
 local maxLineLength = 160
 local subtitleUpdateTimer = nil
 
@@ -462,7 +466,7 @@ function ConsoleMenu:SetSubtitleFrame()
 
     -- Фрейм для текста субтитра и имени говорящего
     local frame = ConsoleMenuFrame.SubtitleFrame
-    frame:SetSize(688, 96)
+    frame:SetSize(frameWidth, frameHeight)
     frame:SetPoint("BOTTOM", ConsoleMenuFrame, "BOTTOM", 0, 260)
 
     -- Текст для имени говорящего
