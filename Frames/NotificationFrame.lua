@@ -20,6 +20,71 @@ local NotificationDuration = {
     PERKS_PROGRAM_CURRENCY_AWARDED = 5
 }
 
+-- Функция для очистки текста от UI кодов и пробелов
+local function CleanText(s)
+    -- Удаляем UI коды
+    s = s:gsub("|3%-%d+%b()", "")
+    s = s:gsub("|4[^;]-;", "")
+    s = s:gsub("|c%x%x%x%x%x%x%x%x", "")
+    s = s:gsub("|r", "")
+    -- Очищаем пробелы
+    s = s:gsub("%s%s+", " "):gsub("^%s+", ""):gsub("%s+$", "")
+    return s
+end
+
+-- Функция для объединения и суммирования схожих уведомлений внутри ConsoleMenu.Notifications
+function ConsoleMenu:CombineNotifications()
+    if not ConsoleMenu or not ConsoleMenu.Notifications then
+        return
+    end
+
+    -- Создаем массив уникальных событий среди всех уведомлений
+    local uniqueEvents = {}
+    for _, notification in ipairs(ConsoleMenu.Notifications) do
+        if notification.event then
+            uniqueEvents[notification.event] = true
+        end
+    end
+
+    -- Для каждого уникального события собираем все уведомления этого типа
+    for event, _ in pairs(uniqueEvents) do
+        local notificationsForEvent = {}
+        for _, notification in ipairs(ConsoleMenu.Notifications) do
+            if notification.event == event then
+                -- Разбиваем текст на части: previousText, value, nextText
+                local previousText, value, nextText = notification.text:match("^(.-)([%+%-]?%d+)(.*)$")
+                if previousText and value and nextText then
+                    table.insert(notificationsForEvent, {
+                        previousText = previousText,
+                        value = tonumber(value),
+                        nextText = nextText
+                    })
+                end
+            end
+        end
+
+        -- Объединяем уведомления этого типа
+        local combinedValue = 0
+        for i = 1, #notificationsForEvent do
+            combinedValue = combinedValue + notificationsForEvent[i].value
+        end
+
+        -- Удаляем все уведомления с этим event
+        for i = #ConsoleMenu.Notifications, 1, -1 do
+            if ConsoleMenu.Notifications[i].event == event then
+                table.remove(ConsoleMenu.Notifications, i)
+            end
+        end
+
+        -- Добавляем новое уведомление
+        table.insert(ConsoleMenu.Notifications, {
+            text = notificationsForEvent[1].previousText .. combinedValue .. notificationsForEvent[1].nextText,
+            event = event,
+        })
+
+    end
+end
+
 -- Функция для добавления уведомлений
 function ConsoleMenu:AddSubtitles(event, message)
     if not ConsoleMenu or not ConsoleMenu.Notifications then
@@ -30,7 +95,7 @@ function ConsoleMenu:AddSubtitles(event, message)
 
     -- Создаем таблицу субтитра
     local notificationData = {
-        text = message,
+        text = CleanText(message),
         event = event,
     }
     
