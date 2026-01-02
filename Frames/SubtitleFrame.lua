@@ -6,7 +6,7 @@ local parentFrame
 local frameWidth = 688
 local frameHeight = 96
 
-local maxLineLength = 160
+local maxLineLength = 170
 local subtitleUpdateTimer = nil
 
 local SubtitleEventPriority = {
@@ -218,8 +218,9 @@ local function GetCurrentSubtitleWithMaxPriority()
     local minPriority = nil
 
     -- Проходим по всем субтитрам от конца к началу и ищем активные
-    for i, subtitle in ipairs(ConsoleMenu.Subtitles) do
-        if subtitle.startTime <= now and now <= subtitle.stopTime then
+    for i = #ConsoleMenu.Subtitles, 1, -1 do
+        local subtitle = ConsoleMenu.Subtitles[i]
+        if subtitle and subtitle.startTime <= now and now <= subtitle.stopTime then
             if not minPriority or subtitle.priority < minPriority then
                 minPriority = subtitle.priority
                 currentSubtitle = subtitle
