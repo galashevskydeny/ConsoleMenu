@@ -285,6 +285,10 @@ function ConsoleMenu:AddSubtitles(event, message, sender)
             line = string.gsub(line, "%%s", sender or "")
         end
 
+        if priority == 1 and i == #lines then
+            duration = duration + 24 * 60 * 60
+        end
+
         if line:find("<") then
             -- Строка содержит символ <
             emotion = true
