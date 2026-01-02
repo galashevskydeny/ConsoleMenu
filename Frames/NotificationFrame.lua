@@ -32,59 +32,6 @@ local function CleanText(s)
     return s
 end
 
--- Функция для объединения и суммирования схожих уведомлений внутри ConsoleMenu.Notifications
-function ConsoleMenu:CombineNotifications()
-    if not ConsoleMenu or not ConsoleMenu.Notifications then
-        return
-    end
-
-    -- Создаем массив уникальных событий среди всех уведомлений
-    local uniqueEvents = {}
-    for _, notification in ipairs(ConsoleMenu.Notifications) do
-        if notification.event then
-            uniqueEvents[notification.event] = true
-        end
-    end
-
-    -- Для каждого уникального события собираем все уведомления этого типа
-    for event, _ in pairs(uniqueEvents) do
-        local notificationsForEvent = {}
-        for _, notification in ipairs(ConsoleMenu.Notifications) do
-            if notification.event == event then
-                -- Разбиваем текст на части: previousText, value, nextText
-                local previousText, value, nextText = notification.text:match("^(.-)([%+%-]?%d+)(.*)$")
-                if previousText and value and nextText then
-                    table.insert(notificationsForEvent, {
-                        previousText = previousText,
-                        value = tonumber(value),
-                        nextText = nextText
-                    })
-                end
-            end
-        end
-
-        -- Объединяем уведомления этого типа
-        local combinedValue = 0
-        for i = 1, #notificationsForEvent do
-            combinedValue = combinedValue + notificationsForEvent[i].value
-        end
-
-        -- Удаляем все уведомления с этим event
-        for i = #ConsoleMenu.Notifications, 1, -1 do
-            if ConsoleMenu.Notifications[i].event == event then
-                table.remove(ConsoleMenu.Notifications, i)
-            end
-        end
-
-        -- Добавляем новое уведомление
-        table.insert(ConsoleMenu.Notifications, {
-            text = notificationsForEvent[1].previousText .. combinedValue .. notificationsForEvent[1].nextText,
-            event = event,
-        })
-
-    end
-end
-
 -- Функция для добавления уведомлений
 function ConsoleMenu:AddSubtitles(event, message)
     if not ConsoleMenu or not ConsoleMenu.Notifications then
@@ -97,9 +44,54 @@ function ConsoleMenu:AddSubtitles(event, message)
     local notificationData = {
         text = CleanText(message),
         event = event,
+        combined = false,
     }
     
     table.insert(ConsoleMenu.Notifications, notificationData)
+end
+
+-- Функция для объединения и суммирования схожих уведомлений внутри ConsoleMenu.Notifications
+function ConsoleMenu:CombineNotifications(event)
+    if not ConsoleMenu or not ConsoleMenu.Notifications then
+        return
+    end
+
+    if not event then return end
+
+    local notificationsForEvent = {}
+    for _, notification in ipairs(ConsoleMenu.Notifications) do
+        if notification.event == event and not notification.combined then
+            -- Разбиваем текст на части: previousText, value, nextText
+            local previousText, value, nextText = notification.text:match("^(.-)([%+%-]?%d+)(.*)$")
+            if previousText and value and nextText then
+                table.insert(notificationsForEvent, {
+                    previousText = previousText,
+                    value = tonumber(value),
+                    nextText = nextText
+                })
+            end
+        end
+    end
+
+    -- Объединяем уведомления этого типа
+    local combinedValue = 0
+    for i = 1, #notificationsForEvent do
+        combinedValue = combinedValue + notificationsForEvent[i].value
+    end
+
+    -- Удаляем все уведомления с этим event
+    for i = #ConsoleMenu.Notifications, 1, -1 do
+        if ConsoleMenu.Notifications[i].event == event then
+            table.remove(ConsoleMenu.Notifications, i)
+        end
+    end
+
+    -- Добавляем новое уведомление
+    table.insert(ConsoleMenu.Notifications, {
+        text = notificationsForEvent[1].previousText .. combinedValue .. notificationsForEvent[1].nextText,
+        event = event,
+        combined = true,
+    })
 end
 
 -- Функция для инициализации NotificationFrame
