@@ -96,6 +96,11 @@ local function GetGroupedNotification(notification)
         end
         return notification
     elseif notification.event == "CHAT_MSG_MONEY" then
+        for i = #ConsoleMenu.Notifications, 1, -1 do
+            if ConsoleMenu.Notifications == notification then
+                table.remove(ConsoleMenu.Notifications, i)
+            end
+        end
         return notification
     elseif notification.event == "CHAT_MSG_COMBAT_FACTION_CHANGE" then
         -- Используем подход из WeakAura: паттерн с %D (не-цифра) для правильного разделения
@@ -146,6 +151,12 @@ local function GetGroupedNotification(notification)
             return notification
         end
     elseif notification.event == "PERKS_PROGRAM_CURRENCY_AWARDED" then
+        for i = #ConsoleMenu.Notifications, 1, -1 do
+            if ConsoleMenu.Notifications == notification then
+                table.remove(ConsoleMenu.Notifications, i)
+            end
+        end
+        
         local info = C_CurrencyInfo.GetBasicCurrencyInfo(notification.identifier)
         notification.text = string.format("Получено: %s x%d.", info.name, notification.value)
         return notification
