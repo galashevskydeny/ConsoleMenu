@@ -93,7 +93,7 @@ local function GetGroupedNotification(notification)
         end
         return notification
     elseif notification.event == "CHAT_MSG_MONEY" then
-
+        return notification
     elseif notification.event == "CHAT_MSG_COMBAT_FACTION_CHANGE" then
         -- Используем подход из WeakAura: паттерн с %D (не-цифра) для правильного разделения
         -- %D гарантирует, что мы находим число, окруженное не-цифрами, что игнорирует числа в форматировании WoW
