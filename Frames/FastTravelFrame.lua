@@ -12,6 +12,8 @@ local titleFontSize = 20
 local tabFontSize = 18
 local itemFontSize = 20
 
+local animationDuration = 0.1
+
 local className, classFile = UnitClass("player")
 
 local focusedIndex = 1
@@ -38,6 +40,11 @@ local mageSpells = {
         group = {446534}
     }
 }
+
+local deathknightSpells = {
+    50977,
+}
+
 local hearthstonesToys = {}
 
 -- Функция для инициализации вкладок
@@ -312,6 +319,8 @@ local function CreateFastTravelScrollBox()
                 tabs[3].spells = mageSpells.azeroth.single
                 tabs[4].spells = mageSpells.world.single
             end
+        elseif classFile == "DEATHKNIGHT" and tabs[1] then
+            tabs[1].spells = deathknightSpells
         end
     
         if focusedTab == 1 then
@@ -427,6 +436,10 @@ local function PreloadData()
         for _, spellID in ipairs(mageSpells.world.group) do
             table.insert(spells, spellID)
         end
+    elseif classFile == "DEATHKNIGHT" then
+        for _, spellID in ipairs(deathknightSpells) do
+            table.insert(spells, spellID)
+        end
     end
 
     for _, spellID in ipairs(spells) do
@@ -491,6 +504,7 @@ function ConsoleMenu:SetFastTravelFrame()
 
     local FastTravel = CreateFrame("Frame", "FastTravel", ConsoleMenuFrame)
     ConsoleMenuFrame.FastTravel = FastTravel
+    ConsoleMenu:InitFadeAnimations(FastTravel, animationDuration)
 
     FastTravel:SetSize(frameWidth, sectionHeight * (viewedItemCount + 2))
     FastTravel:SetPoint("BOTTOMLEFT", ConsoleMenuFrame, "BOTTOMLEFT", 48, 48)
@@ -499,7 +513,7 @@ function ConsoleMenu:SetFastTravelFrame()
     FastTravel:EnableKeyboard(true)
     FastTravel:SetScript("OnKeyDown", function(self, key)
         if key == "ESCAPE" then
-            self:Hide()
+            ConsoleMenu:AnimatedHide(self)
         end
     end)
 
@@ -655,7 +669,7 @@ function ConsoleMenu:SetFastTravelFrame()
     hideButton:SetSize(1,1)
     hideButton:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 0, 40)
     hideButton:SetScript("OnClick", function()
-        parentFrame:Hide()
+        ConsoleMenu:AnimatedHide(ConsoleMenuFrame.FastTravel)
     end)
 
     -- Кнопка для телепорта домой внутри housing
@@ -721,7 +735,6 @@ end
 SLASH_FASTTRAVEL1 = "/fasttravel"
 SlashCmdList["FASTTRAVEL"] = function()
     if parentFrame and parentFrame:IsShown() then
-        print("FastTravel уже открыт.")
         return
     end
 
@@ -731,6 +744,6 @@ SlashCmdList["FASTTRAVEL"] = function()
 
     if parentFrame then
         setItemList()
-        parentFrame:Show()
+        ConsoleMenu:AnimatedShow(ConsoleMenuFrame.FastTravel)
     end
 end
