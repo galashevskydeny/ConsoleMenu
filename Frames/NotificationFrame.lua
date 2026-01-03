@@ -143,7 +143,9 @@ local function GetGroupedNotification(notification)
             return notification
         end
     elseif notification.event == "PERKS_PROGRAM_CURRENCY_AWARDED" then
-
+        local info = C_CurrencyInfo.GetBasicCurrencyInfo(notification.identifier)
+        notification.text = string.format("Получено: %s x%d.", info.name, notification.value)
+        return notification
     end
 end
 
