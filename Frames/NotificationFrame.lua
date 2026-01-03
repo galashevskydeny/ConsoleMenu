@@ -3,9 +3,10 @@ local ConsoleMenu = _G.ConsoleMenu
 local frameWidth = 304
 local frameHeight = 56
 local fontSize = 20
+local animationDuration = 0.3
+local delay = 1
 
 local notificationUpdateTimer = nil
-
 
 local NotificationEventPriority = {
     UI_ERROR_MESSAGE = 1,
@@ -23,13 +24,15 @@ local NotificationDuration = {
     PERKS_PROGRAM_CURRENCY_AWARDED = 5
 }
 
+local ignoredCurrencies = {
+    [3372] = true,
+}
+
 -- Функция для добавления уведомлений
 function ConsoleMenu:AddNotification(event, message, identifier, value)
     if not ConsoleMenu or not ConsoleMenu.Notifications then
         return
     end
-
-    print("AddNotification: ", event, " ", message)
 
     local priority = NotificationEventPriority[event] or 1
 
@@ -159,17 +162,19 @@ function ConsoleMenu:NotificationFrameUpdate()
     notification = GetGroupedNotification(notification)
 
     if notification then
-        ConsoleMenuFrame.NotificationFrame.Text:SetText(notification.text)
-        ConsoleMenuFrame.NotificationFrame.Text:Show()
 
-        local duration = NotificationDuration and NotificationDuration[notification.event] or 5
-    
-        if duration then
+        local function showNotification(notification)
+            ConsoleMenuFrame.NotificationFrame.Text:SetText(notification.text)
+
+            ConsoleMenu:AnimatedShow(ConsoleMenuFrame.NotificationFrame.Text)
+
+            local duration = NotificationDuration and NotificationDuration[notification.event] or 5
+        
             if notificationUpdateTimer then
                 notificationUpdateTimer:Cancel()
             end
 
-            notificationUpdateTimer =  C_Timer.NewTimer(duration, function()
+            notificationUpdateTimer =  C_Timer.NewTimer(duration + delay + animationDuration, function()
                 notificationUpdateTimer = nil
                 -- После отображения проверяем, есть ли еще уведомления в очереди
                 ConsoleMenu:NotificationFrameUpdate()
@@ -184,9 +189,17 @@ function ConsoleMenu:NotificationFrameUpdate()
                 ConsoleMenu:NotificationFrameUpdate()
             end
         end
+
+        if ConsoleMenuFrame.NotificationFrame.Text:IsShown() then
+            ConsoleMenu:AnimatedHide(ConsoleMenuFrame.NotificationFrame.Text)
+            C_Timer.After(animationDuration + delay, function()
+                showNotification(notification)
+            end)
+        else
+            showNotification(notification)
+        end
     else
-        ConsoleMenuFrame.NotificationFrame.Text:SetText("")
-        ConsoleMenuFrame.NotificationFrame.Text:Hide()
+        ConsoleMenu:AnimatedHide(ConsoleMenuFrame.NotificationFrame.Text)
 
         if notificationUpdateTimer then
             notificationUpdateTimer:Cancel()
@@ -232,6 +245,7 @@ function ConsoleMenu:SetNotificationFrame()
         frame.Text:SetNonSpaceWrap(true)
         frame.Text:SetWordWrap(true)
         frame.Text:Hide()
+        ConsoleMenu:InitFadeAnimations(frame.Text, animationDuration)
     end
 
     frame:RegisterEvent("UI_ERROR_MESSAGE")
@@ -249,6 +263,8 @@ function ConsoleMenu:SetNotificationFrame()
             ConsoleMenu:AddNotification(event, errorMessage)
         elseif event == "CURRENCY_DISPLAY_UPDATE" then
             local currencyID, quantity, quantityChange, quantityGainSource, destroyReason = ...
+
+            if ignoredCurrencies[currencyID] then return end
 
             if quantityChange and quantityChange > 0 then
                 ConsoleMenu:AddNotification(event, nil, currencyID, quantityChange)
