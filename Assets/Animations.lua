@@ -28,22 +28,47 @@ function ConsoleMenu:InitFadeAnimations(frame, duration)
 end
 
 function ConsoleMenu:AnimatedShow(frame)
-    if not frame then return end
+    if not frame or not frame.fadeIn or not frame.fadeOut then return end
+    
+    -- Останавливаем все текущие анимации
+    frame.fadeIn:Stop()
+    frame.fadeOut:Stop()
+    
+    -- Удаляем предыдущий скрипт OnFinished, если он был установлен
+    frame.fadeOut:SetScript("OnFinished", nil)
+    
+    -- Показываем фрейм и устанавливаем начальную альфу для анимации
     frame:Show()
     frame:SetAlpha(0)
-    frame.fadeOut:Stop()
+    
+    -- Запускаем анимацию появления
     frame.fadeIn:Play()
 end
 
 function ConsoleMenu:AnimatedHide(frame)
-    if not frame then return end
-    frame:SetAlpha(1)
+    if not frame or not frame.fadeIn or not frame.fadeOut then return end
+    
+    -- Если фрейм уже скрыт, ничего не делаем
+    if not frame:IsVisible() then return end
+    
+    -- Останавливаем все текущие анимации
     frame.fadeIn:Stop()
-    frame.fadeOut:Play()
+    frame.fadeOut:Stop()
+    
+    -- Удаляем предыдущий скрипт OnFinished, если он был установлен
+    frame.fadeOut:SetScript("OnFinished", nil)
+    
+    -- Устанавливаем альфу в 1 для начала анимации исчезновения
+    frame:SetAlpha(1)
+    
+    -- Устанавливаем скрипт для скрытия фрейма после окончания анимации
     frame.fadeOut:SetScript("OnFinished", function()
         frame:Hide()
         frame.fadeOut:SetScript("OnFinished", nil)
     end)
+    
+    -- Запускаем анимацию исчезновения
+    frame.fadeOut:Play()
 end
 
 

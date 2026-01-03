@@ -163,7 +163,7 @@ function ConsoleMenu:NotificationFrameUpdate()
 
     if notification then
         ConsoleMenuFrame.NotificationFrame.Text:SetText(notification.text)
-        ConsoleMenuFrame.NotificationFrame.Text:Show()
+        ConsoleMenu:AnimatedShow(ConsoleMenuFrame.NotificationFrame.Text)
 
         local duration = NotificationDuration and NotificationDuration[notification.event] or 5
     
@@ -172,23 +172,19 @@ function ConsoleMenu:NotificationFrameUpdate()
                 notificationUpdateTimer:Cancel()
             end
 
-            notificationUpdateTimer =  C_Timer.NewTimer(duration, function()
+            notificationUpdateTimer = C_Timer.NewTimer(duration, function()
                 notificationUpdateTimer = nil
-                -- После отображения проверяем, есть ли еще уведомления в очереди
-                ConsoleMenu:NotificationFrameUpdate()
+                -- Скрываем текущее уведомление с анимацией
+                ConsoleMenu:AnimatedHide(ConsoleMenuFrame.NotificationFrame.Text)
+                -- Ждем окончания анимации исчезновения перед проверкой следующего уведомления
+                C_Timer.After(animationDuration, function()
+                    -- После отображения проверяем, есть ли еще уведомления в очереди
+                    ConsoleMenu:NotificationFrameUpdate()
+                end)
             end)
-            
-            -- Проверяем сразу после отображения, есть ли еще неотображенные уведомления
-            -- GetGroupedNotification уже удалил обработанные уведомления, поэтому проверяем оставшиеся
-            if ConsoleMenu and ConsoleMenu.Notifications and #ConsoleMenu.Notifications > 0 then
-                -- Есть еще уведомления - отменяем таймер и показываем следующее сразу
-                notificationUpdateTimer:Cancel()
-                notificationUpdateTimer = nil
-                ConsoleMenu:NotificationFrameUpdate()
-            end
         end
     else
-        ConsoleMenuFrame.NotificationFrame.Text:Hide()
+        ConsoleMenu:AnimatedHide(ConsoleMenuFrame.NotificationFrame.Text)
 
         if notificationUpdateTimer then
             notificationUpdateTimer:Cancel()
