@@ -4,7 +4,7 @@ local frameWidth = 304
 local frameHeight = 56
 local fontSize = 20
 local animationDuration = 0.3
-local delay = 1
+local delay = 0.5
 
 local notificationUpdateTimer = nil
 
@@ -177,7 +177,7 @@ function ConsoleMenu:NotificationFrameUpdate()
                 -- Скрываем текущее уведомление с анимацией
                 ConsoleMenu:AnimatedHide(ConsoleMenuFrame.NotificationFrame.Text)
                 -- Ждем окончания анимации исчезновения перед проверкой следующего уведомления
-                C_Timer.After(animationDuration, function()
+                C_Timer.After(animationDuration + delay, function()
                     -- После отображения проверяем, есть ли еще уведомления в очереди
                     ConsoleMenu:NotificationFrameUpdate()
                 end)
