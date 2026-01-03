@@ -162,19 +162,17 @@ function ConsoleMenu:NotificationFrameUpdate()
     notification = GetGroupedNotification(notification)
 
     if notification then
+        ConsoleMenuFrame.NotificationFrame.Text:SetText(notification.text)
+        ConsoleMenuFrame.NotificationFrame.Text:Show()
 
-        local function showNotification(notification)
-            ConsoleMenuFrame.NotificationFrame.Text:SetText(notification.text)
-
-            ConsoleMenu:AnimatedShow(ConsoleMenuFrame.NotificationFrame.Text)
-
-            local duration = NotificationDuration and NotificationDuration[notification.event] or 5
-        
+        local duration = NotificationDuration and NotificationDuration[notification.event] or 5
+    
+        if duration then
             if notificationUpdateTimer then
                 notificationUpdateTimer:Cancel()
             end
 
-            notificationUpdateTimer =  C_Timer.NewTimer(duration + delay + animationDuration, function()
+            notificationUpdateTimer =  C_Timer.NewTimer(duration, function()
                 notificationUpdateTimer = nil
                 -- После отображения проверяем, есть ли еще уведомления в очереди
                 ConsoleMenu:NotificationFrameUpdate()
@@ -189,17 +187,8 @@ function ConsoleMenu:NotificationFrameUpdate()
                 ConsoleMenu:NotificationFrameUpdate()
             end
         end
-
-        if ConsoleMenuFrame.NotificationFrame.Text:IsShown() then
-            ConsoleMenu:AnimatedHide(ConsoleMenuFrame.NotificationFrame.Text)
-            C_Timer.After(animationDuration + delay, function()
-                showNotification(notification)
-            end)
-        else
-            showNotification(notification)
-        end
     else
-        ConsoleMenu:AnimatedHide(ConsoleMenuFrame.NotificationFrame.Text)
+        ConsoleMenuFrame.NotificationFrame.Text:Hide()
 
         if notificationUpdateTimer then
             notificationUpdateTimer:Cancel()
