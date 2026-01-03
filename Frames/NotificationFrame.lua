@@ -27,7 +27,7 @@ local NotificationDuration = {
 }
 
 local ignoredCurrencies = {
-    3372 = true,
+    [3372] = true,
 }
 
 -- Функция для добавления уведомлений
@@ -99,7 +99,7 @@ local function GetGroupedNotification(notification)
         return notification
     elseif notification.event == "CHAT_MSG_MONEY" then
         for i = #ConsoleMenu.Notifications, 1, -1 do
-            if ConsoleMenu.Notifications == notification then
+            if ConsoleMenu.Notifications[i] == notification then
                 table.remove(ConsoleMenu.Notifications, i)
             end
         end
@@ -154,7 +154,7 @@ local function GetGroupedNotification(notification)
         end
     elseif notification.event == "PERKS_PROGRAM_CURRENCY_AWARDED" then
         for i = #ConsoleMenu.Notifications, 1, -1 do
-            if ConsoleMenu.Notifications == notification then
+            if ConsoleMenu.Notifications[i] == notification then
                 table.remove(ConsoleMenu.Notifications, i)
             end
         end
@@ -164,7 +164,7 @@ local function GetGroupedNotification(notification)
         return notification
     elseif notification.event == "UPDATE_PENDING_MAIL" then
         for i = #ConsoleMenu.Notifications, 1, -1 do
-            if ConsoleMenu.Notifications.event == notification.event then
+            if ConsoleMenu.Notifications[i].event == notification.event then
                 table.remove(ConsoleMenu.Notifications, i)
             end
         end
@@ -253,7 +253,6 @@ function ConsoleMenu:SetNotificationFrame()
         frame.Text:SetWordWrap(true)
     end
 
-    frame:RegisterEvent("PLAYER_ENTERING_WORLD")
     frame:RegisterEvent("UI_ERROR_MESSAGE")
     frame:RegisterEvent("CHAT_MSG_MONEY")
     frame:RegisterEvent("CHAT_MSG_COMBAT_FACTION_CHANGE")
@@ -262,11 +261,7 @@ function ConsoleMenu:SetNotificationFrame()
     frame:RegisterEvent("UPDATE_PENDING_MAIL")
 
     local function OnNotificationEvent(self, event, ...)
-        if event == "PLAYER_ENTERING_WORLD" then
-            if HasNewMail() then
-                ConsoleMenu:AddNotification("UPDATE_PENDING_MAIL", HAVE_MAIL, nil, nil)
-            end
-        elseif event == "UI_ERROR_MESSAGE" then
+        if event == "UI_ERROR_MESSAGE" then
 
             if InCombatLockdown() then return end
 
@@ -285,7 +280,9 @@ function ConsoleMenu:SetNotificationFrame()
             ConsoleMenu:AddNotification(event, nil, 2032, value)
         elseif event == "UPDATE_PENDING_MAIL" then
             if HasNewMail() then
-                ConsoleMenu:AddNotification(event, HAVE_MAIL, nil, nil)
+                C_Timer.After(2, function()
+                    ConsoleMenu:AddNotification(event, HAVE_MAIL, nil, nil)
+                end)
             end
         else
             local msg = ...
