@@ -23,7 +23,7 @@ local NotificationDuration = {
     CHAT_MSG_COMBAT_FACTION_CHANGE = 5,
     CURRENCY_DISPLAY_UPDATE = 5,
     PERKS_PROGRAM_CURRENCY_AWARDED = 5,
-    UPDATE_PENDING_MAIL = 5,
+    UPDATE_PENDING_MAIL = 15,
 }
 
 local ignoredCurrencies = {
@@ -146,7 +146,8 @@ local function GetGroupedNotification(notification)
             local info = C_CurrencyInfo.GetCurrencyInfo(notification.identifier)
             
             if info and info.name then
-                local msg = string.format("Получено: %s x%d.", info.name, sum)
+                local title = _G["PROFESSIONS_CRAFT_OUTPUT_TITLE"]
+                local msg = string.format("%s %s x%d.", title, info.name, sum)
                 notification.text = msg
             end
 
@@ -160,7 +161,8 @@ local function GetGroupedNotification(notification)
         end
         
         local info = C_CurrencyInfo.GetBasicCurrencyInfo(notification.identifier)
-        notification.text = string.format("Получено: %s x%d.", info.name, notification.value)
+        local title = _G["PROFESSIONS_CRAFT_OUTPUT_TITLE"]
+        notification.text = string.format("%s %s x%d.", title, info.name, notification.value)
         return notification
     elseif notification.event == "UPDATE_PENDING_MAIL" then
         for i = #ConsoleMenu.Notifications, 1, -1 do
