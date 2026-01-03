@@ -9,6 +9,8 @@ local frameHeight = 96
 local maxLineLength = 160
 local subtitleUpdateTimer = nil
 
+local animationDuration = 0.2
+
 local SubtitleEventPriority = {
     CHAT_MSG_MONSTER_EMOTE = 4,
     CHAT_MSG_MONSTER_SAY = 3,
@@ -384,6 +386,11 @@ function ConsoleMenu:SubtitleFrameUpdate(subtitle)
     ConsoleMenuFrame.SubtitleFrame.CurrentSubtitle = current
 
     if current then
+        -- Сбрасываем текст субтитров
+        frame.Speaker:SetText("")
+        frame.Subtitle:SetText("")
+        frame.Emotion:SetText("")
+
         if current.emotion then
             -- Обновить текст субтитра
             frame.Emotion:SetText(current.text or "")
@@ -410,6 +417,10 @@ function ConsoleMenu:SubtitleFrameUpdate(subtitle)
             frame.Emotion:Hide()
         end
 
+        if not frame:IsShown() then
+            ConsoleMenu:AnimatedShow(frame)
+        end
+
         -- Узнать, сколько осталось времени показа этого субтитра
         local now = GetTime()
         local durationLeft = (current.stopTime or now) - now
@@ -428,13 +439,8 @@ function ConsoleMenu:SubtitleFrameUpdate(subtitle)
         end
 
     else
-        -- Нет подходящего субтитра, скрываем оба текста
-        frame.Speaker:SetText("")
-        frame.Speaker:Hide()
-        frame.Subtitle:SetText("")
-        frame.Subtitle:Hide()
-        frame.Emotion:SetText("")
-        frame.Emotion:Hide()
+        -- Нет подходящего субтитра, скрываем субтитр
+        ConsoleMenu:AnimatedHide(frame)
 
         if subtitleUpdateTimer then
             subtitleUpdateTimer:Cancel()
@@ -468,6 +474,8 @@ function ConsoleMenu:SetSubtitleFrame()
     local frame = ConsoleMenuFrame.SubtitleFrame
     frame:SetSize(frameWidth, frameHeight)
     frame:SetPoint("BOTTOM", ConsoleMenuFrame, "BOTTOM", 0, 260)
+    frame:Hide()
+    ConsoleMenu:InitFadeAnimations(frame, animationDuration)
 
     -- Текст для имени говорящего
     if not frame.Speaker then
