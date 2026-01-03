@@ -24,7 +24,7 @@ local NotificationDuration = {
 }
 
 -- Функция для добавления уведомлений
-function ConsoleMenu:AddNotification(event, message, identifier)
+function ConsoleMenu:AddNotification(event, message, identifier, value)
     if not ConsoleMenu or not ConsoleMenu.Notifications then
         return
     end
@@ -37,115 +37,114 @@ function ConsoleMenu:AddNotification(event, message, identifier)
     local notificationData = {
         text = message,
         event = event,
-        combined = false,
         identifier = identifier,
+        startTime = GetTime(),
+        value = value,
     }
 
-    if event == "UI_ERROR_MESSAGE" then
-        notificationData.combined = true
-        table.insert(ConsoleMenu.Notifications, notificationData)
+    table.insert(ConsoleMenu.Notifications, notificationData)
+
+    if not notificationUpdateTimer then
         ConsoleMenu:NotificationFrameUpdate()
-    else
-        table.insert(ConsoleMenu.Notifications, notificationData)
-        -- Через секунду запускаем объединение уведомлений
-        C_Timer.After(2, function()
-            ConsoleMenu:CombineNotifications(event, identifier)
-        end)
     end
 
     return
 end
 
--- Функция для объединения и суммирования схожих уведомлений внутри ConsoleMenu.Notifications
-function ConsoleMenu:CombineNotifications(event, identifier)
-    if not ConsoleMenu or not ConsoleMenu.Notifications then
-        return
-    end
-
-    if not event then return end
-
-    if event == "UI_ERROR_MESSAGE" then return end
-
-    -- Группируем уведомления по типу
-    local notificationsForEvent = {}
-    for _, notification in ipairs(ConsoleMenu.Notifications) do
-        if notification.event == event and not notification.combined and notification.identifier == identifier then
-            -- Разбиваем текст на части: previousText, value, nextText
-            local previousText, value, nextText = notification.text:match("^(.-)([%+%-]?%d+)(.*)$")
-            if previousText and value and nextText then
-                table.insert(notificationsForEvent, {
-                    previousText = previousText,
-                    value = tonumber(value),
-                    nextText = nextText
-                })
-            else
-                notification.combined = true
-            end
-        end
-    end
-
-    if #notificationsForEvent == 0 then
-        -- Нет уведомлений для объединения
-        return
-    elseif #notificationsForEvent == 1 then
-        -- Только одно уведомление для объединения, которому надо просто сменить маркировку на combined = true
-        for _, notification in ipairs(ConsoleMenu.Notifications) do
-            notification.combined = true
-        end
-    else
-        -- Объединяем уведомления этого типа
-        local combinedValue = 0
-        for i = 1, #notificationsForEvent do
-            combinedValue = combinedValue + notificationsForEvent[i].value
-        end
-
-        -- Удаляем все уведомления с этим event
-        for i = #ConsoleMenu.Notifications, 1, -1 do
-            if ConsoleMenu.Notifications[i].event == event then
-                table.remove(ConsoleMenu.Notifications, i)
-            end
-        end
-
-        -- Добавляем новое уведомление
-        table.insert(ConsoleMenu.Notifications, {
-            text = notificationsForEvent[1].previousText .. combinedValue .. notificationsForEvent[1].nextText,
-            event = event,
-            combined = true,
-        })
-    end
-
-    ConsoleMenu:NotificationFrameUpdate()
-    return
-end
-
--- Функция для получения уведомления с максимальным приоритетом
-local function GetTopPriorityCombinedNotification()
-    if not ConsoleMenu or not ConsoleMenu.Notifications then
+-- Функция для получения уведомления с наивысшим приоритетом
+local function GetTopPriorityNotification()
+    -- Обходим таблицу ConsoleMenu.Notifications с конца
+    if not ConsoleMenu or not ConsoleMenu.Notifications or #ConsoleMenu.Notifications == 0 then
         return nil
     end
 
-    local lowestNotification = nil
-    local lowestPriority = nil
-    local lowestIndex = nil
+    local minPriority = nil
+    local minNotification = nil
 
     for i = #ConsoleMenu.Notifications, 1, -1 do
+        
         local notification = ConsoleMenu.Notifications[i]
-        if notification.combined == true then
-            local event = notification.event
-            local priority = NotificationEventPriority and NotificationEventPriority[event] or 1
-            if lowestPriority == nil or priority < lowestPriority then
-                lowestPriority = priority
-                lowestNotification = notification
-                lowestIndex = i
-            end
+
+        local duration = NotificationDuration and NotificationDuration[notification.event] or 5
+
+        local priority = NotificationEventPriority and NotificationEventPriority[notification.event] or 1
+
+        if not minPriority or priority < minPriority then
+            minPriority = priority
+            minNotification = notification
         end
     end
 
-    if lowestIndex then
-        table.remove(ConsoleMenu.Notifications, lowestIndex)
-    end
+    return minNotification
 
-    return lowestNotification
+end
+
+-- Функция для группировки уведомлений
+local function GetGroupedNotification(notification)
+
+    if not notification then return end
+
+    if notification.event == "UI_ERROR_MESSAGE" then
+        -- Удаляем все уведомления с таким же текстом, как у notification
+        for i = #ConsoleMenu.Notifications, 1, -1 do
+            if ConsoleMenu.Notifications[i].text == notification.text or (GetTime() - ConsoleMenu.Notifications[i].startTime > NotificationDuration[notification.event]) then
+                table.remove(ConsoleMenu.Notifications, i)
+            end
+        end
+        return notification
+    elseif notification.event == "CHAT_MSG_MONEY" then
+
+    elseif notification.event == "CHAT_MSG_COMBAT_FACTION_CHANGE" then
+        -- Используем подход из WeakAura: паттерн с %D (не-цифра) для правильного разделения
+        -- %D гарантирует, что мы находим число, окруженное не-цифрами, что игнорирует числа в форматировании WoW
+        local previousText, value, nextText = notification.text:match("^(.*%D)([%+%-]?%d+)(%D*)$")
+        
+        print("previousText: ", previousText, " value: ", value, " nextText: ", nextText)
+        if not previousText or not value or not nextText then
+            return notification
+        end
+        
+        local sum = 0
+        for i = #ConsoleMenu.Notifications, 1, -1 do
+            local n = ConsoleMenu.Notifications[i]
+            if n.event == notification.event then
+                local nPreviousText, nValue, nNextText = n.text:match("^(.*%D)([%+%-]?%d+)(%D*)$")
+                if nPreviousText == previousText and nNextText == nextText and nValue then
+                    sum = sum + (tonumber(nValue) or 0)
+                    table.remove(ConsoleMenu.Notifications, i)
+                end
+            end
+        end
+        notification.value = sum
+        notification.text = previousText .. sum .. nextText
+
+        return notification
+    elseif notification.event == "CURRENCY_DISPLAY_UPDATE" then
+        -- просуммировать value всех записей с notification.identifier и удалить
+        if notification.identifier then
+            local sum = 0
+            for i = #ConsoleMenu.Notifications, 1, -1 do
+                local n = ConsoleMenu.Notifications[i]
+                if n.event == notification.event and n.identifier == notification.identifier and n.value then
+                    sum = sum + n.value
+                    table.remove(ConsoleMenu.Notifications, i)
+                end
+            end
+            -- Создаем новый notification с суммированным value
+            notification.value = sum
+            
+            local info = C_CurrencyInfo.GetCurrencyInfo(notification.identifier)
+            
+            if info and info.name then
+                local msg = string.format("Получено: %s x%d.", info.name, sum)
+                notification.text = msg
+            end
+
+            return notification
+        end
+    elseif notification.event == "PERKS_PROGRAM_CURRENCY_AWARDED" then
+
+    end
 end
 
 -- Функция для обновления NotificationFrame
@@ -154,7 +153,8 @@ function ConsoleMenu:NotificationFrameUpdate()
         return
     end
 
-    local notification = GetTopPriorityCombinedNotification()
+    local notification = GetTopPriorityNotification()
+    notification = GetGroupedNotification(notification)
 
     if notification then
         ConsoleMenuFrame.NotificationFrame.Text:SetText(notification.text)
@@ -168,8 +168,19 @@ function ConsoleMenu:NotificationFrameUpdate()
             end
 
             notificationUpdateTimer =  C_Timer.NewTimer(duration, function()
+                notificationUpdateTimer = nil
+                -- После отображения проверяем, есть ли еще уведомления в очереди
                 ConsoleMenu:NotificationFrameUpdate()
             end)
+            
+            -- Проверяем сразу после отображения, есть ли еще неотображенные уведомления
+            -- GetGroupedNotification уже удалил обработанные уведомления, поэтому проверяем оставшиеся
+            if ConsoleMenu and ConsoleMenu.Notifications and #ConsoleMenu.Notifications > 0 then
+                -- Есть еще уведомления - отменяем таймер и показываем следующее сразу
+                notificationUpdateTimer:Cancel()
+                notificationUpdateTimer = nil
+                ConsoleMenu:NotificationFrameUpdate()
+            end
         end
     else
         ConsoleMenuFrame.NotificationFrame.Text:SetText("")
@@ -229,27 +240,20 @@ function ConsoleMenu:SetNotificationFrame()
 
     local function OnNotificationEvent(self, event, ...)
         if event == "UI_ERROR_MESSAGE" then
+
+            if InCombatLockdown() then return end
+
             local _, errorMessage = ...
             ConsoleMenu:AddNotification(event, errorMessage)
         elseif event == "CURRENCY_DISPLAY_UPDATE" then
             local currencyID, quantity, quantityChange, quantityGainSource, destroyReason = ...
-            local info
-            if currencyID then
-                info = C_CurrencyInfo.GetCurrencyInfo(currencyID)
-            end
-            
-            if info and info.name then
-                -- Только добавляем, если изменение количества больше 0
-                if quantityChange and quantityChange > 0 then
-                    local msg = string.format("Получено: %s x%d.", info.name, quantityChange)
-                    ConsoleMenu:AddNotification(event, msg, currencyID)
-                end
+
+            if quantityChange and quantityChange > 0 then
+                ConsoleMenu:AddNotification(event, nil, currencyID, quantityChange)
             end
         elseif event == "PERKS_PROGRAM_CURRENCY_AWARDED" then
             local value = ...
-            local info = C_CurrencyInfo.GetBasicCurrencyInfo(2032)
-            local msg = string.format("Получено: %s x%d.", info.name, value)
-            ConsoleMenu:AddNotification(event, msg, 2032)
+            ConsoleMenu:AddNotification(event, nil, 2032, value)
         else
             local msg = ...
             ConsoleMenu:AddNotification(event, msg)
