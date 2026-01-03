@@ -163,7 +163,7 @@ function ConsoleMenu:NotificationFrameUpdate()
 
     if notification then
         ConsoleMenuFrame.NotificationFrame.Text:SetText(notification.text)
-        ConsoleMenu:AnimatedShow(ConsoleMenuFrame.NotificationFrame.Text)
+        ConsoleMenu:AnimatedShow(ConsoleMenuFrame.NotificationFrame)
 
         local duration = NotificationDuration and NotificationDuration[notification.event] or 5
     
@@ -175,7 +175,7 @@ function ConsoleMenu:NotificationFrameUpdate()
             notificationUpdateTimer = C_Timer.NewTimer(duration, function()
                 notificationUpdateTimer = nil
                 -- Скрываем текущее уведомление с анимацией
-                ConsoleMenu:AnimatedHide(ConsoleMenuFrame.NotificationFrame.Text)
+                ConsoleMenu:AnimatedHide(ConsoleMenuFrame.NotificationFrame)
                 -- Ждем окончания анимации исчезновения перед проверкой следующего уведомления
                 C_Timer.After(animationDuration + delay, function()
                     -- После отображения проверяем, есть ли еще уведомления в очереди
@@ -184,7 +184,7 @@ function ConsoleMenu:NotificationFrameUpdate()
             end)
         end
     else
-        ConsoleMenu:AnimatedHide(ConsoleMenuFrame.NotificationFrame.Text)
+        ConsoleMenu:AnimatedHide(ConsoleMenuFrame.NotificationFrame)
 
         if notificationUpdateTimer then
             notificationUpdateTimer:Cancel()
@@ -217,6 +217,8 @@ function ConsoleMenu:SetNotificationFrame()
     local frame = ConsoleMenuFrame.NotificationFrame
     frame:SetSize(frameWidth, frameHeight)
     frame:SetPoint("TOPLEFT", ConsoleMenuFrame, "TOPLEFT", 48, -48)
+    ConsoleMenu:InitFadeAnimations(frame, animationDuration)
+    frame:Hide()
 
     -- Текст уведомления
     if not frame.Text then
@@ -228,9 +230,8 @@ function ConsoleMenu:SetNotificationFrame()
         frame.Text:SetJustifyH("LEFT")
         frame.Text:SetText("")
         frame.Text:SetNonSpaceWrap(true)
+        frame.Text:Show()
         frame.Text:SetWordWrap(true)
-        frame.Text:Hide()
-        ConsoleMenu:InitFadeAnimations(frame.Text, animationDuration)
     end
 
     frame:RegisterEvent("UI_ERROR_MESSAGE")
