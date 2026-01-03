@@ -208,7 +208,6 @@ function ConsoleMenu:NotificationFrameUpdate()
     end
 end
 
-
 -- Функция для инициализации NotificationFrame
 function ConsoleMenu:SetNotificationFrame()
 
