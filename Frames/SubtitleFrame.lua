@@ -473,7 +473,7 @@ function ConsoleMenu:SetSubtitleFrame()
     -- Фрейм для текста субтитра и имени говорящего
     local frame = ConsoleMenuFrame.SubtitleFrame
     frame:SetSize(frameWidth, frameHeight)
-    frame:SetPoint("BOTTOM", ConsoleMenuFrame, "BOTTOM", 0, 260)
+    frame:SetPoint("BOTTOM", ConsoleMenuFrame, "BOTTOM", 0, 280)
     frame:Hide()
     ConsoleMenu:InitFadeAnimations(frame, animationDuration)
 
@@ -586,7 +586,9 @@ function ConsoleMenu:SetSubtitleFrame()
             RemoveSubtitlesByPriority(1)
         end
 
-        ConsoleMenu:SubtitleFrameUpdate()
+        C_Timer.After(0.1, function()
+            ConsoleMenu:SubtitleFrameUpdate()
+        end)
     end
 
     frame:SetScript("OnEvent", OnSubtitleEvent)
