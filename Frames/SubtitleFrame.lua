@@ -584,11 +584,14 @@ function ConsoleMenu:SetSubtitleFrame()
             ConsoleMenu:AddSubtitles(event, message, sender)
         elseif event == "GOSSIP_CLOSED" or event == "QUEST_FINISHED" or event == "GOSSIP_CONFIRM" then
             RemoveSubtitlesByPriority(1)
+            -- Задержка перед обновлением, чтобы дать время новым событиям (например, QUEST_DETAIL) добавить субтитры
+            C_Timer.After(animationDuration, function()
+                ConsoleMenu:SubtitleFrameUpdate()
+            end)
+            return
         end
 
-        C_Timer.After(0.1, function()
-            ConsoleMenu:SubtitleFrameUpdate()
-        end)
+        ConsoleMenu:SubtitleFrameUpdate()
     end
 
     frame:SetScript("OnEvent", OnSubtitleEvent)
