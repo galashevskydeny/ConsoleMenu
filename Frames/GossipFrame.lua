@@ -1005,8 +1005,14 @@ function ConsoleMenu:SetCustomGossipFrame()
                 ConsoleMenu:AnimatedShow(frame)
             end
         elseif event == "GOSSIP_CLOSED" or event == "GOSSIP_CONFIRM" or event == "QUEST_FINISHED" then
+
+            local previousCollection = parentFrame.ScrollBox:GetDataProvider().collection
+
             C_Timer.After(animationDuration + 0.1, function()
-                ConsoleMenu:AnimatedHide(frame)
+                local collection = parentFrame.ScrollBox:GetDataProvider().collection
+                if collection == previousCollection then
+                    ConsoleMenu:AnimatedHide(frame)
+                end
             end)
         end
     end)
