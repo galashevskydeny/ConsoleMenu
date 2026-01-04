@@ -45,6 +45,10 @@ local deathknightSpells = {
     50977,
 }
 
+local monkSpells = {
+    126892,
+}
+
 local hearthstonesToys = {}
 
 -- Функция для инициализации вкладок
@@ -321,6 +325,8 @@ local function CreateFastTravelScrollBox()
             end
         elseif classFile == "DEATHKNIGHT" and tabs[1] then
             tabs[1].spells = deathknightSpells
+        elseif classFile == "MONK" and tabs[1] then
+            tabs[1].spells = monkSpells
         end
     
         if focusedTab == 1 then
@@ -438,6 +444,10 @@ local function PreloadData()
         end
     elseif classFile == "DEATHKNIGHT" then
         for _, spellID in ipairs(deathknightSpells) do
+            table.insert(spells, spellID)
+        end
+    elseif classFile == "MONK" then
+        for _, spellID in ipairs(monkSpells) do
             table.insert(spells, spellID)
         end
     end
