@@ -9,7 +9,7 @@ local frameHeight = 96
 local maxLineLength = 160
 local subtitleUpdateTimer = nil
 
-local animationDuration = 0.2
+local animationDuration = 0.1
 
 local SubtitleEventPriority = {
     CHAT_MSG_MONSTER_EMOTE = 4,
@@ -585,7 +585,7 @@ function ConsoleMenu:SetSubtitleFrame()
         elseif event == "GOSSIP_CLOSED" or event == "QUEST_FINISHED" or event == "GOSSIP_CONFIRM" then
             RemoveSubtitlesByPriority(1)
             -- Задержка перед обновлением, чтобы дать время новым событиям (например, QUEST_DETAIL) добавить субтитры
-            C_Timer.After(animationDuration, function()
+            C_Timer.After(animationDuration + 0.1, function()
                 ConsoleMenu:SubtitleFrameUpdate()
             end)
             return

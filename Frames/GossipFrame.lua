@@ -11,6 +11,8 @@ local sectionPadding = 8
 local iconSize = sectionHeight - sectionPadding * 2
 local itemFontSize = 20
 
+local animationDuration = 0.1
+
 local focusedIndex = 1 -- Индекс текущего элемента в фокусе
 
 local previousGossip = false
@@ -659,7 +661,6 @@ local function CreateGossipScrollBox()
             
             GetGossip()
 
-            GossipScrollBox:Show()
             previousGossip = false
 
             local element = parentFrame.ScrollBox:GetDataProvider().collection[1]
@@ -671,7 +672,6 @@ local function CreateGossipScrollBox()
 
             GetGreeting()
 
-            GossipScrollBox:Show()
             previousGossip = false
 
             local element = parentFrame.ScrollBox:GetDataProvider().collection[1]
@@ -684,7 +684,6 @@ local function CreateGossipScrollBox()
 
             if questID ~= 0 then
                 UpdateQuestDetail()
-                GossipScrollBox:Show()
                 local element = parentFrame.ScrollBox:GetDataProvider().collection[1]
                 if element then
                     UpdateFocus(element, true) -- Устанавливаем фокус на первый элемент
@@ -778,7 +777,6 @@ local function CreateGossipScrollBox()
                 name = GOODBYE,
             })
 
-            GossipScrollBox:Show()
             local element = parentFrame.ScrollBox:GetDataProvider().collection[1]
             if element then
                 UpdateFocus(element, true) -- Устанавливаем фокус на первый элемент
@@ -879,7 +877,6 @@ local function CreateGossipScrollBox()
                 name = GOODBYE,
             })
 
-            GossipScrollBox:Show()
             local element = parentFrame.ScrollBox:GetDataProvider().collection[1]
             if element then
                 UpdateFocus(element, true) -- Устанавливаем фокус на первый элемент
@@ -887,9 +884,7 @@ local function CreateGossipScrollBox()
 
         elseif event == "GOSSIP_CLOSED" then
             previousGossip = true
-            GossipScrollBox:Hide()
         elseif event == "QUEST_FINISHED" or event == "GOSSIP_CONFIRM" then
-            GossipScrollBox:Hide()
         elseif event == "QUEST_ACCEPTED" or event == "QUEST_TURNED_IN" then
             previousGossip = false
         end
@@ -897,9 +892,6 @@ local function CreateGossipScrollBox()
         UpdateScrollBarVisibility()
 
     end)
-
-    -- Изначально скрываем GossipScrollBox
-    GossipScrollBox:Hide()
 
     return GossipScrollBox, UpdateFocus
 end
@@ -948,14 +940,16 @@ function ConsoleMenu:SetCustomGossipFrame()
         return
     end
 
-    local GossipFrame = CreateFrame("Frame", "GossipFrame", ConsoleMenuFrame)
-    ConsoleMenuFrame.GossipFrame = GossipFrame
+    local frame = CreateFrame("Frame", "GossipFrame", ConsoleMenuFrame)
+    ConsoleMenuFrame.GossipFrame = frame
     
 
-    GossipFrame:SetSize(frameWidth, sectionHeight * viewedItemCount)
-    GossipFrame:SetPoint("TOP", SubtitleFrame, "BOTTOM", 0, -16)
+    frame:SetSize(frameWidth, sectionHeight * viewedItemCount)
+    frame:SetPoint("TOP", SubtitleFrame, "BOTTOM", 0, -16)
+    frame:Hide()
+    ConsoleMenu:InitFadeAnimations(frame, animationDuration)
 
-    GossipFrame:HookScript("OnShow", function()
+    frame:HookScript("OnShow", function()
         softTargetEnemy = GetCVar("SoftTargetEnemy")
         SetCVar("SoftTargetEnemy", 0)
 
@@ -968,7 +962,7 @@ function ConsoleMenu:SetCustomGossipFrame()
 
     end)
 
-    GossipFrame:HookScript("OnHide", function()
+    frame:HookScript("OnHide", function()
         if softTargetEnemy then
             SetCVar("SoftTargetEnemy", softTargetEnemy)
         end
@@ -983,10 +977,37 @@ function ConsoleMenu:SetCustomGossipFrame()
     end)
 
     -- Регистрация события изменения режима геймпада
-    GossipFrame:RegisterEvent("GAME_PAD_ACTIVE_CHANGED")
-    GossipFrame:SetScript("OnEvent", function(self, event, ...)
+    frame:RegisterEvent("GAME_PAD_ACTIVE_CHANGED")
+
+    frame:RegisterEvent("GOSSIP_SHOW")
+    frame:RegisterEvent("QUEST_GREETING")
+    frame:RegisterEvent("QUEST_DETAIL")
+    frame:RegisterEvent("QUEST_PROGRESS")
+    frame:RegisterEvent("QUEST_COMPLETE")
+    frame:RegisterEvent("QUEST_TURNED_IN")
+    frame:RegisterEvent("QUEST_ACCEPTED")
+    frame:RegisterEvent("QUESTLINE_UPDATE")
+
+
+    frame:RegisterEvent("QUEST_FINISHED")
+    frame:RegisterEvent("GOSSIP_CLOSED")
+    frame:RegisterEvent("GOSSIP_CONFIRM")
+
+    frame:SetScript("OnEvent", function(self, event, ...)
         if event == "GAME_PAD_ACTIVE_CHANGED" then
             gamePadActive = ...
+        elseif event == "GOSSIP_SHOW" or event == "QUEST_GREETING" or event == "QUEST_PROGRESS" or event == "QUEST_COMPLETE" then
+            ConsoleMenu:AnimatedShow(frame)
+        elseif event == "QUEST_DETAIL" then
+            local questID = GetQuestID()
+
+            if questID ~= 0 then
+                ConsoleMenu:AnimatedShow(frame)
+            end
+        elseif event == "GOSSIP_CLOSED" or event == "GOSSIP_CONFIRM" or event == "QUEST_FINISHED" then
+            C_Timer.After(animationDuration + 0.1, function()
+                ConsoleMenu:AnimatedHide(frame)
+            end)
         end
     end)
     
