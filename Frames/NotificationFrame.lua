@@ -208,9 +208,6 @@ local function GetGroupedNotification(notification)
             end
         end
 
-        -- Если уведомление просрочено, не игнорируем
-        if GetTime() - notification.startTime > NotificationDuration[notification.event] then return end
-        
         return notification
     end
 end
