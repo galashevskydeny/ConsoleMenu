@@ -557,7 +557,7 @@ function ConsoleMenu:SetFastTravelFrame()
     FastTravel.Title.Text = FastTravel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     FastTravel.Title.Text:SetPoint("LEFT", FastTravelTitle, "LEFT", sectionPadding, 0)
     FastTravel.Title.Text:SetPoint("RIGHT", FastTravelTitle, "RIGHT", sectionPadding, 0)
-    FastTravel.Title.Text:SetFont("Fonts\\FRIZQT___CYR.TTF", titleFontSize, "OUTLINE")
+    FastTravel.Title.Text:SetFont("Fonts\\FRIZQT___CYR.TTF", titleFontSize, "")
     FastTravel.Title.Text:SetTextColor(1.0, 0.960784, 0.772549, 0.6)
     FastTravel.Title.Text:SetText("Быстрое перемещение")
     FastTravel.Title.Text:SetJustifyH("LEFT")
@@ -587,7 +587,7 @@ function ConsoleMenu:SetFastTravelFrame()
         local tabFont = "Fonts\\FRIZQT___CYR.TTF"
         if not tab.text then
             tab.text = tab:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-            tab.text:SetFont(tabFont, tabFontSize, "OUTLINE")
+            tab.text:SetFont(tabFont, tabFontSize, "")
             tab.text:SetTextColor(1.0, 0.960784, 0.772549, 0.4)
             tab.text:SetPoint("CENTER")
         end
