@@ -2,7 +2,11 @@ local ConsoleMenu = _G.ConsoleMenu
 
 local frameWidth = 304
 local frameHeight = 56
+
+local titleFontSize = 24
 local fontSize = 20
+local captionFontSize = 16
+
 local animationDuration = 0.3
 local delay = 0.5
 
@@ -220,6 +224,13 @@ function ConsoleMenu:NotificationFrameUpdate()
 
         if event == "ZONE_CHANGED_NEW_AREA" or event == "ZONE_CHANGED" or event == "ZONE_CHANGED_INDOORS" then
             ConsoleMenu.Deduplication[notification.text] = GetTime() + deduplicationDuration
+        end
+
+        local frame = ConsoleMenuFrame.NotificationFrame
+        if event == "ZONE_CHANGED_NEW_AREA" or event == "ZONE_CHANGED" or event == "ZONE_CHANGED_INDOORS" then
+            frame.Text:SetFont("Fonts\\FRIZQT___CYR.TTF", titleFontSize, "")
+        else
+            frame.Text:SetFont("Fonts\\FRIZQT___CYR.TTF", fontSize, "")
         end
 
         local duration = NotificationDuration and NotificationDuration[notification.event] or 5
