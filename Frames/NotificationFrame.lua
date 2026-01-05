@@ -18,12 +18,12 @@ local NotificationEventPriority = {
 }
 
 local NotificationDuration = {
-    UI_ERROR_MESSAGE = 5,
+    UI_ERROR_MESSAGE = 3,
     CHAT_MSG_MONEY = 5,
     CHAT_MSG_COMBAT_FACTION_CHANGE = 5,
     CURRENCY_DISPLAY_UPDATE = 5,
     PERKS_PROGRAM_CURRENCY_AWARDED = 5,
-    UPDATE_PENDING_MAIL = 15,
+    UPDATE_PENDING_MAIL = 10,
 }
 
 local ignoredCurrencies = {
@@ -268,6 +268,9 @@ function ConsoleMenu:SetNotificationFrame()
             if InCombatLockdown() then return end
 
             local _, errorMessage = ...
+
+            if ConsoleMenuFrame.NotificationFrame:IsShown() and errorMessage == ConsoleMenuFrame.NotificationFrame.Text:GetText() then return end
+            
             ConsoleMenu:AddNotification(event, errorMessage)
         elseif event == "CURRENCY_DISPLAY_UPDATE" then
             local currencyID, quantity, quantityChange, quantityGainSource, destroyReason = ...
