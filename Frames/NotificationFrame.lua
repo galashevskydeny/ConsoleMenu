@@ -32,19 +32,6 @@ local NotificationDuration = {
     ZONE_CHANGED_INDOORS = 3,
 }
 
-local NotificationDeduplication = {
-    UI_ERROR_MESSAGE = false,
-    CHAT_MSG_MONEY = false,
-    CHAT_MSG_COMBAT_FACTION_CHANGE = false,
-    CURRENCY_DISPLAY_UPDATE = false,
-    PERKS_PROGRAM_CURRENCY_AWARDED = false,
-    UPDATE_PENDING_MAIL = false,
-    
-    ZONE_CHANGED_NEW_AREA = true,
-    ZONE_CHANGED = true,
-    ZONE_CHANGED_INDOORS = true,
-}
-
 local ignoredCurrencies = {
     [3372] = true,
 }
@@ -231,7 +218,7 @@ function ConsoleMenu:NotificationFrameUpdate()
 
         local event = notification.event
 
-        if NotificationDeduplication[notification.event] then
+        if event == "ZONE_CHANGED_NEW_AREA" or event == "ZONE_CHANGED" or event == "ZONE_CHANGED_INDOORS" then
             ConsoleMenu.Deduplication[notification.text] = GetTime() + deduplicationDuration
         end
 
@@ -298,7 +285,7 @@ function ConsoleMenu:SetNotificationFrame()
         frame.Text = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         frame.Text:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
         frame.Text:SetPoint("TOPRIGHT", frame, "TOPRIGHT", 0, 0)
-        frame.Text:SetFont("Fonts\\FRIZQT___CYR.TTF", fontSize, "OUTLINE")
+        frame.Text:SetFont("Fonts\\FRIZQT___CYR.TTF", fontSize, "")
         frame.Text:SetTextColor(1.0, 0.960784, 0.772549, 1)
         frame.Text:SetJustifyH("LEFT")
         frame.Text:SetText("")
@@ -348,7 +335,7 @@ function ConsoleMenu:SetNotificationFrame()
                 end)
             end
         elseif event == "ZONE_CHANGED_NEW_AREA" or event == "ZONE_CHANGED" or event == "ZONE_CHANGED_INDOORS" then
-            
+
             local zoneText = GetMinimapZoneText()
             if ConsoleMenu.Deduplication[zoneText] and GetTime() <= ConsoleMenu.Deduplication[zoneText] then return end
 
