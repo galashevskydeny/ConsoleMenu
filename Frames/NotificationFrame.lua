@@ -15,6 +15,9 @@ local NotificationEventPriority = {
     CURRENCY_DISPLAY_UPDATE = 3,
     PERKS_PROGRAM_CURRENCY_AWARDED = 3,
     UPDATE_PENDING_MAIL = 2,
+    ZONE_CHANGED_NEW_AREA = 2,
+    ZONE_CHANGED = 2,
+    ZONE_CHANGED_INDOORS = 2,
 }
 
 local NotificationDuration = {
@@ -24,11 +27,29 @@ local NotificationDuration = {
     CURRENCY_DISPLAY_UPDATE = 5,
     PERKS_PROGRAM_CURRENCY_AWARDED = 5,
     UPDATE_PENDING_MAIL = 10,
+    ZONE_CHANGED_NEW_AREA = 3,
+    ZONE_CHANGED = 3,
+    ZONE_CHANGED_INDOORS = 3,
+}
+
+local NotificationDeduplication = {
+    UI_ERROR_MESSAGE = false,
+    CHAT_MSG_MONEY = false,
+    CHAT_MSG_COMBAT_FACTION_CHANGE = false,
+    CURRENCY_DISPLAY_UPDATE = false,
+    PERKS_PROGRAM_CURRENCY_AWARDED = false,
+    UPDATE_PENDING_MAIL = false,
+    
+    ZONE_CHANGED_NEW_AREA = true,
+    ZONE_CHANGED = true,
+    ZONE_CHANGED_INDOORS = true,
 }
 
 local ignoredCurrencies = {
     [3372] = true,
 }
+
+local deduplicationDuration = 30
 
 -- Функция для добавления уведомлений
 function ConsoleMenu:AddNotification(event, message, identifier, value)
@@ -54,6 +75,17 @@ function ConsoleMenu:AddNotification(event, message, identifier, value)
     end
 
     return
+end
+
+-- Функция для очистки Deduplication
+local function RemoveOldDeduplication()
+    if not ConsoleMenu or not ConsoleMenu.Deduplication then return end
+    local currentTime = GetTime()
+    for key in pairs(ConsoleMenu.Deduplication) do
+        if ConsoleMenu.Deduplication[key] <= currentTime then
+            ConsoleMenu.Deduplication[key] = nil
+        end
+    end
 end
 
 -- Функция для получения уведомления с наивысшим приоритетом
@@ -171,6 +203,16 @@ local function GetGroupedNotification(notification)
             end
         end
         return notification
+    elseif notification.event == "ZONE_CHANGED_NEW_AREA" or notification.event == "ZONE_CHANGED" or notification.event == "ZONE_CHANGED_INDOORS" then
+        local zoneText = GetMinimapZoneText()
+        notification.text = zoneText
+
+        for i = #ConsoleMenu.Notifications, 1, -1 do
+            if ConsoleMenu.Notifications[i].event == "ZONE_CHANGED_NEW_AREA" or ConsoleMenu.Notifications[i].event == "ZONE_CHANGED" or ConsoleMenu.Notifications[i].event == "ZONE_CHANGED_INDOORS" then
+                table.remove(ConsoleMenu.Notifications, i)
+            end
+        end
+        return notification
     end
 end
 
@@ -186,6 +228,12 @@ function ConsoleMenu:NotificationFrameUpdate()
     if notification then
         ConsoleMenuFrame.NotificationFrame.Text:SetText(notification.text)
         ConsoleMenu:AnimatedShow(ConsoleMenuFrame.NotificationFrame)
+
+        local event = notification.event
+
+        if NotificationDeduplication[notification.event] then
+            ConsoleMenu.Deduplication[notification.text] = GetTime() + deduplicationDuration
+        end
 
         local duration = NotificationDuration and NotificationDuration[notification.event] or 5
     
@@ -230,6 +278,10 @@ function ConsoleMenu:SetNotificationFrame()
         ConsoleMenu.Notifications = {}
     end
 
+    if not ConsoleMenu.Deduplication then
+        ConsoleMenu.Deduplication = {}
+    end
+
     if not ConsoleMenuFrame.NotificationFrame then
         local frame = CreateFrame("Frame", "NotificationFrame", ConsoleMenuFrame)
         ConsoleMenuFrame.NotificationFrame = frame
@@ -256,13 +308,19 @@ function ConsoleMenu:SetNotificationFrame()
     end
 
     frame:RegisterEvent("UI_ERROR_MESSAGE")
+
     frame:RegisterEvent("CHAT_MSG_MONEY")
     frame:RegisterEvent("CHAT_MSG_COMBAT_FACTION_CHANGE")
     frame:RegisterEvent("CURRENCY_DISPLAY_UPDATE")
     frame:RegisterEvent("PERKS_PROGRAM_CURRENCY_AWARDED")
     frame:RegisterEvent("UPDATE_PENDING_MAIL")
 
+    frame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+    frame:RegisterEvent("ZONE_CHANGED")
+    frame:RegisterEvent("ZONE_CHANGED_INDOORS")
+
     local function OnNotificationEvent(self, event, ...)
+
         if event == "UI_ERROR_MESSAGE" then
 
             if InCombatLockdown() then return end
@@ -289,10 +347,18 @@ function ConsoleMenu:SetNotificationFrame()
                     ConsoleMenu:AddNotification(event, HAVE_MAIL, nil, nil)
                 end)
             end
+        elseif event == "ZONE_CHANGED_NEW_AREA" or event == "ZONE_CHANGED" or event == "ZONE_CHANGED_INDOORS" then
+            
+            local zoneText = GetMinimapZoneText()
+            if ConsoleMenu.Deduplication[zoneText] and GetTime() <= ConsoleMenu.Deduplication[zoneText] then return end
+
+            ConsoleMenu:AddNotification(event, nil, nil, nil)
         else
             local msg = ...
             ConsoleMenu:AddNotification(event, msg)
         end
+
+        RemoveOldDeduplication()
     end
 
     frame:SetScript("OnEvent", OnNotificationEvent)
