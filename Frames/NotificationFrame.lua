@@ -119,6 +119,10 @@ local function GetGroupedNotification(notification)
                 table.remove(ConsoleMenu.Notifications, i)
             end
         end
+
+        -- Если уведомление просрочено, не игнорируем
+        if GetTime() - notification.startTime > NotificationDuration[notification.event] then return end
+
         return notification
     elseif notification.event == "CHAT_MSG_MONEY" then
         for i = #ConsoleMenu.Notifications, 1, -1 do
@@ -203,6 +207,10 @@ local function GetGroupedNotification(notification)
                 table.remove(ConsoleMenu.Notifications, i)
             end
         end
+
+        -- Если уведомление просрочено, не игнорируем
+        if GetTime() - notification.startTime > NotificationDuration[notification.event] then return end
+        
         return notification
     end
 end
