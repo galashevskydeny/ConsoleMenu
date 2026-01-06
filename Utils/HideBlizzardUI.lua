@@ -20,42 +20,6 @@ local function DisableActionBar()
 
 end
 
--- Скрывает основную панель действий (MainMenuBar)
-function ConsoleMenu:HideActionBar()
-    if MainActionBar then
-        MainActionBar:SetAlpha(0)
-    end
-
-    if MainMenuBar then
-        MainMenuBar:SetAlpha(0)
-      end
-
-    for i = 1, 12 do
-        if not _G['ActionButton' .. i] then return end
-        _G['ActionButton' .. i]:SetAlpha(0)
-
-    end
-
-end
-
--- Восстанавливает отображение основной панели действий (MainMenuBar)
-function ConsoleMenu:ShowActionBar()
-    if MainActionBar then
-
-        MainActionBar:SetAlpha(1)
-    end
-
-    if MainMenuBar then
-        MainMenuBar:SetAlpha(1)
-    end
-
-    for i = 1, 12 do
-        if not _G['ActionButton' .. i] then return end
-        _G['ActionButton' .. i]:SetAlpha(1)
-    end
-
-end
-
 -- Скрывает панель действий питомца (PetActionBar)
 local function DisablePetActionBar()
     PetActionBar:SetAlpha(0)
@@ -253,13 +217,6 @@ function ConsoleMenu:HideTalkingHeadFrame()
     end
 end
 
--- Скрывает фрейм полета на драконе (UIWidgetPowerBarContainerFrame)
-local function HideUIWidgetPowerBarContainerFrame()
-    UIWidgetPowerBarContainerFrame:Hide()
-    RegisterStateDriver(UIWidgetPowerBarContainerFrame, "visibility", "hide")
-    UIWidgetPowerBarContainerFrame:UnregisterAllEvents()
-end
-
 -- Скрывает фрейм лута (LootFrame)
 local function DisableLootFrame()
     SetCVar("autoLootDefault", 1)
@@ -312,15 +269,11 @@ function ConsoleMenu:HideBlizzardUI()
         DisableLootFrame()
     end
     
-    if ConsoleMenuDB.hideUIWidgetPowerBarContainerFrame == 2 then
-        HideUIWidgetPowerBarContainerFrame()
-    end
-    
-    if ConsoleMenuDB.hideUIErrorsFrame == 2 then
+    if ConsoleMenuDB.errorsFrameStyle == 2 then
         DisableUIErrorsFrame()
     end
     
-    if ConsoleMenuDB.hideAlertFrame == 2 then
+    if ConsoleMenuDB.alertFrameStyle == 2 then
         DisableAlertFrame()
     end
     
@@ -336,7 +289,7 @@ function ConsoleMenu:HideBlizzardUI()
         HideStanceBar()
     end
     
-    if ConsoleMenuDB.hideZoneTextFrame == 2 then
+    if ConsoleMenuDB.zoneTextFrameStyle == 2 then
         DisableZoneTextFrame()
     end
     

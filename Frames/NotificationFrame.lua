@@ -311,10 +311,6 @@ end
 -- Функция для инициализации NotificationFrame
 function ConsoleMenu:SetNotificationFrame()
 
-    if ConsoleMenuDB.notificationFrame == 2 then
-        return
-    end
-
     if not ConsoleMenu.Notifications then
         ConsoleMenu.Notifications = {}
     end
@@ -379,6 +375,9 @@ function ConsoleMenu:SetNotificationFrame()
 
         if event == "UI_ERROR_MESSAGE" then
 
+            -- Если выбран стандартный стиль ошибок интерфейса
+            if ConsoleMenuDB.errorsFrameStyle == 1 then return end
+            
             if InCombatLockdown() then return end
 
             local _, errorMessage = ...
@@ -387,6 +386,10 @@ function ConsoleMenu:SetNotificationFrame()
             
             ConsoleMenu:AddNotification(event, errorMessage)
         elseif event == "CURRENCY_DISPLAY_UPDATE" then
+
+            -- Если выбран стандартный стиль оповещений о получении валюты
+            if ConsoleMenuDB.currencyDisplayUpdateStyle == 1 then return end
+
             local currencyID, quantity, quantityChange, quantityGainSource, destroyReason = ...
 
             if ignoredCurrencies[currencyID] then return end
@@ -395,9 +398,17 @@ function ConsoleMenu:SetNotificationFrame()
                 ConsoleMenu:AddNotification(event, nil, nil, currencyID, quantityChange)
             end
         elseif event == "PERKS_PROGRAM_CURRENCY_AWARDED" then
+
+            -- Если выбран стандартный стиль оповещений о получении валюты
+            if ConsoleMenuDB.currencyDisplayUpdateStyle == 1 then return end
+
             local value = ...
             ConsoleMenu:AddNotification(event, nil, nil, 2032, value)
         elseif event == "UPDATE_PENDING_MAIL" then
+
+            -- Если выбран стандартный стиль оповещений о получении почты
+            if ConsoleMenuDB.mailDisplayUpdateStyle == 1 then return end
+
             if HasNewMail() then
                 C_Timer.After(2, function()
                     ConsoleMenu:AddNotification(event, HAVE_MAIL)
@@ -405,12 +416,21 @@ function ConsoleMenu:SetNotificationFrame()
             end
         elseif event == "ZONE_CHANGED_NEW_AREA" or event == "ZONE_CHANGED" or event == "ZONE_CHANGED_INDOORS" then
 
+            -- Если выбран стандартный стиль оповещений о смене области
+            if ConsoleMenuDB.zoneTextFrameStyle == 1 then return end
+
             local zoneText = GetMinimapZoneText()
             if ConsoleMenu.Deduplication[zoneText] and GetTime() <= ConsoleMenu.Deduplication[zoneText] then return end
 
             ConsoleMenu:AddNotification(event)
         elseif event == "UI_INFO_MESSAGE" then
+
             local messageType, message = ...
+
+            if messageType == 408 then
+                -- Если выбран стандартный стиль оповещений о смене области
+                if ConsoleMenuDB.zoneTextFrameStyle == 1 then return end
+            end
 
             if messageType ~= 408 then return end
 

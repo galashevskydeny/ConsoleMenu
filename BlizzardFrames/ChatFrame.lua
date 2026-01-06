@@ -365,7 +365,7 @@ end
 
 function ConsoleMenu:SetChatFrame()
 
-    if ConsoleMenuDB.chatWindowStyle == 2 then
+    if ConsoleMenuDB.chatWindowStyle == 1 then
         return
     end
 

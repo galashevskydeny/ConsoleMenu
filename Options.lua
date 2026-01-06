@@ -8,7 +8,7 @@ if not ConsoleMenuDB then
 end
 
 local hudDropdownOptions = { "Не влиять", "Скрыть" }
-local hudUpdateDropdownOptions = { "Стандартный", "Обновленный" }
+local hudUpdateDropdownOptions = { "Стандартный вид", "Обновленный вид" }
 local windowStyleOptions = { "Обновленное", "Стандартное" }
 local cvarDropdownOptions = { "По умолчанию", "Включить", "Выключить", "Не влиять" }
 local cvarHideDropdownOptions = { "По умолчанию", "Скрыть", "Не влиять" }
@@ -22,11 +22,12 @@ local mainCategorySettings = {
 -- Основные элементы
 local hudSettingsMainElements = {
     { name = "Задания", variable = "hideObjectiveTracker", default = 1, tooltip = "Управляет отображением трекера заданий (ObjectiveTracker).", options = hudDropdownOptions },
-    { name = "Оповещения о локальных заданиях", variable = "hideObjectiveTrackerTopBannerFrame", default = 1, tooltip = "Управляет отображением баннера трекера заданий (ObjectiveTrackerTopBannerFrame).", options = hudDropdownOptions },
     { name = "Миникарта", variable = "hideMinimap", default = 1, tooltip = "Управляет отображением миникарты (Minimap).", options = hudDropdownOptions },
     { name = "Главное меню", variable = "hideMicroMenu", default = 1, tooltip = "Управляет отображением главного меню (MicroMenu).", options = hudDropdownOptions },
     { name = "Поиск группы", variable = "hideGroupFinderFrame", default = 1, tooltip = "Управляет отображением фрейма поиска группы (GroupFinderFrame).", options = hudDropdownOptions },
     { name = "Панель сумок", variable = "hideBagsBarsBar", default = 1, tooltip = "Управляет отображением панели сумок (BagsBarsBar).", options = hudDropdownOptions },
+    { name = "Чат", variable = "chatWindowStyle", default = 2, tooltip = "Выберите стиль окна чата: обновленную версию (скрытую по умолчанию в центре экрана) или стандартную.", options = hudUpdateDropdownOptions },
+
 }
 
 -- Рамки противников и союзников
@@ -38,31 +39,41 @@ local hudSettingsFrames = {
     { name = "Рамки боссов", variable = "hideBossTargetFrameContainer", default = 1, tooltip = "Управляет отображением контейнера фреймов боссов (BossTargetFrameContainer).", options = hudDropdownOptions },
 }
 
--- Бой
+-- Панель команд
 local hudSettingsCombat = {
-    { name = "Вид индикаторов здоровья", variable = "enemyNameplateStyle", default = 2, tooltip = "Управляет видом полосы здоровья противников (Nameplate).", options = hudUpdateDropdownOptions },
     { name = "Вид панели команд", variable = "actionBarStyle", default = 1, tooltip = "Управляет отображением основной панели действий (ActionBar).", options = hudUpdateDropdownOptions },
     { name = "Панель питомца", variable = "hidePetActionBar", default = 1, tooltip = "Управляет отображением панели действий питомца (PetActionBar).", options = hudDropdownOptions },
     { name = "Индикатор заклинаний", variable = "hidePlayerCastingBarFrame", default = 1, tooltip = "Управляет отображением полосы заклинаний игрока (PlayerCastingBarFrame).", options = hudDropdownOptions },
     { name = "Индикатор стойки", variable = "hideStanceBar", default = 1, tooltip = "Управляет отображением панели стоек (StanceBar).", options = hudDropdownOptions },
+    { name = "Способность в области", variable = "hideZoneAbilityFrame", default = 1, tooltip = "Управляет отображением фрейма способностей зоны (ZoneAbilityFrame).", options = hudDropdownOptions },
+}
+
+-- Баффы и дебаффы
+local hudSettingsBuffsAndDebuffs = {
     { name = "Положительные эффекты и ауры", variable = "hideBuffFrame", default = 1, tooltip = "Управляет отображением фрейма баффов (BuffFrame).", options = hudDropdownOptions },
     { name = "Негативные эффекты и ауры", variable = "hideDebuffFrame", default = 1, tooltip = "Управляет отображением фрейма дебаффов (DebuffFrame).", options = hudDropdownOptions },
-    { name = "Доп. способности", variable = "hideZoneAbilityFrame", default = 1, tooltip = "Управляет отображением фрейма способностей зоны (ZoneAbilityFrame).", options = hudDropdownOptions },
     { name = "Усиление заклинаний", variable = "hideSpellActivationOverlay", default = 1, tooltip = "Управляет отображением эффектов усиления заклинаний (SpellActivationOverlay) персонажа.", options = hudDropdownOptions },
+}
+
+-- Оповещения
+local hudSettingsNotifications = {
+    { name = "Название области", variable = "zoneTextFrameStyle", default = 1, tooltip = "Управляет отображением фрейма текста зоны (ZoneTextFrame).", options = hudUpdateDropdownOptions },
+    { name = "Получение валюты", variable = "currencyDisplayUpdateStyle", default = 1, tooltip = "Управляет отображением уведомлений о получении валюты.", options = hudUpdateDropdownOptions },
+    { name = "Получение почты", variable = "mailDisplayUpdateStyle", default = 1, tooltip = "Управляет отображением уведомлений о получении почты.", options = hudUpdateDropdownOptions },
+    { name = "Предупреждения", variable = "alertFrameStyle", default = 1, tooltip = "Управляет отображением фрейма предупреждений (AlertFrame).", options = hudUpdateDropdownOptions },
+    { name = "Ошибки", variable = "errorsFrameStyle", default = 1, tooltip = "Управляет отображением фрейма ошибок интерфейса (UIErrorsFrame).", options = hudUpdateDropdownOptions },
+    { name = "Локальные задания", variable = "hideObjectiveTrackerTopBannerFrame", default = 1, tooltip = "Управляет отображением баннера трекера заданий (ObjectiveTrackerTopBannerFrame).", options = hudDropdownOptions },
 }
 
 -- Разное
 local hudSettingsMisc = {
-    { name = "Название области", variable = "hideZoneTextFrame", default = 1, tooltip = "Управляет отображением фрейма текста зоны (ZoneTextFrame).", options = hudDropdownOptions },
-    { name = "Предупреждения", variable = "hideAlertFrame", default = 1, tooltip = "Управляет отображением фрейма предупреждений (AlertFrame).", options = hudDropdownOptions },
-    { name = "Ошибки", variable = "hideUIErrorsFrame", default = 1, tooltip = "Управляет отображением фрейма ошибок интерфейса (UIErrorsFrame).", options = hudDropdownOptions },
     { name = "Говорящая голова", variable = "hideTalkingHeadFrame", default = 1, tooltip = "Управляет отображением фрейма говорящей головы (TalkingHeadFrame).", options = hudDropdownOptions },
-    { name = "Высший пилотаж", variable = "hideUIWidgetPowerBarContainerFrame", default = 1, tooltip = "Управляет отображением фрейма полета на драконе (UIWidgetPowerBarContainerFrame).", options = hudDropdownOptions },
     { name = "Окно добычи", variable = "hideLootFrame", default = 1, tooltip = "Управляет отображением фрейма лута (LootFrame).", options = hudDropdownOptions },
 }
 
 -- Геймплей
 local hudSettingsGameplay = {
+    { name = "Вид индикаторов здоровья", variable = "enemyNameplateStyle", default = 2, tooltip = "Управляет видом полосы здоровья противников (Nameplate).", options = hudUpdateDropdownOptions },
     { name = "Плавающие цифры", variable = "floatingText", default = 3, tooltip = "Плавающие цифры урона, лечения и других эффектов (threatShowNumeric, enableFloatingCombatText, floatingCombatTextCombatDamage).", options = cvarHideDropdownOptions },
     { name = "Имена персонажей и игроков", variable = "unitNames", default = 3, tooltip = "Отключает отображение имен персонажей, игроков, питомцев и других юнитов (UnitNameEnemyGuardianName и другие).", options = cvarHideDropdownOptions },
     { name = "Реплики персонажей над головой", variable = "chatBubble", default = 4, tooltip = "Отключает облака с субтитрами над головой персонажей и игроков (chatBubbles, chatBubblesParty).", options = cvarDropdownOptions },
@@ -75,8 +86,6 @@ local standardUISettings = {
     { name = "Окно почты", variable = "mailWindowStyle", default = 2, tooltip = "Выберите стиль окна почты: обновленную версию или стандартную.", options = windowStyleOptions },
     { name = "Окно торговца", variable = "merchantWindowStyle", default = 2, tooltip = "Выберите стиль окна торговца: обновленную версию или стандартную.", options = windowStyleOptions },
     { name = "Окна диалогов и квестов", variable = "dialogQuestWindowStyle", default = 2, tooltip = "Выберите стиль окна диалогов и квестов: обновленную (более имерсивную) версию или стандартную.", options = windowStyleOptions },
-    { name = "Окно чата", variable = "chatWindowStyle", default = 2, tooltip = "Выберите стиль окна чата: обновленную версию (скрытую по умолчанию в центре экрана) или стандартную.", options = windowStyleOptions },
-    { name = "Уведомления", variable = "notificationFrame", default = 2, tooltip = "Обновленное отображение уведомлений.", options = toggleOptions },
 }
 
 local keyBindingSettings = {
@@ -124,7 +133,7 @@ end
 
 local function registerHUDOptions(category, layout)
     -- Основные элементы
-    layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Основные элементы"))
+    layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Основные"))
     for _, setting in ipairs(hudSettingsMainElements) do
         registerDropdown(category, setting, function(value)
             ConsoleMenuDB[setting.variable] = value
@@ -139,9 +148,25 @@ local function registerHUDOptions(category, layout)
         end)
     end
 
-    -- Бой
-    layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Бой"))
+    -- Панель команд
+    layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Панель команд"))
     for _, setting in ipairs(hudSettingsCombat) do
+        registerDropdown(category, setting, function(value)
+            ConsoleMenuDB[setting.variable] = value
+        end)
+    end
+
+    -- Баффы и дебаффы
+    layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Эффекты и ауры"))
+    for _, setting in ipairs(hudSettingsBuffsAndDebuffs) do
+        registerDropdown(category, setting, function(value)
+            ConsoleMenuDB[setting.variable] = value
+        end)
+    end
+
+    -- Оповещения
+    layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Оповещения"))
+    for _, setting in ipairs(hudSettingsNotifications) do
         registerDropdown(category, setting, function(value)
             ConsoleMenuDB[setting.variable] = value
         end)
@@ -373,7 +398,7 @@ local function RegisterOptions()
     local mainCategory, mainLayout = Settings.RegisterVerticalLayoutCategory("ConsoleMenu")
     registerMainOptions(mainCategory, mainLayout)
 
-    local hudCategory, hudLayout = Settings.RegisterVerticalLayoutSubcategory(mainCategory, "Интерфейс")
+    local hudCategory, hudLayout = Settings.RegisterVerticalLayoutSubcategory(mainCategory, "Элементы интерфейса")
     registerHUDOptions(hudCategory, hudLayout)
 
     local standardUICategory, standardUILayout = Settings.RegisterVerticalLayoutSubcategory(mainCategory, "Игровые окна")
