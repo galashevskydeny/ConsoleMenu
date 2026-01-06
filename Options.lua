@@ -8,7 +8,7 @@ if not ConsoleMenuDB then
 end
 
 local hudDropdownOptions = { "Не влиять", "Скрыть" }
-local hudUpdateDropdownOptions = { "Обновленный", "Стандартный", "Стандартный (скрываемый)" }
+local hudUpdateDropdownOptions = { "Стандартный", "Обновленный" }
 local windowStyleOptions = { "Обновленное", "Стандартное" }
 local cvarDropdownOptions = { "По умолчанию", "Включить", "Выключить", "Не влиять" }
 local cvarHideDropdownOptions = { "По умолчанию", "Скрыть", "Не влиять" }
@@ -29,9 +29,9 @@ local hudSettingsMainElements = {
     { name = "Панель сумок", variable = "hideBagsBarsBar", default = 1, tooltip = "Управляет отображением панели сумок (BagsBarsBar).", options = hudDropdownOptions },
 }
 
--- Рамки интерфейса
+-- Рамки противников и союзников
 local hudSettingsFrames = {
-    { name = "Игрок", variable = "hidePlayerFrame", default = 1, tooltip = "Управляет отображением фрейма игрока (PlayerFrame).", options = hudUpdateDropdownOptions },
+    { name = "Игрок", variable = "hidePlayerFrame", default = 1, tooltip = "Управляет отображением фрейма игрока (PlayerFrame).", options = hudDropdownOptions },
     { name = "Цель и выделенная цель", variable = "hideTargetFrame", default = 1, tooltip = "Управляет отображением фрейма цели (TargetFrame).", options = hudDropdownOptions },
     { name = "Интерфейс группы", variable = "hideCompactPartyFrame", default = 1, tooltip = "Управляет отображением фрейма группы (CompactPartyFrame).", options = hudDropdownOptions },
     { name = "Интерфейс рейда", variable = "hideCompactRaidFrame", default = 1, tooltip = "Управляет отображением фрейма рейда (CompactRaidFrame).", options = hudDropdownOptions },
@@ -40,7 +40,7 @@ local hudSettingsFrames = {
 
 -- Бой
 local hudSettingsCombat = {
-    { name = "Вид индикатора здоровья", variable = "enemyNameplateStyle", default = 2, tooltip = "Управляет видом полосы здоровья противников (Nameplate).", options = windowStyleOptions },
+    { name = "Вид индикаторов здоровья", variable = "enemyNameplateStyle", default = 2, tooltip = "Управляет видом полосы здоровья противников (Nameplate).", options = hudUpdateDropdownOptions },
     { name = "Вид панели команд", variable = "actionBarStyle", default = 1, tooltip = "Управляет отображением основной панели действий (ActionBar).", options = hudUpdateDropdownOptions },
     { name = "Панель питомца", variable = "hidePetActionBar", default = 1, tooltip = "Управляет отображением панели действий питомца (PetActionBar).", options = hudDropdownOptions },
     { name = "Индикатор заклинаний", variable = "hidePlayerCastingBarFrame", default = 1, tooltip = "Управляет отображением полосы заклинаний игрока (PlayerCastingBarFrame).", options = hudDropdownOptions },
@@ -131,8 +131,8 @@ local function registerHUDOptions(category, layout)
         end)
     end
 
-    -- Рамки интерфейса
-    layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Рамки интерфейса"))
+    -- Рамки противников и союзников
+    layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Рамки противников и союзников"))
     for _, setting in ipairs(hudSettingsFrames) do
         registerDropdown(category, setting, function(value)
             ConsoleMenuDB[setting.variable] = value

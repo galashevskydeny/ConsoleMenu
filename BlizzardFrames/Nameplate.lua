@@ -12,7 +12,7 @@ end
 -- Функция инициализации модуля Nameplate
 function ConsoleMenu:InitializeNameplate()
     
-    if not ConsoleMenuDB or ConsoleMenuDB.enemyNameplateStyle == 2 then return end
+    if not ConsoleMenuDB or ConsoleMenuDB.enemyNameplateStyle == 1 then return end
 
     hooksecurefunc(NamePlateUnitFrameMixin, "UpdateAnchors", function(self)
         local container = self.HealthBarsContainer

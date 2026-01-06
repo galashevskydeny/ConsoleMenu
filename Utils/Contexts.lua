@@ -165,25 +165,7 @@ local function SwitchActionBarPage()
 end
 
 function ConsoleMenu:ApplyContextUIChanges(context)
-    if context == "exploring" then
-        if ConsoleMenuDB.hidePlayerFrame == 3 then ConsoleMenu:HidePlayerFrame() end
-        if ConsoleMenuDB.actionBarStyle == 3 then ConsoleMenu:HideActionBar() end
-    elseif context == "precombat" then
-        if ConsoleMenuDB.hidePlayerFrame == 3 then ConsoleMenu:ShowPlayerFrame() end
-        if ConsoleMenuDB.actionBarStyle == 3 then ConsoleMenu:ShowActionBar() end
-    elseif context == "combat" then
-        if ConsoleMenuDB.hidePlayerFrame == 3 then ConsoleMenu:ShowPlayerFrame() end
-        if ConsoleMenuDB.actionBarStyle == 3 then ConsoleMenu:ShowActionBar() end
-    elseif context == "mount" then
-        if ConsoleMenuDB.hidePlayerFrame == 3 then ConsoleMenu:HidePlayerFrame() end
-        if ConsoleMenuDB.actionBarStyle == 3 then ConsoleMenu:HideActionBar() end
-    elseif context == "soul" then
-        if ConsoleMenuDB.hidePlayerFrame == 3 then ConsoleMenu:HidePlayerFrame() end
-        if ConsoleMenuDB.actionBarStyle == 3 then ConsoleMenu:HideActionBar() end
-    elseif context == "window" then
-        if ConsoleMenuDB.hidePlayerFrame == 3 then ConsoleMenu:HidePlayerFrame() end
-        if ConsoleMenuDB.actionBarStyle == 3 then ConsoleMenu:HideActionBar() end
-    end
+
 end
 
 -- Функция инициализации контекстов
