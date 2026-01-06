@@ -71,6 +71,8 @@ function ConsoleMenu:AddNotification(event, message, caption, identifier, value)
 
     if not notificationUpdateTimer then
         ConsoleMenu:NotificationFrameUpdate()
+    elseif notificationUpdateTimer and NotificationEventPriority[event] == 1 then
+        ConsoleMenu:NotificationFrameUpdate()
     end
 
     return
@@ -242,14 +244,15 @@ function ConsoleMenu:NotificationFrameUpdate()
         return
     end
 
-    if ConsoleMenuFrame.NotificationFrame:IsShown() then
+    local notification = GetTopPriorityNotification()
+
+    if ConsoleMenuFrame.NotificationFrame:IsShown() and notification and NotificationEventPriority[notification.event] ~= 1 then
         C_Timer.After(delay, function()
             ConsoleMenu:NotificationFrameUpdate()
         end)
         return
     end
 
-    local notification = GetTopPriorityNotification()
     notification = GetGroupedNotification(notification)
 
     if notification then
