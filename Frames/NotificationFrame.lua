@@ -208,7 +208,7 @@ local function GetGroupedNotification(notification)
     elseif notification.event == "ZONE_CHANGED_NEW_AREA" or notification.event == "ZONE_CHANGED" or notification.event == "ZONE_CHANGED_INDOORS" then
         local zoneText = GetMinimapZoneText()
         notification.text = zoneText
-
+        
         -- Удаляем все уведомления о смене области или изучении новой области
         for i = #ConsoleMenu.Notifications, 1, -1 do
             if ConsoleMenu.Notifications[i].event == "ZONE_CHANGED_NEW_AREA" or ConsoleMenu.Notifications[i].event == "ZONE_CHANGED" or ConsoleMenu.Notifications[i].event == "ZONE_CHANGED_INDOORS" or (ConsoleMenu.Notifications[i].event == "UI_INFO_MESSAGE" and ConsoleMenu.Notifications[i].identifier == 408 and ConsoleMenu.Notifications[i].text == zoneText) then
@@ -224,7 +224,7 @@ local function GetGroupedNotification(notification)
 
         -- Удаляем отображаемое уведомление
         for i = #ConsoleMenu.Notifications, 1, -1 do
-            if ConsoleMenu.Notifications[i] == notification or (ConsoleMenu.Notifications[i].event == "ZONE_CHANGED_NEW_AREA" or ConsoleMenu.Notifications[i].event == "ZONE_CHANGED" or ConsoleMenu.Notifications[i].event == "ZONE_CHANGED_INDOORS") then
+            if ConsoleMenu.Notifications[i] == notification then
                 table.remove(ConsoleMenu.Notifications, i)
             end
         end
@@ -249,7 +249,7 @@ function ConsoleMenu:NotificationFrameUpdate()
 
         local event = notification.event
 
-        if event == "ZONE_CHANGED_NEW_AREA" or event == "ZONE_CHANGED" or event == "ZONE_CHANGED_INDOORS" then
+        if event == "ZONE_CHANGED_NEW_AREA" or event == "ZONE_CHANGED" or event == "ZONE_CHANGED_INDOORS" or (event == "UI_INFO_MESSAGE" and notification.identifier == 408) then
             ConsoleMenu.Deduplication[notification.text] = GetTime() + deduplicationDuration
         end
 
@@ -267,7 +267,7 @@ function ConsoleMenu:NotificationFrameUpdate()
             frame.Caption:Hide()
         end
 
-        local duration = NotificationDuration and NotificationDuration[notification.event] or 5
+        local duration = NotificationDuration[notification.event] or 5
     
         if duration then
             if notificationUpdateTimer then
@@ -399,9 +399,7 @@ function ConsoleMenu:SetNotificationFrame()
             local zoneText = GetMinimapZoneText()
             if ConsoleMenu.Deduplication[zoneText] and GetTime() <= ConsoleMenu.Deduplication[zoneText] then return end
 
-            C_Timer.After(delay, function()
-                ConsoleMenu:AddNotification(event)
-            end)
+            ConsoleMenu:AddNotification(event)
         elseif event == "UI_INFO_MESSAGE" then
             local messageType, message = ...
 
@@ -409,8 +407,31 @@ function ConsoleMenu:SetNotificationFrame()
 
             local zoneText = message:match(":%s*(.+)")
             local caption = message:match("^([^:]+):")
-            
-            ConsoleMenu:AddNotification(event, zoneText, caption, messageType)
+
+            if ConsoleMenuFrame.NotificationFrame:IsShown() and zoneText == ConsoleMenuFrame.NotificationFrame.Text:GetText() then
+                ConsoleMenuFrame.NotificationFrame.Caption:SetText(caption)
+                local duration = NotificationDuration[notification.event] or 5
+    
+                if duration then
+                    if notificationUpdateTimer then
+                        notificationUpdateTimer:Cancel()
+                    end
+        
+                    notificationUpdateTimer = C_Timer.NewTimer(duration, function()
+                        notificationUpdateTimer = nil
+                        -- Скрываем текущее уведомление с анимацией
+                        ConsoleMenu:AnimatedHide(ConsoleMenuFrame.NotificationFrame)
+                        -- Ждем окончания анимации исчезновения перед проверкой следующего уведомления
+                        C_Timer.After(animationDuration + delay, function()
+                            -- После отображения проверяем, есть ли еще уведомления в очереди
+                            ConsoleMenu:NotificationFrameUpdate()
+                        end)
+                    end)
+                end
+            else
+                ConsoleMenu:AddNotification(event, zoneText, caption, messageType)
+            end
+        
         else
             local msg = ...
             ConsoleMenu:AddNotification(event, msg)
