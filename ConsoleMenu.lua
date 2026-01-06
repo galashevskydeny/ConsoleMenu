@@ -74,7 +74,7 @@ local function Initialize()
         end
         ConsoleMenu:SetBaseKeyBindings()
 
-        if ConsoleMenuDB.hideTimeManagerClockButton == 2 or ConsoleMenuDB.hideMinimap == 2 or ConsoleMenuDB.hideMinimapCluster == 2 then
+        if ConsoleMenuDB.hideMinimap == 2 or ConsoleMenuDB.hideMinimapCluster == 2 then
             ConsoleMenu:DisableTimeManagerClockButton()
         end
 

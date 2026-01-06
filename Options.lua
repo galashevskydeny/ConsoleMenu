@@ -83,7 +83,6 @@ local hudSettingsGameplay = {
 -- Настройки миникарты
 local minimapSettings = {
     { name = "Сводка", variable = "hideExpansionLandingPageMinimapButton", default = 1, tooltip = "Управляет отображением кнопки сводки (ExpansionLandingPageMinimapButton).", options = hudDropdownOptions },
-    { name = "Часы", variable = "hideTimeManagerClockButton", default = 1, tooltip = "Управляет отображением времени в шапке (TimeManagerClockButton).", options = hudDropdownOptions },
     { name = "Шапка", variable = "hideMinimapCluster", default = 1, tooltip = "Управляет отображением шапки (MinimapCluster).", options = hudDropdownOptions },
 }
 
