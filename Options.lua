@@ -13,7 +13,6 @@ local windowStyleOptions = { "Обновленное", "Стандартное" 
 local cvarDropdownOptions = { "По умолчанию", "Включить", "Выключить", "Не влиять" }
 local cvarHideDropdownOptions = { "По умолчанию", "Скрыть", "Не влиять" }
 local toggleOptions = { "Включено", "Отклюнено" }
-local interactButtonMap = { "PAD1", "PAD2", "PAD3", "PAD4" }
 
 local mainCategorySettings = {
     { name = "Вырез экрана MacBook Pro", variable = "enableMacBook", default = 1, tooltip = "Смещает элементы интерфейса вниз для MacBook Pro с вырезом экрана.", options = toggleOptions }
@@ -81,6 +80,14 @@ local hudSettingsGameplay = {
     { name = "Выделение персонажей и игроков", variable = "hideGraphicsOutlineMode", default = 3, tooltip = "Отключает режим контуров графики (graphicsOutlineMode).", options = cvarHideDropdownOptions },
 }
 
+-- Настройки миникарты
+local minimapSettings = {
+    { name = "Сводка", variable = "hideExpansionLandingPageMinimapButton", default = 1, tooltip = "Управляет отображением кнопки сводки (ExpansionLandingPageMinimapButton).", options = hudDropdownOptions },
+    { name = "Часы", variable = "hideTimeManagerClockButton", default = 1, tooltip = "Управляет отображением времени в шапке (TimeManagerClockButton).", options = hudDropdownOptions },
+    { name = "Шапка", variable = "hideMinimapCluster", default = 1, tooltip = "Управляет отображением шапки (MinimapCluster).", options = hudDropdownOptions },
+}
+
+-- Игровые окна
 local standardUISettings = {
     { name = "Окно персонажа", variable = "characterWindowStyle", default = 2, tooltip = "Выберите стиль окна персонажа: обновленную версию или стандартную.", options = windowStyleOptions },
     { name = "Окно почты", variable = "mailWindowStyle", default = 2, tooltip = "Выберите стиль окна почты: обновленную версию или стандартную.", options = windowStyleOptions },
@@ -88,6 +95,7 @@ local standardUISettings = {
     { name = "Окна диалогов и квестов", variable = "dialogQuestWindowStyle", default = 2, tooltip = "Выберите стиль окна диалогов и квестов: обновленную (более имерсивную) версию или стандартную.", options = windowStyleOptions },
 }
 
+-- Настройки клавиш
 local keyBindingSettings = {
     { name = "Переопределять кнопку при наличии объекта взаимодействия", variable = "overrideInteractKey", default = 1, tooltip = "Если включено, основная кнопка автоматически использует действие взаимодействия при наличии объекта.", options = toggleOptions },
     { name = "Переопределять кнопку при наличии способности области", variable = "overrideZoneAbilityKey", default = 2, tooltip = "Если включено, выбранная кнопка автоматически использует способность области, если она доступна.", options = toggleOptions },
@@ -100,6 +108,7 @@ local keyBindingSettings = {
     { name = "Переопределять кнопку при произнесении заклинания", variable = "overrideStopCastingKey", default = 1, tooltip = "Если включено, выбранная кнопка автоматически используется для остановки заклинания (действует только вне боя).", options = toggleOptions },
 }
 
+-- Настройки контекстов
 local contextsSettings = {
     { name = "Переключение страниц панели команд", variable = "actionBarPageSwitching", default = 2, tooltip = "Управляет переключением страниц панели команд автоматически в зависимости от контекста игрока (в бою, на транспорте, при рассмотрении дружественного игрока и другие).", options = toggleOptions },
     { name = "Игнорировать противников при верховой езде", variable = "softTargetFlightSwitching", default = 2, tooltip = "Отключение Soft Target на противниках при верховой езде.", options = toggleOptions},
@@ -107,6 +116,7 @@ local contextsSettings = {
     { name = "Малая дистанция обнаружения союзников", variable = "softTargetFriendSanctuaryRange", default = 2, tooltip = "Радиус фокусировки союзников в святилищах 5 метров (SoftTargetFriendRange).", options = toggleOptions},
 }
 
+-- Настройки заданий
 local questSettings = {
     { name = "Переключение активного задания", variable = "questSuperTrackEnable", default = 2, tooltip = "Автоматическое переключение активного задания (Super Track).", options = toggleOptions },
     { name = "Внимание на локальные задания", variable = "questFocusLocalQuests", default = 2, tooltip = "Автоматически выбирать локальные задания при вхождении в область их выполнения с последующим возвратом предыдущего задания (если оно было выбрано).", options = toggleOptions },
@@ -390,6 +400,14 @@ local function registerQuestOptions(category, layout)
     end
 end
 
+local function registerMinimapOptions(category, layout)
+    for _, setting in ipairs(minimapSettings) do
+        registerDropdown(category, setting, function(value)
+            ConsoleMenuDB[setting.variable] = value
+        end)
+    end
+end
+
 local function RegisterOptions()
     if not Settings then
         return false
@@ -400,6 +418,9 @@ local function RegisterOptions()
 
     local hudCategory, hudLayout = Settings.RegisterVerticalLayoutSubcategory(mainCategory, "Элементы интерфейса")
     registerHUDOptions(hudCategory, hudLayout)
+
+    local minimapCategory, minimapLayout = Settings.RegisterVerticalLayoutSubcategory(hudCategory, "Миникарта")
+    registerMinimapOptions(minimapCategory, minimapLayout)
 
     local standardUICategory, standardUILayout = Settings.RegisterVerticalLayoutSubcategory(mainCategory, "Игровые окна")
     registerStandardUIOptions(standardUICategory, standardUILayout)

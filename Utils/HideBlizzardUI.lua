@@ -74,20 +74,24 @@ local function DisablePlayerCastingBarFrame()
     PlayerCastingBarFrame:UnregisterAllEvents()
 end
 
--- Скрывает фрейм аддонов (AddonCompartmentFrame)
-local function DisableAddonCompartmentFrame()
-    AddonCompartmentFrame:Hide()
-    RegisterStateDriver(AddonCompartmentFrame, "visibility", "hide")
-    AddonCompartmentFrame:UnregisterAllEvents()
+-- Скрывает кнопку сводки (ExpansionLandingPageMinimapButton) на миникарте
+local function DisableExpansionLandingPageMinimapButton()
+    ExpansionLandingPageMinimapButton:Hide()
+    RegisterStateDriver(ExpansionLandingPageMinimapButton, "visibility", "hide")
 end
 
--- Скрывает миникарту и связанные элементы (Minimap, GameTimeFrame, BuffFrame, DebuffFrame и т.д.)
-local function DisableMinimap()
-    Minimap:SetAlpha(0.0)
-    Minimap:SetScale(0.00001)
+-- Скрывает кнопку часов (TimeManagerClockButton)
+function ConsoleMenu:DisableTimeManagerClockButton()
+    if TimeManagerClockButton then
+        TimeManagerClockButton:Hide()
+        RegisterStateDriver(TimeManagerClockButton, "visibility", "hide")
+        TimeManagerClockButton:UnregisterAllEvents()
+        TimeManagerClockButton:SetAlpha(0.0)
+    end
+end
 
-    DisableAddonCompartmentFrame()
-
+-- Скрывает кластер миникарты (MinimapCluster)
+local function DisableMinimapCluster()
     UIWidgetBelowMinimapContainerFrame:Hide()
     RegisterStateDriver(UIWidgetBelowMinimapContainerFrame, "visibility", "hide")
 
@@ -111,6 +115,18 @@ local function DisableMinimap()
 
     MinimapCluster.BorderTop:Hide()
     RegisterStateDriver(MinimapCluster.BorderTop, "visibility", "hide")
+
+    AddonCompartmentFrame:Hide()
+    RegisterStateDriver(AddonCompartmentFrame, "visibility", "hide")
+    AddonCompartmentFrame:UnregisterAllEvents()
+end
+
+-- Скрывает миникарту и связанные элементы (Minimap, GameTimeFrame, BuffFrame, DebuffFrame и т.д.)
+local function DisableMinimap()
+    Minimap:SetAlpha(0.0)
+    Minimap:SetScale(0.00001)
+
+    DisableMinimapCluster()
 end
 
 -- Скрывает фрейм баффов (BuffFrame)
@@ -123,16 +139,6 @@ end
 local function HideDebuffFrame()
     DebuffFrame:Hide()
     RegisterStateDriver(DebuffFrame, "visibility", "hide")
-end
-
--- Скрывает кнопку часов (TimeManagerClockButton)
-function ConsoleMenu:DisableTimeManagerClockButton()
-    if TimeManagerClockButton then
-        TimeManagerClockButton:Hide()
-        RegisterStateDriver(TimeManagerClockButton, "visibility", "hide")
-        TimeManagerClockButton:UnregisterAllEvents()
-        TimeManagerClockButton:SetAlpha(0.0)
-    end
 end
 
 -- Скрывает меню (MicroMenu)
@@ -303,6 +309,14 @@ function ConsoleMenu:HideBlizzardUI()
     
     if ConsoleMenuDB.hideMinimap == 2 then
         DisableMinimap()
+    end
+    
+    if ConsoleMenuDB.hideExpansionLandingPageMinimapButton == 2 then
+        DisableExpansionLandingPageMinimapButton()
+    end
+
+    if ConsoleMenuDB.hideMinimapCluster == 2 then
+        DisableMinimapCluster()
     end
     
     if ConsoleMenuDB.hidePlayerCastingBarFrame == 2 then

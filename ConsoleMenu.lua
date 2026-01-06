@@ -73,7 +73,11 @@ local function Initialize()
             _G.ApplyGamePadCVars()
         end
         ConsoleMenu:SetBaseKeyBindings()
-        ConsoleMenu:DisableTimeManagerClockButton()
+
+        if ConsoleMenuDB.hideTimeManagerClockButton == 2 or ConsoleMenuDB.hideMinimap == 2 or ConsoleMenuDB.hideMinimapCluster == 2 then
+            ConsoleMenu:DisableTimeManagerClockButton()
+        end
+
         ConsoleMenu:SetFastTravelFrame()
 
         _G.ApplyMacroSettings()
