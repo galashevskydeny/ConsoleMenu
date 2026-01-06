@@ -37,17 +37,17 @@ local NotificationDuration = {
     PERKS_PROGRAM_CURRENCY_AWARDED = 5,
     UPDATE_PENDING_MAIL = 10,
 
-    ZONE_CHANGED_NEW_AREA = 3,
-    ZONE_CHANGED = 3,
-    ZONE_CHANGED_INDOORS = 3,
-    UI_INFO_MESSAGE = 3,
+    ZONE_CHANGED_NEW_AREA = 5,
+    ZONE_CHANGED = 5,
+    ZONE_CHANGED_INDOORS = 5,
+    UI_INFO_MESSAGE = 5,
 }
 
 local ignoredCurrencies = {
     [3372] = true,
 }
 
-local deduplicationDuration = 30
+local deduplicationDuration = 45
 
 -- Функция для добавления уведомлений
 function ConsoleMenu:AddNotification(event, message, caption, identifier, value)
@@ -208,7 +208,7 @@ local function GetGroupedNotification(notification)
     elseif notification.event == "ZONE_CHANGED_NEW_AREA" or notification.event == "ZONE_CHANGED" or notification.event == "ZONE_CHANGED_INDOORS" then
         local zoneText = GetMinimapZoneText()
         notification.text = zoneText
-        
+
         -- Удаляем все уведомления о смене области или изучении новой области
         for i = #ConsoleMenu.Notifications, 1, -1 do
             if ConsoleMenu.Notifications[i].event == "ZONE_CHANGED_NEW_AREA" or ConsoleMenu.Notifications[i].event == "ZONE_CHANGED" or ConsoleMenu.Notifications[i].event == "ZONE_CHANGED_INDOORS" or (ConsoleMenu.Notifications[i].event == "UI_INFO_MESSAGE" and ConsoleMenu.Notifications[i].identifier == 408 and ConsoleMenu.Notifications[i].text == zoneText) then
@@ -219,6 +219,8 @@ local function GetGroupedNotification(notification)
                 table.remove(ConsoleMenu.Notifications, i)
             end
         end
+
+        if ConsoleMenu.Deduplication[zoneText] and GetTime() <= ConsoleMenu.Deduplication[zoneText] then return end
 
     elseif notification.event == "UI_INFO_MESSAGE" then
 
@@ -237,6 +239,13 @@ end
 -- Функция для обновления NotificationFrame
 function ConsoleMenu:NotificationFrameUpdate()
     if not ConsoleMenu or not ConsoleMenu.Notifications then
+        return
+    end
+
+    if ConsoleMenuFrame.NotificationFrame:IsShown() then
+        C_Timer.After(delay, function()
+            ConsoleMenu:NotificationFrameUpdate()
+        end)
         return
     end
 
@@ -409,8 +418,13 @@ function ConsoleMenu:SetNotificationFrame()
             local caption = message:match("^([^:]+):")
 
             if ConsoleMenuFrame.NotificationFrame:IsShown() and zoneText == ConsoleMenuFrame.NotificationFrame.Text:GetText() then
+
+                -- Случай, когда уведомление о смене области уже отображается и во время отображения появляется новое уведомление об изучении этой области
                 ConsoleMenuFrame.NotificationFrame.Caption:SetText(caption)
-                local duration = NotificationDuration[notification.event] or 5
+                ConsoleMenuFrame.NotificationFrame.Caption:Show()
+                ConsoleMenuFrame.NotificationFrame.fadeOut:Stop()
+
+                local duration = NotificationDuration[event] or 5
     
                 if duration then
                     if notificationUpdateTimer then
