@@ -2,6 +2,7 @@ local ConsoleMenu = _G.ConsoleMenu
 
 local frameWidth = 304
 local frameHeight = 56
+local captionPadding = 4
 
 local titleFontSize = 24
 local fontSize = 20
@@ -14,26 +15,32 @@ local notificationUpdateTimer = nil
 
 local NotificationEventPriority = {
     UI_ERROR_MESSAGE = 1,
+
     CHAT_MSG_MONEY = 3,
     CHAT_MSG_COMBAT_FACTION_CHANGE = 3,
     CURRENCY_DISPLAY_UPDATE = 3,
     PERKS_PROGRAM_CURRENCY_AWARDED = 3,
     UPDATE_PENDING_MAIL = 2,
+
     ZONE_CHANGED_NEW_AREA = 2,
     ZONE_CHANGED = 2,
     ZONE_CHANGED_INDOORS = 2,
+    UI_INFO_MESSAGE = 2,
 }
 
 local NotificationDuration = {
     UI_ERROR_MESSAGE = 3,
+
     CHAT_MSG_MONEY = 5,
     CHAT_MSG_COMBAT_FACTION_CHANGE = 5,
     CURRENCY_DISPLAY_UPDATE = 5,
     PERKS_PROGRAM_CURRENCY_AWARDED = 5,
     UPDATE_PENDING_MAIL = 10,
+
     ZONE_CHANGED_NEW_AREA = 3,
     ZONE_CHANGED = 3,
     ZONE_CHANGED_INDOORS = 3,
+    UI_INFO_MESSAGE = 3,
 }
 
 local ignoredCurrencies = {
@@ -43,7 +50,7 @@ local ignoredCurrencies = {
 local deduplicationDuration = 30
 
 -- Функция для добавления уведомлений
-function ConsoleMenu:AddNotification(event, message, identifier, value)
+function ConsoleMenu:AddNotification(event, message, caption, identifier, value)
     if not ConsoleMenu or not ConsoleMenu.Notifications then
         return
     end
@@ -52,11 +59,12 @@ function ConsoleMenu:AddNotification(event, message, identifier, value)
 
     -- Создаем таблицу субтитра
     local notificationData = {
-        text = message,
         event = event,
+        text = message,
+        caption = caption,
         identifier = identifier,
-        startTime = GetTime(),
         value = value,
+        startTime = GetTime(),
     }
 
     table.insert(ConsoleMenu.Notifications, notificationData)
@@ -113,7 +121,7 @@ local function GetGroupedNotification(notification)
     if not notification then return end
 
     if notification.event == "UI_ERROR_MESSAGE" then
-        -- Удаляем все уведомления с таким же текстом, как у notification
+        -- Удаляем все уведомления с таким же текстом или просроченные ошибки
         for i = #ConsoleMenu.Notifications, 1, -1 do
             if ConsoleMenu.Notifications[i].text == notification.text or (GetTime() - ConsoleMenu.Notifications[i].startTime > NotificationDuration[notification.event]) then
                 table.remove(ConsoleMenu.Notifications, i)
@@ -123,20 +131,19 @@ local function GetGroupedNotification(notification)
         -- Если уведомление просрочено, не игнорируем
         if GetTime() - notification.startTime > NotificationDuration[notification.event] then return end
 
-        return notification
+        
     elseif notification.event == "CHAT_MSG_MONEY" then
+        -- Удаляем отображаемое уведомление
         for i = #ConsoleMenu.Notifications, 1, -1 do
             if ConsoleMenu.Notifications[i] == notification then
                 table.remove(ConsoleMenu.Notifications, i)
             end
         end
-        return notification
     elseif notification.event == "CHAT_MSG_COMBAT_FACTION_CHANGE" then
         -- Используем подход из WeakAura: паттерн с %D (не-цифра) для правильного разделения
         -- %D гарантирует, что мы находим число, окруженное не-цифрами, что игнорирует числа в форматировании WoW
         local previousText, value, nextText = notification.text:match("^(.*%D)([%+%-]?%d+)(%D*)$")
         
-        print("previousText: ", previousText, " value: ", value, " nextText: ", nextText)
         if not previousText or not value or not nextText then
             return notification
         end
@@ -155,32 +162,31 @@ local function GetGroupedNotification(notification)
         notification.value = sum
         notification.text = previousText .. sum .. nextText
 
-        return notification
     elseif notification.event == "CURRENCY_DISPLAY_UPDATE" then
-        -- просуммировать value всех записей с notification.identifier и удалить
-        if notification.identifier then
-            local sum = 0
-            for i = #ConsoleMenu.Notifications, 1, -1 do
-                local n = ConsoleMenu.Notifications[i]
-                if n.event == notification.event and n.identifier == notification.identifier and n.value then
-                    sum = sum + n.value
-                    table.remove(ConsoleMenu.Notifications, i)
-                end
-            end
-            -- Создаем новый notification с суммированным value
-            notification.value = sum
-            
-            local info = C_CurrencyInfo.GetCurrencyInfo(notification.identifier)
-            
-            if info and info.name then
-                local title = _G["PROFESSIONS_CRAFT_OUTPUT_TITLE"]
-                local msg = string.format("%s %s x%d.", title, info.name, sum)
-                notification.text = msg
-            end
+        -- Просуммировать value всех записей с notification.identifier и удалить
+        if not notification.identifier then return end
 
-            return notification
+        local sum = 0
+        for i = #ConsoleMenu.Notifications, 1, -1 do
+            local n = ConsoleMenu.Notifications[i]
+            if n.event == notification.event and n.identifier == notification.identifier and n.value then
+                sum = sum + n.value
+                table.remove(ConsoleMenu.Notifications, i)
+            end
         end
+        notification.value = sum
+        
+        local info = C_CurrencyInfo.GetCurrencyInfo(notification.identifier)
+        
+        if info and info.name then
+            local title = _G["PROFESSIONS_CRAFT_OUTPUT_TITLE"]
+            local msg = string.format("%s %s x%d.", title, info.name, sum)
+            notification.text = msg
+        end
+
     elseif notification.event == "PERKS_PROGRAM_CURRENCY_AWARDED" then
+
+        -- Удаляем отображаемое уведомление
         for i = #ConsoleMenu.Notifications, 1, -1 do
             if ConsoleMenu.Notifications[i] == notification then
                 table.remove(ConsoleMenu.Notifications, i)
@@ -190,26 +196,42 @@ local function GetGroupedNotification(notification)
         local info = C_CurrencyInfo.GetBasicCurrencyInfo(notification.identifier)
         local title = _G["PROFESSIONS_CRAFT_OUTPUT_TITLE"]
         notification.text = string.format("%s %s x%d.", title, info.name, notification.value)
-        return notification
+
     elseif notification.event == "UPDATE_PENDING_MAIL" then
+
+        -- Удаляем все уведомления с таким же событием
         for i = #ConsoleMenu.Notifications, 1, -1 do
             if ConsoleMenu.Notifications[i].event == notification.event then
                 table.remove(ConsoleMenu.Notifications, i)
             end
         end
-        return notification
     elseif notification.event == "ZONE_CHANGED_NEW_AREA" or notification.event == "ZONE_CHANGED" or notification.event == "ZONE_CHANGED_INDOORS" then
         local zoneText = GetMinimapZoneText()
         notification.text = zoneText
 
+        -- Удаляем все уведомления о смене области или изучении новой области
         for i = #ConsoleMenu.Notifications, 1, -1 do
-            if ConsoleMenu.Notifications[i].event == "ZONE_CHANGED_NEW_AREA" or ConsoleMenu.Notifications[i].event == "ZONE_CHANGED" or ConsoleMenu.Notifications[i].event == "ZONE_CHANGED_INDOORS" then
+            if ConsoleMenu.Notifications[i].event == "ZONE_CHANGED_NEW_AREA" or ConsoleMenu.Notifications[i].event == "ZONE_CHANGED" or ConsoleMenu.Notifications[i].event == "ZONE_CHANGED_INDOORS" or (ConsoleMenu.Notifications[i].event == "UI_INFO_MESSAGE" and ConsoleMenu.Notifications[i].identifier == 408) then
+                if ConsoleMenu.Notifications[i].event == "UI_INFO_MESSAGE" and ConsoleMenu.Notifications[i].identifier == 408 then
+                    notification.caption = ConsoleMenu.Notifications[i].caption
+                end
+
                 table.remove(ConsoleMenu.Notifications, i)
             end
         end
 
-        return notification
+    elseif notification.event == "UI_INFO_MESSAGE" then
+
+        -- Удаляем отображаемое уведомление
+        for i = #ConsoleMenu.Notifications, 1, -1 do
+            if ConsoleMenu.Notifications[i] == notification or (ConsoleMenu.Notifications[i].event == "ZONE_CHANGED_NEW_AREA" or ConsoleMenu.Notifications[i].event == "ZONE_CHANGED" or ConsoleMenu.Notifications[i].event == "ZONE_CHANGED_INDOORS") then
+                table.remove(ConsoleMenu.Notifications, i)
+            end
+        end
+
     end
+
+    return notification
 end
 
 -- Функция для обновления NotificationFrame
@@ -232,10 +254,17 @@ function ConsoleMenu:NotificationFrameUpdate()
         end
 
         local frame = ConsoleMenuFrame.NotificationFrame
-        if event == "ZONE_CHANGED_NEW_AREA" or event == "ZONE_CHANGED" or event == "ZONE_CHANGED_INDOORS" then
+        if event == "ZONE_CHANGED_NEW_AREA" or event == "ZONE_CHANGED" or event == "ZONE_CHANGED_INDOORS" or (event == "UI_INFO_MESSAGE" and notification.identifier == 408) then
             frame.Text:SetFont("Fonts\\FRIZQT___CYR.TTF", titleFontSize, "")
         else
             frame.Text:SetFont("Fonts\\FRIZQT___CYR.TTF", fontSize, "")
+        end
+
+        if notification.caption then
+            frame.Caption:SetText(notification.caption)
+            frame.Caption:Show()
+        else
+            frame.Caption:Hide()
         end
 
         local duration = NotificationDuration and NotificationDuration[notification.event] or 5
@@ -310,6 +339,20 @@ function ConsoleMenu:SetNotificationFrame()
         frame.Text:SetWordWrap(true)
     end
 
+    -- Текст уведомления
+    if not frame.Caption then
+        frame.Caption = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        frame.Caption:SetPoint("TOPLEFT", frame.Text, "BOTTOMLEFT", 0, -captionPadding)
+        frame.Caption:SetPoint("TOPRIGHT", frame.Text, "BOTTOMRIGHT", 0, -captionPadding)
+        frame.Caption:SetFont("Fonts\\FRIZQT___CYR.TTF", captionFontSize, "")
+        frame.Caption:SetTextColor(1.0, 0.960784, 0.772549, 0.6)
+        frame.Caption:SetJustifyH("LEFT")
+        frame.Caption:SetText("")
+        frame.Caption:SetNonSpaceWrap(true)
+        frame.Caption:Hide()
+        frame.Caption:SetWordWrap(true)
+    end
+
     frame:RegisterEvent("UI_ERROR_MESSAGE")
 
     frame:RegisterEvent("CHAT_MSG_MONEY")
@@ -321,6 +364,7 @@ function ConsoleMenu:SetNotificationFrame()
     frame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
     frame:RegisterEvent("ZONE_CHANGED")
     frame:RegisterEvent("ZONE_CHANGED_INDOORS")
+    frame:RegisterEvent("UI_INFO_MESSAGE")
 
     local function OnNotificationEvent(self, event, ...)
 
@@ -339,15 +383,15 @@ function ConsoleMenu:SetNotificationFrame()
             if ignoredCurrencies[currencyID] then return end
 
             if quantityChange and quantityChange > 0 then
-                ConsoleMenu:AddNotification(event, nil, currencyID, quantityChange)
+                ConsoleMenu:AddNotification(event, nil, nil, currencyID, quantityChange)
             end
         elseif event == "PERKS_PROGRAM_CURRENCY_AWARDED" then
             local value = ...
-            ConsoleMenu:AddNotification(event, nil, 2032, value)
+            ConsoleMenu:AddNotification(event, nil, nil, 2032, value)
         elseif event == "UPDATE_PENDING_MAIL" then
             if HasNewMail() then
                 C_Timer.After(2, function()
-                    ConsoleMenu:AddNotification(event, HAVE_MAIL, nil, nil)
+                    ConsoleMenu:AddNotification(event, HAVE_MAIL)
                 end)
             end
         elseif event == "ZONE_CHANGED_NEW_AREA" or event == "ZONE_CHANGED" or event == "ZONE_CHANGED_INDOORS" then
@@ -355,7 +399,18 @@ function ConsoleMenu:SetNotificationFrame()
             local zoneText = GetMinimapZoneText()
             if ConsoleMenu.Deduplication[zoneText] and GetTime() <= ConsoleMenu.Deduplication[zoneText] then return end
 
-            ConsoleMenu:AddNotification(event, nil, nil, nil)
+            C_Timer.After(delay, function()
+                ConsoleMenu:AddNotification(event)
+            end)
+        elseif event == "UI_INFO_MESSAGE" then
+            local messageType, message = ...
+
+            if messageType ~= 408 then return end
+
+            local zoneText = message:match(":%s*(.+)")
+            local caption = message:match("^([^:]+):")
+            
+            ConsoleMenu:AddNotification(event, zoneText, caption, messageType)
         else
             local msg = ...
             ConsoleMenu:AddNotification(event, msg)
