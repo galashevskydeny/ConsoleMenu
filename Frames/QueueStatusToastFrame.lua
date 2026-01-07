@@ -9,8 +9,137 @@ local captionFontSize = 16
 
 local animationDuration = 0.3
 
+-- Функция для получения минимальной ожидания очереди
+local function GetMinimumQueueWait()
+    if not ConsoleMenu.Queues or #ConsoleMenu.Queues == 0 then
+        return nil
+    end
+    local minWait = nil
+    for _, queue in ipairs(ConsoleMenu.Queues) do
+        if queue.wait and type(queue.wait) == "number" then
+            if not minWait or queue.wait < minWait then
+                minWait = queue.wait
+            end
+        end
+    end
+    return minWait
+end
+
+-- Функция для обновления QueueStatusToastFrame
+local function QueueStatusToastFrameUpdate()
+    if not ConsoleMenu.Queues or #ConsoleMenu.Queues == 0 then
+        if ConsoleMenuFrame.QueueStatusToastFrame:IsShown() then
+            ConsoleMenu:AnimatedHide(ConsoleMenuFrame.QueueStatusToastFrame)
+        end
+        return
+    end
+
+    local minWait = GetMinimumQueueWait()
+
+    if minWait and minWait > 0 then
+        ConsoleMenuFrame.QueueStatusToastFrame.Caption:SetText("ещё примерно " .. minWait .. " мин.")
+    elseif minWait and minWait <= 0 then
+        ConsoleMenuFrame.QueueStatusToastFrame.Caption:SetText("призыв совсем скоро...")
+    else
+        local messages = {
+            "рассылаем агентов...",
+            "призываем рекрутов...",
+            "договариваемся с наёмниками...",
+            "опрашиваем гарнизон...",
+        }
+
+        local message = messages[math.random(1, #messages)]
+        ConsoleMenuFrame.QueueStatusToastFrame.Caption:SetText(message)
+    end
+
+    ConsoleMenu:AnimatedShow(ConsoleMenuFrame.QueueStatusToastFrame)
+end
+
+-- Функция для обновления списка очередей
+local function UpdateQueue()
+   local queues = {}
+
+    -- Plunderstorm Queue
+    local queuedForPlunderstorm = C_LobbyMatchmakerInfo.IsInQueue();
+	if queuedForPlunderstorm then
+        table.insert(queues, {
+            type = "Plunderstorm",
+            wait = nil,
+        })
+    end
+
+    --Try each LFG type
+    for i=1, NUM_LE_LFG_CATEGORYS do
+        local hasData, _, _, _, _, _, _, _, _, _, _, averageWait, _, _, _, _, queuedTime, _ = GetLFGQueueStats(i)
+
+        if hasData then
+            local wait
+
+            if averageWait and queuedTime then
+                wait = math.ceil((averageWait - (GetTime() - queuedTime)) / 60)
+            end
+
+            if wait < 0 or wait == -0 then
+                wait = nil
+            end
+
+            table.insert(queues, {
+                type = "LFG",
+                wait = wait,
+            })
+        end
+    end
+
+    --Try LFGList entries
+	local isActive = C_LFGList.HasActiveEntryInfo()
+	if ( isActive ) then
+		table.insert(queues, {
+			type = "LFGList",
+			wait = nil,
+		})
+	end
+
+    --Try all PvP queues
+	for i=1, GetMaxBattlefieldID() do
+		local status, _, _, _, _ = GetBattlefieldStatus(i)
+		if ( status and status ~= "none" ) then
+			table.insert(queues, {
+				type = "PvP",
+				wait = nil,
+			})
+		end
+	end
+
+    --Try all World PvP queues
+	for i=1, MAX_WORLD_PVP_QUEUES do
+		local status, _, _, expireTime, averageWaitTime, _, _ = GetWorldPVPQueueStatus(i)
+		if ( status and status ~= "none" ) then
+			table.insert(queues, {
+				type = "WorldPvP",
+				wait = math.ceil((averageWaitTime - expireTime) / 60),
+			})
+		end
+	end
+
+    --Pet Battle PvP Queue
+    local queueState, estimatedTime, _ = C_PetBattles.GetPVPMatchmakingInfo()
+    if ( pbStatus ) then
+        table.insert(queues, {
+            type = "PetBattle",
+            wait = nil
+        })
+    end
+
+    ConsoleMenu.Queues = queues
+
+end
+
 -- Функция для инициализации NotificationFrame
 function ConsoleMenu:SetQueueStatusToastFrame()
+
+    if not ConsoleMenu.Queues then
+        ConsoleMenu.Queues = {}
+    end
 
     if not ConsoleMenuFrame.QueueStatusToastFrame then
         local frame = CreateFrame("Frame", "QueueStatusToastFrame", ConsoleMenuFrame)
@@ -20,8 +149,8 @@ function ConsoleMenu:SetQueueStatusToastFrame()
     local frame = ConsoleMenuFrame.QueueStatusToastFrame
     frame:SetSize(frameWidth, frameHeight)
     frame:SetPoint("TOPLEFT", ConsoleMenuFrame, "TOPLEFT", 48, -48)
-    ConsoleMenu:InitFadeAnimations(frame, animationDuration)
     frame:Hide()
+    ConsoleMenu:InitFadeAnimations(frame, animationDuration)
 
     -- Текст уведомления
     if not frame.Text then
@@ -31,7 +160,7 @@ function ConsoleMenu:SetQueueStatusToastFrame()
         frame.Text:SetFont("Fonts\\FRIZQT___CYR.TTF", fontSize, "")
         frame.Text:SetTextColor(1.0, 0.960784, 0.772549, 1)
         frame.Text:SetJustifyH("LEFT")
-        frame.Text:SetText("")
+        frame.Text:SetText(LFG_TITLE)
         frame.Text:SetNonSpaceWrap(true)
         frame.Text:Show()
         frame.Text:SetWordWrap(true)
@@ -47,7 +176,7 @@ function ConsoleMenu:SetQueueStatusToastFrame()
         frame.Caption:SetJustifyH("LEFT")
         frame.Caption:SetText("")
         frame.Caption:SetNonSpaceWrap(true)
-        frame.Caption:Hide()
+        frame.Caption:Show()
         frame.Caption:SetWordWrap(true)
     end
 
@@ -90,7 +219,8 @@ function ConsoleMenu:SetQueueStatusToastFrame()
 	frame:RegisterEvent("PET_BATTLE_QUEUE_STATUS");
 
     local function OnQueueStatusToastEvent(self, event, ...)
-
+        UpdateQueue()
+        QueueStatusToastFrameUpdate()
     end
 
     frame:SetScript("OnEvent", OnQueueStatusToastEvent)
