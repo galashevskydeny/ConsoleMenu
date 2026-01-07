@@ -131,6 +131,11 @@ end
 -- Функция для обновления QueueStatusToastFrame
 function ConsoleMenu:QueueStatusToastFrameUpdate()
 
+    if ConsoleMenuFrame.NotificationFrame:IsShown() then
+        ConsoleMenu:AnimatedHide(ConsoleMenuFrame.QueueStatusToastFrame)
+        return
+    end
+
     UpdateQueue()
     
     if not ConsoleMenu.Queues or #ConsoleMenu.Queues == 0 then
