@@ -257,7 +257,12 @@ function ConsoleMenu:NotificationFrameUpdate()
 
     if notification then
         ConsoleMenuFrame.NotificationFrame.Text:SetText(notification.text)
-        ConsoleMenu:AnimatedShow(ConsoleMenuFrame.NotificationFrame)
+
+        ConsoleMenu:AnimatedHide(ConsoleMenuFrame.QueueStatusToastFrame)
+        
+        C_Timer.After(animationDuration + delay, function()
+            ConsoleMenu:AnimatedShow(ConsoleMenuFrame.NotificationFrame)
+        end)
 
         local event = notification.event
 
@@ -300,14 +305,15 @@ function ConsoleMenu:NotificationFrameUpdate()
     else
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.NotificationFrame)
 
+        C_Timer.After(animationDuration + delay, function()
+            ConsoleMenu:QueueStatusToastFrameUpdate()
+        end)
+
         if notificationUpdateTimer then
             notificationUpdateTimer:Cancel()
             notificationUpdateTimer = nil
         end
 
-        notificationUpdateTimer = C_Timer.NewTimer(1, function()
-            ConsoleMenu:NotificationFrameUpdate()
-        end)
     end
 end
 
