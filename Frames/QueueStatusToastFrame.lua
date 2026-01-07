@@ -25,12 +25,92 @@ local function GetMinimumQueueWait()
     return minWait
 end
 
+-- Функция для обновления списка очередей
+local function UpdateQueue()
+    local queues = {}
+ 
+     -- Plunderstorm Queue
+     local queuedForPlunderstorm = C_LobbyMatchmakerInfo.IsInQueue();
+     if queuedForPlunderstorm then
+         table.insert(queues, {
+             type = "Plunderstorm",
+             wait = nil,
+         })
+     end
+ 
+     --Try each LFG type
+     for i=1, NUM_LE_LFG_CATEGORYS do
+         local hasData, _, _, _, _, _, _, _, _, _, _, averageWait, _, _, _, _, queuedTime, _ = GetLFGQueueStats(i)
+ 
+         if hasData then
+             local wait
+ 
+             if averageWait and queuedTime then
+                 wait = math.ceil((averageWait - (GetTime() - queuedTime)) / 60)
+             end
+ 
+             if wait < 0 or wait == -0 then
+                 wait = nil
+             end
+ 
+             table.insert(queues, {
+                 type = "LFG",
+                 wait = wait,
+             })
+         end
+     end
+ 
+     --Try LFGList entries
+     local isActive = C_LFGList.HasActiveEntryInfo()
+     if ( isActive ) then
+         table.insert(queues, {
+             type = "LFGList",
+             wait = nil,
+         })
+     end
+ 
+     --Try all PvP queues
+     for i=1, GetMaxBattlefieldID() do
+         local status, _, _, _, _ = GetBattlefieldStatus(i)
+         if ( status and status ~= "none" ) then
+             table.insert(queues, {
+                 type = "PvP",
+                 wait = nil,
+             })
+         end
+     end
+ 
+     --Try all World PvP queues
+     for i=1, MAX_WORLD_PVP_QUEUES do
+         local status, _, _, expireTime, averageWaitTime, _, _ = GetWorldPVPQueueStatus(i)
+         if ( status and status ~= "none" ) then
+             table.insert(queues, {
+                 type = "WorldPvP",
+                 wait = math.ceil((averageWaitTime - expireTime) / 60),
+             })
+         end
+     end
+ 
+     --Pet Battle PvP Queue
+     local queueState, estimatedTime, _ = C_PetBattles.GetPVPMatchmakingInfo()
+     if ( pbStatus ) then
+         table.insert(queues, {
+             type = "PetBattle",
+             wait = nil
+         })
+     end
+ 
+     ConsoleMenu.Queues = queues
+ 
+end
+
 -- Функция для обновления QueueStatusToastFrame
-local function QueueStatusToastFrameUpdate()
+function ConsoleMenu:QueueStatusToastFrameUpdate()
+
+    UpdateQueue()
+    
     if not ConsoleMenu.Queues or #ConsoleMenu.Queues == 0 then
-        if ConsoleMenuFrame.QueueStatusToastFrame:IsShown() then
-            ConsoleMenu:AnimatedHide(ConsoleMenuFrame.QueueStatusToastFrame)
-        end
+        ConsoleMenu:AnimatedHide(ConsoleMenuFrame.QueueStatusToastFrame)
         return
     end
 
@@ -53,85 +133,6 @@ local function QueueStatusToastFrameUpdate()
     end
 
     ConsoleMenu:AnimatedShow(ConsoleMenuFrame.QueueStatusToastFrame)
-end
-
--- Функция для обновления списка очередей
-local function UpdateQueue()
-   local queues = {}
-
-    -- Plunderstorm Queue
-    local queuedForPlunderstorm = C_LobbyMatchmakerInfo.IsInQueue();
-	if queuedForPlunderstorm then
-        table.insert(queues, {
-            type = "Plunderstorm",
-            wait = nil,
-        })
-    end
-
-    --Try each LFG type
-    for i=1, NUM_LE_LFG_CATEGORYS do
-        local hasData, _, _, _, _, _, _, _, _, _, _, averageWait, _, _, _, _, queuedTime, _ = GetLFGQueueStats(i)
-
-        if hasData then
-            local wait
-
-            if averageWait and queuedTime then
-                wait = math.ceil((averageWait - (GetTime() - queuedTime)) / 60)
-            end
-
-            if wait < 0 or wait == -0 then
-                wait = nil
-            end
-
-            table.insert(queues, {
-                type = "LFG",
-                wait = wait,
-            })
-        end
-    end
-
-    --Try LFGList entries
-	local isActive = C_LFGList.HasActiveEntryInfo()
-	if ( isActive ) then
-		table.insert(queues, {
-			type = "LFGList",
-			wait = nil,
-		})
-	end
-
-    --Try all PvP queues
-	for i=1, GetMaxBattlefieldID() do
-		local status, _, _, _, _ = GetBattlefieldStatus(i)
-		if ( status and status ~= "none" ) then
-			table.insert(queues, {
-				type = "PvP",
-				wait = nil,
-			})
-		end
-	end
-
-    --Try all World PvP queues
-	for i=1, MAX_WORLD_PVP_QUEUES do
-		local status, _, _, expireTime, averageWaitTime, _, _ = GetWorldPVPQueueStatus(i)
-		if ( status and status ~= "none" ) then
-			table.insert(queues, {
-				type = "WorldPvP",
-				wait = math.ceil((averageWaitTime - expireTime) / 60),
-			})
-		end
-	end
-
-    --Pet Battle PvP Queue
-    local queueState, estimatedTime, _ = C_PetBattles.GetPVPMatchmakingInfo()
-    if ( pbStatus ) then
-        table.insert(queues, {
-            type = "PetBattle",
-            wait = nil
-        })
-    end
-
-    ConsoleMenu.Queues = queues
-
 end
 
 -- Функция для инициализации NotificationFrame
@@ -219,8 +220,7 @@ function ConsoleMenu:SetQueueStatusToastFrame()
 	frame:RegisterEvent("PET_BATTLE_QUEUE_STATUS");
 
     local function OnQueueStatusToastEvent(self, event, ...)
-        UpdateQueue()
-        QueueStatusToastFrameUpdate()
+        ConsoleMenu:QueueStatusToastFrameUpdate()
     end
 
     frame:SetScript("OnEvent", OnQueueStatusToastEvent)

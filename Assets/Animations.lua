@@ -29,6 +29,9 @@ end
 
 function ConsoleMenu:AnimatedShow(frame)
     if not frame or not frame.fadeIn or not frame.fadeOut then return end
+
+    -- Если фрейм уже показан, ничего не делаем
+    if frame:IsShown() then return end
     
     -- Останавливаем все текущие анимации
     frame.fadeIn:Stop()
@@ -49,7 +52,7 @@ function ConsoleMenu:AnimatedHide(frame)
     if not frame or not frame.fadeIn or not frame.fadeOut then return end
     
     -- Если фрейм уже скрыт, ничего не делаем
-    if not frame:IsVisible() then return end
+    if not frame:IsShown() then return end
     
     -- Останавливаем все текущие анимации
     frame.fadeIn:Stop()
