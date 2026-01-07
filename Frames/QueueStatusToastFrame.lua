@@ -96,12 +96,12 @@ local function UpdateQueue()
  
      --Try all World PvP queues
      for i=1, MAX_WORLD_PVP_QUEUES do
-         local status, _, averageWaitTime, _, _, queuedTime, _ = GetWorldPVPQueueStatus(i)
+         local status, _, averageWait, _, _, queuedTime, _ = GetWorldPVPQueueStatus(i)
          if ( status and status ~= "none" ) then
             local wait
  
-             if averageWaitTime and queuedTime then
-                 wait = math.ceil((averageWaitTime - (GetTime() - queuedTime)) / 60)
+             if averageWait and queuedTime then
+                 wait = math.ceil((averageWait - (GetTime() - queuedTime)) / 60)
              end
  
              if wait < 0 or wait == -0 then
