@@ -73,20 +73,44 @@ local function UpdateQueue()
      for i=1, GetMaxBattlefieldID() do
          local status, _, _, _, _ = GetBattlefieldStatus(i)
          if ( status and status ~= "none" ) then
+
+            local queuedTime = GetTime() - GetBattlefieldTimeWaited(i) / 1000;
+			local averageWait = GetBattlefieldEstimatedWaitTime(i) / 1000;
+
+            local wait
+ 
+             if averageWait and queuedTime then
+                 wait = math.ceil((averageWait - (GetTime() - queuedTime)) / 60)
+             end
+ 
+             if wait < 0 or wait == -0 then
+                 wait = nil
+             end
+
              table.insert(queues, {
                  type = "PvP",
-                 wait = nil,
+                 wait = wait,
              })
          end
      end
  
      --Try all World PvP queues
      for i=1, MAX_WORLD_PVP_QUEUES do
-         local status, _, _, expireTime, averageWaitTime, _, _ = GetWorldPVPQueueStatus(i)
+         local status, _, averageWaitTime, _, _, queuedTime, _ = GetWorldPVPQueueStatus(i)
          if ( status and status ~= "none" ) then
+            local wait
+ 
+             if averageWaitTime and queuedTime then
+                 wait = math.ceil((averageWaitTime - (GetTime() - queuedTime)) / 60)
+             end
+ 
+             if wait < 0 or wait == -0 then
+                 wait = nil
+             end
+
              table.insert(queues, {
                  type = "WorldPvP",
-                 wait = math.ceil((averageWaitTime - expireTime) / 60),
+                 wait = wait,
              })
          end
      end
