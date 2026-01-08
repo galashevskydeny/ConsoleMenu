@@ -59,6 +59,7 @@ local function Initialize()
     ConsoleMenu:SetGossipFrame()
     ConsoleMenu:SetNotificationFrame()
     ConsoleMenu:SetQueueStatusToastFrame()
+    ConsoleMenu:SetLootList()
     
     ConsoleMenu:InitializeMainActionBar()
     
