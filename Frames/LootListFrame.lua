@@ -113,6 +113,8 @@ local function UpdateItemFrame(frame, item)
     frame.startTime = item.startTime
     ConsoleMenu:AnimatedShow(frame)
     UpdateListItemsTitles()
+    UpdateListItemsPoints()
+    item.isShown = true
 
     C_Timer.After(duration, function()
 
@@ -155,40 +157,50 @@ local function UpdateLootList()
     -- Если нет предметов, то ничего не делаем
     if #ConsoleMenu.Items == 0 then return end
 
-    -- Сортируем предметы по качеству
-    table.sort(ConsoleMenu.Items, function(a, b)
-        return (a.itemQuality or 0) > (b.itemQuality or 0)
-    end)
-
     -- Находим свободные фреймы для отображения предметов
     local frames = FindItemFrames()
     if #frames == 0 then return end
 
+    -- Ищем кандидатов на отображение
+    local potentialItems = {}
+    for _, item in ipairs(ConsoleMenu.Items) do
+        if not item.isShown then
+            table.insert(potentialItems, item)
+        end
+    end
+
+    -- Сортируем предметы по качеству
+
+    table.sort(potentialItems, function(a, b)
+        return (a.itemQuality or 0) > (b.itemQuality or 0)
+    end)
+
     for i = 1, #frames do
         local frame = frames[i]
-        local item = ConsoleMenu.Items[i]
+        local item = potentialItems[i]
         
         if item then
             UpdateItemFrame(frame, item)
         end
     end
 
-    --  Автоматическое удаление неотображенных предметов
-    local hiddenLookup = {}
-    for i = #frames + 1, #ConsoleMenu.Items do
-        hiddenLookup[ConsoleMenu.Items[i]] = true
+    if #potentialItems > #frames then
+        --  Автоматическое удаление неотображенных предметов
+        local hiddenLookup = {}
+        for i = #frames + 1, #potentialItems do
+            hiddenLookup[potentialItems[i]] = true
+        end
+
+        C_Timer.After(duration, function()
+            for i = #ConsoleMenu.Items, 1, -1 do
+                if hiddenLookup[ConsoleMenu.Items[i]] then
+                    table.remove(ConsoleMenu.Items, i)
+                end
+            end
+            UpdateListItemsTitles()
+        end)
     end
 
-    C_Timer.After(duration, function()
-        for i = #ConsoleMenu.Items, 1, -1 do
-            if hiddenLookup[ConsoleMenu.Items[i]] then
-                table.remove(ConsoleMenu.Items, i)
-            end
-        end
-        UpdateListItemsTitles()
-    end)
-
-    UpdateListItemsPoints()
 end
 
 -- Функция для инициализации LootList
@@ -325,6 +337,7 @@ function ConsoleMenu:SetLootList()
     frame:RegisterEvent("LOOT_OPENED")
     frame:RegisterEvent("TRADE_SKILL_ITEM_CRAFTED_RESULT")
     frame:RegisterEvent("QUEST_LOOT_RECEIVED")
+    frame:RegisterEvent("SHOW_LOOT_TOAST")
 
     local function OnLootListEvent(self, event, ...)
         if event == "LOOT_OPENED" then
@@ -337,6 +350,7 @@ function ConsoleMenu:SetLootList()
                         itemName = itemName,
                         itemQuality = itemQuality,
                         itemTexture = itemTexture,
+                        isShown = false,
                         startTime = GetTime(),
                     })
                 end
@@ -358,6 +372,7 @@ function ConsoleMenu:SetLootList()
                 itemQuality = itemQuality,
                 itemTexture = itemTexture,
                 isCraftingReagent = isCraftingReagent,
+                isShown = false,
                 startTime = GetTime(),
             })
         elseif event == "QUEST_LOOT_RECEIVED" then
@@ -372,6 +387,23 @@ function ConsoleMenu:SetLootList()
                 itemQuality = itemQuality,
                 itemTexture = itemTexture,
                 isCraftingReagent = isCraftingReagent,
+                isShown = false,
+                startTime = GetTime(),
+            })
+        elseif event == "SHOW_LOOT_TOAST" then
+            local typeIdentifier, itemLink, quantity, _, _, _, _, _, _, _ = ...
+
+            if typeIdentifier ~= "item" then return end
+
+            local itemName, _, itemQuality, _, _, _, _, _, _, itemTexture, _, _, _, _, _, _, isCraftingReagent, _ = C_Item.GetItemInfo(itemLink)
+
+            table.insert(ConsoleMenu.Items, {
+                quantity = quantity,
+                itemName = itemName,
+                itemQuality = itemQuality,
+                itemTexture = itemTexture,
+                isCraftingReagent = isCraftingReagent,
+                isShown = false,
                 startTime = GetTime(),
             })
         end
