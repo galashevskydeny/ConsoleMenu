@@ -33,17 +33,33 @@ local CraftingQualityOffset = {
     [3] = {4, 4},
 }
 
+-- Функция для удаления старых предметов
+local function RemoveOldItems()
+    for i = #ConsoleMenu.Items, 1, -1 do
+        local item = ConsoleMenu.Items[i]
+        if item.startTime + duration < GetTime() then
+            table.remove(ConsoleMenu.Items, i)
+        end
+    end
+end
+
 -- Функция для обновления точек расположения предметов
 local function UpdateListItemsPoints()
-    local frames = ConsoleMenuFrame.LootListFrame.Items:GetChildren()
-
-    table.sort(frames, function(a, b)
-        return (a.startTime or 0) < (b.startTime or 0)
-    end)
-
     if not ConsoleMenuFrame.LootListFrame or not ConsoleMenuFrame.LootListFrame.Items then
         return
     end
+
+    local frames = {}
+    for i = 1, maxItemsCount do
+        local itemFrame = ConsoleMenuFrame.LootListFrame.Items["Item" .. i]
+        if itemFrame then
+            table.insert(frames, itemFrame)
+        end
+    end
+
+    table.sort(frames, function(a, b)
+        return (a.startTime or 0) > (b.startTime or 0)
+    end)
 
     for i = 1, #frames do
         local itemFrame = frames[i]
@@ -54,6 +70,7 @@ end
 
 -- Функция для обновления заголовков списка предметов
 local function UpdateListItemsTitles()
+    
     if #ConsoleMenu.Items > 0 then
         ConsoleMenu:AnimatedShow(ConsoleMenuFrame.LootListFrame.Title)
     else
@@ -62,10 +79,6 @@ local function UpdateListItemsTitles()
 
     if #ConsoleMenu.Items > 5 then
         ConsoleMenu:AnimatedShow(ConsoleMenuFrame.LootListFrame.AdditionalItemsCount)
-        -- удаляем с шестого элемента и до конца, обход с конца
-        for i = #ConsoleMenu.Items, 6, -1 do
-            table.remove(ConsoleMenu.Items, i)
-        end
     else
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.LootListFrame.AdditionalItemsCount)
     end
@@ -99,6 +112,7 @@ local function UpdateItemFrame(frame, item)
 
     frame.startTime = item.startTime
     ConsoleMenu:AnimatedShow(frame)
+    UpdateListItemsTitles()
 
     C_Timer.After(duration, function()
 
@@ -112,16 +126,6 @@ local function UpdateItemFrame(frame, item)
         ConsoleMenu:AnimatedHide(frame)
     end)
 
-end
-
--- Функция для удаления старых предметов
-local function RemoveOldItems()
-    for i = #ConsoleMenu.Items, 1, -1 do
-        local item = ConsoleMenu.Items[i]
-        if item.startTime + duration < GetTime() then
-            table.remove(ConsoleMenu.Items, i)
-        end
-    end
 end
 
 -- Функция для поиска свободных фреймов для отображения предметов
@@ -156,8 +160,6 @@ local function UpdateLootList()
         return (a.itemQuality or 0) > (b.itemQuality or 0)
     end)
 
-    UpdateListItemsTitles()
-
     -- Находим свободные фреймы для отображения предметов
     local frames = FindItemFrames()
     if #frames == 0 then return end
@@ -170,6 +172,21 @@ local function UpdateLootList()
             UpdateItemFrame(frame, item)
         end
     end
+
+    --  Автоматическое удаление неотображенных предметов
+    local hiddenLookup = {}
+    for i = #frames + 1, #ConsoleMenu.Items do
+        hiddenLookup[ConsoleMenu.Items[i]] = true
+    end
+
+    C_Timer.After(duration, function()
+        for i = #ConsoleMenu.Items, 1, -1 do
+            if hiddenLookup[ConsoleMenu.Items[i]] then
+                table.remove(ConsoleMenu.Items, i)
+            end
+        end
+        UpdateListItemsTitles()
+    end)
 
     UpdateListItemsPoints()
 end

@@ -190,7 +190,7 @@ local function CalculateSpeechDuration(line, event)
     -- Дополнительная длительность в секундах
     local additionalDuration = 1.5
 
-    if event and not event:find("CHAT") then
+    if event and (event:find("QUEST") or event == "GOSSIP_SHOW") then
         additionalDuration = 0.5
         wordsPerMinute = 240
     end
