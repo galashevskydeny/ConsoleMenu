@@ -25,6 +25,7 @@ local reagentQualityTexture = {
     [3] = "Professions-Icon-Quality-Tier3",
 }
 
+-- Смещения текстуры качества реагента для профессии по горизонтали и вертикали
 local reagentQualityOffset = {
     [1] = {0, 0},
     [2] = {4, 0},
@@ -45,7 +46,6 @@ function ConsoleMenu:SetLootList()
     local frame = ConsoleMenuFrame.LootListFrame
     frame:SetSize(frameWidth, frameHeight)
     frame:SetPoint("TOPLEFT", ConsoleMenuFrame.NotificationFrame, "BOTTOMLEFT", 0, -48)
-    frame:Show()
     ConsoleMenu:InitFadeAnimations(frame, animationDuration)
 
     -- Заголовок
@@ -62,7 +62,6 @@ function ConsoleMenu:SetLootList()
         
         frame.Title:SetText(title)
         frame.Title:SetNonSpaceWrap(true)
-        frame.Title:Show()
         frame.Title:SetWordWrap(true)
     end
 
@@ -76,7 +75,6 @@ function ConsoleMenu:SetLootList()
         frame.AdditionalItemsCount:SetJustifyH("LEFT")
         local text = "и еще несколько в инвентаре"
         frame.AdditionalItemsCount:SetText(text)
-        frame.AdditionalItemsCount:Show()
     end
 
     -- Секции предметов
@@ -84,7 +82,6 @@ function ConsoleMenu:SetLootList()
         frame.Items = CreateFrame("Frame", "LootListFrameItems", frame)
         frame.Items:SetPoint("TOPLEFT", frame.Title, "BOTTOMLEFT", 0, -padding)
         frame.Items:SetPoint("BOTTOMRIGHT", frame.AdditionalItemsCount, "TOPRIGHT", 0, padding)
-        frame.Items:Show()
 
         for i = 1, maxItemsCount do
             local item = CreateFrame("Frame", "LootListFrameItem" .. i, frame.Items)
@@ -93,6 +90,7 @@ function ConsoleMenu:SetLootList()
             item:SetWidth(frameWidth)
             item:SetHeight(sectionHeight)
             item:SetPoint("TOPLEFT", frame.Items, "TOPLEFT", 0, -(sectionHeight * (i-1) + padding * (i-1)))
+            ConsoleMenu:InitFadeAnimations(item, animationDuration)
 
             -- Иконка
             if not item.Icon then
