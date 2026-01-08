@@ -5,14 +5,15 @@ local maxItemsCount = 5
 local frameWidth = 304
 
 local sectionHeight = 56
-local sectionPadding = 0
+local sectionPadding = 2
 local iconSize = sectionHeight - sectionPadding * 2
 
 local titleFontSize = 24
-local fontSize = 20
-local padding = 16
+local fontSize = 18
+local captionFontSize = 20
+local padding = 20
 
-local frameHeight = titleFontSize + padding + sectionHeight * maxItemsCount + padding * (maxItemsCount - 1) + padding + fontSize
+local frameHeight = titleFontSize + padding + sectionHeight * maxItemsCount + padding * (maxItemsCount - 1) + padding + captionFontSize
 
 local duration = 8
 local animationDuration = 0.3
@@ -57,7 +58,7 @@ function ConsoleMenu:SetLootList()
         frame.AdditionalItemsCount = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         frame.AdditionalItemsCount:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 0, 0)
         frame.AdditionalItemsCount:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, 0)
-        frame.AdditionalItemsCount:SetFont("Fonts\\FRIZQT___CYR.TTF", fontSize, "")
+        frame.AdditionalItemsCount:SetFont("Fonts\\FRIZQT___CYR.TTF", captionFontSize, "")
         frame.AdditionalItemsCount:SetTextColor(1.0, 0.960784, 0.772549, 1)
         frame.AdditionalItemsCount:SetJustifyH("LEFT")
         local text = "и еще несколько в инвентаре"
@@ -100,7 +101,17 @@ function ConsoleMenu:SetLootList()
                 item.Icon.Border:SetPoint("BOTTOMRIGHT", item.Icon.Texture, "BOTTOMRIGHT", 4, -4
             )
                 item.Icon.Border:SetAtlas("UI-HUD-ActionBar-IconFrame")
-                item.Icon.Border:Show()
+            end
+
+            -- Текст
+            if not item.Text then
+                item.Text = item:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+                item.Text:SetFont("Fonts\\FRIZQT___CYR.TTF", fontSize, "")
+                item.Text:SetTextColor(1.0, 0.960784, 0.772549, 1)
+                item.Text:SetText("Гиперкурица Гномрегана-3000БРГ х19")
+                item.Text:SetPoint("LEFT", item.Icon, "RIGHT", padding, 0)
+                item.Text:SetPoint("RIGHT", -padding, 0)
+                item.Text:SetJustifyH("LEFT")
             end
         end
     end
