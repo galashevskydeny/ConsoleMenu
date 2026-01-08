@@ -324,6 +324,7 @@ function ConsoleMenu:SetLootList()
 
     frame:RegisterEvent("LOOT_OPENED")
     frame:RegisterEvent("TRADE_SKILL_ITEM_CRAFTED_RESULT")
+    frame:RegisterEvent("QUEST_LOOT_RECEIVED")
 
     local function OnLootListEvent(self, event, ...)
         if event == "LOOT_OPENED" then
@@ -350,6 +351,20 @@ function ConsoleMenu:SetLootList()
             local craftingQuality = data.craftingQuality
             local itemName, _, itemQuality, _, _, _, _, _, _, itemTexture, _, _, _, _, _, _, isCraftingReagent, _ = C_Item.GetItemInfo(data.hyperlink)
             
+            table.insert(ConsoleMenu.Items, {
+                quantity = quantity,
+                craftingQuality = craftingQuality,
+                itemName = itemName,
+                itemQuality = itemQuality,
+                itemTexture = itemTexture,
+                isCraftingReagent = isCraftingReagent,
+                startTime = GetTime(),
+            })
+        elseif event == "QUEST_LOOT_RECEIVED" then
+            local _, itemLink, quantity = ...
+
+            local itemName, _, itemQuality, _, _, _, _, _, _, itemTexture, _, _, _, _, _, _, isCraftingReagent, _ = C_Item.GetItemInfo(itemLink)
+
             table.insert(ConsoleMenu.Items, {
                 quantity = quantity,
                 craftingQuality = craftingQuality,
