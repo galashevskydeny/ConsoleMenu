@@ -4,12 +4,15 @@ local maxItemsCount = 5
 
 local frameWidth = 304
 
-local iconSize = 56
+local sectionHeight = 56
+local sectionPadding = 8
+local iconSize = sectionHeight - sectionPadding * 2
+
 local titleFontSize = 24
 local fontSize = 20
 local padding = 16
 
-local frameHeight = titleFontSize + padding + iconSize * maxItemsCount + padding * (maxItemsCount - 1) + padding + fontSize
+local frameHeight = titleFontSize + padding + sectionHeight * maxItemsCount + padding * (maxItemsCount - 1) + padding + fontSize
 
 local duration = 8
 local animationDuration = 0.3
@@ -57,14 +60,36 @@ function ConsoleMenu:SetLootList()
         frame.AdditionalItemsCount:SetFont("Fonts\\FRIZQT___CYR.TTF", fontSize, "")
         frame.AdditionalItemsCount:SetTextColor(1.0, 0.960784, 0.772549, 1)
         frame.AdditionalItemsCount:SetJustifyH("LEFT")
-        frame.AdditionalItemsCount:SetText("и еще N предметов в инвентаре")
+        local text = "и еще несколько в инвентаре"
+        frame.AdditionalItemsCount:SetText(text)
         frame.AdditionalItemsCount:Show()
     end
 
+    -- Секции предметов
+    if not frame.Items then
+        frame.Items = CreateFrame("Frame", "LootListFrameItems", frame)
+        frame.Items:SetPoint("TOPLEFT", frame.Title, "BOTTOMLEFT", 0, -padding)
+        frame.Items:SetPoint("BOTTOMRIGHT", frame.AdditionalItemsCount, "TOPRIGHT", 0, padding)
+        frame.Items:Show()
+
+        for i = 1, maxItemsCount do
+            local item = CreateFrame("Frame", "LootListFrameItem" .. i, frame.Items)
+            frame.Items["Item" .. i] = item
+            item:SetWidth(frameWidth)
+            item:SetHeight(sectionHeight)
+            item:SetPoint("TOPLEFT", frame.Items, "TOPLEFT", 0, -(sectionHeight * (i-1) + padding * (i-1)))
+            item:Show()
+        end
+    end
+
     frame:RegisterEvent("LOOT_OPENED")
+    frame:RegisterEvent("TRADE_SKILL_ITEM_CRAFTED_RESULT")
 
     local function OnLootListEvent(self, event, ...)
-
+        if event == "LOOT_OPENED" then
+        elseif event == "TRADE_SKILL_ITEM_CRAFTED_RESULT" then
+            local data = ...
+        end
     end
 
     frame:SetScript("OnEvent", OnLootListEvent)
