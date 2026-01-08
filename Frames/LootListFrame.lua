@@ -5,7 +5,7 @@ local maxItemsCount = 5
 local frameWidth = 304
 
 local sectionHeight = 56
-local sectionPadding = 8
+local sectionPadding = 0
 local iconSize = sectionHeight - sectionPadding * 2
 
 local titleFontSize = 24
@@ -75,10 +75,33 @@ function ConsoleMenu:SetLootList()
         for i = 1, maxItemsCount do
             local item = CreateFrame("Frame", "LootListFrameItem" .. i, frame.Items)
             frame.Items["Item" .. i] = item
+
             item:SetWidth(frameWidth)
             item:SetHeight(sectionHeight)
             item:SetPoint("TOPLEFT", frame.Items, "TOPLEFT", 0, -(sectionHeight * (i-1) + padding * (i-1)))
-            item:Show()
+
+            -- Иконка
+            if not item.Icon then
+                item.Icon = CreateFrame("Frame", nil, item)
+                item.Icon:SetSize(iconSize, iconSize)
+                item.Icon:SetPoint("LEFT", sectionPadding, 0)
+            end
+
+            if not item.Icon.Texture then
+                item.Icon.Texture = item.Icon:CreateTexture(nil, "ARTWORK")
+                item.Icon.Texture:SetAllPoints()
+                item.Icon.Texture:SetTexture(648207)
+                ApplyMaskToTexture(item.Icon.Texture)
+            end
+
+            if not item.Icon.Border then
+                item.Icon.Border = item.Icon:CreateTexture(nil, "OVERLAY")
+                item.Icon.Border:SetPoint("TOPLEFT", item.Icon.Texture, "TOPLEFT", -2, 2)
+                item.Icon.Border:SetPoint("BOTTOMRIGHT", item.Icon.Texture, "BOTTOMRIGHT", 4, -4
+            )
+                item.Icon.Border:SetAtlas("UI-HUD-ActionBar-IconFrame")
+                item.Icon.Border:Show()
+            end
         end
     end
 
