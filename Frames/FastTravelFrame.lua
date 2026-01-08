@@ -112,8 +112,8 @@ end
 local function setIcon(frame, data)
     if not frame.icon then
         frame.icon = CreateFrame("Frame", nil, frame)
-        frame.icon:SetSize(32, 32)
-        frame.icon:SetPoint("LEFT", 10, 0)
+        frame.icon:SetSize(iconSize, iconSize)
+        frame.icon:SetPoint("LEFT", sectionPadding, 0)
     end
 
     if not frame.icon.texture then
@@ -281,8 +281,8 @@ local function CreateFastTravelScrollBox()
         -- Текст
         if not frame.text then
             frame.text = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-            frame.text:SetPoint("LEFT", frame.icon, "RIGHT", sectionPadding * 1.5, 0)
-            frame.text:SetPoint("RIGHT", -sectionPadding, 0)
+            frame.text:SetPoint("LEFT", frame.icon, "RIGHT", sectionPadding * 1.5, -2)
+            frame.text:SetPoint("RIGHT", -sectionPadding, -2)
             frame.text:SetJustifyH("LEFT")
         end
 
