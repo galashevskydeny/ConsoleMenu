@@ -315,6 +315,8 @@ function ConsoleMenu:NotificationFrameUpdate()
         end
 
     end
+
+    return
 end
 
 -- Функция для инициализации NotificationFrame
