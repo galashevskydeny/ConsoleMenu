@@ -247,7 +247,7 @@ function ConsoleMenu:NotificationFrameUpdate()
     local notification = GetTopPriorityNotification()
 
     if ConsoleMenuFrame.NotificationFrame:IsShown() and notification and NotificationEventPriority[notification.event] ~= 1 then
-        C_Timer.After(delay, function()
+        C_Timer.After(animationDuration + delay, function()
             ConsoleMenu:NotificationFrameUpdate()
         end)
         return
