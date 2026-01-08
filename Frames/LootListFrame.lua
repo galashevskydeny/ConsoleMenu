@@ -11,12 +11,25 @@ local iconSize = sectionHeight - sectionPadding * 2
 local titleFontSize = 24
 local fontSize = 18
 local captionFontSize = 20
-local padding = 20
+local padding = 24
 
 local frameHeight = titleFontSize + padding + sectionHeight * maxItemsCount + padding * (maxItemsCount - 1) + padding + captionFontSize
 
 local duration = 8
 local animationDuration = 0.3
+
+-- Текстуры качества реагента для профессии
+local reagentQualityTexture = {
+    [1] = "Professions-Icon-Quality-Tier1",
+    [2] = "Professions-Icon-Quality-Tier2",
+    [3] = "Professions-Icon-Quality-Tier3",
+}
+
+local reagentQualityOffset = {
+    [1] = {0, 0},
+    [2] = {4, 0},
+    [3] = {4, 4},
+}
 
 -- Функция для инициализации LootList
 function ConsoleMenu:SetLootList()
@@ -103,6 +116,23 @@ function ConsoleMenu:SetLootList()
                 item.Icon.Border:SetAtlas("UI-HUD-ActionBar-IconFrame")
             end
 
+            -- Качество реагента для профессии
+            if not item.Icon.Quality then
+
+                local quality = 3
+                item.Icon.Quality = item.Icon:CreateTexture(nil, "OVERLAY")
+                item.Icon.Quality:SetDrawLayer("OVERLAY", 1)
+                item.Icon.Quality:SetPoint("TOPLEFT", item.Icon, "TOPLEFT", reagentQualityOffset[quality][1], -reagentQualityOffset[quality][2])
+                
+                local atlasName = reagentQualityTexture[quality]
+
+                item.Icon.Quality:SetAtlas(atlasName)
+                local atlasInfo = C_Texture.GetAtlasInfo(atlasName)
+
+                item.Icon.Quality:SetWidth(iconSize / 2)
+                item.Icon.Quality:SetHeight((iconSize / 2) / atlasInfo.width * atlasInfo.height)
+            end
+
             -- Текст
             if not item.Text then
                 item.Text = item:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -112,6 +142,15 @@ function ConsoleMenu:SetLootList()
                 item.Text:SetPoint("LEFT", item.Icon, "RIGHT", padding, 0)
                 item.Text:SetPoint("RIGHT", -padding, 0)
                 item.Text:SetJustifyH("LEFT")
+            end
+
+            -- Затемнение фона
+            if not item.Background then
+                item.Background = item:CreateTexture(nil, "BACKGROUND")
+                item.Background:SetPoint("TOPLEFT", item, "TOPLEFT", -32, 32)
+                item.Background:SetPoint("BOTTOMRIGHT", item, "BOTTOMRIGHT", 32, -24)
+                item.Background:SetAtlas("Garr_BuildingInfoShadow")
+                item.Background:SetAlpha(0.6)
             end
         end
     end
