@@ -243,7 +243,6 @@ function ConsoleMenu:SetLootList()
     local frame = ConsoleMenuFrame.LootListFrame
     frame:SetSize(frameWidth, frameHeight)
     frame:SetPoint("TOPLEFT", ConsoleMenuFrame.NotificationFrame, "BOTTOMLEFT", 0, -48)
-    ConsoleMenu:InitFadeAnimations(frame, animationDuration)
 
     -- Заголовок
     if not frame.Title then
