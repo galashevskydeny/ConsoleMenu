@@ -56,6 +56,8 @@ local function SetOverrideBindingsForSet(bindings, modifier, frame)
         return
     end
 
+    if InCombatLockdown() then return end
+
     ClearOverrideBindings(frame)
     
     for key, action in pairs(bindings) do
@@ -456,6 +458,7 @@ function ConsoleMenu:SetInteractBinding(newTarget)
     if newTarget and not hasEnemy then
         SetOverrideBinding(self.InteractBindingFrame, true, ConsoleMenuDB.interactButton, "INTERACTTARGET")
     else
+        if InCombatLockdown() then return end
         ClearOverrideBindings(self.InteractBindingFrame)
     end
 end
@@ -484,13 +487,12 @@ end
 function ConsoleMenu:SetBindingsZoneAbility()
     
     if ConsoleMenuDB.overrideZoneAbilityKey == 2 then
+        if InCombatLockdown() then return end
         ClearOverrideBindings(self.ZoneAbilityBindingFrame)
         return
     end
 
-    if InCombatLockdown and InCombatLockdown() then
-        return
-    end
+    if InCombatLockdown() then return end
 
     -- Получаем активные зоновые способности
     local zoneAbilities = C_ZoneAbility.GetActiveAbilities()
@@ -501,6 +503,7 @@ function ConsoleMenu:SetBindingsZoneAbility()
             local spellID = firstAbility.spellID
             local spellInfo = spellID and C_Spell.GetSpellInfo(spellID)
             if spellInfo and spellInfo.name then
+                
                 ClearOverrideBindings(self.ZoneAbilityBindingFrame)
                 SetOverrideBindingSpell(self.ZoneAbilityBindingFrame, true, "PAD6", spellInfo.name)
                 SetOverrideBindingSpell(self.ZoneAbilityBindingFrame, true, "PADBACK", spellInfo.name)
@@ -519,6 +522,7 @@ end
 function ConsoleMenu:SetStopCastingBinding()
 
     if ConsoleMenuDB.overrideStopCastingKey == 2 then
+        if InCombatLockdown() then return end
         ClearOverrideBindings(self.StopCastingBindingFrame)
         return
     end
@@ -532,9 +536,12 @@ function ConsoleMenu:SetStopCastingBinding()
     end
 
     if ConsoleMenuDB.overrideStopCastingKey == 2 then
+        if InCombatLockdown() then return end
         ClearOverrideBindings(self.StopCastingBindingFrame)
         return
     end
+
+    if InCombatLockdown() then return end
 
     ClearOverrideBindings(self.StopCastingBindingFrame)
     SetOverrideBinding(self.StopCastingBindingFrame, true, ConsoleMenuDB.stopCastingButton, "STOPCASTING")
@@ -576,13 +583,16 @@ function ConsoleMenu:InitStopCastingBindingFrame()
                 return
             end
             
+            if InCombatLockdown() then return end
             ClearOverrideBindings(ConsoleMenu.StopCastingBindingFrame)
         elseif event == "PLAYER_SOFT_ENEMY_CHANGED" then
+            if InCombatLockdown() then return end
             -- При наличии врага может начаться бой, во время которого нельзя откатить привязку
             if UnitExists("softenemy") then
                 ClearOverrideBindings(ConsoleMenu.StopCastingBindingFrame)
             end
         elseif event == "PLAYER_REGEN_DISABLED" or event == "PLAYER_ENTERING_WORLD" or event == "PLAYER_MOUNT_DISPLAY_CHANGED" then
+            if InCombatLockdown() then return end
             ClearOverrideBindings(ConsoleMenu.StopCastingBindingFrame)
         end
     end)

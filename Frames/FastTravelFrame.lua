@@ -722,6 +722,8 @@ function ConsoleMenu:SetFastTravelFrame()
         if softTargetEnemy then
             SetCVar("SoftTargetEnemy", softTargetEnemy)
         end
+
+        if InCombatLockdown() then return end
         
         ClearOverrideBindings(parentFrame)
         ClearOverrideBindings(focusUpButton)

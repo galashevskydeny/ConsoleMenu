@@ -202,6 +202,8 @@ local function CreateToggleChatButton()
         if not ConsoleMenu.ChatBindingFrame then
             return
         end
+
+        if InCombatLockdown() then return end
         
         -- Очищаем предыдущие override биндинги
         ClearOverrideBindings(ConsoleMenu.ChatBindingFrame)
