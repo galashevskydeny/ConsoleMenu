@@ -54,12 +54,7 @@ end
 -- Функция для добавления предмета в список
 local function AddItem(itemData)
 
-    if #ConsoleMenu.Items >= maxItemsCount then
-        ConsoleMenu:AnimatedShow(ConsoleMenuFrame.LootListFrame.AdditionalItemsCount)
-        return
-    end
-
-    table.insert(ConsoleMenu.Items, {
+    table.insert(ConsoleMenuFrame.LootListFrame.Queue, {
         quantity = itemData.quantity,
         itemName = itemData.itemName,
         itemQuality = itemData.itemQuality,
@@ -68,14 +63,15 @@ local function AddItem(itemData)
         isCraftingReagent = itemData.isCraftingReagent,
         startTime = GetTime(),
     })
+    
 end
 
--- Функция для удаления старых предметов
-local function RemoveOldItems()
-    for i = #ConsoleMenu.Items, 1, -1 do
-        local item = ConsoleMenu.Items[i]
+-- Функция для удаления старых предметов из очереди
+local function CleanQueueGarbage()
+    for i = #ConsoleMenuFrame.LootListFrame.Queue, 1, -1 do
+        local item = ConsoleMenuFrame.LootListFrame.Queue[i]
         if GetTime() - item.startTime > duration then
-            table.remove(ConsoleMenu.Items, i)
+            table.remove(ConsoleMenuFrame.LootListFrame.Queue, i)
         end
     end
 end
@@ -107,13 +103,17 @@ end
 
 -- Функция для обновления заголовков списка предметов
 local function UpdateListItemsTitle()
-    if #ConsoleMenu.Items > 0 then
+    local displayedCount = #ConsoleMenuFrame.LootListFrame.DisplayedItems
+    
+    if displayedCount > 0 then
         ConsoleMenu:AnimatedShow(ConsoleMenuFrame.LootListFrame.Title)
     else
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.LootListFrame.Title)
     end
 
-    if #ConsoleMenu.Items < maxItemsCount then
+    if displayedCount == maxItemsCount and #ConsoleMenuFrame.LootListFrame.Queue > 0 then
+        ConsoleMenu:AnimatedShow(ConsoleMenuFrame.LootListFrame.AdditionalItemsCount)
+    else
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.LootListFrame.AdditionalItemsCount)
     end
 end
@@ -146,14 +146,31 @@ local function UpdateItemFrame(frame, item)
 
     frame.startTime = item.startTime
 
+    -- Добавляем в список отображаемых
+    table.insert(ConsoleMenuFrame.LootListFrame.DisplayedItems, item)
+
+    -- Удаляем из очереди на отображение
+    for i = #ConsoleMenuFrame.LootListFrame.Queue, 1, -1 do
+        if ConsoleMenuFrame.LootListFrame.Queue[i] == item then
+            table.remove(ConsoleMenuFrame.LootListFrame.Queue, i)
+        end
+    end
+
     ConsoleMenu:AnimatedShow(frame)
     UpdateListItemsPoints()
+    UpdateListItemsTitle()
 
     C_Timer.After(duration, function()
-        -- Обходим таблицу в обратном порядке для удаления элемента
-        for i = #ConsoleMenu.Items, 1, -1 do
-            if ConsoleMenu.Items[i] == item then
-                table.remove(ConsoleMenu.Items, i)
+
+        -- Если исчезает последний отображемый элемент
+        if #ConsoleMenuFrame.LootListFrame.DisplayedItems == 1 then
+            ConsoleMenuFrame.LootListFrame.Queue = {}
+        end
+
+        -- Удаляем из списка отображаемых
+        for i = #ConsoleMenuFrame.LootListFrame.DisplayedItems, 1, -1 do
+            if ConsoleMenuFrame.LootListFrame.DisplayedItems[i] == item then
+                table.remove(ConsoleMenuFrame.LootListFrame.DisplayedItems, i)
             end
         end
 
@@ -166,21 +183,18 @@ end
 -- Функция для обновления списка предметов
 local function UpdateLootList()
 
-    -- Удаляем старые предмета
-    RemoveOldItems()
-
     -- Находим свободные фреймы для отображения предметов
     local frames = FindItemFrames()
 
     -- Сортируем предметы по качеству
-    table.sort(ConsoleMenu.Items, function(a, b)
+    table.sort(ConsoleMenuFrame.LootListFrame.Queue, function(a, b)
         return (a.itemQuality or 0) > (b.itemQuality or 0)
     end)
 
     -- Обновляем доступное количество фреймов для отображения предметов
     for i = 1, #frames do
         local frame = frames[i]
-        local item = ConsoleMenu.Items[i]
+        local item = ConsoleMenuFrame.LootListFrame.Queue[i]
         
         if item then
             UpdateItemFrame(frame, item)
@@ -193,13 +207,18 @@ end
 
 -- Функция для инициализации LootList
 function ConsoleMenu:SetLootList()
-    if not ConsoleMenu.Items then
-        ConsoleMenu.Items = {}
-    end
 
     if not ConsoleMenuFrame.LootListFrame then
         local frame = CreateFrame("Frame", "LootListFrame", ConsoleMenuFrame)
         ConsoleMenuFrame.LootListFrame = frame
+    end
+
+    if not ConsoleMenuFrame.LootListFrame.Queue then
+        ConsoleMenuFrame.LootListFrame.Queue = {}
+    end
+
+    if not ConsoleMenuFrame.LootListFrame.DisplayedItems then
+        ConsoleMenuFrame.LootListFrame.DisplayedItems = {}
     end
 
     local frame = ConsoleMenuFrame.LootListFrame
