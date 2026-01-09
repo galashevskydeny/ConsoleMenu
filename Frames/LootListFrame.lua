@@ -5,14 +5,16 @@ local maxItemsCount = 5
 local frameWidth = 304
 
 local sectionHeight = 56
-local sectionPadding = 2
+local sectionPadding = 3
 local iconSize = sectionHeight - sectionPadding * 2
 local craftingQualityIconSize = iconSize / 2
+local shadowOpacity = 0.7
 
 local titleFontSize = 24
 local fontSize = 18
 local captionFontSize = 20
-local padding = 24
+
+local padding = 20
 
 local frameHeight = titleFontSize + padding + sectionHeight * maxItemsCount + padding * (maxItemsCount - 1) + padding + captionFontSize
 
@@ -222,6 +224,9 @@ end
 -- Функция для инициализации LootList
 function ConsoleMenu:SetLootList()
 
+    if ConsoleMenuDB.lootFrameStyle == 1 then return end
+
+
     if not ConsoleMenuFrame.LootListFrame then
         local frame = CreateFrame("Frame", "LootListFrame", ConsoleMenuFrame)
         ConsoleMenuFrame.LootListFrame = frame
@@ -341,7 +346,7 @@ function ConsoleMenu:SetLootList()
                 item.Background:SetPoint("TOPLEFT", item, "TOPLEFT", -32, 32)
                 item.Background:SetPoint("BOTTOMRIGHT", item, "BOTTOMRIGHT", 32, -24)
                 item.Background:SetAtlas("Garr_BuildingInfoShadow")
-                item.Background:SetAlpha(0.6)
+                item.Background:SetAlpha(shadowOpacity)
             end
         end
     end

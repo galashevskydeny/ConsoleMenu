@@ -271,7 +271,7 @@ function ConsoleMenu:HideBlizzardUI()
     end
 
     -- Применяем функции скрытия только если значение настройки равно 2 (скрыть)
-    if ConsoleMenuDB.hideLootFrame == 2 then
+    if ConsoleMenuDB.lootFrameStyle == 2 then
         DisableLootFrame()
     end
     

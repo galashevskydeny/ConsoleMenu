@@ -67,7 +67,7 @@ local hudSettingsNotifications = {
 -- Разное
 local hudSettingsMisc = {
     { name = "Говорящая голова", variable = "hideTalkingHeadFrame", default = 1, tooltip = "Управляет отображением фрейма говорящей головы (TalkingHeadFrame).", options = hudDropdownOptions },
-    { name = "Окно добычи", variable = "hideLootFrame", default = 1, tooltip = "Управляет отображением фрейма лута (LootFrame).", options = hudDropdownOptions },
+    { name = "Окно добычи", variable = "lootFrameStyle", default = 1, tooltip = "Управляет отображением фрейма лута (LootFrame).", options = hudUpdateDropdownOptions },
 }
 
 -- Геймплей
