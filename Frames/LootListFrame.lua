@@ -124,7 +124,17 @@ local function UpdateItemFrame(frame, item)
     
     frame.Icon.Texture:SetTexture(item.itemTexture)
     
-    if item.isCraftingReagent and frame.Icon.CraftingQuality then
+    if item.craftingQuality then
+        frame.Icon.CraftingQuality:SetPoint("TOPLEFT", frame.Icon, "TOPLEFT", CraftingQualityOffset[item.craftingQuality][1], -CraftingQualityOffset[item.craftingQuality][2])
+        
+        local atlasName = CraftingQualityTexture[item.craftingQuality]
+
+        frame.Icon.CraftingQuality:SetAtlas(atlasName)
+        local atlasInfo = C_Texture.GetAtlasInfo(atlasName)
+
+        frame.Icon.CraftingQuality:SetWidth(craftingQualityIconSize)
+        frame.Icon.CraftingQuality:SetHeight(craftingQualityIconSize / atlasInfo.width * atlasInfo.height)
+        
         frame.Icon.CraftingQuality:Show()
     elseif frame.Icon.CraftingQuality then
         frame.Icon.CraftingQuality:Hide()
@@ -306,18 +316,9 @@ function ConsoleMenu:SetLootList()
             -- Качество реагента для профессии
             if not item.Icon.CraftingQuality then
 
-                local quality = 3
                 item.Icon.CraftingQuality = item.Icon:CreateTexture(nil, "OVERLAY")
                 item.Icon.CraftingQuality:SetDrawLayer("OVERLAY", 1)
-                item.Icon.CraftingQuality:SetPoint("TOPLEFT", item.Icon, "TOPLEFT", CraftingQualityOffset[quality][1], -CraftingQualityOffset[quality][2])
                 
-                local atlasName = CraftingQualityTexture[quality]
-
-                item.Icon.CraftingQuality:SetAtlas(atlasName)
-                local atlasInfo = C_Texture.GetAtlasInfo(atlasName)
-
-                item.Icon.CraftingQuality:SetWidth(craftingQualityIconSize)
-                item.Icon.CraftingQuality:SetHeight(craftingQualityIconSize / atlasInfo.width * atlasInfo.height)
             end
 
             -- Текст
@@ -350,13 +351,17 @@ function ConsoleMenu:SetLootList()
         if event == "LOOT_OPENED" then
             for slotIndex = 1, GetNumLootItems() do
                 local itemTexture, itemName, quantity, currencyID, itemQuality, _, isQuestItem, _, _, isCoin = GetLootSlotInfo(slotIndex)
-
+        
                 if not (currencyID or isCoin) then
+                    local itemLink = GetLootSlotLink(slotIndex)
+                    local craftingQuality = C_TradeSkillUI.GetItemReagentQualityByItemInfo(itemLink)
+
                     AddItem({
                         quantity = quantity,
                         itemName = itemName,
                         itemQuality = itemQuality,
                         itemTexture = itemTexture,
+                        craftingQuality = craftingQuality,
                     })
                 end
 
@@ -368,7 +373,7 @@ function ConsoleMenu:SetLootList()
             
             local quantity = data.quantity
             local craftingQuality = data.craftingQuality
-            local itemName, _, itemQuality, _, _, _, _, _, _, itemTexture, _, _, _, _, _, _, isCraftingReagent, _ = C_Item.GetItemInfo(data.hyperlink)
+            local itemName, _, itemQuality, _, _, _, _, _, _, itemTexture, _, _, _, _, _, _, _, _ = C_Item.GetItemInfo(data.hyperlink)
             
             AddItem({
                 quantity = quantity,
@@ -376,33 +381,34 @@ function ConsoleMenu:SetLootList()
                 itemName = itemName,
                 itemQuality = itemQuality,
                 itemTexture = itemTexture,
-                isCraftingReagent = isCraftingReagent,
             })
         elseif event == "QUEST_LOOT_RECEIVED" then
             local _, itemLink, quantity = ...
 
-            local itemName, _, itemQuality, _, _, _, _, _, _, itemTexture, _, _, _, _, _, _, isCraftingReagent, _ = C_Item.GetItemInfo(itemLink)
+            local craftingQuality = C_TradeSkillUI.GetItemReagentQualityByItemInfo(itemLink)
+            local itemName, _, itemQuality, _, _, _, _, _, _, itemTexture, _, _, _, _, _, _, _, _ = C_Item.GetItemInfo(itemLink)
 
             AddItem({
                 quantity = quantity,
                 itemName = itemName,
                 itemQuality = itemQuality,
                 itemTexture = itemTexture,
-                isCraftingReagent = isCraftingReagent,
+                craftingQuality = craftingQuality,
             })
         elseif event == "SHOW_LOOT_TOAST" then
             local typeIdentifier, itemLink, quantity, _, _, _, _, _, _, _ = ...
 
             if typeIdentifier ~= "item" then return end
 
-            local itemName, _, itemQuality, _, _, _, _, _, _, itemTexture, _, _, _, _, _, _, isCraftingReagent, _ = C_Item.GetItemInfo(itemLink)
+            local craftingQuality = C_TradeSkillUI.GetItemReagentQualityByItemInfo(itemLink)
+            local itemName, _, itemQuality, _, _, _, _, _, _, itemTexture, _, _, _, _, _, _, _, _ = C_Item.GetItemInfo(itemLink)
 
             AddItem({
                 quantity = quantity,
                 itemName = itemName,
                 itemQuality = itemQuality,
                 itemTexture = itemTexture,
-                isCraftingReagent = isCraftingReagent,
+                craftingQuality = craftingQuality,
             })
         end
 
