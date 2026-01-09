@@ -727,11 +727,6 @@ function ConsoleMenu:NotificationFrameUpdate()
         return
     end
 
-    if ConsoleMenuFrame.NotificationFrame:IsShown() and ConsoleMenuFrame.NotificationFrame.notification and (GetTime() - ConsoleMenuFrame.NotificationFrame.notification.startTime >= NotificationDuration[ConsoleMenuFrame.NotificationFrame.notification.event]) then
-        ConsoleMenu:AnimatedHide(ConsoleMenuFrame.NotificationFrame)
-        ConsoleMenuFrame.NotificationFrame.notification = nil
-    end
-
     notification = GetGroupedNotification(notification)
 
     if notification then
@@ -741,7 +736,6 @@ function ConsoleMenu:NotificationFrameUpdate()
         
         C_Timer.After(animationDuration + delay, function()
             ConsoleMenu:AnimatedShow(ConsoleMenuFrame.NotificationFrame)
-            ConsoleMenuFrame.NotificationFrame.notification = notification
         end)
 
         local event = notification.event
@@ -775,7 +769,6 @@ function ConsoleMenu:NotificationFrameUpdate()
                 notificationUpdateTimer = nil
                 -- Скрываем текущее уведомление с анимацией
                 ConsoleMenu:AnimatedHide(ConsoleMenuFrame.NotificationFrame)
-                ConsoleMenuFrame.NotificationFrame.notification = nil
                 -- Ждем окончания анимации исчезновения перед проверкой следующего уведомления
                 C_Timer.After(animationDuration + delay, function()
                     -- После отображения проверяем, есть ли еще уведомления в очереди
@@ -785,7 +778,6 @@ function ConsoleMenu:NotificationFrameUpdate()
         end
     else
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.NotificationFrame)
-        ConsoleMenuFrame.NotificationFrame.notification = nil
 
         C_Timer.After(animationDuration + delay, function()
             ConsoleMenu:QueueStatusToastFrameUpdate()
@@ -948,7 +940,6 @@ function ConsoleMenu:SetNotificationFrame()
                         notificationUpdateTimer = nil
                         -- Скрываем текущее уведомление с анимацией
                         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.NotificationFrame)
-                        ConsoleMenuFrame.NotificationFrame.notification = nil
                         -- Ждем окончания анимации исчезновения перед проверкой следующего уведомления
                         C_Timer.After(animationDuration + delay, function()
                             -- После отображения проверяем, есть ли еще уведомления в очереди
