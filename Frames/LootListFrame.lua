@@ -33,11 +33,48 @@ local CraftingQualityOffset = {
     [3] = {4, 4},
 }
 
+-- Функция для поиска свободных фреймов для отображения предметов
+local function FindItemFrames()
+    if not ConsoleMenuFrame.LootListFrame or not ConsoleMenuFrame.LootListFrame.Items then
+        return {}
+    end
+
+    local frames = {}
+
+    for i = 1, maxItemsCount do
+        local itemFrame = ConsoleMenuFrame.LootListFrame.Items["Item" .. i]
+        if itemFrame and not itemFrame:IsShown() then
+            table.insert(frames, itemFrame)
+        end
+    end
+
+    return frames
+end
+
+-- Функция для добавления предмета в список
+local function AddItem(itemData)
+
+    if #ConsoleMenu.Items >= maxItemsCount then
+        ConsoleMenu:AnimatedShow(ConsoleMenuFrame.LootListFrame.AdditionalItemsCount)
+        return
+    end
+
+    table.insert(ConsoleMenu.Items, {
+        quantity = itemData.quantity,
+        itemName = itemData.itemName,
+        itemQuality = itemData.itemQuality,
+        itemTexture = itemData.itemTexture,
+        craftingQuality = itemData.craftingQuality,
+        isCraftingReagent = itemData.isCraftingReagent,
+        startTime = GetTime(),
+    })
+end
+
 -- Функция для удаления старых предметов
 local function RemoveOldItems()
     for i = #ConsoleMenu.Items, 1, -1 do
         local item = ConsoleMenu.Items[i]
-        if item.startTime + duration < GetTime() then
+        if GetTime() - item.startTime > duration then
             table.remove(ConsoleMenu.Items, i)
         end
     end
@@ -70,14 +107,15 @@ end
 
 -- Функция для обновления заголовков списка предметов
 local function UpdateListItemsTitle()
-    
     if #ConsoleMenu.Items > 0 then
         ConsoleMenu:AnimatedShow(ConsoleMenuFrame.LootListFrame.Title)
     else
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.LootListFrame.Title)
-        ConsoleMenu:AnimatedHide(ConsoleMenuFrame.LootListFrame.AdditionalItemsCount)
     end
 
+    if #ConsoleMenu.Items < maxItemsCount then
+        ConsoleMenu:AnimatedHide(ConsoleMenuFrame.LootListFrame.AdditionalItemsCount)
+    end
 end
 
 -- Функция для обновления фрейма предмета
@@ -107,41 +145,22 @@ local function UpdateItemFrame(frame, item)
     frame.Text:SetText(text)
 
     frame.startTime = item.startTime
+
     ConsoleMenu:AnimatedShow(frame)
-    UpdateListItemsTitle()
     UpdateListItemsPoints()
-    item.isShown = true
 
     C_Timer.After(duration, function()
-
-        -- Удаляем элемент из таблицы ConsoleMenu.Items с обходом в обратном порядке
+        -- Обходим таблицу в обратном порядке для удаления элемента
         for i = #ConsoleMenu.Items, 1, -1 do
             if ConsoleMenu.Items[i] == item then
                 table.remove(ConsoleMenu.Items, i)
             end
         end
+
         UpdateListItemsTitle()
         ConsoleMenu:AnimatedHide(frame)
     end)
 
-end
-
--- Функция для поиска свободных фреймов для отображения предметов
-local function FindItemFrames()
-    if not ConsoleMenuFrame.LootListFrame or not ConsoleMenuFrame.LootListFrame.Items then
-        return {}
-    end
-
-    local frames = {}
-
-    for i = 1, maxItemsCount do
-        local itemFrame = ConsoleMenuFrame.LootListFrame.Items["Item" .. i]
-        if itemFrame and not itemFrame:IsShown() then
-            table.insert(frames, itemFrame)
-        end
-    end
-
-    return frames
 end
 
 -- Функция для обновления списка предметов
@@ -150,56 +169,25 @@ local function UpdateLootList()
     -- Удаляем старые предмета
     RemoveOldItems()
 
-    -- Если нет предметов, то ничего не делаем
-    if #ConsoleMenu.Items == 0 then return end
-
     -- Находим свободные фреймы для отображения предметов
     local frames = FindItemFrames()
-    if #frames == 0 then
-        ConsoleMenu:AnimatedShow(ConsoleMenuFrame.LootListFrame.AdditionalItemsCount)
-    else
-        ConsoleMenu:AnimatedHide(ConsoleMenuFrame.LootListFrame.AdditionalItemsCount)
-    end
-
-    -- Ищем кандидатов на отображение
-    local potentialItems = {}
-    for _, item in ipairs(ConsoleMenu.Items) do
-        if not item.isShown then
-            table.insert(potentialItems, item)
-        end
-    end
 
     -- Сортируем предметы по качеству
-
-    table.sort(potentialItems, function(a, b)
+    table.sort(ConsoleMenu.Items, function(a, b)
         return (a.itemQuality or 0) > (b.itemQuality or 0)
     end)
 
+    -- Обновляем доступное количество фреймов для отображения предметов
     for i = 1, #frames do
         local frame = frames[i]
-        local item = potentialItems[i]
+        local item = ConsoleMenu.Items[i]
         
         if item then
             UpdateItemFrame(frame, item)
         end
     end
 
-    if #potentialItems > #frames then
-        --  Автоматическое удаление неотображенных предметов
-        local hiddenLookup = {}
-        for i = #frames + 1, #potentialItems do
-            hiddenLookup[potentialItems[i]] = true
-        end
-
-        C_Timer.After(duration, function()
-            for i = #ConsoleMenu.Items, 1, -1 do
-                if hiddenLookup[ConsoleMenu.Items[i]] then
-                    table.remove(ConsoleMenu.Items, i)
-                end
-            end
-            UpdateListItemsTitle()
-        end)
-    end
+    UpdateListItemsTitle()
 
 end
 
@@ -345,13 +333,11 @@ function ConsoleMenu:SetLootList()
                 local itemTexture, itemName, quantity, currencyID, itemQuality, _, isQuestItem, _, _, isCoin = GetLootSlotInfo(slotIndex)
 
                 if not (currencyID or isCoin) then
-                    table.insert(ConsoleMenu.Items, {
+                    AddItem({
                         quantity = quantity,
                         itemName = itemName,
                         itemQuality = itemQuality,
                         itemTexture = itemTexture,
-                        isShown = false,
-                        startTime = GetTime(),
                     })
                 end
 
@@ -365,30 +351,25 @@ function ConsoleMenu:SetLootList()
             local craftingQuality = data.craftingQuality
             local itemName, _, itemQuality, _, _, _, _, _, _, itemTexture, _, _, _, _, _, _, isCraftingReagent, _ = C_Item.GetItemInfo(data.hyperlink)
             
-            table.insert(ConsoleMenu.Items, {
+            AddItem({
                 quantity = quantity,
                 craftingQuality = craftingQuality,
                 itemName = itemName,
                 itemQuality = itemQuality,
                 itemTexture = itemTexture,
                 isCraftingReagent = isCraftingReagent,
-                isShown = false,
-                startTime = GetTime(),
             })
         elseif event == "QUEST_LOOT_RECEIVED" then
             local _, itemLink, quantity = ...
 
             local itemName, _, itemQuality, _, _, _, _, _, _, itemTexture, _, _, _, _, _, _, isCraftingReagent, _ = C_Item.GetItemInfo(itemLink)
 
-            table.insert(ConsoleMenu.Items, {
+            AddItem({
                 quantity = quantity,
-                craftingQuality = craftingQuality,
                 itemName = itemName,
                 itemQuality = itemQuality,
                 itemTexture = itemTexture,
                 isCraftingReagent = isCraftingReagent,
-                isShown = false,
-                startTime = GetTime(),
             })
         elseif event == "SHOW_LOOT_TOAST" then
             local typeIdentifier, itemLink, quantity, _, _, _, _, _, _, _ = ...
@@ -397,14 +378,12 @@ function ConsoleMenu:SetLootList()
 
             local itemName, _, itemQuality, _, _, _, _, _, _, itemTexture, _, _, _, _, _, _, isCraftingReagent, _ = C_Item.GetItemInfo(itemLink)
 
-            table.insert(ConsoleMenu.Items, {
+            AddItem({
                 quantity = quantity,
                 itemName = itemName,
                 itemQuality = itemQuality,
                 itemTexture = itemTexture,
                 isCraftingReagent = isCraftingReagent,
-                isShown = false,
-                startTime = GetTime(),
             })
         end
 

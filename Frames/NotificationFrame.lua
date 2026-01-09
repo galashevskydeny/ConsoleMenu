@@ -687,7 +687,11 @@ local function GetGroupedNotification(notification)
 
         -- Удаляем все уведомления о смене области или изучении новой области
         for i = #ConsoleMenu.Notifications, 1, -1 do
-            if ConsoleMenu.Notifications[i].event == "ZONE_CHANGED_NEW_AREA" or ConsoleMenu.Notifications[i].event == "ZONE_CHANGED" or ConsoleMenu.Notifications[i].event == "ZONE_CHANGED_INDOORS" or (ConsoleMenu.Notifications[i].event == "UI_INFO_MESSAGE" and ConsoleMenu.Notifications[i].identifier == 408 and ConsoleMenu.Notifications[i].text == zoneText) then
+            if ConsoleMenu.Notifications[i].event == "ZONE_CHANGED_NEW_AREA" or
+               ConsoleMenu.Notifications[i].event == "ZONE_CHANGED" or
+               ConsoleMenu.Notifications[i].event == "ZONE_CHANGED_INDOORS" or
+               (ConsoleMenu.Notifications[i].event == "UI_INFO_MESSAGE" and ConsoleMenu.Notifications[i].identifier == 408 and ConsoleMenu.Notifications[i].text == zoneText) then
+                
                 if ConsoleMenu.Notifications[i].event == "UI_INFO_MESSAGE" and ConsoleMenu.Notifications[i].identifier == 408 and ConsoleMenu.Notifications[i].text == zoneText then
                     notification.caption = ConsoleMenu.Notifications[i].caption
                 end
@@ -719,13 +723,6 @@ function ConsoleMenu:NotificationFrameUpdate()
     end
 
     local notification = GetTopPriorityNotification()
-
-    if ConsoleMenuFrame.NotificationFrame:IsShown() and notification and NotificationEventPriority[notification.event] ~= 1 then
-        C_Timer.After(animationDuration + delay, function()
-            ConsoleMenu:NotificationFrameUpdate()
-        end)
-        return
-    end
 
     notification = GetGroupedNotification(notification)
 
