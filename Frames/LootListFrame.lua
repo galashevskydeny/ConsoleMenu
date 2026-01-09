@@ -201,14 +201,18 @@ local function UpdateLootList()
         return (a.itemQuality or 0) > (b.itemQuality or 0)
     end)
 
-    -- Обновляем доступное количество фреймов для отображения предметов
-    for i = 1, #frames do
-        local frame = frames[i]
+    -- Собираем предметы для обработки (до удаления из очереди)
+    local itemsToProcess = {}
+    for i = 1, math.min(#frames, #ConsoleMenuFrame.LootListFrame.Queue) do
         local item = ConsoleMenuFrame.LootListFrame.Queue[i]
-        
         if item then
-            UpdateItemFrame(frame, item)
+            table.insert(itemsToProcess, {frame = frames[i], item = item})
         end
+    end
+
+    -- Обрабатываем все собранные предметы
+    for _, data in ipairs(itemsToProcess) do
+        UpdateItemFrame(data.frame, data.item)
     end
 
     UpdateListItemsTitle()
