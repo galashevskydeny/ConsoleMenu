@@ -69,19 +69,15 @@ local function UpdateListItemsPoints()
 end
 
 -- Функция для обновления заголовков списка предметов
-local function UpdateListItemsTitles()
+local function UpdateListItemsTitle()
     
     if #ConsoleMenu.Items > 0 then
         ConsoleMenu:AnimatedShow(ConsoleMenuFrame.LootListFrame.Title)
     else
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.LootListFrame.Title)
-    end
-
-    if #ConsoleMenu.Items > 5 then
-        ConsoleMenu:AnimatedShow(ConsoleMenuFrame.LootListFrame.AdditionalItemsCount)
-    else
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.LootListFrame.AdditionalItemsCount)
     end
+
 end
 
 -- Функция для обновления фрейма предмета
@@ -112,7 +108,7 @@ local function UpdateItemFrame(frame, item)
 
     frame.startTime = item.startTime
     ConsoleMenu:AnimatedShow(frame)
-    UpdateListItemsTitles()
+    UpdateListItemsTitle()
     UpdateListItemsPoints()
     item.isShown = true
 
@@ -124,7 +120,7 @@ local function UpdateItemFrame(frame, item)
                 table.remove(ConsoleMenu.Items, i)
             end
         end
-        UpdateListItemsTitles()
+        UpdateListItemsTitle()
         ConsoleMenu:AnimatedHide(frame)
     end)
 
@@ -159,7 +155,11 @@ local function UpdateLootList()
 
     -- Находим свободные фреймы для отображения предметов
     local frames = FindItemFrames()
-    if #frames == 0 then return end
+    if #frames == 0 then
+        ConsoleMenu:AnimatedShow(ConsoleMenuFrame.LootListFrame.AdditionalItemsCount)
+    else
+        ConsoleMenu:AnimatedHide(ConsoleMenuFrame.LootListFrame.AdditionalItemsCount)
+    end
 
     -- Ищем кандидатов на отображение
     local potentialItems = {}
@@ -197,7 +197,7 @@ local function UpdateLootList()
                     table.remove(ConsoleMenu.Items, i)
                 end
             end
-            UpdateListItemsTitles()
+            UpdateListItemsTitle()
         end)
     end
 
