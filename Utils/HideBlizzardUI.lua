@@ -146,8 +146,8 @@ local function DisableMicroMenu()
     MicroMenu:Hide()
     RegisterStateDriver(MicroMenu, "visibility", "hide")
     
-    -- Скрываем QueueStatusButton если hideGroupFinderFrame == 2
-    if ConsoleMenuDB and ConsoleMenuDB.hideGroupFinderFrame == 2 then
+    -- Скрываем QueueStatusButton если groupFinderFrameStyle == 2
+    if ConsoleMenuDB and ConsoleMenuDB.groupFinderFrameStyle == 2 then
         if QueueStatusButton then
             QueueStatusButton:Hide()
             QueueStatusButton:SetAlpha(0.0)

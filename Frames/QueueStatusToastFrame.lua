@@ -167,6 +167,8 @@ end
 -- Функция для инициализации NotificationFrame
 function ConsoleMenu:SetQueueStatusToastFrame()
 
+    if ConsoleMenuDB.groupFinderFrameStyle == 1 then return end
+
     if not ConsoleMenu.Queues then
         ConsoleMenu.Queues = {}
     end
