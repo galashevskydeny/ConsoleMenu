@@ -23,7 +23,7 @@ local hudSettingsMainElements = {
     { name = "Задания", variable = "hideObjectiveTracker", default = 1, tooltip = "Управляет отображением трекера заданий (ObjectiveTracker).", options = hudDropdownOptions },
     { name = "Миникарта", variable = "hideMinimap", default = 1, tooltip = "Управляет отображением миникарты (Minimap).", options = hudDropdownOptions },
     { name = "Главное меню", variable = "hideMicroMenu", default = 1, tooltip = "Управляет отображением главного меню (MicroMenu).", options = hudDropdownOptions },
-    { name = "Поиск группы", variable = "hideGroupFinderFrame", default = 1, tooltip = "Управляет отображением фрейма поиска группы (GroupFinderFrame).", options = hudDropdownOptions },
+    { name = "Поиск группы", variable = "groupFinderFrameStyle", default = 1, tooltip = "Управляет отображением фрейма поиска группы (GroupFinderFrame).", options = hudUpdateDropdownOptions },
     { name = "Панель сумок", variable = "hideBagsBarsBar", default = 1, tooltip = "Управляет отображением панели сумок (BagsBarsBar).", options = hudDropdownOptions },
     { name = "Чат", variable = "chatWindowStyle", default = 2, tooltip = "Выберите стиль окна чата: обновленную версию (скрытую по умолчанию в центре экрана) или стандартную.", options = hudUpdateDropdownOptions },
 
