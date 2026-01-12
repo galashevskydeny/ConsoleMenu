@@ -154,6 +154,10 @@ function ConsoleMenu:RegisterAssets()
             texture = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\SPACE.png",
             background = ConsoleMenu.Backgrounds["KEY"],
         },
+        PADDLEFTRIGHT = {
+            texture = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\outline-left-right.png",
+            background = "",
+        }
     }
 
     for i = 65, 90 do -- ASCII коды A (65) до Z (90)

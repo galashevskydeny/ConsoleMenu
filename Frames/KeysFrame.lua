@@ -117,7 +117,6 @@ function ConsoleMenu:UpdateKeysFrame()
             ConsoleMenu:AnimatedHide(frame)
         else
             UpdateKeyItem(frame, item.binding, item.title, item.stackCount)
-
             ConsoleMenu:AnimatedShow(frame)
         end
     end
