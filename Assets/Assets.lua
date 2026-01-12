@@ -1,57 +1,179 @@
 local ConsoleMenu = _G.ConsoleMenu
 
 function ConsoleMenu:RegisterAssets()
+    -- Фоны кнопок
+    ConsoleMenu.Backgrounds = {
+        PAD = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\pad-background.png",
+        SHOULDER = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\shoulder-background.png",
+        TRIGGER = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\trigger-background.png",
+        STICK = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\stick-background.png",
+        KEY = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\key-background.png",
+        TOUCH = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\touch-background.png",
+        PAIR = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\pairButtonTexture.png",
+    }
+
     -- Текстуры кнопок
     ConsoleMenu.Textures = {
-        PADDUP       = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\outline-top.png",
-        PADDRIGHT    = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\outline-right.png",
-        PADDDOWN     = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\outline-bottom.png",
-        PADDLEFT     = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\outline-left.png",
-        PAD1         = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\plain-cross.png",
-        PAD2         = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\plain-circle.png",
-        PAD3         = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\plain-square.png",
-        PAD4         = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\plain-triangle.png",
-        PAD5         = "",
-        PAD6         = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\TouchRight.png",
-        PADLSHOULDER = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\plain-L1.png",
-        PADLTRIGGER  = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\plain-L2.png",
-        PADRSHOULDER = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\plain-R1.png",
-        PADRTRIGGER  = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\plain-R2.png",
-        PADLSTICK    = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\L3 press.png",
-        PADRSTICK    = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\R3 press.png",
-        PADLSTICKUP  = "",
-        PADLSTICKRIGHT = "",
-        PADLSTICKDOWN  = "",
-        PADLSTICKLEFT  = "",
-        PADRSTICKUP    = "",
-        PADRSTICKRIGHT = "",
-        PADRSTICKDOWN  = "",
-        PADRSTICKLEFT  = "",
-        PADPADDLE1   = "",
-        PADPADDLE2   = "",
-        PADPADDLE3   = "",
-        PADPADDLE4   = "",
-        PADFORWARD   = "",
-        PADBACK      = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\TouchLeft.png",
-        PADSYSTEM    = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\",
-        PADSOCIAL    = "",
-        PAIRBUTTON   = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\pairButtonTexture.png",
-        SHIFT        = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\SHIFT.png",
-        CTRL         = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\CTRL.png",
-        SPACE        = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\SPACE.png",
-        EMPTY        = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\plain.png"
+        PADDUP       = {
+            texture = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\outline-top.png",
+            background = "",
+        },
+        PADDRIGHT    = {
+            texture = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\outline-right.png",
+            background = "",
+        },
+        PADDDOWN     = {
+            texture = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\outline-bottom.png",
+            background = "",
+        },
+        PADDLEFT     = {
+            texture = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\outline-left.png",
+            background = "",
+        },
+        PAD1         = {
+            texture = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\plain-cross.png",
+            background = ConsoleMenu.Backgrounds["PAD"],
+        },
+        PAD2         = {
+            texture = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\plain-circle.png",
+            background = ConsoleMenu.Backgrounds["PAD"],
+        },
+        PAD3         = {
+            texture = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\plain-square.png",
+            background = ConsoleMenu.Backgrounds["PAD"],
+        },
+        PAD4         = {
+            texture = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\plain-triangle.png",
+            background = ConsoleMenu.Backgrounds["PAD"],
+        },
+        PAD5         = {
+            texture = "",
+            background = "",
+        },
+        PAD6         = {
+            texture = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\TouchRight.png",
+            background = ConsoleMenu.Backgrounds["TOUCH"],
+        },
+        PADLSHOULDER = {
+            texture = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\plain-L1.png",
+            background = ConsoleMenu.Backgrounds["SHOULDER"],
+        },
+        PADLTRIGGER  = {
+            texture = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\plain-L2.png",
+            background = ConsoleMenu.Backgrounds["TRIGGER"],
+        },
+        PADRSHOULDER = {
+            texture = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\plain-R1.png",
+            background = ConsoleMenu.Backgrounds["SHOULDER"],
+        },
+        PADRTRIGGER  = {
+            texture = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\plain-R2.png",
+            background = ConsoleMenu.Backgrounds["TRIGGER"],
+        },
+        PADLSTICK    = {
+            texture = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\L3 press.png",
+            background = ConsoleMenu.Backgrounds["STICK"],
+        },
+        PADRSTICK    = {
+            texture = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\R3 press.png",
+            background = ConsoleMenu.Backgrounds["STICK"],
+        },
+        PADLSTICKUP  = {
+            texture = "",
+            background = "",
+        },
+        PADLSTICKRIGHT = {
+            texture = "",
+            background = "",
+        },
+        PADLSTICKDOWN  = {
+            texture = "",
+            background = "",
+        },
+        PADLSTICKLEFT  = {
+            texture = "",
+            background = "",
+        },
+        PADRSTICKUP    = {
+            texture = "",
+            background = "",
+        },
+        PADRSTICKRIGHT = {
+            texture = "",
+            background = "",
+        },
+        PADRSTICKDOWN  = {
+            texture = "",
+            background = "",
+        },
+        PADRSTICKLEFT  = {
+            texture = "",
+            background = "",
+        },
+        PADPADDLE1   = {
+            texture = "",
+            background = "",
+        },
+        PADPADDLE2   = {
+            texture = "",
+            background = "",
+        },
+        PADPADDLE3   = {
+            texture = "",
+            background = "",
+        },
+        PADPADDLE4   = {
+            texture = "",
+            background = "",
+        },
+        PADFORWARD   = {
+            texture = "",
+            background = "",
+        },
+        PADBACK      = {
+            texture = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\TouchLeft.png",
+            background = ConsoleMenu.Backgrounds["TOUCH"],
+        },
+        PADSYSTEM    = {
+            texture = "",
+            background = "",
+        },
+        PADSOCIAL    = {
+            texture = "",
+            background = "",
+        },
+        SHIFT        = {
+            texture = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\SHIFT.png",
+            background = ConsoleMenu.Backgrounds["KEY"],
+        },
+        CTRL         = {
+            texture = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\CTRL.png",
+            background = ConsoleMenu.Backgrounds["KEY"],
+        },
+        SPACE        = {
+            texture = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\SPACE.png",
+            background = ConsoleMenu.Backgrounds["KEY"],
+        },
     }
 
     for i = 65, 90 do -- ASCII коды A (65) до Z (90)
         local letter = string.char(i)
-        ConsoleMenu.Textures[letter] = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\" .. letter .. ".png"
+        ConsoleMenu.Textures[letter] = {
+            texture = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\" .. letter .. ".png",
+            background = ConsoleMenu.Backgrounds["KEY"]
+        }
     end
 
     for i = 48, 57 do -- ASCII коды 0 (48) до 9 (57)
         local digit = string.char(i)
-        ConsoleMenu.Textures[digit] = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\" .. digit .. ".png"
-        ConsoleMenu.Textures["NUMPAD" .. digit] = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\" .. digit .. ".png"
-
+        ConsoleMenu.Textures[digit] = {
+            texture = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\" .. digit .. ".png",
+            background = ConsoleMenu.Backgrounds["KEY"]
+        }
+        ConsoleMenu.Textures["NUMPAD" .. digit] = {
+            texture = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\" .. digit .. ".png",
+            background = ConsoleMenu.Backgrounds["KEY"]
+        }
     end
 
     -- Регистрация текстур в LibSharedMedia (если доступна)

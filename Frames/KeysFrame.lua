@@ -4,15 +4,98 @@ local maxItemsCount = 5
 
 local frameWidth = 304
 
-local sectionHeight = 40
+local sectionHeight = 32
 local sectionPadding = 0
 local iconSize = sectionHeight - sectionPadding * 2
+local iconInnerPadding = 8
+local iconPlusSize = 12
+
+local stackCountSize = 20
+local stackCountOffset = 8
+local stackCountShadowOffsef = 12
 
 local padding = 12
 
 local frameHeight = sectionHeight * maxItemsCount + padding * (maxItemsCount - 1)
 
 local fontSize = 16
+
+local gamePadActive = false
+
+local function UpdateKeyItem(item, binding, title, stackCount)
+    if not item then return end
+    if not binding then return end
+    if not title then return end
+
+    if string.find(binding, "SHIFT") or string.find(binding, "CTRL") or string.find(binding, "ALT")then
+        -- Кнопка с модификатором
+
+        item.Icon.PlusTexture:Show()
+        item.Icon.ModifierTexture:Show()
+
+        local width = iconSize * 2 + iconPlusSize + iconInnerPadding * 2 + iconInnerPadding
+        local height = iconSize + iconInnerPadding * 2
+        item.Icon:SetWidth(width)
+        item.Icon:SetHeight(height)
+
+        local mainKey = string.match(binding, ".-%-(.+)$")
+        local modifierKey = string.match(binding, "^(.+)%-[^%-]+$")
+
+        if gamePadActive then
+            if modifierKey == "SHIFT" then
+                modifierKey = GetCVar("GamePadEmulateShift")
+            elseif key1 == "CTRL" then
+                modifierKey = GetCVar("GamePadEmulateCtrl")
+            elseif key1 == "ALT" then
+                modifierKey = GetCVar("GamePadEmulateAlt")
+            end
+        end
+
+        local mainTexture = ConsoleMenu.Textures[mainKey].texture
+        local modifierTexture = ConsoleMenu.Textures[modifierKey].texture
+        local background = ConsoleMenu.Backgrounds["PAIR"]
+
+        item.Icon.MainTexture:SetTexture(mainTexture)
+        item.Icon.ModifierTexture:SetTexture(modifierTexture)
+        item.Icon.Background:SetTexture(background)
+
+        item.Icon.MainTexture:ClearAllPoints()
+        item.Icon.MainTexture:SetPoint("RIGHT", item.Icon, "RIGHT", -iconInnerPadding, 0)
+        item.Icon.MainTexture:SetSize(iconSize, iconSize)
+
+        item.Icon.StackCount:ClearAllPoints()
+        item.Icon.StackCount:SetPoint("BOTTOMRIGHT", item.Icon.MainTexture, "BOTTOMRIGHT", stackCountOffset, -(stackCountOffset + iconInnerPadding))
+
+        item.Icon:SetPoint("RIGHT", item, "RIGHT", iconInnerPadding, 0)
+
+    else
+        -- Кнопка без модификатора
+
+        local texture = ConsoleMenu.Textures[binding].texture
+        local background = ConsoleMenu.Textures[binding].background
+
+        item.Icon.PlusTexture:Hide()
+        item.Icon.ModifierTexture:Show()
+
+        item.Icon:SetSize(iconSize, iconSize)
+
+        item.Icon.Background:SetTexture(background)
+        item.Icon.MainTexture:SetTexture(texture)
+
+        item.Icon.StackCount:ClearAllPoints()
+        item.Icon.StackCount:SetPoint("BOTTOMRIGHT", item.Icon.MainTexture, "BOTTOMRIGHT", stackCountOffset, -stackCountOffset)
+
+    end
+
+    if not stackCount or stackCount == 0 or stackCount == 1 then
+        item.Icon.StackCount:Hide()
+    else
+        item.Icon.StackCount:Show()
+        item.Icon.StackCount.Text:SetText(stackCount)
+    end
+
+    item.Text:SetText(title)
+end
 
 -- Функция для инициализации LootList
 function ConsoleMenu:SetKeysFrame()
@@ -46,10 +129,105 @@ function ConsoleMenu:SetKeysFrame()
                 item.Icon.Background = item.Icon:CreateTexture(nil, "BACKGROUND")
                 item.Icon.Background:SetAllPoints()
 
-                local texture = ConsoleMenu.Textures["EMPTY"]
+                local texture = ConsoleMenu.Textures["PAD1"].background
                 item.Icon.Background:SetTexture(texture)
             end
+
+            -- Текстура иконки
+            if not item.Icon.MainTexture then
+                item.Icon.MainTexture = item.Icon:CreateTexture(nil, "ARTWORK")
+                item.Icon.MainTexture:SetAllPoints()
+                item.Icon.MainTexture:SetVertexColor(1.0, 0.960784, 0.772549, 1)
+
+                local texture = ConsoleMenu.Textures["PAD1"].texture
+                item.Icon.MainTexture:SetTexture(texture)
+            end
+
+            if not item.Icon.PlusTexture then
+                item.Icon.PlusTexture = item.Icon:CreateTexture(nil, "ARTWORK")
+                item.Icon.PlusTexture:SetPoint("RIGHT", item.Icon.MainTexture, "LEFT", -iconInnerPadding / 2, 0)
+                item.Icon.PlusTexture:SetSize(iconPlusSize, iconPlusSize)
+                item.Icon.PlusTexture:SetVertexColor(1.0, 0.960784, 0.772549, 1)
+
+                local texture = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\plus.png"
+                item.Icon.PlusTexture:SetTexture(texture)
+                item.Icon.PlusTexture:Hide()
+            end
+
+            if not item.Icon.ModifierTexture then
+                item.Icon.ModifierTexture = item.Icon:CreateTexture(nil, "ARTWORK")
+                item.Icon.ModifierTexture:SetPoint("RIGHT", item.Icon.PlusTexture, "LEFT", -iconInnerPadding / 2, 0)
+                item.Icon.ModifierTexture:SetSize(iconSize, iconSize)
+                item.Icon.ModifierTexture:SetVertexColor(1.0, 0.960784, 0.772549, 1)
+
+                local texture = ConsoleMenu.Textures["PADLSHOULDER"].texture
+                item.Icon.ModifierTexture:SetTexture(texture)
+                item.Icon.ModifierTexture:Hide()
+            end
+
+            -- Счетчик стаков
+            if not item.Icon.StackCount then
+                item.Icon.StackCount = CreateFrame("Frame", "KeysFrameItemStackCount" .. i, item.Icon)
+                item.Icon.StackCount:SetSize(stackCountSize, stackCountSize)
+                item.Icon.StackCount:SetPoint("BOTTOMRIGHT", item.Icon.MainTexture, "BOTTOMRIGHT", stackCountOffset, -stackCountOffset)
+
+                item.Icon.StackCount:Hide()
+
+                -- Фон счетчика
+                if not item.Icon.StackCount.Background then
+                    item.Icon.StackCount.Background = item.Icon.StackCount:CreateTexture(nil, "ARTWORK")
+                    item.Icon.StackCount.Background:SetAllPoints()
+                    item.Icon.StackCount.Background:SetAlpha(0.5)
+
+                    local texture = ConsoleMenu.Backgrounds["PAD"]
+                    item.Icon.StackCount.Background:SetTexture(texture)
+                end
+
+                -- Тень счетчика
+                if not item.Icon.StackCount.Shadow then
+                    item.Icon.StackCount.Shadow = item.Icon.StackCount:CreateTexture(nil, "BACKGROUND")
+                    item.Icon.StackCount.Shadow:SetPoint("TOPLEFT", item.Icon.StackCount.Background, "TOPLEFT", -stackCountShadowOffsef, stackCountShadowOffsef)
+                    item.Icon.StackCount.Shadow:SetPoint("BOTTOMRIGHT", item.Icon.StackCount.Background, "BOTTOMRIGHT", stackCountShadowOffsef, -stackCountShadowOffsef)
+
+                    local texture = "Interface\\AddOns\\ConsoleMenu\\Assets\\CrossBackgorund.png"
+                    item.Icon.StackCount.Shadow:SetTexture(texture)
+                end
+
+                -- Текст счетчика
+                if not item.Icon.StackCount.Text then
+                    item.Icon.StackCount.Text = item.Icon.StackCount:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+                    item.Icon.StackCount.Text:SetAllPoints()
+                    item.Icon.StackCount.Text:SetJustifyH("CENTER")
+                    item.Icon.StackCount.Text:SetTextColor(1.0, 0.960784, 0.772549, 1)
+                    item.Icon.StackCount.Text:SetText("2")
+                end
+            end
+        
+        end
+
+        -- Текст
+        if not item.Text then
+            item.Text = item:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+            item.Text:SetPoint("RIGHT", item.Icon, "LEFT", -padding, 0)
+            item.Text:SetFont("Fonts\\FRIZQT___CYR.TTF", fontSize, "")
+            item.Text:SetTextColor(1.0, 0.960784, 0.772549, 1)
+            item.Text:SetText("Взаимодействие")
+        end
+
+        if i == 1 then
+            UpdateKeyItem(item, "SHIFT-PAD1", "Взаимодействие")
         end
     end
+
+    -- Регистрация события изменения режима геймпада
+    frame:RegisterEvent("GAME_PAD_ACTIVE_CHANGED")
+
+    local function OnKeysFrameEvent(self, event, ...)
+        if event == "GAME_PAD_ACTIVE_CHANGED" then
+            gamePadActive = ...
+        end
+    end
+
+    frame:SetScript("OnEvent", OnKeysFrameEvent)
 
 end
