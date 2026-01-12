@@ -3,6 +3,7 @@ local ConsoleMenu = _G.ConsoleMenu
 local maxItemsCount = 5
 
 local frameWidth = 304
+local frameHeight = frameWidth
 
 local sectionHeight = 32
 
@@ -16,9 +17,9 @@ local stackCountShadowOffsef = 12
 
 local padding = 12
 
-local frameHeight = frameWidth
-
 local fontSize = 16
+
+local animationDuration = 0.3
 
 local gamePadActive = false
 
@@ -99,6 +100,26 @@ local function UpdateKeyItem(item, binding, title, stackCount)
     end
 
     item.Text:SetText(title)
+end
+
+-- Функция для сброса элементов списка
+function ConsoleMenu:ResetKeysFrameItems()
+    ConsoleMenuFrame.KeysFrame.Items = {}
+end
+
+-- Функция для обновления списка
+local function UpdateKeysFrame()
+    for i = 1, maxItemsCount do
+        local frame = ConsoleMenuFrame.KeysFrame.Items["Item" .. i]
+        local item = ConsoleMenuFrame.KeysFrame.Items[i]
+
+        if not item then
+            ConsoleMenu:AnimatedHide(frame)
+        else
+            UpdateKeyItem(item, item.binding, item.title, item.stackCount)
+            ConsoleMenu:AnimatedShow(frame)
+        end
+    end
 end
 
 -- Функция для инициализации LootList
