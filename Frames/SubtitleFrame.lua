@@ -418,21 +418,16 @@ function ConsoleMenu:SubtitleFrameUpdate(subtitle)
         end
 
         if current.event == "GOSSIP_SHOW" or current.event == "QUEST_GREETING" or current.event == "QUEST_PROGRESS" or current.event == "QUEST_COMPLETE" or current.event == "QUEST_ACCEPTED" or current.event == "QUEST_TURNED_IN" or current.event == "QUEST_DETAIL" then
-            print("event", current.event)
             
             if not current.lastLine or current.lastLine == false then
                 ConsoleMenu:AddKeysFrameItem("PAD4", "Пропустить")
-                print("add PAD4")
                 ConsoleMenu:UpdateKeysFrame()
             else
                 ConsoleMenu:DeleteKeysFrameItem("PAD4")
-                print("delete PAD4")
                 ConsoleMenu:UpdateKeysFrame()            end
         
         elseif current.event == "GOSSIP_CLOSED" or current.event == "QUEST_FINISHED" or current.event == "GOSSIP_CONFIRM" then
-            print("event", current.event)
             ConsoleMenu:DeleteKeysFrameItem("PAD4")
-            print("delete PAD4")
             ConsoleMenu:UpdateKeysFrame()
         end
 
