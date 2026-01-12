@@ -996,14 +996,15 @@ function ConsoleMenu:SetCustomGossipFrame()
     frame:SetScript("OnEvent", function(self, event, ...)
         if event == "GAME_PAD_ACTIVE_CHANGED" then
             gamePadActive = ...
-        elseif event == "GOSSIP_SHOW" or event == "QUEST_GREETING" or event == "QUEST_PROGRESS" or event == "QUEST_COMPLETE" then
+        elseif event == "GOSSIP_SHOW" or event == "QUEST_GREETING" or event == "QUEST_PROGRESS" or event == "QUEST_COMPLETE" or event == "QUEST_ACCEPTED" or event == "QUEST_TURNED_IN" or event == "QUEST_DETAIL" then
             ConsoleMenu:AnimatedShow(frame)
-        elseif event == "QUEST_DETAIL" then
-            local questID = GetQuestID()
 
-            if questID ~= 0 then
-                ConsoleMenu:AnimatedShow(frame)
-            end
+            -- Сброс и обновление списка подсказок
+            ConsoleMenu:ResetKeysFrameItems()
+            ConsoleMenu:AddKeysFrameItem("PAD1", "Выбрать")
+            ConsoleMenu:AddKeysFrameItem("PAD2", "Выйти")
+            ConsoleMenu:UpdateKeysFrame()
+
         elseif event == "GOSSIP_CLOSED" or event == "GOSSIP_CONFIRM" or event == "QUEST_FINISHED" then
 
             local previousCollection = parentFrame.ScrollBox:GetDataProvider().collection
@@ -1012,6 +1013,10 @@ function ConsoleMenu:SetCustomGossipFrame()
                 local collection = parentFrame.ScrollBox:GetDataProvider().collection
                 if collection == previousCollection then
                     ConsoleMenu:AnimatedHide(frame)
+
+                    -- Сброс и обновление списка подсказок
+                    ConsoleMenu:ResetKeysFrameItems()
+                    ConsoleMenu:UpdateKeysFrame()
                 end
             end)
         end

@@ -19,7 +19,7 @@ local padding = 12
 
 local fontSize = 16
 
-local animationDuration = 0.3
+local animationDuration = 0.1
 
 local gamePadActive = false
 
@@ -79,7 +79,7 @@ local function UpdateKeyItem(item, binding, title, stackCount)
         local background = ConsoleMenu.Textures[binding].background
 
         item.Icon.PlusTexture:Hide()
-        item.Icon.ModifierTexture:Show()
+        item.Icon.ModifierTexture:Hide()
 
         item:SetHeight(sectionHeight)
         item.Icon:SetSize(iconSize, iconSize)
@@ -108,16 +108,76 @@ function ConsoleMenu:ResetKeysFrameItems()
 end
 
 -- Функция для обновления списка
-local function UpdateKeysFrame()
+function ConsoleMenu:UpdateKeysFrame()
+    print("UpdateKeysFrame")
     for i = 1, maxItemsCount do
-        local frame = ConsoleMenuFrame.KeysFrame.Items["Item" .. i]
+        local frame = ConsoleMenuFrame.KeysFrame["Item" .. i]
         local item = ConsoleMenuFrame.KeysFrame.Items[i]
 
         if not item then
             ConsoleMenu:AnimatedHide(frame)
         else
-            UpdateKeyItem(item, item.binding, item.title, item.stackCount)
+            UpdateKeyItem(frame, item.binding, item.title, item.stackCount)
             ConsoleMenu:AnimatedShow(frame)
+        end
+    end
+end
+
+-- Функция для удаления элемента из списка
+function ConsoleMenu:DeleteKeysFrameItem(binding)
+    if not binding then return end
+
+    -- Обходим Items и удаляем элемент, равный переданному item
+    for k, v in pairs(ConsoleMenuFrame.KeysFrame.Items) do
+        if v.binding == binding then
+            ConsoleMenuFrame.KeysFrame.Items[k] = nil
+            break
+        end
+    end
+
+    -- Сдвигаем оставшиеся элементы к началу, чтобы между ними не было пустых слотов
+    local newItems = {}
+    for i = 1, maxItemsCount do
+        local item = ConsoleMenuFrame.KeysFrame.Items[i]
+        if item ~= nil then
+            table.insert(newItems, item)
+        end
+    end
+
+    -- Заполняем Items по порядку подряд без пропусков
+    for i = 1, maxItemsCount do
+        if newItems[i] then
+            ConsoleMenuFrame.KeysFrame.Items[i] = newItems[i]
+        else
+            ConsoleMenuFrame.KeysFrame.Items[i] = nil
+        end
+    end
+
+end
+
+-- Функция для добавления элемента в список
+function ConsoleMenu:AddKeysFrameItem(binding, title, stackCount)
+    if not binding then return end
+    if not title then return end
+
+    -- Проверяем, существует ли уже элемент с таким binding
+    for i = 1, maxItemsCount do
+        local existingItem = ConsoleMenuFrame.KeysFrame.Items[i]
+        if existingItem and existingItem.binding == binding then
+            return
+        end
+    end
+
+    local item = {
+        binding = binding,
+        title = title,
+        stackCount = stackCount,
+    }
+
+    for i = 1, maxItemsCount do
+        if not ConsoleMenuFrame.KeysFrame.Items[i] then
+            ConsoleMenuFrame.KeysFrame.Items[i] = item
+            break
         end
     end
 end

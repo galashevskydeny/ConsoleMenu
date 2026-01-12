@@ -165,7 +165,6 @@ local function SwitchActionBarPage()
 end
 
 function ConsoleMenu:ApplyContextUIChanges(context)
-
 end
 
 -- Функция инициализации контекстов
