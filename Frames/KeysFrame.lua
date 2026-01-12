@@ -5,8 +5,8 @@ local maxItemsCount = 5
 local frameWidth = 304
 
 local sectionHeight = 32
-local sectionPadding = 0
-local iconSize = sectionHeight - sectionPadding * 2
+
+local iconSize = sectionHeight
 local iconInnerPadding = 8
 local iconPlusSize = 12
 
@@ -16,12 +16,13 @@ local stackCountShadowOffsef = 12
 
 local padding = 12
 
-local frameHeight = sectionHeight * maxItemsCount + padding * (maxItemsCount - 1)
+local frameHeight = frameWidth
 
 local fontSize = 16
 
 local gamePadActive = false
 
+-- Функция для обновления элемента списка
 local function UpdateKeyItem(item, binding, title, stackCount)
     if not item then return end
     if not binding then return end
@@ -35,6 +36,8 @@ local function UpdateKeyItem(item, binding, title, stackCount)
 
         local width = iconSize * 2 + iconPlusSize + iconInnerPadding * 2 + iconInnerPadding
         local height = iconSize + iconInnerPadding * 2
+
+        item:SetHeight(height)
         item.Icon:SetWidth(width)
         item.Icon:SetHeight(height)
 
@@ -77,6 +80,7 @@ local function UpdateKeyItem(item, binding, title, stackCount)
         item.Icon.PlusTexture:Hide()
         item.Icon.ModifierTexture:Show()
 
+        item:SetHeight(sectionHeight)
         item.Icon:SetSize(iconSize, iconSize)
 
         item.Icon.Background:SetTexture(background)
@@ -109,6 +113,10 @@ function ConsoleMenu:SetKeysFrame()
     frame:SetSize(frameWidth, frameHeight)
     frame:SetPoint("BOTTOMRIGHT", ConsoleMenuFrame, "BOTTOMRIGHT", -48, 48)
 
+    if not ConsoleMenuFrame.KeysFrame.Items then
+        ConsoleMenuFrame.KeysFrame.Items = {}
+    end
+
     for i = 1, maxItemsCount do
         local item = CreateFrame("Frame", "KeysFrameItem" .. i, frame)
         frame["Item" .. i] = item
@@ -116,13 +124,21 @@ function ConsoleMenu:SetKeysFrame()
         item:SetWidth(frameWidth)
         item:SetHeight(sectionHeight)
 
-        item:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, (sectionHeight * (i-1) + padding * (i-1)))
+        item:Hide()
+
+        if i == 1 then
+            item:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, 0)
+        else
+            item:SetPoint("BOTTOMRIGHT", frame["Item" .. (i-1)], "TOPRIGHT", 0, padding)
+        end
+
+        ConsoleMenu:InitFadeAnimations(item, animationDuration)
 
         -- Иконка
         if not item.Icon then
             item.Icon = CreateFrame("Frame", nil, item)
             item.Icon:SetSize(iconSize, iconSize)
-            item.Icon:SetPoint("RIGHT", sectionPadding, 0)
+            item.Icon:SetPoint("RIGHT", 0, 0)
 
             -- Фон для иконки
             if not item.Icon.Background then
@@ -214,9 +230,6 @@ function ConsoleMenu:SetKeysFrame()
             item.Text:SetText("Взаимодействие")
         end
 
-        if i == 1 then
-            UpdateKeyItem(item, "SHIFT-PAD1", "Взаимодействие")
-        end
     end
 
     -- Регистрация события изменения режима геймпада
