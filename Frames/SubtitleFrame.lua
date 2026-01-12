@@ -419,6 +419,7 @@ function ConsoleMenu:SubtitleFrameUpdate(subtitle)
 
         if current.event == "GOSSIP_SHOW" or current.event == "QUEST_GREETING" or current.event == "QUEST_PROGRESS" or current.event == "QUEST_COMPLETE" or current.event == "QUEST_ACCEPTED" or current.event == "QUEST_TURNED_IN" or current.event == "QUEST_DETAIL" then
             print("event", current.event)
+            
             if not current.lastLine or current.lastLine == false then
                 ConsoleMenu:AddKeysFrameItem("PAD4", "Пропустить")
                 print("add PAD4")

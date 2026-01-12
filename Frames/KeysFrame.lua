@@ -109,18 +109,21 @@ end
 
 -- Функция для обновления списка
 function ConsoleMenu:UpdateKeysFrame()
-    print("UpdateKeysFrame")
+    print("START UpdateKeysFrame")
     for i = 1, maxItemsCount do
         local frame = ConsoleMenuFrame.KeysFrame["Item" .. i]
         local item = ConsoleMenuFrame.KeysFrame.Items[i]
-
+        
         if not item then
             ConsoleMenu:AnimatedHide(frame)
         else
             UpdateKeyItem(frame, item.binding, item.title, item.stackCount)
+            print("item.binding", item.binding, "item.title", item.title, "item.stackCount", item.stackCount)
+
             ConsoleMenu:AnimatedShow(frame)
         end
     end
+    print("END UpdateKeysFrame")
 end
 
 -- Функция для удаления элемента из списка

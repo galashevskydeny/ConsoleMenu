@@ -1001,8 +1001,14 @@ function ConsoleMenu:SetCustomGossipFrame()
 
             -- Сброс и обновление списка подсказок
             ConsoleMenu:ResetKeysFrameItems()
+
             ConsoleMenu:AddKeysFrameItem("PAD1", "Выбрать")
             ConsoleMenu:AddKeysFrameItem("PAD2", "Выйти")
+
+            if ConsoleMenuFrame.SubtitleFrame.CurrentSubtitle and ConsoleMenuFrame.SubtitleFrame.CurrentSubtitle.lastLine == false then
+                ConsoleMenu:AddKeysFrameItem("PAD4", "Пропустить")
+            end
+
             ConsoleMenu:UpdateKeysFrame()
 
         elseif event == "GOSSIP_CLOSED" or event == "GOSSIP_CONFIRM" or event == "QUEST_FINISHED" then
