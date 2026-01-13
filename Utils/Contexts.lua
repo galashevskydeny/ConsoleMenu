@@ -280,5 +280,4 @@ function ConsoleMenu:InitializeContexts()
         SwitchActionBarPage()
     end)
     
-    
 end

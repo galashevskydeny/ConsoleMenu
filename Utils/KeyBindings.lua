@@ -459,7 +459,9 @@ function ConsoleMenu:SetInteractBinding(newTarget)
         if InCombatLockdown() then return end
         SetOverrideBinding(self.InteractBindingFrame, true, ConsoleMenuDB.interactButton, "INTERACTTARGET")
         ConsoleMenu:AddKeysFrameItem("PAD1", "Взаимодействие")
-        ConsoleMenu:UpdateKeysFrame()
+        C_Timer.After(0.2, function()
+            ConsoleMenu:UpdateKeysFrame()
+        end)
     else
         if InCombatLockdown() then return end
         ClearOverrideBindings(self.InteractBindingFrame)

@@ -1018,7 +1018,7 @@ function ConsoleMenu:SetCustomGossipFrame()
                 local collection = parentFrame.ScrollBox:GetDataProvider().collection
                 if collection == previousCollection then
                     ConsoleMenu:AnimatedHide(frame)
-
+                    
                     -- Удаление добавленных подсказок
                     ConsoleMenu:DeleteKeysFrameItem("PAD1", "Выбрать")
                     ConsoleMenu:DeleteKeysFrameItem("PAD2", "Выйти")
