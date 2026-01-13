@@ -123,14 +123,19 @@ function ConsoleMenu:UpdateKeysFrame()
 end
 
 -- Функция для удаления элемента из списка
-function ConsoleMenu:DeleteKeysFrameItem(binding)
+function ConsoleMenu:DeleteKeysFrameItem(binding, title)
     if not binding then return end
 
-    -- Обходим Items и удаляем элемент, равный переданному item
+    -- Обходим Items и удаляем элемент, равный переданному
     for k, v in pairs(ConsoleMenuFrame.KeysFrame.Items) do
-        if v.binding == binding then
+        if v.binding == binding and not title then
             ConsoleMenuFrame.KeysFrame.Items[k] = nil
             break
+        elseif v.binding == binding and title then
+            if v.binding == binding and v.title == title then
+                ConsoleMenuFrame.KeysFrame.Items[k] = nil
+                break
+            end
         end
     end
 

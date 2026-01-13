@@ -456,10 +456,15 @@ function ConsoleMenu:SetInteractBinding(newTarget)
     end
 
     if newTarget and not hasEnemy then
+        if InCombatLockdown() then return end
         SetOverrideBinding(self.InteractBindingFrame, true, ConsoleMenuDB.interactButton, "INTERACTTARGET")
+        ConsoleMenu:AddKeysFrameItem("PAD1", "Взаимодействие")
+        ConsoleMenu:UpdateKeysFrame()
     else
         if InCombatLockdown() then return end
         ClearOverrideBindings(self.InteractBindingFrame)
+        ConsoleMenu:DeleteKeysFrameItem("PAD1", "Взаимодействие")
+        ConsoleMenu:UpdateKeysFrame()
     end
 end
 

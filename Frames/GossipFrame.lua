@@ -282,7 +282,6 @@ local function setIcon(frame, data)
     elseif data.type == "completeQuestInStoryline" then
         SetQuestInProgressIcon()
     elseif data.type == "completeQuestWithReward" then
-        --print(data.texture)
         frame.icon.texture:SetAllPoints()
         frame.icon.texture:SetTexture(data.texture)
         ApplyMaskToTexture(frame.icon.texture)
@@ -1020,8 +1019,15 @@ function ConsoleMenu:SetCustomGossipFrame()
                 if collection == previousCollection then
                     ConsoleMenu:AnimatedHide(frame)
 
-                    -- Сброс и обновление списка подсказок
-                    ConsoleMenu:ResetKeysFrameItems()
+                    -- Удаление добавленных подсказок
+                    ConsoleMenu:DeleteKeysFrameItem("PAD1", "Выбрать")
+                    ConsoleMenu:DeleteKeysFrameItem("PAD2", "Выйти")
+                    ConsoleMenu:DeleteKeysFrameItem("PAD4", "Пропустить")
+
+                    if UnitExists("softinteract") then
+                        ConsoleMenu:SetInteractBinding("softinteract")
+                    end
+                    
                     ConsoleMenu:UpdateKeysFrame()
                 end
             end)
