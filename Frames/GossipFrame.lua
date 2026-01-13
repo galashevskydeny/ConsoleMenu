@@ -1014,7 +1014,7 @@ function ConsoleMenu:SetCustomGossipFrame()
 
             local previousCollection = parentFrame.ScrollBox:GetDataProvider().collection
 
-            C_Timer.After(animationDuration + 0.1, function()
+            C_Timer.After(animationDuration, function()
                 local collection = parentFrame.ScrollBox:GetDataProvider().collection
                 if collection == previousCollection then
                     ConsoleMenu:AnimatedHide(frame)
