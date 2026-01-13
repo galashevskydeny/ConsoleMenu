@@ -732,8 +732,13 @@ function ConsoleMenu:SetFastTravelFrame()
         ClearOverrideBindings(tabLeftButton)
         ClearOverrideBindings(tabRightButton)
 
-        ConsoleMenu:ResetKeysFrameItems()
+        ConsoleMenu:DeleteKeysFrameItem("PAD1", "Выбрать")
+        ConsoleMenu:DeleteKeysFrameItem("PAD2", "Выйти")
+        ConsoleMenu:DeleteKeysFrameItem("PADDLEFTRIGHT", "Переключение вкладок")
         ConsoleMenu:UpdateKeysFrame()
+
+        ConsoleMenu:RemoveWindow("fasttravel")
+        ConsoleMenu:ApplyContextUIChanges()  
 
         if WeakAuras then
             WAGlobal = WAGlobal or {}  -- Создаем таблицу, если её ещё нет
@@ -764,6 +769,7 @@ SlashCmdList["FASTTRAVEL"] = function()
         ConsoleMenu:AddKeysFrameItem("PAD1", "Выбрать")
         ConsoleMenu:AddKeysFrameItem("PAD2", "Выйти")
         ConsoleMenu:AddKeysFrameItem("PADDLEFTRIGHT", "Переключение вкладок")
+        ConsoleMenu:AddWindow("fasttravel")
 
         ConsoleMenu:UpdateKeysFrame()
     end

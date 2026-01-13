@@ -164,7 +164,13 @@ local function SwitchActionBarPage()
     end
 end
 
-function ConsoleMenu:ApplyContextUIChanges(context)
+function ConsoleMenu:ApplyContextUIChanges()
+    local context = ConsoleMenu:GetPlayerContext()
+    if context == "exploring" then
+        if UnitExists("softinteract") then
+            ConsoleMenu:SetInteractBinding("softinteract")
+        end
+    end
 end
 
 -- Функция инициализации контекстов
@@ -266,11 +272,10 @@ function ConsoleMenu:InitializeContexts()
             ConsoleMenu:RemoveWindow(...)
         end
 
-        local context = ConsoleMenu:GetPlayerContext()
         if WeakAuras then
             WeakAuras.ScanEvents("CHANGE_CONTEXT", context)
         end
-        ConsoleMenu:ApplyContextUIChanges(context)  
+        ConsoleMenu:ApplyContextUIChanges()  
 
         SwitchActionBarPage()
     end)

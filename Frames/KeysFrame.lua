@@ -109,17 +109,19 @@ end
 
 -- Функция для обновления списка
 function ConsoleMenu:UpdateKeysFrame()
-    for i = 1, maxItemsCount do
-        local frame = ConsoleMenuFrame.KeysFrame["Item" .. i]
-        local item = ConsoleMenuFrame.KeysFrame.Items[i]
-        
-        if not item then
-            ConsoleMenu:AnimatedHide(frame)
-        else
-            UpdateKeyItem(frame, item.binding, item.title, item.stackCount)
-            ConsoleMenu:AnimatedShow(frame)
+    C_Timer.After(0.05, function()
+        for i = 1, maxItemsCount do
+            local frame = ConsoleMenuFrame.KeysFrame["Item" .. i]
+            local item = ConsoleMenuFrame.KeysFrame.Items[i]
+            
+            if not item then
+                ConsoleMenu:AnimatedHide(frame)
+            else
+                UpdateKeyItem(frame, item.binding, item.title, item.stackCount)
+                ConsoleMenu:AnimatedShow(frame)
+            end
         end
-    end
+    end)
 end
 
 -- Функция для удаления элемента из списка
@@ -167,7 +169,7 @@ function ConsoleMenu:AddKeysFrameItem(binding, title, stackCount)
     -- Проверяем, существует ли уже элемент с таким binding
     for i = 1, maxItemsCount do
         local existingItem = ConsoleMenuFrame.KeysFrame.Items[i]
-        if existingItem and existingItem.binding == binding then
+        if existingItem and existingItem.binding == binding and existingItem.title == title then
             return
         end
     end

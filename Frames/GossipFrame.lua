@@ -1023,10 +1023,6 @@ function ConsoleMenu:SetCustomGossipFrame()
                     ConsoleMenu:DeleteKeysFrameItem("PAD1", "Выбрать")
                     ConsoleMenu:DeleteKeysFrameItem("PAD2", "Выйти")
                     ConsoleMenu:DeleteKeysFrameItem("PAD4", "Пропустить")
-
-                    if UnitExists("softinteract") then
-                        ConsoleMenu:SetInteractBinding("softinteract")
-                    end
                     
                     ConsoleMenu:UpdateKeysFrame()
                 end

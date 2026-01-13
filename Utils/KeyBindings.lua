@@ -526,12 +526,6 @@ end
 -- Модуль для отслеживания прерывания заклинания
 function ConsoleMenu:SetStopCastingBinding()
 
-    if ConsoleMenuDB.overrideStopCastingKey == 2 then
-        if InCombatLockdown() then return end
-        ClearOverrideBindings(self.StopCastingBindingFrame)
-        return
-    end
-
     if InCombatLockdown() then
         return
     end
@@ -541,15 +535,13 @@ function ConsoleMenu:SetStopCastingBinding()
     end
 
     if ConsoleMenuDB.overrideStopCastingKey == 2 then
-        if InCombatLockdown() then return end
         ClearOverrideBindings(self.StopCastingBindingFrame)
         return
     end
 
-    if InCombatLockdown() then return end
-
-    ClearOverrideBindings(self.StopCastingBindingFrame)
     SetOverrideBinding(self.StopCastingBindingFrame, true, ConsoleMenuDB.stopCastingButton, "STOPCASTING")
+    ConsoleMenu:AddKeysFrameItem("PAD2", "Прервать")
+    ConsoleMenu:UpdateKeysFrame()
 end
 
 function ConsoleMenu:InitStopCastingBindingFrame()
@@ -567,7 +559,7 @@ function ConsoleMenu:InitStopCastingBindingFrame()
 
     self.StopCastingBindingFrame:SetScript("OnEvent", function(frame, event, ...)
         if event == "UNIT_SPELLCAST_SENT" then
-            local unit, target, _, _ = ...
+            local unit, target, _, spellID = ...
             
             -- Если заклинание не относится к игроку
             if unit ~= "player" then
@@ -579,7 +571,14 @@ function ConsoleMenu:InitStopCastingBindingFrame()
                 return
             end
 
+            local spellInfo = C_Spell.GetSpellInfo(spellID)
+
+            if spellInfo and spellInfo.castTime == 0 then
+                return
+            end
+
             ConsoleMenu:SetStopCastingBinding()
+        
         elseif event == "UNIT_SPELLCAST_STOP" then
             local unit = ...
             
@@ -590,15 +589,21 @@ function ConsoleMenu:InitStopCastingBindingFrame()
             
             if InCombatLockdown() then return end
             ClearOverrideBindings(ConsoleMenu.StopCastingBindingFrame)
+            ConsoleMenu:DeleteKeysFrameItem("PAD2", "Прервать")
+            ConsoleMenu:UpdateKeysFrame()
         elseif event == "PLAYER_SOFT_ENEMY_CHANGED" then
             if InCombatLockdown() then return end
             -- При наличии врага может начаться бой, во время которого нельзя откатить привязку
             if UnitExists("softenemy") then
                 ClearOverrideBindings(ConsoleMenu.StopCastingBindingFrame)
+                ConsoleMenu:DeleteKeysFrameItem("PAD2", "Прервать")
+                ConsoleMenu:UpdateKeysFrame()
             end
         elseif event == "PLAYER_REGEN_DISABLED" or event == "PLAYER_ENTERING_WORLD" or event == "PLAYER_MOUNT_DISPLAY_CHANGED" then
             if InCombatLockdown() then return end
             ClearOverrideBindings(ConsoleMenu.StopCastingBindingFrame)
+            ConsoleMenu:DeleteKeysFrameItem("PAD2", "Прервать")
+            ConsoleMenu:UpdateKeysFrame()
         end
     end)
 end
