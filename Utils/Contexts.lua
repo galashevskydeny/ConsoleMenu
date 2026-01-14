@@ -197,9 +197,9 @@ function ConsoleMenu:ApplyContextUIChanges()
     ConsoleMenu:ResetKeysFrameItems()
 
     if context == "exploring" then
-        local page = 2
+        local page = GetActionBarPage()
         local startSlot = 12 * (page - 1) + 1
-        local lastSlot = startSlot + 12
+        local lastSlot = startSlot + 11
 
         for slot = startSlot, lastSlot do
             local actionType, id, subType = GetActionInfo(slot)
