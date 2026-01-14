@@ -14,6 +14,9 @@ function ConsoleMenu:InitializeNameplate()
     
     if not ConsoleMenuDB or ConsoleMenuDB.enemyNameplateStyle == 1 then return end
 
+    SetCVar(NamePlateConstants.INFO_DISPLAY_CVAR, 0);
+
+
     hooksecurefunc(NamePlateUnitFrameMixin, "UpdateAnchors", function(self)
         local container = self.HealthBarsContainer
         local healthBar = self.HealthBarsContainer.healthBar
@@ -34,7 +37,8 @@ function ConsoleMenu:InitializeNameplate()
         healthBar.bgTexture:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\EnemyHealthBar.png")
         healthBar.bgTexture:SetVertexColor(0, 0, 0, 0.5)
         healthBar.bgTexture:ClearAllPoints()
-        healthBar.bgTexture:SetAllPoints(container);
+        healthBar.bgTexture:SetAllPoints(container)
+        healthBar.deselectedOverlay:Hide()
         healthBar.selectedBorder:Hide()
         healthBar.selectedBorder:SetAlpha(0)
         PixelUtil.SetHeight(self.HealthBarsContainer, 16)
