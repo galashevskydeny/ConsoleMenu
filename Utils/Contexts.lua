@@ -270,6 +270,7 @@ function ConsoleMenu:InitializeContexts()
 
     self.ContextsFrame:RegisterEvent("GAME_PAD_ACTIVE_CHANGED")
     self.ContextsFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+    self.ContextsFrame:RegisterEvent("ACTIONBAR_PAGE_CHANGED")
 
     -- Отслеживание целей и soft-target
     self.ContextsFrame:RegisterEvent("PLAYER_SOFT_ENEMY_CHANGED")
