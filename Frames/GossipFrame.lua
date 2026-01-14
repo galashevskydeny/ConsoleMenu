@@ -997,19 +997,6 @@ function ConsoleMenu:SetCustomGossipFrame()
             gamePadActive = ...
         elseif event == "GOSSIP_SHOW" or event == "QUEST_GREETING" or event == "QUEST_PROGRESS" or event == "QUEST_COMPLETE" or event == "QUEST_ACCEPTED" or event == "QUEST_TURNED_IN" or event == "QUEST_DETAIL" then
             ConsoleMenu:AnimatedShow(frame)
-
-            -- Сброс и обновление списка подсказок
-            ConsoleMenu:ResetKeysFrameItems()
-
-            ConsoleMenu:AddKeysFrameItem("PAD1", "Выбрать")
-            ConsoleMenu:AddKeysFrameItem("PAD2", "Выйти")
-
-            if ConsoleMenuFrame.SubtitleFrame.CurrentSubtitle and ConsoleMenuFrame.SubtitleFrame.CurrentSubtitle.lastLine == false then
-                ConsoleMenu:AddKeysFrameItem("PAD4", "Пропустить")
-            end
-
-            ConsoleMenu:UpdateKeysFrame()
-
         elseif event == "GOSSIP_CLOSED" or event == "GOSSIP_CONFIRM" or event == "QUEST_FINISHED" then
 
             local previousCollection = parentFrame.ScrollBox:GetDataProvider().collection
@@ -1018,13 +1005,6 @@ function ConsoleMenu:SetCustomGossipFrame()
                 local collection = parentFrame.ScrollBox:GetDataProvider().collection
                 if collection == previousCollection then
                     ConsoleMenu:AnimatedHide(frame)
-                    
-                    -- Удаление добавленных подсказок
-                    ConsoleMenu:DeleteKeysFrameItem("PAD1", "Выбрать")
-                    ConsoleMenu:DeleteKeysFrameItem("PAD2", "Выйти")
-                    ConsoleMenu:DeleteKeysFrameItem("PAD4", "Пропустить")
-                    
-                    ConsoleMenu:UpdateKeysFrame()
                 end
             end)
         end

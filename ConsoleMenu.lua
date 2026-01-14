@@ -64,8 +64,6 @@ local function Initialize()
     ConsoleMenu:SetKeysFrame()
     ConsoleMenu:InitializeMainActionBar()
     
-    ConsoleMenu:InitActionInfoFrame()
-
     ConsoleMenu:HideBlizzardUI()
     ConsoleMenu:UpdateCVars()
     

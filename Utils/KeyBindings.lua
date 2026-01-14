@@ -66,8 +66,7 @@ local function SetOverrideBindingsForSet(bindings, modifier, frame)
     end
 end
 
--- Модуль для отслеживания системы жилищ
-
+-- Модуль для системы жилищ
 -- Вспомогательная функция для получения списка категорий из StoragePanel
 local function GetStorageCategories()
     local storagePanel = HouseEditorFrame and HouseEditorFrame.StoragePanel
@@ -459,9 +458,7 @@ function ConsoleMenu:SetInteractBinding(newTarget)
         if InCombatLockdown() then return end
         SetOverrideBinding(self.InteractBindingFrame, true, ConsoleMenuDB.interactButton, "INTERACTTARGET")
         ConsoleMenu:AddKeysFrameItem("PAD1", "Взаимодействие")
-        C_Timer.After(0.2, function()
-            ConsoleMenu:UpdateKeysFrame()
-        end)
+        ConsoleMenu:UpdateKeysFrame()
     else
         if InCombatLockdown() then return end
         ClearOverrideBindings(self.InteractBindingFrame)
@@ -690,5 +687,69 @@ function ConsoleMenu:SetBaseKeyBindings()
 
     -- Сохраним
     SaveBindings(GetCurrentBindingSet())
+    
+end
+
+-- Функция получения команды по идентификатору слота
+function ConsoleMenu:GetBindingCommandBySlotID(slotID)
+    local NUM_ACTIONBAR_BUTTONS = 12
+
+    local abnormal = {
+        [133] = "ACTIONBUTTON1",
+        [134] = "ACTIONBUTTON2",
+        [135] = "ACTIONBUTTON3",
+        [136] = "ACTIONBUTTON4",
+        [137] = "ACTIONBUTTON5",
+        [138] = "ACTIONBUTTON6",
+        [139] = "EXTRAACTIONBUTTON1", -- только если CPAPI.ExtraActionButtonID == 139
+    }
+
+    -- Приоритет: абнормальные ID
+    if abnormal[slotID] then
+        return abnormal[slotID]
+    end
+
+    local barID = math.ceil(slotID / NUM_ACTIONBAR_BUTTONS)
+    local buttonID = (slotID - 1) % NUM_ACTIONBAR_BUTTONS + 1
+
+    local barBindings = {
+        [1] = "ACTIONBUTTON%d",
+        [6] = "MULTIACTIONBAR1BUTTON%d",
+        [5] = "MULTIACTIONBAR2BUTTON%d",
+        [3] = "MULTIACTIONBAR3BUTTON%d",
+        [4] = "MULTIACTIONBAR4BUTTON%d",
+        [13] = "MULTIACTIONBAR5BUTTON%d",
+        [14] = "MULTIACTIONBAR6BUTTON%d",
+        [15] = "MULTIACTIONBAR7BUTTON%d",
+    }
+
+    -- Сопоставим barID по порядку:
+    local bindingFormat
+    if barBindings[barID] then
+        bindingFormat = barBindings[barID]
+    elseif barID >= 6 and barID <= 12 then
+        -- Относятся к основной панели (pages 6–12 → ACTIONBUTTON)
+        bindingFormat = "ACTIONBUTTON%d"
+    else
+        -- fallback на default
+        bindingFormat = "ACTIONBUTTON%d"
+    end
+
+    local toggles = { GetActionBarToggles() }
+
+    if not toggles[barID] and barID == GetActionBarPage() then
+        bindingFormat = "ACTIONBUTTON%d"
+    end
+
+    return bindingFormat:format(buttonID)
+end
+
+--  Функция получения кнопки по идентификатору бинда
+function ConsoleMenu:GetCommandBinding(bindingCommand)
+
+    if not bindingCommand then return end
+
+    local key1, key2 = GetBindingKey(bindingCommand)
+    return key1
     
 end

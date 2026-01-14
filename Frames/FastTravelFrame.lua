@@ -735,7 +735,6 @@ function ConsoleMenu:SetFastTravelFrame()
         ConsoleMenu:DeleteKeysFrameItem("PAD1", "Выбрать")
         ConsoleMenu:DeleteKeysFrameItem("PAD2", "Выйти")
         ConsoleMenu:DeleteKeysFrameItem("PADDLEFTRIGHT", "Переключение вкладок")
-        ConsoleMenu:UpdateKeysFrame()
 
         ConsoleMenu:RemoveWindow("fasttravel")
         ConsoleMenu:ApplyContextUIChanges()  
@@ -765,12 +764,7 @@ SlashCmdList["FASTTRAVEL"] = function()
     if parentFrame then
         setItemList()
         ConsoleMenu:AnimatedShow(ConsoleMenuFrame.FastTravel)
-        ConsoleMenu:ResetKeysFrameItems()
-        ConsoleMenu:AddKeysFrameItem("PAD1", "Выбрать")
-        ConsoleMenu:AddKeysFrameItem("PAD2", "Выйти")
-        ConsoleMenu:AddKeysFrameItem("PADDLEFTRIGHT", "Переключение вкладок")
         ConsoleMenu:AddWindow("fasttravel")
-
-        ConsoleMenu:UpdateKeysFrame()
+        ConsoleMenu:ApplyContextUIChanges()  
     end
 end

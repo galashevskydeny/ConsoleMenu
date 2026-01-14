@@ -165,12 +165,73 @@ local function SwitchActionBarPage()
 end
 
 function ConsoleMenu:ApplyContextUIChanges()
+
+    local function GetSlotTitle(actionType, id)
+        if actionType == "macro" then
+            if subtype == "spell" then
+                actionType = "spell"
+            end
+            
+        end
+        
+        if actionType == "spell" then
+            local spell = Spell:CreateFromSpellID(id)
+            
+            local name = spell:GetSpellName()
+            return name
+        end
+        
+        if actionType == "item" then
+            local name = C_Item.GetItemNameByID(id)
+            return name
+        end
+        
+        if actionType == "macro" then
+            local name = C_Macro.GetMacroName(id)
+            return name
+        end
+
+    end
+
     local context = ConsoleMenu:GetPlayerContext()
+    ConsoleMenu:ResetKeysFrameItems()
+
     if context == "exploring" then
+
         if UnitExists("softinteract") then
             ConsoleMenu:SetInteractBinding("softinteract")
         end
+
+        for slot = 13, (13+12) do
+            local actionType, id, subType = GetActionInfo(slot)
+            local command = ConsoleMenu:GetBindingCommandBySlotID(slot)
+
+            if actionType and id and command then
+                local title = GetSlotTitle(actionType, id)
+                local binding = ConsoleMenu:GetCommandBinding(command)
+
+                if title and binding then
+                    ConsoleMenu:AddKeysFrameItem(binding, title)
+                end
+            end
+        end
+    elseif context == "window" then
+
+        if ConsoleMenu.PlayerContext.window[3] then
+            ConsoleMenu:AddKeysFrameItem("PAD1", "Выбрать")
+            ConsoleMenu:AddKeysFrameItem("PAD2", "Выйти")
+
+            if ConsoleMenuFrame.SubtitleFrame.CurrentSubtitle and ConsoleMenuFrame.SubtitleFrame.CurrentSubtitle.lastLine == false then
+                ConsoleMenu:AddKeysFrameItem("PAD4", "Пропустить")
+            end
+        elseif ConsoleMenu.PlayerContext.window["fasttravel"] then
+            ConsoleMenu:AddKeysFrameItem("PAD1", "Выбрать")
+            ConsoleMenu:AddKeysFrameItem("PAD2", "Выйти")
+            ConsoleMenu:AddKeysFrameItem("PADDLEFTRIGHT", "Переключение вкладок")
+        end
     end
+
+    ConsoleMenu:UpdateKeysFrame()
 end
 
 -- Функция инициализации контекстов
@@ -179,6 +240,7 @@ function ConsoleMenu:InitializeContexts()
         self.ContextsFrame = CreateFrame("Frame")
     end
 
+    self.ContextsFrame:RegisterEvent("GAME_PAD_ACTIVE_CHANGED")
     self.ContextsFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 
     -- Отслеживание целей и soft-target
