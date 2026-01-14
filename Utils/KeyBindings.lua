@@ -539,8 +539,10 @@ function ConsoleMenu:SetStopCastingBinding()
     end
 
     SetOverrideBinding(self.StopCastingBindingFrame, true, ConsoleMenuDB.stopCastingButton, "STOPCASTING")
-    ConsoleMenu:AddKeysFrameItem("PAD2", "Прервать")
-    ConsoleMenu:UpdateKeysFrame()
+    C_Timer.After(0.05, function()
+        ConsoleMenu:AddKeysFrameItem("PAD2", "Прервать")
+        ConsoleMenu:UpdateKeysFrame()
+    end)
 end
 
 function ConsoleMenu:InitStopCastingBindingFrame()

@@ -997,6 +997,8 @@ function ConsoleMenu:SetCustomGossipFrame()
             gamePadActive = ...
         elseif event == "GOSSIP_SHOW" or event == "QUEST_GREETING" or event == "QUEST_PROGRESS" or event == "QUEST_COMPLETE" or event == "QUEST_ACCEPTED" or event == "QUEST_TURNED_IN" or event == "QUEST_DETAIL" then
             ConsoleMenu:AnimatedShow(frame)
+            ConsoleMenu:AddWindow(3)
+            ConsoleMenu:ApplyContextUIChanges()
         elseif event == "GOSSIP_CLOSED" or event == "GOSSIP_CONFIRM" or event == "QUEST_FINISHED" then
 
             local previousCollection = parentFrame.ScrollBox:GetDataProvider().collection
@@ -1005,6 +1007,8 @@ function ConsoleMenu:SetCustomGossipFrame()
                 local collection = parentFrame.ScrollBox:GetDataProvider().collection
                 if collection == previousCollection then
                     ConsoleMenu:AnimatedHide(frame)
+                    ConsoleMenu:RemoveWindow(3)
+                    ConsoleMenu:ApplyContextUIChanges()
                 end
             end)
         end

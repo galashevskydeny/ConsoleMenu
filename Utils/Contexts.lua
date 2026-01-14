@@ -197,12 +197,11 @@ function ConsoleMenu:ApplyContextUIChanges()
     ConsoleMenu:ResetKeysFrameItems()
 
     if context == "exploring" then
+        local page = 2
+        local startSlot = 12 * (page - 1) + 1
+        local lastSlot = startSlot + 12
 
-        if UnitExists("softinteract") then
-            ConsoleMenu:SetInteractBinding("softinteract")
-        end
-
-        for slot = 13, (13+12) do
+        for slot = startSlot, lastSlot do
             local actionType, id, subType = GetActionInfo(slot)
             local command = ConsoleMenu:GetBindingCommandBySlotID(slot)
 
@@ -215,19 +214,48 @@ function ConsoleMenu:ApplyContextUIChanges()
                 end
             end
         end
+
+        if UnitExists("softinteract") then
+            ConsoleMenu:SetInteractBinding("softinteract")
+        end
+
     elseif context == "window" then
 
-        if ConsoleMenu.PlayerContext.window[3] then
-            ConsoleMenu:AddKeysFrameItem("PAD1", "Выбрать")
+        if ConsoleMenu.PlayerContext.window[3] or ConsoleMenu.PlayerContext.window[4] then
             ConsoleMenu:AddKeysFrameItem("PAD2", "Выйти")
+            ConsoleMenu:AddKeysFrameItem("PAD1", "Выбрать")
 
             if ConsoleMenuFrame.SubtitleFrame.CurrentSubtitle and ConsoleMenuFrame.SubtitleFrame.CurrentSubtitle.lastLine == false then
                 ConsoleMenu:AddKeysFrameItem("PAD4", "Пропустить")
             end
+
         elseif ConsoleMenu.PlayerContext.window["fasttravel"] then
-            ConsoleMenu:AddKeysFrameItem("PAD1", "Выбрать")
             ConsoleMenu:AddKeysFrameItem("PAD2", "Выйти")
+            ConsoleMenu:AddKeysFrameItem("PAD1", "Выбрать")
             ConsoleMenu:AddKeysFrameItem("PADDLEFTRIGHT", "Переключение вкладок")
+        end
+    elseif context == "mount" then
+        local page = 4
+
+        if GetActionBarPage() ~= 4 then
+            page = 11
+        end
+
+        local startSlot = 12 * (page - 1) + 1
+        local lastSlot = startSlot + 11
+
+        for slot = startSlot, lastSlot do
+            local actionType, id, subType = GetActionInfo(slot)
+            local command = ConsoleMenu:GetBindingCommandBySlotID(slot)
+
+            if actionType and id and command then
+                local title = GetSlotTitle(actionType, id)
+                local binding = ConsoleMenu:GetCommandBinding(command)
+
+                if title and binding then
+                    ConsoleMenu:AddKeysFrameItem(binding, title)
+                end
+            end
         end
     end
 
