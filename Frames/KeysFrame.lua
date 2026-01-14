@@ -110,6 +110,8 @@ end
 -- Функция для обновления списка
 function ConsoleMenu:UpdateKeysFrame()
     C_Timer.After(0.05, function()
+        local activeItems = 0
+
         for i = 1, maxItemsCount do
             local frame = ConsoleMenuFrame.KeysFrame["Item" .. i]
             local item = ConsoleMenuFrame.KeysFrame.Items[i]
@@ -119,7 +121,14 @@ function ConsoleMenu:UpdateKeysFrame()
             else
                 UpdateKeyItem(frame, item.binding, item.title, item.stackCount)
                 ConsoleMenu:AnimatedShow(frame)
+                activeItems = activeItems + 1
             end
+        end
+
+        if activeItems > 0 then
+            ConsoleMenu:AnimatedShow(ConsoleMenuFrame.KeysFrame.Background)
+        else
+            ConsoleMenu:AnimatedHide(ConsoleMenuFrame.KeysFrame.Background)
         end
     end)
 end
@@ -199,6 +208,16 @@ function ConsoleMenu:SetKeysFrame()
     local frame = ConsoleMenuFrame.KeysFrame
     frame:SetSize(frameWidth, frameHeight)
     frame:SetPoint("BOTTOMRIGHT", ConsoleMenuFrame, "BOTTOMRIGHT", -48, 48)
+
+    frame.Background = frame:CreateTexture(nil, "BACKGROUND")
+    frame.Background:SetWidth(800)
+    frame.Background:SetHeight(320)
+    frame.Background:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", 400, -64)
+    frame.Background:SetAtlas("MapCornerShadow-Right")
+    frame.Background:SetAlpha(0.85)
+    frame.Background:Hide()
+
+    ConsoleMenu:InitFadeAnimations(frame.Background, animationDuration)
 
     if not ConsoleMenuFrame.KeysFrame.Items then
         ConsoleMenuFrame.KeysFrame.Items = {}

@@ -518,6 +518,14 @@ function ConsoleMenu:SetFastTravelFrame()
 
     FastTravel:SetSize(frameWidth, sectionHeight * (viewedItemCount + 2))
     FastTravel:SetPoint("BOTTOMLEFT", ConsoleMenuFrame, "BOTTOMLEFT", 48, 48)
+
+    FastTravel.Background = FastTravel:CreateTexture(nil, "BACKGROUND")
+    FastTravel.Background:SetWidth(800)
+    FastTravel.Background:SetHeight(400)
+    FastTravel.Background:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", -290, -40)
+    FastTravel.Background:SetAtlas("MapCornerShadow-Right")
+    FastTravel.Background:SetTexCoord(1, 0, 0, 1) -- Отразить по горизонтали
+    FastTravel.Background:SetAlpha(0.85)
     
     -- Включаем обработку клавиатуры для ESC
     FastTravel:EnableKeyboard(true)

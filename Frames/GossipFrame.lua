@@ -948,6 +948,13 @@ function ConsoleMenu:SetCustomGossipFrame()
     frame:Hide()
     ConsoleMenu:InitFadeAnimations(frame, animationDuration)
 
+    frame.Background = frame:CreateTexture(nil, "BACKGROUND")
+    frame.Background:SetWidth(1300)
+    frame.Background:SetHeight(400)
+    frame.Background:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 0)
+    frame.Background:SetAtlas("LevelUp-Shadow-Upper")
+    frame.Background:SetAlpha(0.75)
+
     frame:HookScript("OnShow", function()
         softTargetEnemy = GetCVar("SoftTargetEnemy")
         SetCVar("SoftTargetEnemy", 0)
