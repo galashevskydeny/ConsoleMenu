@@ -104,7 +104,9 @@ end
 
 -- Функция для сброса элементов списка
 function ConsoleMenu:ResetKeysFrameItems()
+    if ConsoleMenuFrame.KeysFrame then
     ConsoleMenuFrame.KeysFrame.Items = {}
+    end
 end
 
 -- Функция для обновления списка

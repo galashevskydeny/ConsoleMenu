@@ -26,6 +26,7 @@ local hudSettingsMainElements = {
     { name = "Поиск группы", variable = "groupFinderFrameStyle", default = 1, tooltip = "Управляет отображением фрейма поиска группы (GroupFinderFrame).", options = hudUpdateDropdownOptions },
     { name = "Панель сумок", variable = "hideBagsBarsBar", default = 1, tooltip = "Управляет отображением панели сумок (BagsBarsBar).", options = hudDropdownOptions },
     { name = "Чат", variable = "chatWindowStyle", default = 2, tooltip = "Выберите стиль окна чата: обновленную версию (скрытую по умолчанию в центре экрана) или стандартную.", options = hudUpdateDropdownOptions },
+    { name = "Индикаторы опыта и статуса", variable = "statusTrackingBarManagerStyle", default = 1, tooltip = "Управляет отображением индикатора здоровья противников (StatusTrackingBarManager).", options = hudUpdateDropdownOptions },
 
 }
 

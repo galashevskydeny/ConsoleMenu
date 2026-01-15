@@ -35,6 +35,7 @@ Frames/NotificationFrame.lua
 Frames/QueueStatusToastFrame.lua
 Frames/LootListFrame.lua
 Frames/KeysFrame.lua
+Frames/StatusTrackingFrame.lua
 
 Utils/Contexts.lua
 Utils/HideBlizzardUI.lua

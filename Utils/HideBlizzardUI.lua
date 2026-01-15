@@ -20,6 +20,12 @@ local function DisableActionBar()
 
 end
 
+local function DisableStatusTrackingBarManager()
+    StatusTrackingBarManager:Hide()
+    RegisterStateDriver(StatusTrackingBarManager, "visibility", "hide")
+    StatusTrackingBarManager:UnregisterAllEvents()
+end
+
 -- Скрывает панель действий питомца (PetActionBar)
 local function DisablePetActionBar()
     PetActionBar:SetAlpha(0)
@@ -43,7 +49,7 @@ local function HideObjectiveTrackerFrame()
 end
 
 -- Скрывает фрейм цели (TargetFrame)
-local function HideTargetFrame()
+local function DisableTargetFrame()
     TargetFrame:Hide()
     TargetFrame:SetAlpha(0.0)
     RegisterStateDriver(TargetFrame, "visibility", "hide")
@@ -274,6 +280,10 @@ function ConsoleMenu:HideBlizzardUI()
     if ConsoleMenuDB.lootFrameStyle == 2 then
         DisableLootFrame()
     end
+
+    if ConsoleMenuDB.statusTrackingBarManagerStyle == 2 then
+        DisableStatusTrackingBarManager()
+    end
     
     if ConsoleMenuDB.errorsFrameStyle == 2 then
         DisableUIErrorsFrame()
@@ -327,8 +337,8 @@ function ConsoleMenu:HideBlizzardUI()
         DisablePlayerFrame()
     end
     
-    if ConsoleMenuDB.hideTargetFrame == 2 then
-        HideTargetFrame()
+    if ConsoleMenuDB.DisableTargetFrame == 2 then
+        DisableTargetFrame()
     end
     
     if ConsoleMenuDB.hidePetActionBar == 2 then
