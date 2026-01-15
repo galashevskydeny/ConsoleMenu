@@ -195,6 +195,7 @@ function ConsoleMenu:SetStatusTrackingFrame()
 
     frame:RegisterEvent("PLAYER_LEVEL_CHANGED")
     frame:RegisterEvent("PLAYER_XP_UPDATE")
+    frame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 
     local function OnStatusTrackingFrameEvent(self, event, ...)
         if event == "PLAYER_LEVEL_CHANGED" then
@@ -216,7 +217,7 @@ function ConsoleMenu:SetStatusTrackingFrame()
             end
 
             AddNotification("Experience", from, to, XP, value, min, max)
-        elseif event == "PLAYER_XP_UPDATE" then
+        elseif event == "PLAYER_XP_UPDATE" or event == "ZONE_CHANGED_NEW_AREA" then
             local min = 0
             local max = UnitXPMax("player")
             local value = UnitXP("player")

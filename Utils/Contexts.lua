@@ -363,6 +363,7 @@ function ConsoleMenu:InitializeContexts()
             ConsoleMenu:RemoveWindow(...)
         end
 
+        local context = ConsoleMenu:GetPlayerContext()
         if WeakAuras then
             WeakAuras.ScanEvents("CHANGE_CONTEXT", context)
         end
