@@ -337,7 +337,7 @@ function ConsoleMenu:HideBlizzardUI()
         DisablePlayerFrame()
     end
     
-    if ConsoleMenuDB.DisableTargetFrame == 2 then
+    if ConsoleMenuDB.hideTargetFrame == 2 then
         DisableTargetFrame()
     end
     

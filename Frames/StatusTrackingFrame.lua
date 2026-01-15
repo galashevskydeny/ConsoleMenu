@@ -3,6 +3,7 @@ local ConsoleMenu = _G.ConsoleMenu
 local frameHeight = 18
 local macbookNotchOffset = 16
 local padding = 12
+local iconSize = 24
 
 local fontSize = 20
 
@@ -71,5 +72,15 @@ function ConsoleMenu:SetStatusTrackingFrame()
         frame.Title:SetJustifyH("RIGHT")
         frame.Title:SetTextColor(1.0, 0.960784, 0.772549, 1)
         frame.Title:SetFont("Fonts\\FRIZQT___CYR.TTF", fontSize, "")
+    end
+
+    -- Иконка
+
+    if not frame.Icon then
+        frame.Icon = frame:CreateTexture(nil, "ARTWORK")
+        frame.Icon:SetPoint("RIGHT", frame.FromText, "LEFT", -padding, 0)
+        frame.Icon:SetSize(iconSize, iconSize)
+        frame.Icon:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\Icons\\housing.png")
+        frame.Icon:SetVertexColor(1.0, 0.960784, 0.772549, 1)
     end
 end
