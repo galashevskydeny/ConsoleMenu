@@ -229,10 +229,13 @@ function ConsoleMenu:ApplyContextUIChanges()
                 ConsoleMenu:AddKeysFrameItem("PAD4", "Пропустить")
             end
 
+            ConsoleMenu:HideChatFrame()
         elseif ConsoleMenu.PlayerContext.window["fasttravel"] then
             ConsoleMenu:AddKeysFrameItem("PAD2", "Выйти")
             ConsoleMenu:AddKeysFrameItem("PAD1", "Выбрать")
             ConsoleMenu:AddKeysFrameItem("PADDLEFTRIGHT", "Переключение вкладок")
+
+            ConsoleMenu:HideChatFrame()
         end
     elseif context == "mount" then
         local page = 4

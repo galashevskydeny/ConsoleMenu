@@ -82,20 +82,7 @@ local function HideFramesAndRegions()
     end
 end
 
-local function HideChatCommand()
-    -- Не выполняем операции с фреймами в режиме редактирования
-    if IsEditModeActive() then
-        return
-    end
-
-    ConsoleMenu:RemoveWindow("chat")
-    local context = ConsoleMenu:GetPlayerContext()
-    ConsoleMenu:ApplyContextUIChanges()
-    if WeakAuras then
-        WeakAuras.ScanEvents("CHANGE_CONTEXT", context)
-        WeakAuras.ScanEvents("SHOW_CHAT_FRAME", false)
-    end
-
+local function HideChatFrames()
     pcall(function()
         ChatFrame1:SetHeight(1)
         ChatFrame1:ClearAllPoints() -- Очищаем все текущие точки привязки
@@ -126,6 +113,23 @@ local function HideChatCommand()
     if _G.ToggleChatButton and _G.ToggleChatButton.text then
         _G.ToggleChatButton.text:SetText("Показать чат")
     end
+end
+
+local function HideChatCommand()
+    -- Не выполняем операции с фреймами в режиме редактирования
+    if IsEditModeActive() then
+        return
+    end
+
+    ConsoleMenu:RemoveWindow("chat")
+    local context = ConsoleMenu:GetPlayerContext()
+    ConsoleMenu:ApplyContextUIChanges()
+    if WeakAuras then
+        WeakAuras.ScanEvents("CHANGE_CONTEXT", context)
+        WeakAuras.ScanEvents("SHOW_CHAT_FRAME", false)
+    end
+
+    HideChatFrames()
 end
 
 local function ShowChatCommand()
@@ -173,6 +177,11 @@ local function ShowChatCommand()
     if _G.ToggleChatButton and _G.ToggleChatButton.text then
         _G.ToggleChatButton.text:SetText("Скрыть чат")
     end
+end
+
+function ConsoleMenu:HideChatFrame()
+    ConsoleMenu:RemoveWindow("chat")
+    HideChatFrames()
 end
 
 local function CreateToggleChatButton()
