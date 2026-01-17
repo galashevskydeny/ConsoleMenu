@@ -103,8 +103,8 @@ local function UpdateActionButtonShadows(modifierKey)
     local PADDcount = 0
 
     for slotID, btn in pairs(frame.actionButtons) do
-        local binding = btn.binding
-        local position = buttonPositions[binding]
+        local mainKey = btn.mainKey
+        local position = buttonPositions[mainKey]
         if position and (not modifierKey or (modifierKey and modifierKey == btn.modifierKey)) then
             if position[2] == "PADCenter" then
                 PADcount = PADcount + 1
@@ -145,7 +145,8 @@ local function UpdateButtonPositions(slotID)
         btn.mainKey = mainKey or binding
         btn.modifierKey = binding and string.match(binding, "^(.+)%-[^%-]+$")
 
-        local position = buttonPositions[mainKey]
+        local position = buttonPositions[btn.mainKey]
+        print("UpdateButtonPositions", binding, btn.mainKey, position)
 
         if position then
             ConsoleMenu:AnimatedShow(btn)
@@ -171,7 +172,8 @@ local function UpdateButtonPositions(slotID)
         btn.mainKey = mainKey or binding
         btn.modifierKey = binding and string.match(binding, "^(.+)%-[^%-]+$")
 
-        local position = buttonPositions[mainKey]
+        local position = buttonPositions[btn.mainKey]
+        print("UpdateButtonPositions", binding, btn.mainKey, position)
         if position then
             ConsoleMenu:AnimatedShow(btn)
             btn:ClearAllPoints()
@@ -186,6 +188,7 @@ end
 
 -- Функция обновления набора иконок в зависимости от состояния модификаторов
 local function UpdateModifierState(modifierKey)
+    print("UpdateModifierState", modifierKey)
     local frame = ConsoleMenuFrame.ActionBarFrame
 
     for slotID, btn in pairs(frame.actionButtons) do
@@ -264,7 +267,7 @@ end
 
 function ConsoleMenu:InitializeMainActionBar()
 
-    --if ConsoleMenuDB.actionBarStyle == 1 then return end
+    if ConsoleMenuDB.actionBarStyle == 1 then return end
 
     if not C_ActionBar.GetActionCooldown or not C_ActionBar.GetActionTexture then
         return
@@ -340,7 +343,7 @@ function ConsoleMenu:InitializeMainActionBar()
 
     local function OnActionBarEvent(self, event, ...)
         if event == "PLAYER_ENTERING_WORLD" then
-            for slotID = 1, 36 do
+            for slotID = 1, 12 do
                 UpdateActionButtonTexture(slotID)
             end
             for slotID = 49, 72 do
@@ -351,6 +354,7 @@ function ConsoleMenu:InitializeMainActionBar()
             UpdateModifierState()
         elseif event == "GAME_PAD_ACTIVE_CHANGED" or event == "ACTIONBAR_SHOWGRID" or event == "ACTIONBAR_HIDEGRID" then
             UpdateButtonPositions()
+            UpdateModifierState()
         elseif event == "ACTIONBAR_SLOT_CHANGED" then
             local slotID = ...
             UpdateActionButtonTexture(slotID)
