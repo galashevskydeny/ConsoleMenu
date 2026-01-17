@@ -56,15 +56,18 @@ local function UpdateActionButtonTexture(slotID)
     if issecretvalue(textureFileID) then
         -- Если слот пуст, скрываем кнопку
         btn.texture:SetTexture(nil)
+        btn.background:Hide()
         ConsoleMenu:AnimatedHide(btn)
         return
     end
 
     if textureFileID then
         btn.texture:SetTexture(textureFileID)
+        btn.background:Show()
         -- Кнопка будет показана/скрыта в UpdateButtonPositions на основе биндинга
     else
         btn.texture:SetTexture(nil)
+        btn.background:Hide()
     end
 end
 
@@ -213,20 +216,19 @@ local function CreateSpellBarButtonFrame(parent, slotID)
     local textureFileID = C_ActionBar.GetActionTexture(slotID)
     if issecretvalue(textureFileID) then return end
 
-    local texture = buttonFrame:CreateTexture(nil, "BACKGROUND")
+    -- Добавляем фон под иконку, тоже текстура (создаем первым, чтобы был ниже)
+    local background = buttonFrame:CreateTexture(nil, "BACKGROUND")
+    background:SetPoint("CENTER", buttonFrame, "CENTER", 0, 0)
+    background:SetSize(buttonSize + 8, buttonSize + 8)
+    background:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\pad-background.png")
+    background:SetVertexColor(0, 0, 0, 0.3)
+    buttonFrame.background = background
+
+    local texture = buttonFrame:CreateTexture(nil, "ARTWORK")
     texture:SetAllPoints(buttonFrame)
     if textureFileID then
         texture:SetTexture(textureFileID)
     end
-
-    -- Добавляем фон под иконку, тоже текстура
-    local background = buttonFrame:CreateTexture(nil, "BACKGROUND", nil, -8)
-    background:SetPoint("CENTER", buttonFrame, "CENTER", 0, 0)
-    background:SetSize(buttonSize + 4, buttonSize + 4)
-    background:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\button-background.png")
-    background:SetVertexColor(0, 0, 0, 0.3)
-
-    buttonFrame.background = background
     
     -- Создаём маску для текстуры
     local mask = buttonFrame:CreateMaskTexture()
