@@ -72,7 +72,7 @@ end
 local function UpdateActionButtonCooldowns()
     local frame = ConsoleMenuFrame.ActionBarFrame
 
-    for slotID, btn in ipairs(frame.actionButtons) do
+    for slotID, btn in pairs(frame.actionButtons) do
         -- Используем CooldownFrame для автоматической обработки secret values
         if btn.cooldown then
             local cooldownInfo = C_ActionBar.GetActionCooldown(slotID)
@@ -102,7 +102,7 @@ local function UpdateActionButtonShadows(modifierKey)
     local PADcount = 0
     local PADDcount = 0
 
-    for slotID, btn in ipairs(frame.actionButtons) do
+    for slotID, btn in pairs(frame.actionButtons) do
         local binding = btn.binding
         local position = buttonPositions[binding]
         if position and (not modifierKey or (modifierKey and modifierKey == btn.modifierKey)) then
@@ -145,7 +145,7 @@ local function UpdateButtonPositions(slotID)
         btn.mainKey = mainKey or binding
         btn.modifierKey = binding and string.match(binding, "^(.+)%-[^%-]+$")
 
-        local position = buttonPositions[binding]
+        local position = buttonPositions[mainKey]
 
         if position then
             ConsoleMenu:AnimatedShow(btn)
@@ -161,7 +161,7 @@ local function UpdateButtonPositions(slotID)
     end
 
     -- Обновление всех кнопок (если не передан slotID)
-    for slotID, btn in ipairs(frame.actionButtons) do
+    for slotID, btn in pairs(frame.actionButtons) do
         local command = ConsoleMenu:GetBindingCommandBySlotID(slotID)
         local binding = ConsoleMenu:GetCommandBinding(command)
         btn.binding = binding
@@ -171,7 +171,7 @@ local function UpdateButtonPositions(slotID)
         btn.mainKey = mainKey or binding
         btn.modifierKey = binding and string.match(binding, "^(.+)%-[^%-]+$")
 
-        local position = buttonPositions[binding]
+        local position = buttonPositions[mainKey]
         if position then
             ConsoleMenu:AnimatedShow(btn)
             btn:ClearAllPoints()
@@ -188,7 +188,7 @@ end
 local function UpdateModifierState(modifierKey)
     local frame = ConsoleMenuFrame.ActionBarFrame
 
-    for slotID, btn in ipairs(frame.actionButtons) do
+    for slotID, btn in pairs(frame.actionButtons) do
         if modifierKey == btn.modifierKey then
             ConsoleMenu:AnimatedShow(btn)
         else
@@ -317,6 +317,12 @@ function ConsoleMenu:InitializeMainActionBar()
         frame.actionButtons[slotID] = btn
     end
 
+    for slotID = 49, 72 do
+        local btn = CreateSpellBarButtonFrame(frame, slotID)
+        btn.slotID = slotID
+        frame.actionButtons[slotID] = btn
+    end
+
     frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 
     frame:RegisterEvent("GAME_PAD_ACTIVE_CHANGED")
@@ -334,7 +340,10 @@ function ConsoleMenu:InitializeMainActionBar()
 
     local function OnActionBarEvent(self, event, ...)
         if event == "PLAYER_ENTERING_WORLD" then
-            for slotID = 1, 12 do
+            for slotID = 1, 36 do
+                UpdateActionButtonTexture(slotID)
+            end
+            for slotID = 49, 72 do
                 UpdateActionButtonTexture(slotID)
             end
             UpdateButtonPositions()
