@@ -30,6 +30,21 @@ local buttonPositions = {
     PADDDOWN = { "TOP", "PADDCenter", "BOTTOM", 0, -buttonVerticalPadding },
 }
 
+-- Проверка, является ли кулдаун глобальным кулдауном (GCD)
+-- ВАЖНО: isOnGCD помечено как NeverSecret = true, поэтому безопасно для чтения
+local function IsGlobalCooldown(slotID)
+    if not slotID or not C_ActionBar or not C_ActionBar.GetActionCooldown then
+        return false;
+    end
+    
+    local cooldownInfo = C_ActionBar.GetActionCooldown(slotID);
+    if cooldownInfo and cooldownInfo.isOnGCD then
+        return true;
+    end
+    
+    return false;
+end
+
 -- Функция обновления текстуры кнопки
 local function UpdateActionButtonTexture(slotID)
     local frame = ConsoleMenuFrame.ActionBarFrame
@@ -72,7 +87,7 @@ local function UpdateActionButtonCooldowns()
             end
 
             RunNextFrame(function()
-                if btn.cooldown:IsShown() then
+                if btn.cooldown:IsShown() and not IsGlobalCooldown(slotID) then
                     btn.texture:SetDesaturated(true)
                 else
                     btn.texture:SetDesaturated(false)
@@ -157,7 +172,9 @@ local function CreateSpellBarButtonFrame(parent, slotID)
     buttonFrame.cooldown:HookScript("OnShow", function()
         -- Кулдаун появился
         RunNextFrame(function()
-            buttonFrame.texture:SetDesaturated(true)
+            if not IsGlobalCooldown(slotID) then
+                buttonFrame.texture:SetDesaturated(true)
+            end
         end)
     end)
     
