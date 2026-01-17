@@ -79,9 +79,6 @@ local function UpdateActionButtonCooldowns()
             if cooldownInfo then
                 -- CooldownFrame:SetCooldown может принимать secret values напрямую
                 btn.cooldown:SetCooldown(cooldownInfo.startTime, cooldownInfo.duration, cooldownInfo.modRate)
-                btn.cooldown:SetSwipeColor(0, 0, 0, 0)
-                btn.cooldown:SetEdgeColor(0, 0, 0, 0)
-                btn.cooldown:SetBlingTexture("", 0, 0, 0, 0)
             else
                 btn.cooldown:Hide()
             end
@@ -167,6 +164,10 @@ local function CreateSpellBarButtonFrame(parent, slotID)
     -- Создаём CooldownFrame для автоматической обработки кулдаунов
     local cooldown = CreateFrame("Cooldown", nil, buttonFrame, "CooldownFrameTemplate")
     cooldown:SetAllPoints(buttonFrame)    
+    cooldown:SetDrawBling(false)
+    cooldown:SetDrawSwipe(false)
+    cooldown:SetDrawEdge(false)
+
     
     buttonFrame.cooldown = cooldown
     
