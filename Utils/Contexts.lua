@@ -219,6 +219,8 @@ function ConsoleMenu:ApplyContextUIChanges()
             ConsoleMenu:SetInteractBinding("softinteract")
         end
 
+        ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
+
     elseif context == "window" then
 
         if ConsoleMenu.PlayerContext.window[3] or ConsoleMenu.PlayerContext.window[4] then
@@ -237,6 +239,8 @@ function ConsoleMenu:ApplyContextUIChanges()
 
             ConsoleMenu:HideChatFrame()
         end
+
+        ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
     elseif context == "mount" then
         local page = 4
 
@@ -260,6 +264,10 @@ function ConsoleMenu:ApplyContextUIChanges()
                 end
             end
         end
+
+        ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
+    elseif context == "combat" or context == "precombat" then
+        ConsoleMenu:AnimatedShow(ConsoleMenuFrame.ActionBarFrame)
     end
 
     ConsoleMenu:UpdateKeysFrame()

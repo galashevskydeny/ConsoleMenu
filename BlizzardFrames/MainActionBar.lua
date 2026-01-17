@@ -15,7 +15,7 @@ local buttonHorizontalPadding = buttonSize * 0.6
 
 local shadowSize = 240
 
-local animationDuration = 0.075
+local animationDuration = 0.1
 
 local buttonPositions = {
     PADRSTICK = { "TOP", "PADCenter", "BOTTOM", 0, -buttonVerticalPadding },
