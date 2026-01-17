@@ -15,7 +15,7 @@ local buttonHorizontalPadding = buttonSize * 0.6
 
 local shadowSize = 240
 
-local animationDuration = 0.1
+local animationDuration = 0.075
 
 local buttonPositions = {
     PADRSTICK = { "TOP", "PADCenter", "BOTTOM", 0, -buttonVerticalPadding },
@@ -96,7 +96,7 @@ local function UpdateActionButtonCooldowns()
 end
 
 -- Функция отображения и скрытия теней групп кнопок
-local function UpdateActionButtonShadows()
+local function UpdateActionButtonShadows(modifierKey)
     local frame = ConsoleMenuFrame.ActionBarFrame
 
     local PADcount = 0
@@ -105,7 +105,7 @@ local function UpdateActionButtonShadows()
     for slotID, btn in ipairs(frame.actionButtons) do
         local binding = btn.binding
         local position = buttonPositions[binding]
-        if position then
+        if position and (not modifierKey or (modifierKey and modifierKey == btn.modifierKey)) then
             if position[2] == "PADCenter" then
                 PADcount = PADcount + 1
             elseif position[2] == "PADDCenter" then
@@ -126,6 +126,7 @@ local function UpdateActionButtonShadows()
         ConsoleMenu:AnimatedHide(frame.PADDshadow)
     end
 end
+
 -- Функция обновления позиций кнопок
 local function UpdateButtonPositions(slotID)
     local frame = ConsoleMenuFrame.ActionBarFrame
@@ -138,6 +139,11 @@ local function UpdateButtonPositions(slotID)
         local command = ConsoleMenu:GetBindingCommandBySlotID(slotID)
         local binding = ConsoleMenu:GetCommandBinding(command)
         btn.binding = binding
+        
+        -- Всегда записываем mainKey: если есть дефис - извлекаем, если нет - весь binding
+        local mainKey = binding and string.match(binding, ".-%-(.+)$")
+        btn.mainKey = mainKey or binding
+        btn.modifierKey = binding and string.match(binding, "^(.+)%-[^%-]+$")
 
         local position = buttonPositions[binding]
 
@@ -159,6 +165,11 @@ local function UpdateButtonPositions(slotID)
         local command = ConsoleMenu:GetBindingCommandBySlotID(slotID)
         local binding = ConsoleMenu:GetCommandBinding(command)
         btn.binding = binding
+        
+        -- Всегда записываем mainKey: если есть дефис - извлекаем, если нет - весь binding
+        local mainKey = binding and string.match(binding, ".-%-(.+)$")
+        btn.mainKey = mainKey or binding
+        btn.modifierKey = binding and string.match(binding, "^(.+)%-[^%-]+$")
 
         local position = buttonPositions[binding]
         if position then
@@ -171,6 +182,21 @@ local function UpdateButtonPositions(slotID)
     end
 
     UpdateActionButtonShadows()
+end
+
+-- Функция обновления набора иконок в зависимости от состояния модификаторов
+local function UpdateModifierState(modifierKey)
+    local frame = ConsoleMenuFrame.ActionBarFrame
+
+    for slotID, btn in ipairs(frame.actionButtons) do
+        if modifierKey == btn.modifierKey then
+            ConsoleMenu:AnimatedShow(btn)
+        else
+            ConsoleMenu:AnimatedHide(btn)
+        end
+    end
+
+    UpdateActionButtonShadows(modifierKey)
 end
 
 -- Функция создания кнопки
@@ -189,6 +215,15 @@ local function CreateSpellBarButtonFrame(parent, slotID)
     if textureFileID then
         texture:SetTexture(textureFileID)
     end
+
+    -- Добавляем фон под иконку, тоже текстура
+    local background = buttonFrame:CreateTexture(nil, "BACKGROUND", nil, -8)
+    background:SetPoint("CENTER", buttonFrame, "CENTER", 0, 0)
+    background:SetSize(buttonSize + 4, buttonSize + 4)
+    background:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\button-background.png")
+    background:SetVertexColor(0, 0, 0, 0.3)
+
+    buttonFrame.background = background
     
     -- Создаём маску для текстуры
     local mask = buttonFrame:CreateMaskTexture()
@@ -293,6 +328,10 @@ function ConsoleMenu:InitializeMainActionBar()
     frame:RegisterEvent("ACTIONBAR_UPDATE_STATE")
     frame:RegisterEvent("ACTIONBAR_UPDATE_USABLE")
 
+    frame:RegisterEvent("MODIFIER_STATE_CHANGED")
+
+    frame:RegisterEvent("ACTION_RANGE_CHECK_UPDATE")
+
     local function OnActionBarEvent(self, event, ...)
         if event == "PLAYER_ENTERING_WORLD" then
             for slotID = 1, 12 do
@@ -300,6 +339,7 @@ function ConsoleMenu:InitializeMainActionBar()
             end
             UpdateButtonPositions()
             UpdateActionButtonCooldowns()
+            UpdateModifierState()
         elseif event == "GAME_PAD_ACTIVE_CHANGED" or event == "ACTIONBAR_SHOWGRID" or event == "ACTIONBAR_HIDEGRID" then
             UpdateButtonPositions()
         elseif event == "ACTIONBAR_SLOT_CHANGED" then
@@ -309,6 +349,16 @@ function ConsoleMenu:InitializeMainActionBar()
             UpdateActionButtonCooldowns()
         elseif event == "ACTIONBAR_UPDATE_COOLDOWN" or event == "ACTIONBAR_UPDATE_STATE" or event == "ACTIONBAR_UPDATE_USABLE" then
             UpdateActionButtonCooldowns()
+        elseif event == "MODIFIER_STATE_CHANGED" then
+            if not IsModifierKeyDown() then
+                UpdateModifierState()
+            elseif IsControlKeyDown() then
+                UpdateModifierState("CTRL")
+            elseif IsShiftKeyDown() then
+                UpdateModifierState("SHIFT")
+            elseif IsAltKeyDown() then
+                UpdateModifierState("ALT")
+            end
         end
     end
 
