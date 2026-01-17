@@ -95,6 +95,37 @@ local function UpdateActionButtonCooldowns()
     end
 end
 
+-- Функция отображения и скрытия теней групп кнопок
+local function UpdateActionButtonShadows()
+    local frame = ConsoleMenuFrame.ActionBarFrame
+
+    local PADcount = 0
+    local PADDcount = 0
+
+    for slotID, btn in ipairs(frame.actionButtons) do
+        local binding = btn.binding
+        local position = buttonPositions[binding]
+        if position then
+            if position[2] == "PADCenter" then
+                PADcount = PADcount + 1
+            elseif position[2] == "PADDCenter" then
+                PADDcount = PADDcount + 1
+            end
+        end
+    end
+
+    if PADcount > 0 then
+        ConsoleMenu:AnimatedShow(frame.PADshadow)
+    else
+        ConsoleMenu:AnimatedHide(frame.PADshadow)
+    end
+
+    if PADDcount > 0 then
+        ConsoleMenu:AnimatedShow(frame.PADDshadow)
+    else
+        ConsoleMenu:AnimatedHide(frame.PADDshadow)
+    end
+end
 -- Функция обновления позиций кнопок
 local function UpdateButtonPositions(slotID)
     local frame = ConsoleMenuFrame.ActionBarFrame
@@ -106,6 +137,8 @@ local function UpdateButtonPositions(slotID)
         
         local command = ConsoleMenu:GetBindingCommandBySlotID(slotID)
         local binding = ConsoleMenu:GetCommandBinding(command)
+        btn.binding = binding
+
         local position = buttonPositions[binding]
 
         if position then
@@ -115,6 +148,8 @@ local function UpdateButtonPositions(slotID)
         else
             ConsoleMenu:AnimatedHide(btn)
         end
+
+        UpdateActionButtonShadows()
 
         return
     end
@@ -123,6 +158,7 @@ local function UpdateButtonPositions(slotID)
     for slotID, btn in ipairs(frame.actionButtons) do
         local command = ConsoleMenu:GetBindingCommandBySlotID(slotID)
         local binding = ConsoleMenu:GetCommandBinding(command)
+        btn.binding = binding
 
         local position = buttonPositions[binding]
         if position then
@@ -133,6 +169,8 @@ local function UpdateButtonPositions(slotID)
             ConsoleMenu:AnimatedHide(btn)
         end
     end
+
+    UpdateActionButtonShadows()
 end
 
 -- Функция создания кнопки
@@ -225,6 +263,7 @@ function ConsoleMenu:InitializeMainActionBar()
         frame.PADshadow:SetPoint("CENTER", frame.PADCenter, "CENTER", 0, 0)
         frame.PADshadow:SetSize(shadowSize, shadowSize)
         frame.PADshadow:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\CrossBackgorund.png")
+        ConsoleMenu:InitFadeAnimations(frame.PADshadow, animationDuration)
     end
 
     if not frame.PADDshadow then
@@ -232,6 +271,7 @@ function ConsoleMenu:InitializeMainActionBar()
         frame.PADDshadow:SetPoint("CENTER", frame.PADDCenter, "CENTER", 0, 0)
         frame.PADDshadow:SetSize(shadowSize, shadowSize)
         frame.PADDshadow:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\CrossBackgorund.png")
+        ConsoleMenu:InitFadeAnimations(frame.PADDshadow, animationDuration)
     end
 
     frame.actionButtons = {}
