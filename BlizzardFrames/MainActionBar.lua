@@ -93,6 +93,7 @@ local function UpdateActionButtonCooldowns()
                     btn.texture:SetDesaturated(false)
                 end
             end)
+
         end
     end
 end
@@ -168,15 +169,6 @@ local function CreateSpellBarButtonFrame(parent, slotID)
     cooldown:SetAllPoints(buttonFrame)    
     
     buttonFrame.cooldown = cooldown
-
-    buttonFrame.cooldown:HookScript("OnShow", function()
-        -- Кулдаун появился
-        RunNextFrame(function()
-            if not IsGlobalCooldown(slotID) then
-                buttonFrame.texture:SetDesaturated(true)
-            end
-        end)
-    end)
     
     buttonFrame.cooldown:HookScript("OnHide", function()
         -- Кулдаун исчез
