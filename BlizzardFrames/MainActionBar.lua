@@ -75,6 +75,43 @@ local function UpdateActionButtonTexture(slotID)
     end
 end
 
+-- Функция обновления отображения пригодности кнопки
+local function UpdateActionButtonUsable(slotID, isUsable, notEnoughMana)
+    local frame = ConsoleMenuFrame.ActionBarFrame
+    local btn = frame.actionButtons[slotID]
+    if not btn or not btn.texture then return end
+    
+    local icon = btn.texture -- assuming btn.texture is the icon
+
+    -- Получаем значения пригодности и недостатка маны если не заданы
+    if isUsable == nil or notEnoughMana == nil then
+        if C_ActionBar and C_ActionBar.IsUsableAction then
+            isUsable, notEnoughMana = C_ActionBar.IsUsableAction(slotID)
+        else
+            isUsable, notEnoughMana = true, false -- fallback
+        end
+    end
+
+    if isUsable then
+        icon:SetVertexColor(1.0, 1.0, 1.0)
+    elseif notEnoughMana then
+        icon:SetVertexColor(0.5, 0.5, 1.0)
+    else
+        icon:SetVertexColor(0.4, 0.4, 0.4)
+    end
+
+    -- Проверка блокировки по уровню
+    local isLevelLinkLocked = false
+    if C_LevelLink and C_LevelLink.IsActionLocked then
+        isLevelLinkLocked = C_LevelLink.IsActionLocked(slotID)
+    end
+
+    -- Десатурация и иконка блокировки
+    if not icon:IsDesaturated() then
+        icon:SetDesaturated(isLevelLinkLocked)
+    end
+end
+
 -- Функция обновления отображения Glow модели
 local function UpdateActionButtonGlow(slotID, spellID)
 
