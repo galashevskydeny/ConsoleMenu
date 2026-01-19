@@ -7,6 +7,8 @@ local frameHeight = 196
 
 local buttonSize = 52
 local modelSize = 160
+local modelOffset = 0.039
+local modelScale = 0.017
 
 local paddingPAD = buttonSize * 1.5
 local paddingPADD = buttonSize * 1.5
@@ -48,6 +50,7 @@ end
 
 -- Функция обновления текстуры кнопки
 local function UpdateActionButtonTexture(slotID)
+    
     local frame = ConsoleMenuFrame.ActionBarFrame
 
     local btn = frame.actionButtons[slotID]
@@ -69,6 +72,39 @@ local function UpdateActionButtonTexture(slotID)
     else
         btn.texture:SetTexture(nil)
         btn.background:Hide()
+    end
+end
+
+-- Функция обновления отображения Glow модели
+local function UpdateActionButtonGlow(slotID, spellID)
+
+    print("UpdateActionButtonGlow", slotID, spellID)
+    local frame = ConsoleMenuFrame.ActionBarFrame
+    local btn = frame.actionButtons[slotID]
+    if not btn or not btn.Glow then return end
+
+    local spellID = spellID or nil
+
+    if not spellID then
+        local actionType, id, _ = GetActionInfo(slotID)
+        print("GetActionInfo", actionType, id)
+
+        if actionType ~= "spell" or actionType ~= "macro" then
+            ConsoleMenu:AnimatedHide(btn.Glow)
+        end
+
+        spellID = id
+    end
+
+    if spellID then
+        local isSpellOverlayed = C_SpellActivationOverlay.IsSpellOverlayed(spellID)
+        if isSpellOverlayed then
+            ConsoleMenu:AnimatedShow(btn.Glow)
+        else
+            ConsoleMenu:AnimatedHide(btn.Glow)
+        end
+    else
+        ConsoleMenu:AnimatedHide(btn.Glow)
     end
 end
 
@@ -150,7 +186,6 @@ local function UpdateButtonPositions(slotID)
         btn.modifierKey = binding and string.match(binding, "^(.+)%-[^%-]+$")
 
         local position = buttonPositions[btn.mainKey]
-        print("UpdateButtonPositions", binding, btn.mainKey, position)
 
         if position then
             ConsoleMenu:AnimatedShow(btn)
@@ -177,7 +212,6 @@ local function UpdateButtonPositions(slotID)
         btn.modifierKey = binding and string.match(binding, "^(.+)%-[^%-]+$")
 
         local position = buttonPositions[btn.mainKey]
-        print("UpdateButtonPositions", binding, btn.mainKey, position)
         if position then
             ConsoleMenu:AnimatedShow(btn)
             btn:ClearAllPoints()
@@ -192,7 +226,6 @@ end
 
 -- Функция обновления набора иконок в зависимости от состояния модификаторов
 local function UpdateModifierState(modifierKey)
-    print("UpdateModifierState", modifierKey)
     local frame = ConsoleMenuFrame.ActionBarFrame
 
     for slotID, btn in pairs(frame.actionButtons) do
@@ -226,23 +259,26 @@ local function CreateSpellBarButtonFrame(parent, slotID)
     buttonFrame.background = background
 
     -- Фрейм для отображения M2 модели
-    if not buttonFrame.ModelView then
-        buttonFrame.ModelView = CreateFrame("PlayerModel", nil, buttonFrame)
-        buttonFrame.ModelView:SetSize(modelSize, modelSize)
-        buttonFrame.ModelView:SetPoint("CENTER", buttonFrame, "CENTER", 0, 0)
-        buttonFrame.ModelView:SetFrameStrata(buttonFrame:GetFrameStrata())
-        buttonFrame.ModelView:SetFrameLevel(buttonFrame:GetFrameLevel() - 1)
-        buttonFrame.ModelView:SetModel(5201375)
-        buttonFrame.ModelView:SetParent(buttonFrame)
-        buttonFrame.ModelView:SetKeepModelOnHide(true)  -- Важно: сохраняет модель при скрытии
-        buttonFrame.ModelView:SetAnimation(1)  -- например, анимация
+    if not buttonFrame.Glow then
+        buttonFrame.Glow = CreateFrame("PlayerModel", nil, buttonFrame)
+        buttonFrame.Glow:SetSize(modelSize, modelSize)
+        buttonFrame.Glow:SetPoint("CENTER", buttonFrame, "CENTER", 0, 0)
+        buttonFrame.Glow:SetFrameStrata(buttonFrame:GetFrameStrata())
+        buttonFrame.Glow:SetFrameLevel(buttonFrame:GetFrameLevel() - 1)
+        buttonFrame.Glow:SetModel(5201375)
+        buttonFrame.Glow:SetParent(buttonFrame)
+        buttonFrame.Glow:SetKeepModelOnHide(true)
+        buttonFrame.Glow:SetAnimation(1)
 
-        buttonFrame.ModelView:SetTransform(
-            CreateVector3D(0.039, 0.039, 0),
+        buttonFrame.Glow:SetTransform(
+            CreateVector3D(modelOffset, modelOffset, 0),
             CreateVector3D(0, 0, 0),
-            0.017
+            modelScale
         )
-        buttonFrame.ModelView:SetAlpha(1.0)
+        buttonFrame.Glow:SetAlpha(1.0)
+        buttonFrame.Glow:Hide()
+
+        ConsoleMenu:InitFadeAnimations(buttonFrame.Glow, animationDuration)
     end
 
     local texture = buttonFrame:CreateTexture(nil, "ARTWORK")
@@ -350,6 +386,7 @@ function ConsoleMenu:InitializeMainActionBar()
     end
 
     frame:RegisterEvent("PLAYER_ENTERING_WORLD")
+    frame:RegisterEvent("PLAYER_LOGIN")
 
     frame:RegisterEvent("GAME_PAD_ACTIVE_CHANGED")
     frame:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
@@ -364,13 +401,18 @@ function ConsoleMenu:InitializeMainActionBar()
 
     frame:RegisterEvent("ACTION_RANGE_CHECK_UPDATE")
 
+    frame:RegisterEvent("SPELL_ACTIVATION_OVERLAY_GLOW_SHOW")
+    frame:RegisterEvent("SPELL_ACTIVATION_OVERLAY_GLOW_HIDE")
+
     local function OnActionBarEvent(self, event, ...)
-        if event == "PLAYER_ENTERING_WORLD" then
+        if event == "PLAYER_ENTERING_WORLD" or event == "PLAYER_LOGIN" then
             for slotID = 1, 12 do
                 UpdateActionButtonTexture(slotID)
+                UpdateActionButtonGlow(slotID)
             end
             for slotID = 49, 72 do
                 UpdateActionButtonTexture(slotID)
+                UpdateActionButtonGlow(slotID)
             end
             UpdateButtonPositions()
             UpdateActionButtonCooldowns()
@@ -380,9 +422,11 @@ function ConsoleMenu:InitializeMainActionBar()
             UpdateModifierState()
         elseif event == "ACTIONBAR_SLOT_CHANGED" then
             local slotID = ...
-            UpdateActionButtonTexture(slotID)
-            UpdateButtonPositions(slotID)
-            UpdateActionButtonCooldowns()
+            -- Событие происходит без перетаскивания вручную при первом заклинании боя
+            -- UpdateActionButtonTexture(slotID)
+            -- UpdateButtonPositions(slotID)
+            -- UpdateActionButtonCooldowns()
+            -- UpdateActionButtonGlow(slotID)
         elseif event == "ACTIONBAR_UPDATE_COOLDOWN" or event == "ACTIONBAR_UPDATE_STATE" or event == "ACTIONBAR_UPDATE_USABLE" then
             UpdateActionButtonCooldowns()
         elseif event == "MODIFIER_STATE_CHANGED" then
@@ -394,6 +438,18 @@ function ConsoleMenu:InitializeMainActionBar()
                 UpdateModifierState("SHIFT")
             elseif IsAltKeyDown() then
                 UpdateModifierState("ALT")
+            end
+        elseif event == "SPELL_ACTIVATION_OVERLAY_GLOW_SHOW" then
+            local spellID = ...
+            local slots = C_ActionBar.FindSpellActionButtons(spellID)
+            for _, slotID in pairs(slots) do
+                UpdateActionButtonGlow(slotID, spellID)
+            end
+        elseif event == "SPELL_ACTIVATION_OVERLAY_GLOW_HIDE" then
+            local spellID = ...
+            local slots = C_ActionBar.FindSpellActionButtons(spellID)
+            for _, slotID in pairs(slots) do
+                UpdateActionButtonGlow(slotID, spellID)
             end
         end
     end
