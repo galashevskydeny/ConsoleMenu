@@ -75,14 +75,8 @@ local function UpdateActionButtonTexture(slotID)
     end
 end
 
--- Функция обновления отображения пригодности кнопки
-local function UpdateActionButtonUsable(slotID, isUsable, notEnoughMana)
-    local frame = ConsoleMenuFrame.ActionBarFrame
-    local btn = frame.actionButtons[slotID]
-    if not btn or not btn.texture then return end
-    
-    local icon = btn.texture -- assuming btn.texture is the icon
-
+-- Функция обновления состояния иконки (пригодность, цвет, блокировка)
+local function UpdateActionButtonTextureDesaturation(btn, slotID, isUsable, notEnoughMana)
     -- Получаем значения пригодности и недостатка маны если не заданы
     if isUsable == nil or notEnoughMana == nil then
         if C_ActionBar and C_ActionBar.IsUsableAction then
@@ -92,12 +86,14 @@ local function UpdateActionButtonUsable(slotID, isUsable, notEnoughMana)
         end
     end
 
-    if isUsable then
-        icon:SetVertexColor(1.0, 1.0, 1.0)
+    if isUsable and (not btn.cooldown:IsShown() or btn.cooldown:IsShown() and IsGlobalCooldown(slotID)) then
+        btn.texture:SetDesaturated(false)
     elseif notEnoughMana then
-        icon:SetVertexColor(0.5, 0.5, 1.0)
+        btn.texture:SetDesaturated(true)
+    elseif btn.cooldown:IsShown() and not IsGlobalCooldown(slotID) then
+        btn.texture:SetDesaturated(true)
     else
-        icon:SetVertexColor(0.4, 0.4, 0.4)
+        btn.texture:SetDesaturated(true)
     end
 
     -- Проверка блокировки по уровню
@@ -107,9 +103,18 @@ local function UpdateActionButtonUsable(slotID, isUsable, notEnoughMana)
     end
 
     -- Десатурация и иконка блокировки
-    if not icon:IsDesaturated() then
-        icon:SetDesaturated(isLevelLinkLocked)
+    if not btn.texture:IsDesaturated() then
+        btn.texture:SetDesaturated(isLevelLinkLocked)
     end
+end
+
+-- Функция обновления отображения пригодности кнопки
+local function UpdateActionButtonUsable(slotID, isUsable, notEnoughMana)
+    local frame = ConsoleMenuFrame.ActionBarFrame
+    local btn = frame.actionButtons[slotID]
+    if not btn or not btn.texture then return end
+    
+    UpdateActionButtonTextureDesaturation(btn, slotID, isUsable, notEnoughMana)
 end
 
 -- Функция обновления отображения Glow модели
@@ -184,11 +189,7 @@ local function UpdateActionButtonCooldowns()
             end
 
             RunNextFrame(function()
-                if btn.cooldown:IsShown() and not IsGlobalCooldown(slotID) then
-                    btn.texture:SetDesaturated(true)
-                else
-                    btn.texture:SetDesaturated(false)
-                end
+                UpdateActionButtonTextureDesaturation(btn, slotID)
             end)
 
         end
@@ -347,14 +348,14 @@ local function CreateSpellBarButtonFrame(parent, slotID)
     buttonFrame.cooldown:HookScript("OnHide", function()
         -- Кулдаун исчез
         RunNextFrame(function()
-            buttonFrame.texture:SetDesaturated(false)
+            UpdateActionButtonTextureDesaturation(buttonFrame, slotID)
         end)
     end)
 
     buttonFrame.cooldown:SetScript("OnCooldownDone", function()
         -- Кулдаун закончился
         RunNextFrame(function()
-            buttonFrame.texture:SetDesaturated(false)
+            UpdateActionButtonTextureDesaturation(buttonFrame, slotID)
         end)
     end)
 
@@ -442,6 +443,8 @@ function ConsoleMenu:InitializeMainActionBar()
     frame:RegisterEvent("SPELL_ACTIVATION_OVERLAY_GLOW_SHOW")
     frame:RegisterEvent("SPELL_ACTIVATION_OVERLAY_GLOW_HIDE")
 
+    frame:RegisterEvent("ACTIONBAR_UPDATE_USABLE")
+
     local function OnActionBarEvent(self, event, ...)
         if event == "PLAYER_ENTERING_WORLD" or event == "PLAYER_LOGIN" then
             for slotID = 1, 12 do
@@ -488,6 +491,11 @@ function ConsoleMenu:InitializeMainActionBar()
             local slots = C_ActionBar.FindSpellActionButtons(spellID)
             for _, slotID in pairs(slots) do
                 UpdateActionButtonGlow(slotID, spellID)
+            end
+        elseif event == "ACTIONBAR_UPDATE_USABLE" then
+            local changes = ...
+            for slotID, isUsable, notEnoughMana in pairs(changes) do
+                UpdateActionButtonUsable(slotID, isUsable, notEnoughMana)
             end
         end
     end
