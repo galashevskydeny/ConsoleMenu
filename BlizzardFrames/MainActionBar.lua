@@ -118,7 +118,30 @@ local function UpdateActionButtonGlow(slotID, spellID)
     print("UpdateActionButtonGlow", slotID, spellID)
     local frame = ConsoleMenuFrame.ActionBarFrame
     local btn = frame.actionButtons[slotID]
-    if not btn or not btn.Glow then return end
+    if not btn then return end
+
+    -- Фрейм для отображения M2 модели
+    if not btn.Glow then
+        btn.Glow = CreateFrame("PlayerModel", nil, btn)
+        btn.Glow:SetSize(modelSize, modelSize)
+        btn.Glow:SetPoint("CENTER", btn, "CENTER", 0, 0)
+        btn.Glow:SetFrameStrata(btn:GetFrameStrata())
+        btn.Glow:SetFrameLevel(btn:GetFrameLevel() - 1)
+        btn.Glow:SetModel(5201375)
+        btn.Glow:SetParent(btn)
+        btn.Glow:SetKeepModelOnHide(true)
+        btn.Glow:SetAnimation(1)
+
+        btn.Glow:SetTransform(
+            CreateVector3D(modelOffset, modelOffset, 0),
+            CreateVector3D(0, 0, 0),
+            modelScale
+        )
+        btn.Glow:SetAlpha(1.0)
+        btn.Glow:Show()
+
+        ConsoleMenu:InitFadeAnimations(btn.Glow, animationDuration)
+    end
 
     local spellID = spellID or nil
 
@@ -295,29 +318,6 @@ local function CreateSpellBarButtonFrame(parent, slotID)
     background:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\pad-background.png")
     background:SetVertexColor(0, 0, 0, 0.4)
     buttonFrame.background = background
-
-    -- Фрейм для отображения M2 модели
-    if not buttonFrame.Glow then
-        buttonFrame.Glow = CreateFrame("PlayerModel", nil, buttonFrame)
-        buttonFrame.Glow:SetSize(modelSize, modelSize)
-        buttonFrame.Glow:SetPoint("CENTER", buttonFrame, "CENTER", 0, 0)
-        buttonFrame.Glow:SetFrameStrata(buttonFrame:GetFrameStrata())
-        buttonFrame.Glow:SetFrameLevel(buttonFrame:GetFrameLevel() - 1)
-        buttonFrame.Glow:SetModel(5201375)
-        buttonFrame.Glow:SetParent(buttonFrame)
-        buttonFrame.Glow:SetKeepModelOnHide(true)
-        buttonFrame.Glow:SetAnimation(1)
-
-        buttonFrame.Glow:SetTransform(
-            CreateVector3D(modelOffset, modelOffset, 0),
-            CreateVector3D(0, 0, 0),
-            modelScale
-        )
-        buttonFrame.Glow:SetAlpha(1.0)
-        buttonFrame.Glow:Hide()
-
-        ConsoleMenu:InitFadeAnimations(buttonFrame.Glow, animationDuration)
-    end
 
     local texture = buttonFrame:CreateTexture(nil, "ARTWORK")
     texture:SetAllPoints(buttonFrame)

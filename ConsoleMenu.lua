@@ -61,7 +61,8 @@ local function Initialize()
     ConsoleMenu:SetNotificationFrame()
     ConsoleMenu:SetQueueStatusToastFrame()
     ConsoleMenu:SetLootList()
-    
+    ConsoleMenu:InitializeMainActionBar()
+
     ConsoleMenu:SetKeysFrame()
     
     ConsoleMenu:HideBlizzardUI()
@@ -80,7 +81,6 @@ local function Initialize()
         end
 
         ConsoleMenu:SetFastTravelFrame()
-        ConsoleMenu:InitializeMainActionBar()
 
         _G.ApplyMacroSettings()
         
