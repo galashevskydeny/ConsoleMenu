@@ -63,7 +63,6 @@ local function Initialize()
     ConsoleMenu:SetLootList()
     
     ConsoleMenu:SetKeysFrame()
-    ConsoleMenu:InitializeMainActionBar()
     
     ConsoleMenu:HideBlizzardUI()
     ConsoleMenu:UpdateCVars()
@@ -81,6 +80,7 @@ local function Initialize()
         end
 
         ConsoleMenu:SetFastTravelFrame()
+        ConsoleMenu:InitializeMainActionBar()
 
         _G.ApplyMacroSettings()
         

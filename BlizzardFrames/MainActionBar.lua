@@ -6,6 +6,7 @@ local frameWidth = 688
 local frameHeight = 196
 
 local buttonSize = 52
+local modelSize = 160
 
 local paddingPAD = buttonSize * 1.5
 local paddingPADD = buttonSize * 1.5
@@ -223,6 +224,26 @@ local function CreateSpellBarButtonFrame(parent, slotID)
     background:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\pad-background.png")
     background:SetVertexColor(0, 0, 0, 0.3)
     buttonFrame.background = background
+
+    -- Фрейм для отображения M2 модели
+    if not buttonFrame.ModelView then
+        buttonFrame.ModelView = CreateFrame("PlayerModel", nil, buttonFrame)
+        buttonFrame.ModelView:SetSize(modelSize, modelSize)
+        buttonFrame.ModelView:SetPoint("CENTER", buttonFrame, "CENTER", 0, 0)
+        buttonFrame.ModelView:SetFrameStrata(buttonFrame:GetFrameStrata())
+        buttonFrame.ModelView:SetFrameLevel(buttonFrame:GetFrameLevel() - 1)
+        buttonFrame.ModelView:SetModel(5201375)
+        buttonFrame.ModelView:SetParent(buttonFrame)
+        buttonFrame.ModelView:SetKeepModelOnHide(true)  -- Важно: сохраняет модель при скрытии
+        buttonFrame.ModelView:SetAnimation(1)  -- например, анимация
+
+        buttonFrame.ModelView:SetTransform(
+            CreateVector3D(0.039, 0.039, 0),
+            CreateVector3D(0, 0, 0),
+            0.017
+        )
+        buttonFrame.ModelView:SetAlpha(1.0)
+    end
 
     local texture = buttonFrame:CreateTexture(nil, "ARTWORK")
     texture:SetAllPoints(buttonFrame)
