@@ -16,7 +16,7 @@ local paddingPADD = buttonSize * 1.5
 local buttonVerticalPadding = buttonSize * 0.6
 local buttonHorizontalPadding = buttonSize * 0.6
 
-local shadowSize = 240
+local shadowSize = 272
 
 local animationDuration = 0.1
 
@@ -252,10 +252,11 @@ local function CreateSpellBarButtonFrame(parent, slotID)
 
     -- Добавляем фон под иконку, тоже текстура (создаем первым, чтобы был ниже)
     local background = buttonFrame:CreateTexture(nil, "BACKGROUND")
+    local backgroundSize = buttonSize + 8
     background:SetPoint("CENTER", buttonFrame, "CENTER", 0, 0)
-    background:SetSize(buttonSize + 8, buttonSize + 8)
+    background:SetSize(backgroundSize, backgroundSize)
     background:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\pad-background.png")
-    background:SetVertexColor(0, 0, 0, 0.3)
+    background:SetVertexColor(0, 0, 0, 0.4)
     buttonFrame.background = background
 
     -- Фрейм для отображения M2 модели
