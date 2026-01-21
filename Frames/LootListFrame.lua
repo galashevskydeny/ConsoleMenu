@@ -411,6 +411,7 @@ function ConsoleMenu:SetLootList()
             local craftingQuality = C_TradeSkillUI.GetItemReagentQualityByItemInfo(itemLink)
             local itemName, _, itemQuality, _, _, _, _, _, _, itemTexture, _, _, _, _, _, _, _, _ = C_Item.GetItemInfo(itemLink)
 
+            -- TODO:Тут иногда дублируются (c LOOT_OPENED) предметы при получении добычи с босса
             AddItem({
                 quantity = quantity,
                 itemName = itemName,
