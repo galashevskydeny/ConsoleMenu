@@ -20,6 +20,7 @@ local frameHeight = titleFontSize + padding + sectionHeight * maxItemsCount + pa
 
 local duration = 8
 local animationDuration = 0.3
+local deduplicationWindow = 1.0
 
 -- Текстуры качества реагента для профессии
 local CraftingQualityTexture = {
@@ -56,6 +57,20 @@ end
 -- Функция для добавления предмета в список
 local function AddItem(itemData)
 
+    -- Проверяем, не является ли добавляемый предмет дубликатом
+    for i = #ConsoleMenuFrame.LootListFrame.Queue, 1, -1 do
+        local item = ConsoleMenuFrame.LootListFrame.Queue[i]
+        if item.itemName == itemData.itemName
+        and item.itemQuality == itemData.itemQuality
+        and item.craftingQuality == itemData.craftingQuality
+        and item.quantity == itemData.quantity
+        and item.itemTexture == itemData.itemTexture
+        and (itemData.startTime - item.startTime) < deduplicationWindow then
+            return
+        end
+    end
+
+    -- Добавляем предмет в очередь
     table.insert(ConsoleMenuFrame.LootListFrame.Queue, {
         quantity = itemData.quantity,
         itemName = itemData.itemName,
@@ -357,6 +372,7 @@ function ConsoleMenu:SetLootList()
 
     local function OnLootListEvent(self, event, ...)
         if event == "LOOT_OPENED" then
+            -- Отображение предметов из окна добычи
             for slotIndex = 1, GetNumLootItems() do
                 local itemTexture, itemName, quantity, currencyID, itemQuality, _, isQuestItem, _, _, isCoin = GetLootSlotInfo(slotIndex)
         
@@ -375,6 +391,7 @@ function ConsoleMenu:SetLootList()
 
             end
         elseif event == "TRADE_SKILL_ITEM_CRAFTED_RESULT" then
+            -- Отображение изготовленных предметов
             local data = ...
 
             if not data then return end
@@ -391,6 +408,7 @@ function ConsoleMenu:SetLootList()
                 itemTexture = itemTexture,
             })
         elseif event == "QUEST_LOOT_RECEIVED" then
+            -- Отображение награды за задание
             local _, itemLink, quantity = ...
 
             local craftingQuality = C_TradeSkillUI.GetItemReagentQualityByItemInfo(itemLink)
