@@ -211,6 +211,8 @@ local function UpdateZoneSoftTargetSettings()
 
     if pvpType == "sanctuary" and ConsoleMenuDB.softTargetSanctuarySwitching == 1 then
         SetCVar("SoftTargetEnemy", 0)
+    else
+        SetCVar("SoftTargetEnemy", 1)
     end
 
     if pvpType ~= "sanctuary" and ConsoleMenuDB.softTargetFriendSanctuaryRange == 1 then
@@ -230,6 +232,9 @@ end
 function ConsoleMenu:UpdateCVars()
     
     -- Регистрируем события для динамического изменения SoftTarget настроек
+    ConsoleMenu:RegisterEvent("PLAYER_ENTERING_WORLD", function()
+        UpdateZoneSoftTargetSettings()
+    end)
     ConsoleMenu:RegisterEvent("PLAYER_REGEN_DISABLED", function()
         SetCombatSoftTargetSettings()
         UpdateZoneSoftTargetSettings()

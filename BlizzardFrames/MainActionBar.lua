@@ -118,9 +118,12 @@ local function UpdateActionButtonUsable(slotID, isUsable, notEnoughMana)
 end
 
 -- Функция обновления отображения Glow модели
-local function UpdateActionButtonGlow(slotID, spellID)
+local function UpdateActionButtonGlow(slotID, spellID, event)
 
-    print("UpdateActionButtonGlow", slotID, spellID)
+    if event ~= "PLAYER_ENTERING_WORLD" then
+        print("UpdateActionButtonGlow", slotID, spellID, event)
+    end
+
     local frame = ConsoleMenuFrame.ActionBarFrame
     local btn = frame.actionButtons[slotID]
     if not btn then return end
@@ -148,19 +151,20 @@ local function UpdateActionButtonGlow(slotID, spellID)
         ConsoleMenu:InitFadeAnimations(btn.Glow, animationDuration)
     end
 
-    local spellID = spellID or nil
-
+    -- Если spellID не передан, пытаемся получить его из слота
     if not spellID then
         local actionType, id, _ = GetActionInfo(slotID)
-        print("GetActionInfo", actionType, id)
-
-        if actionType ~= "spell" or actionType ~= "macro" then
+        
+        -- Если это не заклинание и не макрос, скрываем glow
+        if actionType ~= "spell" and actionType ~= "macro" then
             ConsoleMenu:AnimatedHide(btn.Glow)
+            return
         end
 
         spellID = id
     end
 
+    -- Если spellID найден, проверяем актуальное состояние overlay
     if spellID then
         local isSpellOverlayed = C_SpellActivationOverlay.IsSpellOverlayed(spellID)
         if isSpellOverlayed then
@@ -449,11 +453,11 @@ function ConsoleMenu:InitializeMainActionBar()
         if event == "PLAYER_ENTERING_WORLD" or event == "PLAYER_LOGIN" then
             for slotID = 1, 12 do
                 UpdateActionButtonTexture(slotID)
-                UpdateActionButtonGlow(slotID)
+                UpdateActionButtonGlow(slotID, nil, "PLAYER_ENTERING_WORLD")
             end
             for slotID = 49, 72 do
                 UpdateActionButtonTexture(slotID)
-                UpdateActionButtonGlow(slotID)
+                UpdateActionButtonGlow(slotID, nil, "PLAYER_ENTERING_WORLD")
             end
             UpdateButtonPositions()
             UpdateActionButtonCooldowns()
@@ -463,11 +467,14 @@ function ConsoleMenu:InitializeMainActionBar()
             UpdateModifierState()
         elseif event == "ACTIONBAR_SLOT_CHANGED" then
             local slotID = ...
-            -- Событие происходит без перетаскивания вручную при первом заклинании боя
-            -- UpdateActionButtonTexture(slotID)
-            -- UpdateButtonPositions(slotID)
-            -- UpdateActionButtonCooldowns()
-            -- UpdateActionButtonGlow(slotID)
+            UpdateActionButtonTexture(slotID)
+            UpdateButtonPositions(slotID)
+            UpdateActionButtonCooldowns()
+            -- Используем RunNextFrame для отложенной проверки glow, чтобы дать overlay системе время обновиться
+            RunNextFrame(function()
+                UpdateActionButtonGlow(slotID, nil, "ACTIONBAR_SLOT_CHANGED")
+            end)
+            UpdateActionButtonUsable(slotID)
         elseif event == "ACTIONBAR_UPDATE_COOLDOWN" or event == "ACTIONBAR_UPDATE_STATE" or event == "ACTIONBAR_UPDATE_USABLE" then
             UpdateActionButtonCooldowns()
         elseif event == "MODIFIER_STATE_CHANGED" then
@@ -484,13 +491,13 @@ function ConsoleMenu:InitializeMainActionBar()
             local spellID = ...
             local slots = C_ActionBar.FindSpellActionButtons(spellID)
             for _, slotID in pairs(slots) do
-                UpdateActionButtonGlow(slotID, spellID)
+                UpdateActionButtonGlow(slotID, spellID, "SPELL_ACTIVATION_OVERLAY_GLOW_SHOW")
             end
         elseif event == "SPELL_ACTIVATION_OVERLAY_GLOW_HIDE" then
             local spellID = ...
             local slots = C_ActionBar.FindSpellActionButtons(spellID)
             for _, slotID in pairs(slots) do
-                UpdateActionButtonGlow(slotID, spellID)
+                UpdateActionButtonGlow(slotID, spellID, "SPELL_ACTIVATION_OVERLAY_GLOW_HIDE")
             end
         elseif event == "ACTIONBAR_UPDATE_USABLE" then
             local changes = ...
