@@ -32,6 +32,11 @@ local SubtitleEventPriority = {
 
 -- Локальная функция для разбиения текста на строки с учетом максимальной длины
 local function SplitTextIntoLines(text)
+
+    if issecretvalue(text) then
+        return {}
+    end
+
     if not text or text == "" then
         return {}
     end
@@ -270,7 +275,7 @@ function ConsoleMenu:AddSubtitles(event, message, sender)
         return
     end
 
-    local priority = SubtitleEventPriority[event] or 1
+    local priority = SubtitleEventPriority[event] or 3
 
     local lines = SplitTextIntoLines(message)
     local currentTime = GetTime()
@@ -549,6 +554,8 @@ function ConsoleMenu:SetSubtitleFrame()
     frame:RegisterEvent("CHAT_MSG_RAID_LEADER")
     frame:RegisterEvent("CHAT_MSG_TEXT_EMOTE")
 
+    frame:RegisterEvent("CHAT_MSG_SAY")
+
     frame:RegisterEvent("GOSSIP_SHOW")
     frame:RegisterEvent("QUEST_DETAIL")
     frame:RegisterEvent("QUEST_PROGRESS")
@@ -573,7 +580,8 @@ function ConsoleMenu:SetSubtitleFrame()
            event == "CHAT_MSG_INSTANCE_CHAT_LEADER" or
            event == "CHAT_MSG_RAID" or
            event == "CHAT_MSG_RAID_LEADER" or
-           event == "CHAT_MSG_TEXT_EMOTE"
+           event == "CHAT_MSG_TEXT_EMOTE" or
+           event == "CHAT_MSG_SAY"
         then
             ConsoleMenu:AddSubtitles(event, ...)
         elseif event == "GOSSIP_SHOW" then

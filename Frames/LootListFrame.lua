@@ -20,7 +20,6 @@ local frameHeight = titleFontSize + padding + sectionHeight * maxItemsCount + pa
 
 local duration = 8
 local animationDuration = 0.3
-local deduplicationWindow = 1.0
 
 -- Текстуры качества реагента для профессии
 local CraftingQualityTexture = {
@@ -58,14 +57,14 @@ end
 local function AddItem(itemData)
 
     -- Проверяем, не является ли добавляемый предмет дубликатом
-    for i = #ConsoleMenuFrame.LootListFrame.Queue, 1, -1 do
-        local item = ConsoleMenuFrame.LootListFrame.Queue[i]
+    for i = #ConsoleMenuFrame.LootListFrame.DisplayedItems, 1, -1 do
+        local item = ConsoleMenuFrame.LootListFrame.DisplayedItems[i]
         if item.itemName == itemData.itemName
         and item.itemQuality == itemData.itemQuality
         and item.craftingQuality == itemData.craftingQuality
         and item.quantity == itemData.quantity
         and item.itemTexture == itemData.itemTexture
-        and (itemData.startTime - item.startTime) < deduplicationWindow then
+        then
             return
         end
     end
