@@ -994,7 +994,6 @@ function ConsoleMenu:SetCustomGossipFrame()
     frame:RegisterEvent("QUEST_ACCEPTED")
     frame:RegisterEvent("QUESTLINE_UPDATE")
 
-
     frame:RegisterEvent("QUEST_FINISHED")
     frame:RegisterEvent("GOSSIP_CLOSED")
     frame:RegisterEvent("GOSSIP_CONFIRM")
@@ -1002,7 +1001,8 @@ function ConsoleMenu:SetCustomGossipFrame()
     frame:SetScript("OnEvent", function(self, event, ...)
         if event == "GAME_PAD_ACTIVE_CHANGED" then
             gamePadActive = ...
-        elseif event == "GOSSIP_SHOW" or event == "QUEST_GREETING" or event == "QUEST_PROGRESS" or event == "QUEST_COMPLETE" or event == "QUEST_ACCEPTED" or event == "QUEST_TURNED_IN" or event == "QUEST_DETAIL" then
+        elseif event == "GOSSIP_SHOW" or event == "QUEST_GREETING" or event == "QUEST_PROGRESS" or event == "QUEST_COMPLETE" or event == "QUEST_TURNED_IN" or event == "QUEST_DETAIL" then
+            print(event)
             ConsoleMenu:AnimatedShow(frame)
             ConsoleMenu:AddWindow(3)
             ConsoleMenu:ApplyContextUIChanges()
