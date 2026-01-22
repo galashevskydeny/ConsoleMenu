@@ -10,6 +10,11 @@ local modelSize = 160
 local modelOffset = 0.039
 local modelScale = 0.017
 
+local stackCountSize = 24
+local stackCountOffset = 8
+local stackCountShadowOffsef = 12
+local fontSize = 14
+
 local paddingPAD = buttonSize * 1.5
 local paddingPADD = buttonSize * 1.5
 
@@ -363,7 +368,45 @@ local function CreateSpellBarButtonFrame(parent, slotID)
         end)
     end)
 
-    buttonFrame:Show()
+    -- Счетчик стаков
+    if not buttonFrame.StackCount then
+        buttonFrame.StackCount = CreateFrame("Frame", "ActionButtonStackCount" .. slotID, buttonFrame)
+        buttonFrame.StackCount:SetSize(stackCountSize, stackCountSize)
+        buttonFrame.StackCount:SetPoint("BOTTOMRIGHT", buttonFrame.texture, "BOTTOMRIGHT", stackCountOffset, -stackCountOffset)
+
+        -- buttonFrame.StackCount:Hide()
+
+        -- Фон счетчика
+        if not buttonFrame.StackCount.Background then
+            buttonFrame.StackCount.Background = buttonFrame.StackCount:CreateTexture(nil, "ARTWORK")
+            buttonFrame.StackCount.Background:SetAllPoints()
+            buttonFrame.StackCount.Background:SetAlpha(0.5)
+
+            local texture = ConsoleMenu.Backgrounds["PAD"]
+            buttonFrame.StackCount.Background:SetTexture(texture)
+        end
+
+        -- Тень счетчика
+        if not buttonFrame.StackCount.Shadow then
+            buttonFrame.StackCount.Shadow = buttonFrame.StackCount:CreateTexture(nil, "BACKGROUND")
+            buttonFrame.StackCount.Shadow:SetPoint("TOPLEFT", buttonFrame.StackCount.Background, "TOPLEFT", -stackCountShadowOffsef, stackCountShadowOffsef)
+            buttonFrame.StackCount.Shadow:SetPoint("BOTTOMRIGHT", buttonFrame.StackCount.Background, "BOTTOMRIGHT", stackCountShadowOffsef, -stackCountShadowOffsef)
+
+            local texture = "Interface\\AddOns\\ConsoleMenu\\Assets\\CrossBackgorund.png"
+            buttonFrame.StackCount.Shadow:SetTexture(texture)
+        end
+
+        -- Текст счетчика
+        if not buttonFrame.StackCount.Text then
+            buttonFrame.StackCount.Text = buttonFrame.StackCount:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+            buttonFrame.StackCount.Text:SetAllPoints()
+            buttonFrame.StackCount.Text:SetJustifyH("CENTER")
+            buttonFrame.StackCount.Text:SetTextColor(1.0, 0.960784, 0.772549, 1)
+            buttonFrame.StackCount.Text:SetFont("Fonts\\FRIZQT___CYR.TTF", fontSize, "")
+            buttonFrame.StackCount.Text:SetText("2")
+        end
+    end
+
     return buttonFrame
 end
 
