@@ -315,7 +315,7 @@ local function UpdateActionButtonCount(slotID)
         btn.StackCount.Text:SetText(count)
     end
 
-    if btn.StackCount.Text:GetText() == "0" or btn.StackCount.Text:GetText() == nil or btn.StackCount.Text:GetText() == "1" or not count then
+    if not btn.StackCount.Text:GetText() then
         ConsoleMenu:AnimatedHide(btn.StackCount)
     else
         ConsoleMenu:AnimatedShow(btn.StackCount)
@@ -417,7 +417,7 @@ local function CreateSpellBarButtonFrame(parent, slotID)
             buttonFrame.StackCount.Text:SetJustifyH("CENTER")
             buttonFrame.StackCount.Text:SetTextColor(1.0, 0.960784, 0.772549, 1)
             buttonFrame.StackCount.Text:SetFont("Fonts\\FRIZQT___CYR.TTF", fontSize, "")
-            buttonFrame.StackCount.Text:SetText("2")
+            buttonFrame.StackCount.Text:SetText("")
         end
     end
 
