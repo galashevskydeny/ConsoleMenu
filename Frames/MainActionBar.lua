@@ -125,10 +125,6 @@ end
 -- Функция обновления отображения Glow модели
 local function UpdateActionButtonGlow(slotID, spellID, event)
 
-    if event ~= "PLAYER_ENTERING_WORLD" then
-        print("UpdateActionButtonGlow", slotID, spellID, event)
-    end
-
     local frame = ConsoleMenuFrame.ActionBarFrame
     local btn = frame.actionButtons[slotID]
     if not btn then return end
@@ -309,6 +305,23 @@ local function UpdateModifierState(modifierKey)
     UpdateActionButtonShadows(modifierKey)
 end
 
+local function UpdateActionButtonCount(slotID)
+    local frame = ConsoleMenuFrame.ActionBarFrame
+    local btn = frame.actionButtons[slotID]
+    if not btn or not btn.StackCount or not btn.StackCount.Text then return end
+    
+    local count = C_ActionBar.GetActionDisplayCount(slotID)
+    if count then
+        btn.StackCount.Text:SetText(count)
+    end
+
+    if btn.StackCount.Text:GetText() == "0" or btn.StackCount.Text:GetText() == nil or btn.StackCount.Text:GetText() == "1" or not count then
+        ConsoleMenu:AnimatedHide(btn.StackCount)
+    else
+        ConsoleMenu:AnimatedShow(btn.StackCount)
+    end
+end
+
 -- Функция создания кнопки
 local function CreateSpellBarButtonFrame(parent, slotID)
     local buttonFrame = CreateFrame("Frame", "ActionButton" .. slotID, parent)
@@ -373,6 +386,7 @@ local function CreateSpellBarButtonFrame(parent, slotID)
         buttonFrame.StackCount = CreateFrame("Frame", "ActionButtonStackCount" .. slotID, buttonFrame)
         buttonFrame.StackCount:SetSize(stackCountSize, stackCountSize)
         buttonFrame.StackCount:SetPoint("BOTTOMRIGHT", buttonFrame.texture, "BOTTOMRIGHT", stackCountOffset, -stackCountOffset)
+        ConsoleMenu:InitFadeAnimations(buttonFrame.StackCount, animationDuration)
 
         -- buttonFrame.StackCount:Hide()
 
@@ -492,15 +506,19 @@ function ConsoleMenu:InitializeMainActionBar()
 
     frame:RegisterEvent("ACTIONBAR_UPDATE_USABLE")
 
+    frame:RegisterEvent("SPELL_UPDATE_CHARGES")
+
     local function OnActionBarEvent(self, event, ...)
         if event == "PLAYER_ENTERING_WORLD" or event == "PLAYER_LOGIN" then
             for slotID = 1, 12 do
                 UpdateActionButtonTexture(slotID)
                 UpdateActionButtonGlow(slotID, nil, "PLAYER_ENTERING_WORLD")
+                UpdateActionButtonCount(slotID)
             end
             for slotID = 49, 72 do
                 UpdateActionButtonTexture(slotID)
                 UpdateActionButtonGlow(slotID, nil, "PLAYER_ENTERING_WORLD")
+                UpdateActionButtonCount(slotID)
             end
             UpdateButtonPositions()
             UpdateActionButtonCooldowns()
@@ -513,6 +531,7 @@ function ConsoleMenu:InitializeMainActionBar()
             UpdateActionButtonTexture(slotID)
             UpdateButtonPositions(slotID)
             UpdateActionButtonCooldowns()
+            UpdateActionButtonCount(slotID)
             -- Используем RunNextFrame для отложенной проверки glow, чтобы дать overlay системе время обновиться
             RunNextFrame(function()
                 UpdateActionButtonGlow(slotID, nil, "ACTIONBAR_SLOT_CHANGED")
@@ -546,6 +565,13 @@ function ConsoleMenu:InitializeMainActionBar()
             local changes = ...
             for slotID, isUsable, notEnoughMana in pairs(changes) do
                 UpdateActionButtonUsable(slotID, isUsable, notEnoughMana)
+            end
+        elseif event == "SPELL_UPDATE_CHARGES" then
+            for slotID = 1, 12 do
+                UpdateActionButtonCount(slotID)
+            end
+            for slotID = 49, 72 do
+                UpdateActionButtonCount(slotID)
             end
         end
     end
