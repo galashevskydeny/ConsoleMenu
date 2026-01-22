@@ -17,7 +17,7 @@ local animationDuration = 0.1
 local className, classFile = UnitClass("player")
 
 local focusedIndex = 1
-local focusedTab = 1
+local focusedTab = "favorites"
 local tabs = {}
 
 local houseList = {}
@@ -51,32 +51,47 @@ local monkSpells = {
 
 local hearthstonesToys = {}
 
+-- Функция для получения отсортированного списка ключей вкладок
+local function GetTabOrder()
+    local orderedKeys = {}
+    for key, tab in pairs(tabs) do
+        table.insert(orderedKeys, { key = key, order = tab.order })
+    end
+    table.sort(orderedKeys, function(a, b) return a.order < b.order end)
+    local result = {}
+    for _, item in ipairs(orderedKeys) do
+        table.insert(result, item.key)
+    end
+    return result
+end
+
 -- Функция для инициализации вкладок
 local function InitTabs()
-    local currentIndex = 1
+    local order = 1
+    
     -- Создаем вкладки
-    tabs[currentIndex] = { title = "Избранное"}
-    currentIndex = currentIndex + 1
+    tabs["favorites"] = { title = "Избранное", key = "favorites", order = order }
+    order = order + 1
 
     local flyoutSpellID = 244
     _, _, numSlots, isKnown = GetFlyoutInfo(flyoutSpellID)
 
     if isKnown then
-        tabs[currentIndex] = { title = "Путь героя", spells = {} }
-        currentIndex = currentIndex + 1
+        tabs["hero"] = { title = "Путь героя", spells = {}, key = "hero", order = order }
+        order = order + 1
         for i = 1, numSlots do
             local flyoutSpellID, _, isKnown, _, _ = GetFlyoutSlotInfo(flyoutSpellID, i)
             if flyoutSpellID and isKnown then
-                table.insert(tabs[2].spells, flyoutSpellID)
+                table.insert(tabs["hero"].spells, flyoutSpellID)
             end
         end
     end 
 
     if classFile == "MAGE" then
-        tabs[currentIndex] = { title = "Азерот", spells = {} }
-        currentIndex = currentIndex + 1
-        tabs[currentIndex] = { title = "Мир", spells = {} }
-        currentIndex = currentIndex + 1
+        tabs["azeroth"] = { title = "Азерот", spells = {}, key = "azeroth", order = order }
+        order = order + 1
+        tabs["world"] = { title = "Мир", spells = {}, key = "world", order = order }
+        order = order + 1
     end
 end
 
@@ -313,23 +328,23 @@ local function CreateFastTravelScrollBox()
         DataProvider:Flush()
 
         -- Обновляем списки заклинаний для вкладок мага, если они существуют
-        if classFile == "MAGE" and tabs[1] and tabs[3] and tabs[4] then
+        if classFile == "MAGE" and tabs["favorites"] and tabs["azeroth"] and tabs["world"] then
             if IsInGroup() then
-                tabs[1].spells = mageSpells.actual.group
-                tabs[3].spells = mageSpells.azeroth.group
-                tabs[4].spells = mageSpells.world.group
+                tabs["favorites"].spells = mageSpells.actual.group
+                tabs["azeroth"].spells = mageSpells.azeroth.group
+                tabs["world"].spells = mageSpells.world.group
             else
-                tabs[1].spells = mageSpells.actual.single
-                tabs[3].spells = mageSpells.azeroth.single
-                tabs[4].spells = mageSpells.world.single
+                tabs["favorites"].spells = mageSpells.actual.single
+                tabs["azeroth"].spells = mageSpells.azeroth.single
+                tabs["world"].spells = mageSpells.world.single
             end
-        elseif classFile == "DEATHKNIGHT" and tabs[1] then
-            tabs[1].spells = deathknightSpells
-        elseif classFile == "MONK" and tabs[1] then
-            tabs[1].spells = monkSpells
+        elseif classFile == "DEATHKNIGHT" and tabs["favorites"] then
+            tabs["favorites"].spells = deathknightSpells
+        elseif classFile == "MONK" and tabs["favorites"] then
+            tabs["favorites"].spells = monkSpells
         end
     
-        if focusedTab == 1 then
+        if focusedTab == "favorites" then
             -- Добавляем камень возвращения
             local itemInfo = 6948
             local itemName, _, _, _, _, _, _, _, _, itemTexture = C_Item.GetItemInfo(itemInfo)
@@ -461,12 +476,21 @@ end
 
 -- Обновление фреймов вкладок в зависимости от фокуса
 local function UpdateTabs()
-    for i = 1, #tabs do
+    local tabOrder = GetTabOrder()
+    local focusedTabIndex = 1
+    for i, tabKey in ipairs(tabOrder) do
+        if tabKey == focusedTab then
+            focusedTabIndex = i
+            break
+        end
+    end
+    
+    for i, tabKey in ipairs(tabOrder) do
         local tab = _G["FastTravelTab" .. i]
         if not tab then
             return
         end
-        if i == focusedTab then
+        if tabKey == focusedTab then
             tab.circle:Hide()
             tab.text:Show()
             -- Установка ширины таба по ширине текста
@@ -476,13 +500,13 @@ local function UpdateTabs()
             tab.circle:Show()
             tab.text:Hide()
 
-            local diff = math.abs(focusedTab - i)
+            local diff = math.abs(focusedTabIndex - i)
 
             if diff == 1 then
                 tab.circle:SetSize(sectionPadding, sectionPadding)
                 tab:SetWidth(sectionPadding)
             else
-                local newSize = sectionPadding * ((#tabs - diff) / #tabs + 0.35)
+                local newSize = sectionPadding * ((#tabOrder - diff) / #tabOrder + 0.35)
                 tab.circle:SetSize(newSize, newSize)
                 tab:SetWidth(newSize)
             end
@@ -492,8 +516,17 @@ end
 
 -- Функция для смены текущей вкладки
 local function SwitchTab(direction)
-    local tabCount = #tabs
-    local newTabIndex = focusedTab + direction
+    local tabOrder = GetTabOrder()
+    local currentIndex = 1
+    for i, tabKey in ipairs(tabOrder) do
+        if tabKey == focusedTab then
+            currentIndex = i
+            break
+        end
+    end
+    
+    local tabCount = #tabOrder
+    local newTabIndex = currentIndex + direction
 
     if newTabIndex < 1 then
         newTabIndex = 1
@@ -501,7 +534,7 @@ local function SwitchTab(direction)
         newTabIndex = tabCount
     end
 
-    focusedTab = newTabIndex
+    focusedTab = tabOrder[newTabIndex]
     UpdateTabs()
 end
 
@@ -582,7 +615,8 @@ function ConsoleMenu:SetFastTravelFrame()
     FastTravel.Tabs:SetHeight(sectionHeight)
 
     local previousTab = nil
-    for i = 1, #tabs do
+    local tabOrder = GetTabOrder()
+    for i, tabKey in ipairs(tabOrder) do
         local tab = CreateFrame("Button", "FastTravelTab" .. i, FastTravelTabs)
         if i == 1 then
             tab:SetPoint("LEFT", FastTravelTabs, "LEFT", sectionPadding, 0)
@@ -591,7 +625,7 @@ function ConsoleMenu:SetFastTravelFrame()
         end
 
         -- Установка текста таба
-        local text = tabs[i].title
+        local text = tabs[tabKey].title
         local tabFont = "Fonts\\FRIZQT___CYR.TTF"
         if not tab.text then
             tab.text = tab:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -634,7 +668,7 @@ function ConsoleMenu:SetFastTravelFrame()
         tab:SetHeight(sectionHeight)
 
         tab:SetScript("OnClick", function()
-            focusedTab = i
+            focusedTab = tabKey
             UpdateTabs()
             setItemList()
             local element = parentFrame.ScrollBox:GetDataProvider().collection[1]
