@@ -175,7 +175,6 @@ end
 function ConsoleMenu:ApplyContextUIChanges()
 
     local context = ConsoleMenu:GetPlayerContext()
-    print("context: ", context, "gliding: ", gliding)
     ConsoleMenu:ResetKeysItems()
 
     if context == "exploring" then
@@ -243,11 +242,15 @@ function ConsoleMenu:ApplyContextUIChanges()
             local spellId = C_ActionBar.GetSpell(slot)
             local cooldownInfo = C_ActionBar.GetActionCooldown(slot)
 
-            print("actionType: ", actionType, "id: ", id, "subType: ", subType, "command: ", command, "isUsable: ", isUsable, "isLackingResources: ", isLackingResources, "count: ", count, "spellId: ", spellId)
+            -- Проверяем кулдаун из cooldownInfo
+            local isOnCooldown = false
 
             -- Проверяем, нужно ли показывать заклинание
             local shouldShow = false
-            if spellId == 0 then
+            if isOnCooldown then
+                -- Заклинание на кулдауне - не показываем
+                shouldShow = false
+            elseif spellId == 0 then
                 -- Не заклинание (макрос или пустой слот)
                 shouldShow = not gliding
             elseif spellsNeedGliding[spellId] then
@@ -321,7 +324,9 @@ function ConsoleMenu:InitializeContexts()
     self.ContextsFrame:RegisterEvent("ACTIONBAR_UPDATE_USABLE")
     self.ContextsFrame:RegisterEvent("SPELL_UPDATE_CHARGES")
     self.ContextsFrame:RegisterEvent("ACTIONBAR_UPDATE_COOLDOWN")
+    self.ContextsFrame:RegisterEvent("SPELL_UPDATE_COOLDOWN")
     self.ContextsFrame:RegisterEvent("ACTIONBAR_UPDATE_STATE")
+    self.ContextsFrame:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
 
     ConsoleMenu.PlayerContext = {
         -- Жив ли персонаж
@@ -350,7 +355,6 @@ function ConsoleMenu:InitializeContexts()
 
     self.ContextsFrame:SetScript("OnEvent", function(self, event, ...)
 
-        print("event: ", event)
         if event == "PLAYER_ENTERING_WORLD" then
             UpdatePlayerAlive()
             UpdatePlayerInCombat()

@@ -494,6 +494,7 @@ function ConsoleMenu:InitializeMainActionBar()
     frame:RegisterEvent("ACTIONBAR_HIDEGRID")
 
     frame:RegisterEvent("ACTIONBAR_UPDATE_COOLDOWN")
+    frame:RegisterEvent("SPELL_UPDATE_COOLDOWN")
     frame:RegisterEvent("ACTIONBAR_UPDATE_STATE")
     frame:RegisterEvent("ACTIONBAR_UPDATE_USABLE")
 
