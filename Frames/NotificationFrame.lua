@@ -950,7 +950,9 @@ function ConsoleMenu:SetNotificationFrame()
         
         else
             local msg = ...
-            ConsoleMenu:AddNotification(event, msg)
+            if not issecretvalue(msg) then
+                ConsoleMenu:AddNotification(event, msg)
+            end
         end
 
         RemoveOldDeduplication()
