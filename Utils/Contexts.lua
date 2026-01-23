@@ -267,7 +267,6 @@ function ConsoleMenu:ApplyContextUIChanges()
                     local title = ConsoleMenu:GetSlotTitle(actionType, id)
                     local binding = ConsoleMenu:GetCommandBinding(command)
     
-                    print("slot: ", slot, "title: ", title, "binding: ", binding)
                     if title and binding then
                         ConsoleMenu:AddKeysFrameItem(binding, title, count)
                     end
@@ -304,6 +303,8 @@ function ConsoleMenu:InitializeContexts()
 
     -- Для отслеживания средств передвижения
     self.ContextsFrame:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED")
+    self.ContextsFrame:RegisterEvent("UNIT_POWER_BAR_SHOW")
+    self.ContextsFrame:RegisterEvent("UNIT_POWER_BAR_HIDE")
     -- Для отслеживания полетов
     self.ContextsFrame:RegisterEvent("PLAYER_IS_GLIDING_CHANGED")
 

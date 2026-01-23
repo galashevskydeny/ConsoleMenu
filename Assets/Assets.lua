@@ -157,7 +157,23 @@ function ConsoleMenu:RegisterAssets()
         PADDLEFTRIGHT = {
             texture = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\outline-left-right.png",
             background = "",
-        }
+        },
+        PLUS = {
+            texture = "",
+            background = "",
+        },
+        EQUALS = {
+            texture = "",
+            background = "",
+        },
+        MINUS = {
+            texture = "",
+            background = "",
+        },
+        UNDERSCORE = {
+            texture = "",
+            background = "",
+        },
     }
 
     for i = 65, 90 do -- ASCII коды A (65) до Z (90)
