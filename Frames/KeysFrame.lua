@@ -24,23 +24,23 @@ local animationDuration = 0.1
 local gamePadActive = false
 
 -- Функция для обновления элемента списка
-local function UpdateKeyItem(item, binding, title, stackCount)
-    if not item then return end
+local function UpdateKeyFrame(frame, binding, title, stackCount)
+    if not frame then return end
     if not binding then return end
     if not title then return end
 
     if string.find(binding, "SHIFT") or string.find(binding, "CTRL") or string.find(binding, "ALT")then
         -- Кнопка с модификатором
 
-        item.Icon.PlusTexture:Show()
-        item.Icon.ModifierTexture:Show()
+        frame.Icon.PlusTexture:Show()
+        frame.Icon.ModifierTexture:Show()
 
         local width = iconSize * 2 + iconPlusSize + iconInnerPadding * 2 + iconInnerPadding
         local height = iconSize + iconInnerPadding * 2
 
-        item:SetHeight(height)
-        item.Icon:SetWidth(width)
-        item.Icon:SetHeight(height)
+        frame:SetHeight(height)
+        frame.Icon:SetWidth(width)
+        frame.Icon:SetHeight(height)
 
         local mainKey = string.match(binding, ".-%-(.+)$")
         local modifierKey = string.match(binding, "^(.+)%-[^%-]+$")
@@ -59,18 +59,18 @@ local function UpdateKeyItem(item, binding, title, stackCount)
         local modifierTexture = ConsoleMenu.Textures[modifierKey].texture
         local background = ConsoleMenu.Backgrounds["PAIR"]
 
-        item.Icon.MainTexture:SetTexture(mainTexture)
-        item.Icon.ModifierTexture:SetTexture(modifierTexture)
-        item.Icon.Background:SetTexture(background)
+        frame.Icon.MainTexture:SetTexture(mainTexture)
+        frame.Icon.ModifierTexture:SetTexture(modifierTexture)
+        frame.Icon.Background:SetTexture(background)
 
-        item.Icon.MainTexture:ClearAllPoints()
-        item.Icon.MainTexture:SetPoint("RIGHT", item.Icon, "RIGHT", -iconInnerPadding, 0)
-        item.Icon.MainTexture:SetSize(iconSize, iconSize)
+        frame.Icon.MainTexture:ClearAllPoints()
+        frame.Icon.MainTexture:SetPoint("RIGHT", frame.Icon, "RIGHT", -iconInnerPadding, 0)
+        frame.Icon.MainTexture:SetSize(iconSize, iconSize)
 
-        item.Icon.StackCount:ClearAllPoints()
-        item.Icon.StackCount:SetPoint("BOTTOMRIGHT", item.Icon.MainTexture, "BOTTOMRIGHT", stackCountOffset, -(stackCountOffset + iconInnerPadding))
+        frame.Icon.StackCount:ClearAllPoints()
+        frame.Icon.StackCount:SetPoint("BOTTOMRIGHT", frame.Icon.MainTexture, "BOTTOMRIGHT", stackCountOffset, -(stackCountOffset + iconInnerPadding))
 
-        item.Icon:SetPoint("RIGHT", item, "RIGHT", iconInnerPadding, 0)
+        frame.Icon:SetPoint("RIGHT", frame, "RIGHT", iconInnerPadding, 0)
 
     else
         -- Кнопка без модификатора
@@ -78,32 +78,40 @@ local function UpdateKeyItem(item, binding, title, stackCount)
         local texture = ConsoleMenu.Textures[binding].texture
         local background = ConsoleMenu.Textures[binding].background
 
-        item.Icon.PlusTexture:Hide()
-        item.Icon.ModifierTexture:Hide()
+        frame.Icon.PlusTexture:Hide()
+        frame.Icon.ModifierTexture:Hide()
 
-        item:SetHeight(sectionHeight)
-        item.Icon:SetSize(iconSize, iconSize)
+        frame:SetHeight(sectionHeight)
+        frame.Icon:SetSize(iconSize, iconSize)
 
-        item.Icon.Background:SetTexture(background)
-        item.Icon.MainTexture:SetTexture(texture)
+        frame.Icon.Background:SetTexture(background)
+        frame.Icon.MainTexture:SetTexture(texture)
 
-        item.Icon.StackCount:ClearAllPoints()
-        item.Icon.StackCount:SetPoint("BOTTOMRIGHT", item.Icon.MainTexture, "BOTTOMRIGHT", stackCountOffset, -stackCountOffset)
+        frame.Icon.StackCount:ClearAllPoints()
+        frame.Icon.StackCount:SetPoint("BOTTOMRIGHT", frame.Icon.MainTexture, "BOTTOMRIGHT", stackCountOffset, -stackCountOffset)
 
     end
 
-    if not stackCount or stackCount == 0 or stackCount == 1 then
-        item.Icon.StackCount:Hide()
+    frame.Icon.StackCount.Text:SetText(stackCount)
+
+    local count = frame.Icon.StackCount.Text:GetText()
+
+    if not count or count == "1" or count == "0" then
+        frame.Icon.StackCount:Hide()
     else
-        item.Icon.StackCount:Show()
-        item.Icon.StackCount.Text:SetText(stackCount)
+        frame.Icon.StackCount:Show()
     end
 
-    item.Text:SetText(title)
+    frame.Text:SetText(title)
+
+    if count == "0" then
+        ConsoleMenu:DeleteKeysFrameItem(binding, title)
+        ConsoleMenu:UpdateKeysFrame()
+    end
 end
 
 -- Функция для сброса элементов списка
-function ConsoleMenu:ResetKeysFrameItems()
+function ConsoleMenu:ResetKeysItems()
     if ConsoleMenuFrame.KeysFrame then
     ConsoleMenuFrame.KeysFrame.Items = {}
     end
@@ -121,7 +129,7 @@ function ConsoleMenu:UpdateKeysFrame()
             if not item then
                 ConsoleMenu:AnimatedHide(frame)
             else
-                UpdateKeyItem(frame, item.binding, item.title, item.stackCount)
+                UpdateKeyFrame(frame, item.binding, item.title, item.stackCount)
                 ConsoleMenu:AnimatedShow(frame)
                 activeItems = activeItems + 1
             end

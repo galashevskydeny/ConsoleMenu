@@ -191,10 +191,25 @@ function ConsoleMenu:ApplyContextUIChanges()
             return name
         end
 
+        if actionType == "summonmount" then
+
+            if id ~= 268435455 then
+                local name = C_MountJournal.GetMountInfoByID(id)
+                return name
+            else
+                return "Избранный маунт"
+            end
+        end
+
+        if actionType == "outfit" then
+            local info = C_TransmogOutfitInfo.GetOutfitInfo(id)
+            return info.name
+        end
+
     end
 
     local context = ConsoleMenu:GetPlayerContext()
-    ConsoleMenu:ResetKeysFrameItems()
+    ConsoleMenu:ResetKeysItems()
 
     if context == "exploring" then
         local page = GetActionBarPage()
@@ -204,13 +219,15 @@ function ConsoleMenu:ApplyContextUIChanges()
         for slot = startSlot, lastSlot do
             local actionType, id, subType = GetActionInfo(slot)
             local command = ConsoleMenu:GetBindingCommandBySlotID(slot)
+            local isUsable, isLackingResources = C_ActionBar.IsUsableAction(slot)
+            local count = C_ActionBar.GetActionDisplayCount(slot)
 
             if actionType and id and command then
                 local title = GetSlotTitle(actionType, id)
                 local binding = ConsoleMenu:GetCommandBinding(command)
 
-                if title and binding then
-                    ConsoleMenu:AddKeysFrameItem(binding, title)
+                if title and binding and isUsable then
+                    ConsoleMenu:AddKeysFrameItem(binding, title, count)
                 end
             end
         end
@@ -254,13 +271,16 @@ function ConsoleMenu:ApplyContextUIChanges()
         for slot = startSlot, lastSlot do
             local actionType, id, subType = GetActionInfo(slot)
             local command = ConsoleMenu:GetBindingCommandBySlotID(slot)
+            local isUsable, isLackingResources = C_ActionBar.IsUsableAction(slot)
+            local count = C_ActionBar.GetActionDisplayCount(slot)
+            
 
-            if actionType and id and command then
+            if actionType and id and command and isUsable then
                 local title = GetSlotTitle(actionType, id)
                 local binding = ConsoleMenu:GetCommandBinding(command)
 
                 if title and binding then
-                    ConsoleMenu:AddKeysFrameItem(binding, title)
+                    ConsoleMenu:AddKeysFrameItem(binding, title, count)
                 end
             end
         end
@@ -311,6 +331,10 @@ function ConsoleMenu:InitializeContexts()
     -- Отслеживание открытия/закрытия окна интерфейса
     self.ContextsFrame:RegisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_HIDE")
     self.ContextsFrame:RegisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_SHOW")
+
+    -- Отслеживание изменения пригодности к использованию и количества зарядов заклинаний
+    self.ContextsFrame:RegisterEvent("ACTIONBAR_UPDATE_USABLE")
+    self.ContextsFrame:RegisterEvent("SPELL_UPDATE_CHARGES")
 
     ConsoleMenu.PlayerContext = {
         -- Жив ли персонаж

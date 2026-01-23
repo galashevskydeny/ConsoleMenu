@@ -81,19 +81,19 @@ local function UpdateActionButtonTexture(slotID)
 end
 
 -- Функция обновления состояния иконки (пригодность, цвет, блокировка)
-local function UpdateActionButtonTextureDesaturation(btn, slotID, isUsable, notEnoughMana)
+local function UpdateActionButtonTextureDesaturation(btn, slotID, isUsable, isLackingResources)
     -- Получаем значения пригодности и недостатка маны если не заданы
-    if isUsable == nil or notEnoughMana == nil then
+    if isUsable == nil or isLackingResources == nil then
         if C_ActionBar and C_ActionBar.IsUsableAction then
-            isUsable, notEnoughMana = C_ActionBar.IsUsableAction(slotID)
+            isUsable, isLackingResources = C_ActionBar.IsUsableAction(slotID)
         else
-            isUsable, notEnoughMana = true, false -- fallback
+            isUsable, isLackingResources = true, false -- fallback
         end
     end
 
     if isUsable and (not btn.cooldown:IsShown() or btn.cooldown:IsShown() and IsGlobalCooldown(slotID)) then
         btn.texture:SetDesaturated(false)
-    elseif notEnoughMana then
+    elseif isLackingResources then
         btn.texture:SetDesaturated(true)
     elseif btn.cooldown:IsShown() and not IsGlobalCooldown(slotID) then
         btn.texture:SetDesaturated(true)
@@ -114,12 +114,12 @@ local function UpdateActionButtonTextureDesaturation(btn, slotID, isUsable, notE
 end
 
 -- Функция обновления отображения пригодности кнопки
-local function UpdateActionButtonUsable(slotID, isUsable, notEnoughMana)
+local function UpdateActionButtonUsable(slotID, isUsable, isLackingResources)
     local frame = ConsoleMenuFrame.ActionBarFrame
     local btn = frame.actionButtons[slotID]
     if not btn or not btn.texture then return end
     
-    UpdateActionButtonTextureDesaturation(btn, slotID, isUsable, notEnoughMana)
+    UpdateActionButtonTextureDesaturation(btn, slotID, isUsable, isLackingResources)
 end
 
 -- Функция обновления отображения Glow модели
@@ -563,8 +563,8 @@ function ConsoleMenu:InitializeMainActionBar()
             end
         elseif event == "ACTIONBAR_UPDATE_USABLE" then
             local changes = ...
-            for slotID, isUsable, notEnoughMana in pairs(changes) do
-                UpdateActionButtonUsable(slotID, isUsable, notEnoughMana)
+            for slotID, isUsable, isLackingResources in pairs(changes) do
+                UpdateActionButtonUsable(slotID, isUsable, isLackingResources)
             end
         elseif event == "SPELL_UPDATE_CHARGES" then
             for slotID = 1, 12 do

@@ -6,8 +6,7 @@ local ConsoleMenu = _G.ConsoleMenu
 -- Таблица определений всех возможных макросов: имя -> {тело, иконка}
 local macroDefinitions = {
     ["Спешиться"] = {"/dismount [mounted, noflying]", "Ability_DragonRiding_LegStretches01"},
-    ["Избранный маунт"] = {"/run C_MountJournal.SummonByID(0)", "ACHIEVEMENT_GUILDPERK_MOUNTUP"},
-    ["БыстроеПеремещ."] = {"/fasttravel", "INV_HearthstonePet"},
+    ["Перемещение"] = {"/fasttravel", "INV_HearthstonePet"},
     ["Осмотреть"] = {"/targetfriend\n/inspect", "ACHIEVEMENT_GUILDPERK_LADYLUCK"},
     ["Предложить обмен"] = {"/targetfriend\n/trade", "ACHIEVEMENT_GUILDPERK_CASHFLOW_RANK2"},
     ["Трюк"] = {"/mountspecial", "INV_TreasureCrabPet_Purple"},
@@ -22,15 +21,13 @@ local function EnsureAllMacros()
     
     -- Заполняем таблицу в зависимости от включенных страниц панели действий
     if ConsoleMenuDB.actionBarPageExploring == 1 then
-        requiredMacros["Избранный маунт"] = macroDefinitions["Избранный маунт"]
-        requiredMacros["БыстроеПеремещ."] = macroDefinitions["БыстроеПеремещ."]
+        requiredMacros["Перемещение"] = macroDefinitions["Перемещение"]
     end
     
     if ConsoleMenuDB.actionBarPagePlayerInteraction == 1 then
         requiredMacros["Осмотреть"] = macroDefinitions["Осмотреть"]
-        requiredMacros["Избранный маунт"] = macroDefinitions["Избранный маунт"]
         requiredMacros["Предложить обмен"] = macroDefinitions["Предложить обмен"]
-        requiredMacros["БыстроеПеремещ."] = macroDefinitions["БыстроеПеремещ."]
+        requiredMacros["Перемещение"] = macroDefinitions["Перемещение"]
     end
     
     if ConsoleMenuDB.actionBarPageMount == 1 then
@@ -78,12 +75,15 @@ local function SetActionForSlot(slot, actionType, actionId)
     elseif actionType == "item" then
         PickupItem(actionId)
         PlaceAction(slot)
-    elseif actionType == "companion" then
-        PickupCompanion("MOUNT", -1)
-        PlaceAction(slot)
     elseif actionType == "empty" then
         PickupAction(slot)
         ClearCursor()
+    elseif actionType == "summonmount" then
+        C_MountJournal.Pickup(actionId)
+        PlaceAction(slot)
+    elseif actionType == "outfit" then
+        C_TransmogOutfitInfo.PickupOutfit(actionId)
+        PlaceAction(slot)
     end
 end
 
@@ -93,15 +93,15 @@ local function ApplyMacroSettings()
     EnsureAllMacros()
     
     if ConsoleMenuDB.actionBarPageExploring == 1 then
-        SetActionForSlot(13, "empty", nil)
+        SetActionForSlot(13, "outfit", 2)
         SetActionForSlot(14, "empty", nil)
         SetActionForSlot(15, "empty", nil)
         SetActionForSlot(16, "empty", nil)
         -- Слот под L3 для классовой способности перемещения
         --SetActionForSlot(17, "empty", nil)
-        SetActionForSlot(18, "macro", "Избранный маунт")
+        SetActionForSlot(18, "summonmount", 0)
         SetActionForSlot(19, "empty", nil)
-        SetActionForSlot(20, "macro", "БыстроеПеремещ.")
+        SetActionForSlot(20, "macro", "Перемещение")
         SetActionForSlot(21, "empty", nil)
         SetActionForSlot(22, "empty", nil)
         SetActionForSlot(23, "empty", nil)
@@ -115,9 +115,9 @@ local function ApplyMacroSettings()
         SetActionForSlot(28, "empty", nil)
         -- Слот под L3 для классовой способности перемещения
         --SetActionForSlot(29, "empty", nil)
-        SetActionForSlot(30, "macro", "Избранный маунт")
+        SetActionForSlot(30, "summonmount", 0)
         SetActionForSlot(31, "empty", nil)
-        SetActionForSlot(32, "macro", "БыстроеПеремещ.")
+        SetActionForSlot(32, "macro", "Перемещение")
         SetActionForSlot(33, "macro", "Предложить обмен")
         SetActionForSlot(34, "empty", nil)
         SetActionForSlot(35, "empty", nil)
