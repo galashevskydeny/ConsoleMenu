@@ -237,10 +237,14 @@ function ConsoleMenu:ApplyContextUIChanges()
         for slot = startSlot, lastSlot do
             local actionType, id, subType = GetActionInfo(slot)
             local command = ConsoleMenu:GetBindingCommandBySlotID(slot)
+
             local isUsable, isLackingResources = C_ActionBar.IsUsableAction(slot)
             local count = C_ActionBar.GetActionDisplayCount(slot)
             local spellId = C_ActionBar.GetSpell(slot)
             local cooldownInfo = C_ActionBar.GetActionCooldown(slot)
+
+            -- Подмена привязки взлета вверх на прыжок 
+            if spellId == 372610 then command = "JUMP" end
 
             -- Проверяем кулдаун из cooldownInfo
             local isOnCooldown = false

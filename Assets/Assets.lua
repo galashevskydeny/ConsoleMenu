@@ -158,22 +158,18 @@ function ConsoleMenu:RegisterAssets()
             texture = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\outline-left-right.png",
             background = "",
         },
-        PLUS = {
-            texture = "",
-            background = "",
-        },
-        EQUALS = {
-            texture = "",
-            background = "",
-        },
-        MINUS = {
-            texture = "",
-            background = "",
-        },
-        UNDERSCORE = {
-            texture = "",
-            background = "",
-        },
+    }
+
+    local equal = string.char(61)
+    ConsoleMenu.Textures[equal] = {
+        texture = "",
+        background = ConsoleMenu.Backgrounds["KEY"]
+    }
+    
+    local minus = string.char(45)
+    ConsoleMenu.Textures[minus] = {
+        texture = "",
+        background = ConsoleMenu.Backgrounds["KEY"]
     }
 
     for i = 65, 90 do -- ASCII коды A (65) до Z (90)
