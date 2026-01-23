@@ -166,48 +166,6 @@ end
 
 function ConsoleMenu:ApplyContextUIChanges()
 
-    local function GetSlotTitle(actionType, id)
-        if actionType == "macro" then
-            if subtype == "spell" then
-                actionType = "spell"
-            end
-            
-        end
-        
-        if actionType == "spell" then
-            local spell = Spell:CreateFromSpellID(id)
-            
-            local name = spell:GetSpellName()
-            return name
-        end
-        
-        if actionType == "item" then
-            local name = C_Item.GetItemNameByID(id)
-            return name
-        end
-        
-        if actionType == "macro" then
-            local name = C_Macro.GetMacroName(id)
-            return name
-        end
-
-        if actionType == "summonmount" then
-
-            if id ~= 268435455 then
-                local name = C_MountJournal.GetMountInfoByID(id)
-                return name
-            else
-                return "Избранный маунт"
-            end
-        end
-
-        if actionType == "outfit" then
-            local info = C_TransmogOutfitInfo.GetOutfitInfo(id)
-            return info.name
-        end
-
-    end
-
     local context = ConsoleMenu:GetPlayerContext()
     ConsoleMenu:ResetKeysItems()
 
@@ -223,7 +181,7 @@ function ConsoleMenu:ApplyContextUIChanges()
             local count = C_ActionBar.GetActionDisplayCount(slot)
 
             if actionType and id and command then
-                local title = GetSlotTitle(actionType, id)
+                local title = ConsoleMenu:GetSlotTitle(actionType, id)
                 local binding = ConsoleMenu:GetCommandBinding(command)
 
                 if title and binding and isUsable then
@@ -276,7 +234,8 @@ function ConsoleMenu:ApplyContextUIChanges()
             
 
             if actionType and id and command and isUsable then
-                local title = GetSlotTitle(actionType, id)
+            local actionType, id, subType = GetActionInfo(slot)
+                local title = ConsoleMenu:GetSlotTitle(actionType, id)
                 local binding = ConsoleMenu:GetCommandBinding(command)
 
                 if title and binding then

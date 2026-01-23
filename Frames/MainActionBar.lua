@@ -580,3 +580,46 @@ function ConsoleMenu:InitializeMainActionBar()
 
 end
 
+function ConsoleMenu:GetSlotTitle(actionType, id)
+    if actionType == "macro" then
+        if subtype == "spell" then
+            actionType = "spell"
+        end
+        
+    end
+    
+    if actionType == "spell" then
+        local spell = Spell:CreateFromSpellID(id)
+        
+        local name = spell:GetSpellName()
+        return name
+    end
+    
+    if actionType == "item" then
+        local name = C_Item.GetItemNameByID(id)
+        return name
+    end
+    
+    if actionType == "macro" then
+        local name = C_Macro.GetMacroName(id)
+        return name
+    end
+
+    if actionType == "summonmount" then
+
+        -- 268435455 - избранный маунт
+        if id ~= 268435455 then
+            local name = C_MountJournal.GetMountInfoByID(id)
+            return name
+        else
+            return "Избранный маунт"
+        end
+    end
+
+    if actionType == "outfit" then
+        local info = C_TransmogOutfitInfo.GetOutfitInfo(id)
+        return info.name
+    end
+
+end
+

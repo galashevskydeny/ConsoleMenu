@@ -93,7 +93,7 @@ local function ApplyMacroSettings()
     EnsureAllMacros()
     
     if ConsoleMenuDB.actionBarPageExploring == 1 then
-        SetActionForSlot(13, "outfit", 2)
+        SetActionForSlot(13, "empty", nil)
         SetActionForSlot(14, "empty", nil)
         SetActionForSlot(15, "empty", nil)
         SetActionForSlot(16, "empty", nil)
