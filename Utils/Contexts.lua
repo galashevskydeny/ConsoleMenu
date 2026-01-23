@@ -1,6 +1,14 @@
 -- Contexts.lua
 
 local ConsoleMenu = _G.ConsoleMenu
+local gliding = false
+
+-- Список заклинаний, которые требуют находится в воздухе для использования
+local spellsNeedGliding = {
+    [372608] = true,
+    [361584] = true,
+    [403092] = true,
+}
 
 -- Набор функций для обновления контекста
 local function UpdatePlayerAlive()
@@ -167,6 +175,7 @@ end
 function ConsoleMenu:ApplyContextUIChanges()
 
     local context = ConsoleMenu:GetPlayerContext()
+    print("context: ", context, "gliding: ", gliding)
     ConsoleMenu:ResetKeysItems()
 
     if context == "exploring" then
@@ -231,15 +240,34 @@ function ConsoleMenu:ApplyContextUIChanges()
             local command = ConsoleMenu:GetBindingCommandBySlotID(slot)
             local isUsable, isLackingResources = C_ActionBar.IsUsableAction(slot)
             local count = C_ActionBar.GetActionDisplayCount(slot)
-            
+            local spellId = C_ActionBar.GetSpell(slot)
+            local cooldownInfo = C_ActionBar.GetActionCooldown(slot)
 
-            if actionType and id and command and isUsable then
-            local actionType, id, subType = GetActionInfo(slot)
-                local title = ConsoleMenu:GetSlotTitle(actionType, id)
-                local binding = ConsoleMenu:GetCommandBinding(command)
+            print("actionType: ", actionType, "id: ", id, "subType: ", subType, "command: ", command, "isUsable: ", isUsable, "isLackingResources: ", isLackingResources, "count: ", count, "spellId: ", spellId)
 
-                if title and binding then
-                    ConsoleMenu:AddKeysFrameItem(binding, title, count)
+            -- Проверяем, нужно ли показывать заклинание
+            local shouldShow = false
+            if spellId == 0 then
+                -- Не заклинание (макрос или пустой слот)
+                shouldShow = not gliding
+            elseif spellsNeedGliding[spellId] then
+                -- Заклинание требует планирования - показываем только если планируем
+                shouldShow = (gliding == true)
+            else
+                -- Обычное заклинание - показываем всегда
+                shouldShow = true
+            end
+
+            if shouldShow then
+                if actionType and id and command and isUsable then
+                    local actionType, id, subType = GetActionInfo(slot)
+                    local title = ConsoleMenu:GetSlotTitle(actionType, id)
+                    local binding = ConsoleMenu:GetCommandBinding(command)
+    
+                    print("slot: ", slot, "title: ", title, "binding: ", binding)
+                    if title and binding then
+                        ConsoleMenu:AddKeysFrameItem(binding, title, count)
+                    end
                 end
             end
         end
@@ -271,12 +299,10 @@ function ConsoleMenu:InitializeContexts()
     self.ContextsFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
     self.ContextsFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 
-    -- Для отслежтвания полетов на драконе
-    self.ContextsFrame:RegisterEvent("UNIT_POWER_BAR_SHOW")
-    self.ContextsFrame:RegisterUnitEvent("UNIT_POWER_BAR_HIDE")
-    -- Для отслеживания средств передвижения (не только полеты на драконах)
+    -- Для отслеживания средств передвижения
     self.ContextsFrame:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED")
-
+    -- Для отслеживания полетов
+    self.ContextsFrame:RegisterEvent("PLAYER_IS_GLIDING_CHANGED")
 
     --  Для отслеживания транспорта
     self.ContextsFrame:RegisterEvent("PLAYER_LOSES_VEHICLE_DATA")
@@ -294,6 +320,8 @@ function ConsoleMenu:InitializeContexts()
     -- Отслеживание изменения пригодности к использованию и количества зарядов заклинаний
     self.ContextsFrame:RegisterEvent("ACTIONBAR_UPDATE_USABLE")
     self.ContextsFrame:RegisterEvent("SPELL_UPDATE_CHARGES")
+    self.ContextsFrame:RegisterEvent("ACTIONBAR_UPDATE_COOLDOWN")
+    self.ContextsFrame:RegisterEvent("ACTIONBAR_UPDATE_STATE")
 
     ConsoleMenu.PlayerContext = {
         -- Жив ли персонаж
@@ -321,6 +349,8 @@ function ConsoleMenu:InitializeContexts()
     }
 
     self.ContextsFrame:SetScript("OnEvent", function(self, event, ...)
+
+        print("event: ", event)
         if event == "PLAYER_ENTERING_WORLD" then
             UpdatePlayerAlive()
             UpdatePlayerInCombat()
@@ -331,10 +361,7 @@ function ConsoleMenu:InitializeContexts()
             C_Timer.After(1, function()
                 UpdatePlayerMount()
                 UpdatePlayerVehicle()
-                local context = ConsoleMenu:GetPlayerContext()
-                if WeakAuras then
-                    WeakAuras.ScanEvents("CHANGE_CONTEXT", context)
-                end
+
                 SwitchActionBarPage()
             end)
         elseif event == "PLAYER_SOFT_ENEMY_CHANGED" then
@@ -355,12 +382,10 @@ function ConsoleMenu:InitializeContexts()
             ConsoleMenu:AddWindow(...)
         elseif event == "PLAYER_INTERACTION_MANAGER_FRAME_HIDE" then
             ConsoleMenu:RemoveWindow(...)
+        elseif event == "PLAYER_IS_GLIDING_CHANGED" then
+            gliding = ...
         end
 
-        local context = ConsoleMenu:GetPlayerContext()
-        if WeakAuras then
-            WeakAuras.ScanEvents("CHANGE_CONTEXT", context)
-        end
         ConsoleMenu:ApplyContextUIChanges()  
 
         SwitchActionBarPage()
