@@ -195,6 +195,7 @@ function ConsoleMenu:SetStatusTrackingFrame()
 
     frame:RegisterEvent("PLAYER_LEVEL_CHANGED")
     frame:RegisterEvent("PLAYER_XP_UPDATE")
+    frame:RegisterEvent("HOUSE_LEVEL_FAVOR_UPDATED")
 
     local function OnStatusTrackingFrameEvent(self, event, ...)
         if event == "PLAYER_LEVEL_CHANGED" then
@@ -211,11 +212,10 @@ function ConsoleMenu:SetStatusTrackingFrame()
                 from = newLevel
                 to = newLevel + 1
             else
-                to = newLevel
-                from = newLevel - 1
+                return
             end
 
-            AddNotification("Experience", from, to, XP, value, min, max)
+            AddNotification("Experience", from, to, nil, value, min, max)
         elseif event == "PLAYER_XP_UPDATE" then
             local min = 0
             local max = UnitXPMax("player")
@@ -230,11 +230,20 @@ function ConsoleMenu:SetStatusTrackingFrame()
                 from = level
                 to = level + 1
             else
-                to = level
-                from = level - 1
+                return
             end
 
-            AddNotification("Experience", from, to, XP, value, min, max)
+            AddNotification("Experience", from, to, nil, value, min, max)
+        elseif event == "HOUSE_LEVEL_FAVOR_UPDATED" then 
+            local min = 0
+
+            local houseLevelFavor = ...
+            local currentLevel = houseLevelFavor.houseLevel
+            local value = houseLevelFavor.houseFavor
+
+            local max = C_Housing.GetHouseLevelFavorForLevel(currentLevel+1)
+
+            AddNotification("HouseFavor", currentLevel, currentLevel + 1, nil, value, min, max)
         end
     end
 
