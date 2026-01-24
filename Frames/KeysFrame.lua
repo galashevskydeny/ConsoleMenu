@@ -102,7 +102,7 @@ local function UpdateKeyFrame(frame, binding, title, stackCount)
         if stackCount == 0 then
             ConsoleMenu:DeleteKeysFrameItem(binding, title)
             ConsoleMenu:UpdateKeysFrame()
-        elseif stackCount == "" or stackCount == 1 then
+        elseif stackCount == "" or not stackCount or stackCount == 1 then
             frame.Icon.StackCount:Hide()
         else
             frame.Icon.StackCount:Show()
