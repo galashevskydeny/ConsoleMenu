@@ -17,6 +17,7 @@ local focusedIndex = 1 -- Индекс текущего элемента в фо
 
 local previousGossip = false
 local softTargetEnemy
+local softTargetFriend
 
 local gamePadActive = false
 
@@ -957,7 +958,11 @@ function ConsoleMenu:SetCustomGossipFrame()
 
     frame:HookScript("OnShow", function()
         softTargetEnemy = GetCVar("SoftTargetEnemy")
-        SetCVar("SoftTargetEnemy", 0)
+        softTargetFriend = GetCVar("SoftTargetFriend")
+        if not InCombatLockdown() then
+            SetCVar("SoftTargetEnemy", 0)
+            SetCVar("SoftTargetFriend", 0)
+        end
 
         UpdateFocus(parentFrame.ScrollBox:GetDataProvider().collection[1], true)
 
@@ -969,8 +974,9 @@ function ConsoleMenu:SetCustomGossipFrame()
     end)
 
     frame:HookScript("OnHide", function()
-        if softTargetEnemy then
+        if softTargetEnemy and not InCombatLockdown() then
             SetCVar("SoftTargetEnemy", softTargetEnemy)
+            SetCVar("SoftTargetFriend", softTargetFriend)
         end
 
         if WeakAuras then
