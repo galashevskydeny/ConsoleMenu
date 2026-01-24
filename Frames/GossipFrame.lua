@@ -965,12 +965,6 @@ function ConsoleMenu:SetCustomGossipFrame()
         end
 
         UpdateFocus(parentFrame.ScrollBox:GetDataProvider().collection[1], true)
-
-        if WeakAuras then
-            WeakAuras.ScanEvents("CHANGE_CONTEXT", "window")
-            WeakAuras.ScanEvents("SHOW_GOSSIP_FRAME", true)
-        end
-
     end)
 
     frame:HookScript("OnHide", function()
@@ -978,14 +972,6 @@ function ConsoleMenu:SetCustomGossipFrame()
             SetCVar("SoftTargetEnemy", softTargetEnemy)
             SetCVar("SoftTargetFriend", softTargetFriend)
         end
-
-        if WeakAuras then
-            WAGlobal = WAGlobal or {}  -- Создаем таблицу, если её ещё нет
-            local previousContext = WAGlobal.previousContext or "exploring"
-            WeakAuras.ScanEvents("CHANGE_CONTEXT", previousContext)
-            WeakAuras.ScanEvents("SHOW_GOSSIP_FRAME", false)
-        end
-
     end)
 
     -- Регистрация события изменения режима геймпада
