@@ -97,16 +97,16 @@ local function UpdateKeyFrame(frame, binding, title, stackCount)
 
     if issecretvalue(stackCount) then
         frame.Icon.StackCount:Hide()
-    elseif not issecretvalue(stackCount) and (not stackCount or stackCount == "1") then
-        frame.Icon.StackCount:Hide()
     else
-        frame.Icon.StackCount:Show()
-    end
-
-    -- Удаляем элемент, если стаков 0 и заклинание не пригодно к использованию
-    if not issecretvalue(stackCount) and stackCount == "0" then
-        ConsoleMenu:DeleteKeysFrameItem(binding, title)
-        ConsoleMenu:UpdateKeysFrame()
+        -- Удаляем элемент, если стаков 0 и заклинание не пригодно к использованию
+        if stackCount == 0 then
+            ConsoleMenu:DeleteKeysFrameItem(binding, title)
+            ConsoleMenu:UpdateKeysFrame()
+        elseif stackCount == "" or stackCount == 1 then
+            frame.Icon.StackCount:Hide()
+        else
+            frame.Icon.StackCount:Show()
+        end
     end
 end
 
