@@ -182,17 +182,8 @@ local function SetBaseSoftTargetSettings()
     SetCVar("SoftTargetFriend", 1)
     SetCVar("SoftTargetNameplateEnemy", 1)
     SetCVar("SoftTargetIconInteract", 0)
-    
     SetCVar("SoftTargetForce", 0)
-
-    if ConsoleMenuDB.softTargetFlightSwitching == 1 then
-        -- Фокусировка на врагах только если персонаж не верхом
-        if IsMounted() then
-            SetCVar("SoftTargetEnemy", 0)
-        else
-            SetCVar("SoftTargetEnemy", 1)
-        end
-    end
+    SetCVar("SoftTargetEnemy", 1)
 end
 
 -- Возвращает настройки soft target к значениям по умолчанию
@@ -223,27 +214,12 @@ local function UpdateZoneSoftTargetSettings()
 
 end
 
--- Устанавливает значения настроек soft target для боя
-local function SetCombatSoftTargetSettings()
-    SetCVar("SoftTargetEnemy", 1)
-    SetCVar("SoftTargetForce", 0)
-end
-
 function ConsoleMenu:UpdateCVars()
     
     -- Регистрируем события для динамического изменения SoftTarget настроек
     ConsoleMenu:RegisterEvent("PLAYER_ENTERING_WORLD", function()
-        UpdateZoneSoftTargetSettings()
-    end)
-    ConsoleMenu:RegisterEvent("PLAYER_REGEN_DISABLED", function()
-        SetCombatSoftTargetSettings()
-        UpdateZoneSoftTargetSettings()
-    end)
-    ConsoleMenu:RegisterEvent("PLAYER_REGEN_ENABLED", function()
         SetBaseSoftTargetSettings()
-    end)
-    ConsoleMenu:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED", function()
-        SetBaseSoftTargetSettings()
+        UpdateZoneSoftTargetSettings()
     end)
 
     ConsoleMenu:RegisterEvent("ZONE_CHANGED_NEW_AREA", function()

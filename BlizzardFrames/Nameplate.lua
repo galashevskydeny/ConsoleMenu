@@ -23,6 +23,10 @@ function ConsoleMenu:InitializeNameplate()
         local name = self.name
         local castBar = self.castBar
         local unitFrame = self
+
+        if IsMounted() then
+            self:Hide()
+        end
         
         -- Изменения текста имени
         name:ClearAllPoints()

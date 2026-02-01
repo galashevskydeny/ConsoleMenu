@@ -63,6 +63,12 @@ local function UpdatePlayerSoftFriend()
     end
 end
 
+local function UpdatePlayerIsInsideHouseOrPlot()
+    ConsoleMenu.PlayerContext.housing.IsInsidePlot = C_Housing.IsInsidePlot()
+    ConsoleMenu.PlayerContext.housing.IsInsideHouse = C_Housing.IsInsideHouse()
+    ConsoleMenu.PlayerContext.housing.currentEditMode = C_HouseEditor.GetActiveHouseEditorMode()
+end
+
 -- Работа с хэш-таблицей для отслеживания открытых окон
 function ConsoleMenu:AddWindow(type)
     if not self.PlayerContext or not self.PlayerContext.window then
@@ -124,6 +130,8 @@ function ConsoleMenu:GetPlayerContext()
         context = "precombat"
     elseif ConsoleMenu.PlayerContext.mount == 1 or ConsoleMenu.PlayerContext.mount == 2 then
         context = "mount"
+    elseif ConsoleMenu.PlayerContext.housing.IsInsidePlot or ConsoleMenu.PlayerContext.housing.IsInsideHouse then
+        context = "housing"
     end
 
     ConsoleMenu.PlayerContext.lastContext = context
@@ -281,6 +289,20 @@ function ConsoleMenu:ApplyContextUIChanges()
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
     elseif context == "combat" or context == "precombat" then
         ConsoleMenu:AnimatedShow(ConsoleMenuFrame.ActionBarFrame)
+    elseif context == "housing" then
+        ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
+    
+        if ConsoleMenu.PlayerContext.housing.currentEditMode == 0 then
+            if ConsoleMenu.PlayerContext.housing.IsInsideHouse then
+                ConsoleMenu:AddKeysFrameItem("PAD2", "Выйти из дома")
+            end
+
+            ConsoleMenu:AddKeysFrameItem("PAD3", "Редактирование")
+        else
+            if ConsoleMenu.PlayerContext.housing.IsInsideHouse then
+            end
+        end
+            
     end
 
     ConsoleMenu:UpdateKeysFrame()
@@ -333,6 +355,17 @@ function ConsoleMenu:InitializeContexts()
     self.ContextsFrame:RegisterEvent("ACTIONBAR_UPDATE_STATE")
     self.ContextsFrame:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
 
+    -- Отслеживание пребывания в доме
+    self.ContextsFrame:RegisterEvent("HOUSE_EDITOR_MODE_CHANGED")
+    self.ContextsFrame:RegisterEvent("HOUSING_BASIC_MODE_SELECTED_TARGET_CHANGED")
+    self.ContextsFrame:RegisterEvent("HOUSING_DECOR_PRECISION_SUBMODE_CHANGED")
+    self.ContextsFrame:RegisterEvent("HOUSING_EXPERT_MODE_SELECTED_TARGET_CHANGED")
+    self.ContextsFrame:RegisterEvent("HOUSE_EDITOR_AVAILABILITY_CHANGED")
+    self.ContextsFrame:RegisterEvent("HOUSE_INFO_UPDATED")
+    self.ContextsFrame:RegisterEvent("CURRENT_HOUSE_INFO_RECIEVED")
+    self.ContextsFrame:RegisterEvent("HOUSE_PLOT_ENTERED")
+    self.ContextsFrame:RegisterEvent("HOUSE_PLOT_EXITED")
+
     ConsoleMenu.PlayerContext = {
         -- Жив ли персонаж
         alive = nil,
@@ -356,6 +389,9 @@ function ConsoleMenu:InitializeContexts()
 
         -- Последний контекст
         lastContext = nil,
+
+        -- Находится ли в доме
+        housing = {},
     }
 
     self.ContextsFrame:SetScript("OnEvent", function(self, event, ...)
@@ -393,6 +429,8 @@ function ConsoleMenu:InitializeContexts()
             ConsoleMenu:RemoveWindow(...)
         elseif event == "PLAYER_IS_GLIDING_CHANGED" then
             gliding = ...
+        elseif event == "HOUSE_EDITOR_MODE_CHANGED" or event == "HOUSING_BASIC_MODE_SELECTED_TARGET_CHANGED" or event == "HOUSING_DECOR_PRECISION_SUBMODE_CHANGED" or event == "HOUSING_EXPERT_MODE_SELECTED_TARGET_CHANGED" or event == "HOUSE_EDITOR_AVAILABILITY_CHANGED" or event == "HOUSE_INFO_UPDATED" or event == "CURRENT_HOUSE_INFO_RECIEVED" or event == "HOUSE_PLOT_ENTERED" or event == "HOUSE_PLOT_EXITED" then
+            UpdatePlayerIsInsideHouseOrPlot()
         end
 
         ConsoleMenu:ApplyContextUIChanges()  

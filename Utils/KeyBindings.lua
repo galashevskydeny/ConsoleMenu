@@ -265,13 +265,12 @@ local function SetHousingButtonBinding(...)
 
     local baseBindings = {}
     
-    -- Тачпад DualSense
-    baseBindings["PADBACK"] = "HOUSING_TOGGLEEDITOR"
-    baseBindings["PAD6"] = "HOUSING_TOGGLEEDITOR"
+    baseBindings["PAD3"] = "HOUSING_TOGGLEEDITOR"
+    baseBindings["PAD2"] = "CLICK ConsoleMenuHousingExitButton:LeftButton"
 
     if currentEditMode == Enum.HouseEditorMode.BasicDecor then
 
-        baseBindings["PAD2"] = "HOUSING_REMOVEDECOR"
+        baseBindings["PAD2"] = "HOUSING_TOGGLEEDITOR"
         baseBindings["PAD3"] = "HOUSING_TOGGLEDECORSNAPMODE"
         baseBindings["PAD4"] = "HOUSING_TOGGLEDECORNUDGEMODE"
 
@@ -293,7 +292,7 @@ local function SetHousingButtonBinding(...)
             baseBindings["PADLTRIGGER"] = "HOUSING_TOGGLEEXTERIORCUSTOMIZEMODE"
         end
     elseif currentEditMode == Enum.HouseEditorMode.ExpertDecor then
-        baseBindings["PAD2"] = "HOUSING_REMOVEDECOR"
+        baseBindings["PAD2"] = "HOUSING_TOGGLEEDITOR"
         baseBindings["PADLTRIGGER"] = "HOUSING_TOGGLEBASICDECORMODE"
         baseBindings["PADRTRIGGER"] = "HOUSING_TOGGLECUSTOMIZEMODE"
 
@@ -329,9 +328,11 @@ local function SetHousingButtonBinding(...)
         end
 
     elseif currentEditMode == Enum.HouseEditorMode.Customize then
+        baseBindings["PAD2"] = "HOUSING_TOGGLEEDITOR"
         baseBindings["PADLTRIGGER"] = "HOUSING_TOGGLEEXPERTDECORMODE"
         baseBindings["PADRTRIGGER"] = "HOUSING_TOGGLECLEANUPMODE"
     elseif currentEditMode == Enum.HouseEditorMode.Cleanup then
+        baseBindings["PAD2"] = "HOUSING_TOGGLEEDITOR"
         baseBindings["PADLTRIGGER"] = "HOUSING_TOGGLECUSTOMIZEMODE"
         baseBindings["PADRTRIGGER"] = "HOUSING_TOGGLELAYOUTMODE"
 
@@ -339,13 +340,14 @@ local function SetHousingButtonBinding(...)
             baseBindings["PADRTRIGGER"] = "HOUSING_TOGGLEEXTERIORCUSTOMIZEMODE"
         end
     elseif currentEditMode == Enum.HouseEditorMode.Layout then
+        baseBindings["PAD2"] = "HOUSING_TOGGLEEDITOR"
         baseBindings["PADLTRIGGER"] = "HOUSING_TOGGLECLEANUPMODE"
         baseBindings["PADRTRIGGER"] = "HOUSING_TOGGLEBASICDECORMODE"
     elseif currentEditMode == Enum.HouseEditorMode.ExteriorCustomization then
+        baseBindings["PAD2"] = "HOUSING_TOGGLEEDITOR"
         baseBindings["PADLTRIGGER"] = "HOUSING_TOGGLECLEANUPMODE"
         baseBindings["PADRTRIGGER"] = "HOUSING_TOGGLEBASICDECORMODE"
     end
-
     -- Установим основные биндинги
     SetOverrideBindingsForSet(baseBindings, nil, ConsoleMenu.HousingBindingFrame)
 end
@@ -372,6 +374,13 @@ function ConsoleMenu:InitHousingBindingFrame()
         prevCategoryButton:SetPoint("TOPLEFT", HouseEditorFrame, "TOPLEFT", 0, 0)
         prevCategoryButton:SetScript("OnClick", function(self, button)
             SetPreviousStorageCategory()
+        end)
+
+        local exitButton = CreateFrame("Button", "ConsoleMenuHousingExitButton", HouseEditorFrame)
+        exitButton:SetSize(1, 1)
+        exitButton:SetPoint("TOPLEFT", HouseEditorFrame, "TOPLEFT", 0, 0)
+        exitButton:SetScript("OnClick", function(self, button)
+            C_Housing.LeaveHouse()
         end)
         
     end
@@ -615,6 +624,9 @@ function ConsoleMenu:SetBaseKeyBindings()
     if not ConsoleMenuDB or ConsoleMenuDB.keyBindingScheme ~= 1 then
         return
     end
+
+    SetCVar("GamePadTouchCursorEnable", 0)
+    SetCVar("GamePadCursorAutoEnable", 0)
     
     local baseBindings = {
         PAD1 = "JUMP",
