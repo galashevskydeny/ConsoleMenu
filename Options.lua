@@ -428,7 +428,7 @@ local function RegisterOptions()
     local keyBindingsCategory, keyBindingsLayout = Settings.RegisterVerticalLayoutSubcategory(mainCategory, "Настройка клавиш")
     registerKeyBindingOptions(keyBindingsCategory, keyBindingsLayout)
 
-    local contextsCategory, contextsLayout = Settings.RegisterVerticalLayoutSubcategory(mainCategory, "Контексты")
+    local contextsCategory, contextsLayout = Settings.RegisterVerticalLayoutSubcategory(mainCategory, "Ситуации")
     registerContextsOptions(contextsCategory, contextsLayout)
 
     local questCategory, questLayout = Settings.RegisterVerticalLayoutSubcategory(mainCategory, "Задания")

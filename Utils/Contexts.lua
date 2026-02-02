@@ -12,61 +12,61 @@ local spellsNeedGliding = {
 
 -- Набор функций для обновления контекста
 local function UpdatePlayerAlive()
-    ConsoleMenu.PlayerContext.alive = not UnitIsDead("player") or true
+    ConsoleMenuFrame.PlayerContext.alive = not UnitIsDead("player") or true
 end
 
 local function UpdatePlayerInCombat()
-    ConsoleMenu.PlayerContext.inCombat = UnitAffectingCombat("player") or false
+    ConsoleMenuFrame.PlayerContext.inCombat = UnitAffectingCombat("player") or false
 end
 
 local function UpdatePlayerMount()
     if UnitPowerBarID("player") == 631 then
-        ConsoleMenu.PlayerContext.mount = 2
+        ConsoleMenuFrame.PlayerContext.mount = 2
     elseif IsMounted() then
-        ConsoleMenu.PlayerContext.mount = 1
+        ConsoleMenuFrame.PlayerContext.mount = 1
     else
-        ConsoleMenu.PlayerContext.mount = 0
+        ConsoleMenuFrame.PlayerContext.mount = 0
     end 
 end
 
 local function UpdatePlayerVehicle()
-    ConsoleMenu.PlayerContext.vehicle = UnitInVehicle('player') or UnitOnTaxi('player') or false
+    ConsoleMenuFrame.PlayerContext.vehicle = UnitInVehicle('player') or UnitOnTaxi('player') or false
 end
 
 local function UpdatePlayerTarget()
     if not UnitExists("target") or UnitIsDead("target") then
-        ConsoleMenu.PlayerContext.target = {}
+        ConsoleMenuFrame.PlayerContext.target = {}
     elseif UnitCanAttack("player", "target") then
-        ConsoleMenu.PlayerContext.target.isPlayer = UnitIsPlayer("target")
-        ConsoleMenu.PlayerContext.target.canAttack = true
-        ConsoleMenu.PlayerContext.target.isEnemy = UnitIsEnemy("player", "target")
-        ConsoleMenu.PlayerContext.target.isFriend = UnitIsFriend("player", "target")
-        ConsoleMenu.PlayerContext.target.canAssist = UnitCanAssist("player", "target")
+        ConsoleMenuFrame.PlayerContext.target.isPlayer = UnitIsPlayer("target")
+        ConsoleMenuFrame.PlayerContext.target.canAttack = true
+        ConsoleMenuFrame.PlayerContext.target.isEnemy = UnitIsEnemy("player", "target")
+        ConsoleMenuFrame.PlayerContext.target.isFriend = UnitIsFriend("player", "target")
+        ConsoleMenuFrame.PlayerContext.target.canAssist = UnitCanAssist("player", "target")
     end
 end
 
 local function UpdatePlayerSoftEnemy()
     if not UnitExists("softenemy") then
-        ConsoleMenu.PlayerContext.softenemy = {}
+        ConsoleMenuFrame.PlayerContext.softenemy = {}
     elseif UnitCanAttack("player", "softenemy") then
-        ConsoleMenu.PlayerContext.softenemy.isPlayer = UnitIsPlayer("softenemy")
-        ConsoleMenu.PlayerContext.softenemy.canAttack = UnitCanAttack("player", "softenemy")
+        ConsoleMenuFrame.PlayerContext.softenemy.isPlayer = UnitIsPlayer("softenemy")
+        ConsoleMenuFrame.PlayerContext.softenemy.canAttack = UnitCanAttack("player", "softenemy")
     end
 end
 
 local function UpdatePlayerSoftFriend()
     if not UnitExists("softfriend") then
-        ConsoleMenu.PlayerContext.softfriend = {}
+        ConsoleMenuFrame.PlayerContext.softfriend = {}
     elseif UnitCanAssist("player", "softfriend") then
-        ConsoleMenu.PlayerContext.softfriend.isPlayer = UnitIsPlayer("softfriend")
-        ConsoleMenu.PlayerContext.softfriend.canAssist = UnitCanAssist("player", "softfriend")
+        ConsoleMenuFrame.PlayerContext.softfriend.isPlayer = UnitIsPlayer("softfriend")
+        ConsoleMenuFrame.PlayerContext.softfriend.canAssist = UnitCanAssist("player", "softfriend")
     end
 end
 
 local function UpdatePlayerIsInsideHouseOrPlot()
-    ConsoleMenu.PlayerContext.housing.IsInsidePlot = C_Housing.IsInsidePlot()
-    ConsoleMenu.PlayerContext.housing.IsInsideHouse = C_Housing.IsInsideHouse()
-    ConsoleMenu.PlayerContext.housing.currentEditMode = C_HouseEditor.GetActiveHouseEditorMode()
+    ConsoleMenuFrame.PlayerContext.housing.IsInsidePlot = C_Housing.IsInsidePlot()
+    ConsoleMenuFrame.PlayerContext.housing.IsInsideHouse = C_Housing.IsInsideHouse()
+    ConsoleMenuFrame.PlayerContext.housing.currentEditMode = C_HouseEditor.GetActiveHouseEditorMode()
 end
 
 -- Работа с хэш-таблицей для отслеживания открытых окон
@@ -115,26 +115,26 @@ function ConsoleMenu:GetPlayerContext()
 
     if self:HasWindows() then
         context = "window"
-    elseif ConsoleMenu.PlayerContext.alive == false then
+    elseif ConsoleMenuFrame.PlayerContext.alive == false then
         context = "soul"
-    elseif ConsoleMenu.PlayerContext.inCombat == true
-       and ConsoleMenu.PlayerContext.mount == 0
-       and ConsoleMenu.PlayerContext.vehicle == false
+    elseif ConsoleMenuFrame.PlayerContext.inCombat == true
+       and ConsoleMenuFrame.PlayerContext.mount == 0
+       and ConsoleMenuFrame.PlayerContext.vehicle == false
     then
         context = "combat"
-    elseif ConsoleMenu.PlayerContext.inCombat == false
-       and ConsoleMenu.PlayerContext.mount == 0
-       and ConsoleMenu.PlayerContext.vehicle == false
-       and (ConsoleMenu.PlayerContext.softenemy.canAttack == true or ConsoleMenu.PlayerContext.target.canAttack == true)
+    elseif ConsoleMenuFrame.PlayerContext.inCombat == false
+       and ConsoleMenuFrame.PlayerContext.mount == 0
+       and ConsoleMenuFrame.PlayerContext.vehicle == false
+       and (ConsoleMenuFrame.PlayerContext.softenemy.canAttack == true or ConsoleMenuFrame.PlayerContext.target.canAttack == true)
     then
         context = "precombat"
-    elseif ConsoleMenu.PlayerContext.mount == 1 or ConsoleMenu.PlayerContext.mount == 2 then
+    elseif ConsoleMenuFrame.PlayerContext.mount == 1 or ConsoleMenuFrame.PlayerContext.mount == 2 then
         context = "mount"
-    elseif ConsoleMenu.PlayerContext.housing.IsInsidePlot or ConsoleMenu.PlayerContext.housing.IsInsideHouse then
+    elseif ConsoleMenuFrame.PlayerContext.housing.IsInsidePlot or ConsoleMenuFrame.PlayerContext.housing.IsInsideHouse then
         context = "housing"
     end
 
-    ConsoleMenu.PlayerContext.lastContext = context
+    ConsoleMenuFrame.PlayerContext.lastContext = context
     return context
 end
 
@@ -148,25 +148,25 @@ local function SwitchActionBarPage()
         return
     end
 
-    if ConsoleMenu.PlayerContext.inCombat == true
-       and ConsoleMenu.PlayerContext.vehicle == false
+    if ConsoleMenuFrame.PlayerContext.inCombat == true
+       and ConsoleMenuFrame.PlayerContext.vehicle == false
     then
         ChangeActionBarPage(1)
-    elseif ConsoleMenu.PlayerContext.inCombat == false
-       and ConsoleMenu.PlayerContext.mount == 0
-       and ConsoleMenu.PlayerContext.vehicle == false
-       and (ConsoleMenu.PlayerContext.softenemy.canAttack == true or ConsoleMenu.PlayerContext.target.canAttack == true)
+    elseif ConsoleMenuFrame.PlayerContext.inCombat == false
+       and ConsoleMenuFrame.PlayerContext.mount == 0
+       and ConsoleMenuFrame.PlayerContext.vehicle == false
+       and (ConsoleMenuFrame.PlayerContext.softenemy.canAttack == true or ConsoleMenuFrame.PlayerContext.target.canAttack == true)
     then
         ChangeActionBarPage(1)
-    elseif ConsoleMenu.PlayerContext.mount == 1 and ConsoleMenu.PlayerContext.inCombat == false then
+    elseif ConsoleMenuFrame.PlayerContext.mount == 1 and ConsoleMenuFrame.PlayerContext.inCombat == false then
         -- Обычное средство передвижения
         ChangeActionBarPage(4)
-    elseif ConsoleMenu.PlayerContext.mount == 2 then
+    elseif ConsoleMenuFrame.PlayerContext.mount == 2 then
         -- Полет на драконе
         ChangeActionBarPage(1)
-    elseif ConsoleMenu.PlayerContext.inCombat == false
-        and ConsoleMenu.PlayerContext.vehicle == false
-        and (ConsoleMenu.PlayerContext.softfriend.isPlayer == true or ConsoleMenu.PlayerContext.target.isFriend == true)
+    elseif ConsoleMenuFrame.PlayerContext.inCombat == false
+        and ConsoleMenuFrame.PlayerContext.vehicle == false
+        and (ConsoleMenuFrame.PlayerContext.softfriend.isPlayer == true or ConsoleMenuFrame.PlayerContext.target.isFriend == true)
     then
         -- Друг в фокусе
         ChangeActionBarPage(3)
@@ -214,7 +214,7 @@ function ConsoleMenu:ApplyContextUIChanges()
 
     elseif context == "window" then
 
-        if ConsoleMenu.PlayerContext.window[3] or ConsoleMenu.PlayerContext.window[4] then
+        if ConsoleMenuFrame.PlayerContext.window[3] or ConsoleMenuFrame.PlayerContext.window[4] then
             ConsoleMenu:AddKeysFrameItem("PAD2", "Выйти")
             ConsoleMenu:AddKeysFrameItem("PAD1", "Выбрать")
 
@@ -223,7 +223,7 @@ function ConsoleMenu:ApplyContextUIChanges()
             end
 
             ConsoleMenu:HideChatFrame()
-        elseif ConsoleMenu.PlayerContext.window["fasttravel"] then
+        elseif ConsoleMenuFrame.PlayerContext.window["fasttravel"] then
             ConsoleMenu:AddKeysFrameItem("PAD2", "Выйти")
             ConsoleMenu:AddKeysFrameItem("PAD1", "Выбрать")
             ConsoleMenu:AddKeysFrameItem("PADDLEFTRIGHT", "Переключение вкладок")
@@ -292,14 +292,14 @@ function ConsoleMenu:ApplyContextUIChanges()
     elseif context == "housing" then
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
     
-        if ConsoleMenu.PlayerContext.housing.currentEditMode == 0 then
-            if ConsoleMenu.PlayerContext.housing.IsInsideHouse then
+        if ConsoleMenuFrame.PlayerContext.housing.currentEditMode == 0 then
+            if ConsoleMenuFrame.PlayerContext.housing.IsInsideHouse then
                 ConsoleMenu:AddKeysFrameItem("PAD2", "Выйти из дома")
             end
 
             ConsoleMenu:AddKeysFrameItem("PAD3", "Редактирование")
         else
-            if ConsoleMenu.PlayerContext.housing.IsInsideHouse then
+            if ConsoleMenuFrame.PlayerContext.housing.IsInsideHouse then
             end
         end
             
@@ -310,63 +310,62 @@ end
 
 -- Функция инициализации контекстов
 function ConsoleMenu:InitializeContexts()
-    if not self.ContextsFrame then
-        self.ContextsFrame = CreateFrame("Frame")
-    end
 
-    self.ContextsFrame:RegisterEvent("GAME_PAD_ACTIVE_CHANGED")
-    self.ContextsFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
-    self.ContextsFrame:RegisterEvent("ACTIONBAR_PAGE_CHANGED")
+    local frame = ConsoleMenuFrame
+
+    frame:RegisterEvent("GAME_PAD_ACTIVE_CHANGED")
+    frame:RegisterEvent("PLAYER_ENTERING_WORLD")
+    frame:RegisterEvent("ACTIONBAR_PAGE_CHANGED")
 
     -- Отслеживание целей и soft-target
-    self.ContextsFrame:RegisterEvent("PLAYER_SOFT_ENEMY_CHANGED")
-    self.ContextsFrame:RegisterEvent("PLAYER_SOFT_FRIEND_CHANGED")
-    self.ContextsFrame:RegisterEvent("PLAYER_TARGET_CHANGED")
+    frame:RegisterEvent("PLAYER_SOFT_ENEMY_CHANGED")
+    frame:RegisterEvent("PLAYER_SOFT_FRIEND_CHANGED")
+    frame:RegisterEvent("PLAYER_TARGET_CHANGED")
 
     -- Отслеживание входа/выхода из боя
-    self.ContextsFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
-    self.ContextsFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+    frame:RegisterEvent("PLAYER_REGEN_DISABLED")
+    frame:RegisterEvent("PLAYER_REGEN_ENABLED")
 
     -- Для отслеживания средств передвижения
-    self.ContextsFrame:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED")
-    self.ContextsFrame:RegisterEvent("UNIT_POWER_BAR_SHOW")
-    self.ContextsFrame:RegisterEvent("UNIT_POWER_BAR_HIDE")
+    frame:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED")
+    frame:RegisterEvent("UNIT_POWER_BAR_SHOW")
+    frame:RegisterEvent("UNIT_POWER_BAR_HIDE")
     -- Для отслеживания полетов
-    self.ContextsFrame:RegisterEvent("PLAYER_IS_GLIDING_CHANGED")
+    frame:RegisterEvent("PLAYER_IS_GLIDING_CHANGED")
 
     --  Для отслеживания транспорта
-    self.ContextsFrame:RegisterEvent("PLAYER_LOSES_VEHICLE_DATA")
-    self.ContextsFrame:RegisterEvent("PLAYER_GAINS_VEHICLE_DATA")
+    frame:RegisterEvent("PLAYER_LOSES_VEHICLE_DATA")
+    frame:RegisterEvent("PLAYER_GAINS_VEHICLE_DATA")
 
     -- Отслеживание смерти и воскрешения
-    self.ContextsFrame:RegisterEvent("PLAYER_DEAD")
-    self.ContextsFrame:RegisterEvent("PLAYER_ALIVE")
-    self.ContextsFrame:RegisterEvent("PLAYER_UNGHOST")
+    frame:RegisterEvent("PLAYER_DEAD")
+    frame:RegisterEvent("PLAYER_ALIVE")
+    frame:RegisterEvent("PLAYER_UNGHOST")
 
     -- Отслеживание открытия/закрытия окна интерфейса
-    self.ContextsFrame:RegisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_HIDE")
-    self.ContextsFrame:RegisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_SHOW")
+    frame:RegisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_HIDE")
+    frame:RegisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_SHOW")
 
     -- Отслеживание изменения пригодности к использованию и количества зарядов заклинаний
-    self.ContextsFrame:RegisterEvent("ACTIONBAR_UPDATE_USABLE")
-    self.ContextsFrame:RegisterEvent("SPELL_UPDATE_CHARGES")
-    self.ContextsFrame:RegisterEvent("ACTIONBAR_UPDATE_COOLDOWN")
-    self.ContextsFrame:RegisterEvent("SPELL_UPDATE_COOLDOWN")
-    self.ContextsFrame:RegisterEvent("ACTIONBAR_UPDATE_STATE")
-    self.ContextsFrame:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
+    frame:RegisterEvent("ACTIONBAR_UPDATE_USABLE")
+    frame:RegisterEvent("SPELL_UPDATE_CHARGES")
+    frame:RegisterEvent("ACTIONBAR_UPDATE_COOLDOWN")
+    frame:RegisterEvent("SPELL_UPDATE_COOLDOWN")
+    frame:RegisterEvent("ACTIONBAR_UPDATE_STATE")
+    frame:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
 
     -- Отслеживание пребывания в доме
-    self.ContextsFrame:RegisterEvent("HOUSE_EDITOR_MODE_CHANGED")
-    self.ContextsFrame:RegisterEvent("HOUSING_BASIC_MODE_SELECTED_TARGET_CHANGED")
-    self.ContextsFrame:RegisterEvent("HOUSING_DECOR_PRECISION_SUBMODE_CHANGED")
-    self.ContextsFrame:RegisterEvent("HOUSING_EXPERT_MODE_SELECTED_TARGET_CHANGED")
-    self.ContextsFrame:RegisterEvent("HOUSE_EDITOR_AVAILABILITY_CHANGED")
-    self.ContextsFrame:RegisterEvent("HOUSE_INFO_UPDATED")
-    self.ContextsFrame:RegisterEvent("CURRENT_HOUSE_INFO_RECIEVED")
-    self.ContextsFrame:RegisterEvent("HOUSE_PLOT_ENTERED")
-    self.ContextsFrame:RegisterEvent("HOUSE_PLOT_EXITED")
+    frame:RegisterEvent("HOUSE_EDITOR_MODE_CHANGED")
+    frame:RegisterEvent("HOUSING_BASIC_MODE_SELECTED_TARGET_CHANGED")
+    frame:RegisterEvent("HOUSING_DECOR_PRECISION_SUBMODE_CHANGED")
+    frame:RegisterEvent("HOUSING_EXPERT_MODE_SELECTED_TARGET_CHANGED")
+    frame:RegisterEvent("HOUSE_EDITOR_AVAILABILITY_CHANGED")
+    frame:RegisterEvent("HOUSE_INFO_UPDATED")
+    frame:RegisterEvent("CURRENT_HOUSE_INFO_RECIEVED")
+    frame:RegisterEvent("HOUSE_PLOT_ENTERED")
+    frame:RegisterEvent("HOUSE_PLOT_EXITED")
 
-    ConsoleMenu.PlayerContext = {
+    ConsoleMenuFrame.PlayerContext = {
         -- Жив ли персонаж
         alive = nil,
 
@@ -394,7 +393,7 @@ function ConsoleMenu:InitializeContexts()
         housing = {},
     }
 
-    self.ContextsFrame:SetScript("OnEvent", function(self, event, ...)
+    frame:SetScript("OnEvent", function(self, event, ...)
 
         if event == "PLAYER_ENTERING_WORLD" then
             UpdatePlayerAlive()
