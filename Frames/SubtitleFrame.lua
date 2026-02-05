@@ -5,6 +5,8 @@ local parentFrame
 
 local frameWidth = 688
 local frameHeight = 96
+local backgroundOverlapVertical = 160
+local backgroundOverlapHorizontal = 240
 
 local maxLineLength = 160
 local subtitleUpdateTimer = nil
@@ -304,6 +306,12 @@ function ConsoleMenu:AddSubtitles(event, message, sender)
             emotion = true
         end
 
+        -- Убираем название игрового мира из отправителя игрока
+        -- Если event содержит CHAT_MSG и не содержит _MONSTER_, обрезаем у sender все после дефиса
+        if event:find("CHAT_MSG") and not event:find("_MONSTER_") then
+            sender = sender:match("^([^-]+)") or sender
+        end
+
         if line:gsub("[<>]", "") ~= "" then
             -- Создаем таблицу субтитра
             local subtitleData = {
@@ -401,6 +409,10 @@ function ConsoleMenu:SubtitleFrameUpdate(subtitle)
             frame.Emotion:SetText(current.text or "")
             frame.Emotion:Show()
 
+            local width = frame.Emotion:GetStringWidth()
+            local height = frame.Emotion:GetStringHeight()
+            frame.Background:SetSize(width + backgroundOverlapHorizontal, height + backgroundOverlapVertical)
+
             frame.Speaker:Hide()
             frame.Subtitle:Hide()
         else
@@ -415,9 +427,15 @@ function ConsoleMenu:SubtitleFrameUpdate(subtitle)
                 frame.Speaker:Hide()
             end
 
+            local height = frame.Speaker:GetStringHeight()
+
             -- Обновить текст субтитра
             frame.Subtitle:SetText(current.text or "")
             frame.Subtitle:Show()
+
+            local width = frame.Subtitle:GetStringWidth()
+            height = height + frame.Subtitle:GetStringHeight()
+            frame.Background:SetSize(width + backgroundOverlapHorizontal, height + backgroundOverlapVertical)
 
             frame.Emotion:Hide()
         end
@@ -538,6 +556,13 @@ function ConsoleMenu:SetSubtitleFrame()
         frame.Emotion:SetNonSpaceWrap(true)
         frame.Emotion:SetWordWrap(true)
         frame.Emotion:Hide()
+    end
+
+    if not frame.Background then
+        frame.Background = frame:CreateTexture(nil, "BACKGROUND")
+        frame.Background:SetPoint("CENTER", frame, "CENTER", 0, 0)
+        frame.Background:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\CrossBackgorund.png")
+        frame.Background:SetSize(frameWidth, frameHeight)
     end
 
     frame:RegisterEvent("PLAYER_ENTERING_WORLD")
