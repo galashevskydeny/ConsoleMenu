@@ -16,6 +16,22 @@ function ConsoleMenu:InitializeNameplate()
 
     SetCVar(NamePlateConstants.INFO_DISPLAY_CVAR, 0);
 
+    -- При смене маунта (сел/слез) обновляем видимость всех неймплейтов
+    local function RefreshNameplatesVisibility()
+        for _, nameplate in pairs(C_NamePlate.GetNamePlates()) do
+            local unitFrame = nameplate.UnitFrame or nameplate
+            if unitFrame then
+                if IsMounted() then
+                    unitFrame:Hide()
+                else
+                    unitFrame:Show()
+                end
+            end
+        end
+    end
+    ConsoleMenu:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED", function()
+        RefreshNameplatesVisibility()
+    end)
 
     hooksecurefunc(NamePlateUnitFrameMixin, "UpdateAnchors", function(self)
         local container = self.HealthBarsContainer
@@ -26,6 +42,8 @@ function ConsoleMenu:InitializeNameplate()
 
         if IsMounted() then
             self:Hide()
+        else
+            self:Show()
         end
         
         -- Изменения текста имени
