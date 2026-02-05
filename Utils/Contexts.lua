@@ -71,38 +71,38 @@ end
 
 -- Работа с хэш-таблицей для отслеживания открытых окон
 function ConsoleMenu:AddWindow(type)
-    if not self.PlayerContext or not self.PlayerContext.window then
+    if not ConsoleMenuFrame.PlayerContext or not ConsoleMenuFrame.PlayerContext.window then
         return
     end
-    self.PlayerContext.window[type] = true
+    ConsoleMenuFrame.PlayerContext.window[type] = true
     
-    for i, window in pairs(self.PlayerContext.window) do
+    for i, window in pairs(ConsoleMenuFrame.PlayerContext.window) do
         if i ~= type then
-            self.PlayerContext.window[i] = nil
+            ConsoleMenuFrame.PlayerContext.window[i] = nil
         end
     end
 end
 
 function ConsoleMenu:RemoveWindow(type)
-    if not self.PlayerContext or not self.PlayerContext.window then
+    if not ConsoleMenuFrame.PlayerContext or not ConsoleMenuFrame.PlayerContext.window then
         return
     end
 
     if type == 0 then
-        for type, window in pairs(self.PlayerContext.window) do
-            self.PlayerContext.window[type] = nil
+        for type, window in pairs(ConsoleMenuFrame.PlayerContext.window) do
+            ConsoleMenuFrame.PlayerContext.window[type] = nil
         end
     else
-        self.PlayerContext.window[type] = nil
+        ConsoleMenuFrame.PlayerContext.window[type] = nil
     end
 
 end
 
 function ConsoleMenu:HasWindows()
-    if not self.PlayerContext or not self.PlayerContext.window then
+    if not ConsoleMenuFrame.PlayerContext or not ConsoleMenuFrame.PlayerContext.window then
         return false
     end
-    for _ in pairs(self.PlayerContext.window) do
+    for _ in pairs(ConsoleMenuFrame.PlayerContext.window) do
         return true
     end
     return false
