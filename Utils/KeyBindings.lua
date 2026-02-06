@@ -261,6 +261,9 @@ local function SetPreviousStorageCategory()
 end
 
 local function SetHousingButtonBinding(...)
+
+    if IsMounted() then return end
+    
     local currentEditMode = C_HouseEditor.GetActiveHouseEditorMode()
 
     local baseBindings = {}
@@ -394,6 +397,7 @@ function ConsoleMenu:InitHousingBindingFrame()
     self.HousingBindingFrame:RegisterEvent("CURRENT_HOUSE_INFO_RECIEVED")
     self.HousingBindingFrame:RegisterEvent("HOUSE_PLOT_ENTERED")
     self.HousingBindingFrame:RegisterEvent("HOUSE_PLOT_EXITED")
+    self.HousingBindingFrame:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED")
 
     self.HousingBindingFrame:SetScript("OnEvent", function(frame, event, ...)
 
