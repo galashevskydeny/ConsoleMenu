@@ -413,6 +413,9 @@ function ConsoleMenu:SubtitleFrameUpdate(subtitle)
             local height = frame.Emotion:GetStringHeight()
             frame.Background:SetSize(width + backgroundOverlapHorizontal, height + backgroundOverlapVertical)
 
+            frame.Background:ClearAllPoints()
+            frame.Background:SetPoint("CENTER", frame.Emotion, "CENTER", 0, 0)
+
             frame.Speaker:Hide()
             frame.Subtitle:Hide()
         else
@@ -436,6 +439,9 @@ function ConsoleMenu:SubtitleFrameUpdate(subtitle)
             local width = frame.Subtitle:GetStringWidth()
             height = height + frame.Subtitle:GetStringHeight()
             frame.Background:SetSize(width + backgroundOverlapHorizontal, height + backgroundOverlapVertical)
+
+            frame.Background:ClearAllPoints()
+            frame.Background:SetPoint("CENTER", frame.Subtitle, "CENTER", 0, 0)
 
             frame.Emotion:Hide()
         end

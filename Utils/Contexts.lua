@@ -74,6 +74,7 @@ function ConsoleMenu:AddWindow(type)
     if not ConsoleMenuFrame.PlayerContext or not ConsoleMenuFrame.PlayerContext.window then
         return
     end
+    
     ConsoleMenuFrame.PlayerContext.window[type] = true
     
     for i, window in pairs(ConsoleMenuFrame.PlayerContext.window) do
