@@ -993,12 +993,11 @@ function ConsoleMenu:SetCustomGossipFrame()
     frame:SetScript("OnEvent", function(self, event, ...)
         if event == "GAME_PAD_ACTIVE_CHANGED" then
             gamePadActive = ...
-        elseif event == "GOSSIP_SHOW" then
+        elseif event == "GOSSIP_SHOW" or event == "QUEST_GREETING" then
             ConsoleMenu:AnimatedShow(frame)
             ConsoleMenu:AddWindow(3)
             ConsoleMenu:ApplyContextUIChanges()
-        elseif event == "QUEST_GREETING" or event == "QUEST_PROGRESS" or event == "QUEST_COMPLETE" or event == "QUEST_TURNED_IN" or event == "QUEST_DETAIL" then
-            print("Show GossipFrame by event: ", event)
+        elseif event == "QUEST_PROGRESS" or event == "QUEST_COMPLETE" or event == "QUEST_TURNED_IN" or event == "QUEST_DETAIL" then
             local questID = GetQuestID()
 
             if questID == 0 then return end
@@ -1011,7 +1010,7 @@ function ConsoleMenu:SetCustomGossipFrame()
             local previousCollection = parentFrame.ScrollBox:GetDataProvider().collection
 
             C_Timer.After(animationDuration, function()
-                print("Hide GossipFrame by event: ", event)
+                print("Hide GossipFrame by event:", event)
                 local collection = parentFrame.ScrollBox:GetDataProvider().collection
                 if collection == previousCollection then
                     ConsoleMenu:AnimatedHide(frame)
