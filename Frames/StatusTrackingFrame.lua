@@ -241,7 +241,8 @@ function ConsoleMenu:SetStatusTrackingFrame()
             local currentLevel = houseLevelFavor.houseLevel
             local value = houseLevelFavor.houseFavor
 
-            local max = C_Housing.GetHouseLevelFavorForLevel(currentLevel+1)
+            local value = value - C_Housing.GetHouseLevelFavorForLevel(currentLevel)
+            local max = C_Housing.GetHouseLevelFavorForLevel(currentLevel+1) - C_Housing.GetHouseLevelFavorForLevel(currentLevel)
 
             AddNotification("HouseFavor", currentLevel, currentLevel + 1, nil, value, min, max)
         end

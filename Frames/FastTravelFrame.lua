@@ -97,30 +97,30 @@ end
 
 -- Функция для телепорта домой или возврата из жилища
 local function TeleportToHouse()
-    if not C_Housing then
-        return
-    end
+    -- if not C_Housing then
+    --     return
+    -- end
     
-    local houseInfo = currentHouseInfo
+    -- local houseInfo = currentHouseInfo
 
-    if not houseInfo then
-        return
-    end
+    -- if not houseInfo then
+    --     return
+    -- end
     
-    local teleportToPlot = true
+    -- local teleportToPlot = true
 
-    if C_HousingNeighborhood.CanReturnAfterVisitingHouse() then
-        local currentNeighborhoodGUID = C_Housing.GetCurrentNeighborhoodGUID()
-        if currentNeighborhoodGUID and houseInfo and currentNeighborhoodGUID == houseInfo.neighborhoodGUID then
-            teleportToPlot = false
-        end
-    end
+    -- if C_HousingNeighborhood.CanReturnAfterVisitingHouse() then
+    --     local currentNeighborhoodGUID = C_Housing.GetCurrentNeighborhoodGUID()
+    --     if currentNeighborhoodGUID and houseInfo and currentNeighborhoodGUID == houseInfo.neighborhoodGUID then
+    --         teleportToPlot = false
+    --     end
+    -- end
     
-    if teleportToPlot then
-        C_Housing.TeleportHome(houseInfo.neighborhoodGUID, houseInfo.houseGUID, houseInfo.plotID)
-    else
-        C_Housing.ReturnAfterVisitingHouse()
-    end
+    -- if teleportToPlot then
+    --     C_Housing.TeleportHome(houseInfo.neighborhoodGUID, houseInfo.houseGUID, houseInfo.plotID)
+    -- else
+    --     C_Housing.ReturnAfterVisitingHouse()
+    -- end
 end
 
 -- Установка иконки пункту списка
@@ -356,28 +356,28 @@ local function CreateFastTravelScrollBox()
             })
 
             -- Добавляем телепорты в жилище / из него
-            if C_Housing then
-                local teleportToPlot = true
+            -- if C_Housing then
+            --     local teleportToPlot = true
             
-                if C_HousingNeighborhood.CanReturnAfterVisitingHouse() then
-                    local currentNeighborhoodGUID = C_Housing.GetCurrentNeighborhoodGUID()
-                    if currentNeighborhoodGUID and C_Housing.GetCurrentHouseInfo() and currentNeighborhoodGUID == C_Housing.GetCurrentHouseInfo().neighborhoodGUID then
-                        teleportToPlot = false
-                    end
-                end
+            --     if C_HousingNeighborhood.CanReturnAfterVisitingHouse() then
+            --         local currentNeighborhoodGUID = C_Housing.GetCurrentNeighborhoodGUID()
+            --         if currentNeighborhoodGUID and C_Housing.GetCurrentHouseInfo() and currentNeighborhoodGUID == C_Housing.GetCurrentHouseInfo().neighborhoodGUID then
+            --             teleportToPlot = false
+            --         end
+            --     end
 
-                if teleportToPlot then
-                    texture = "dashboard-panel-homestone-teleport-button"
-                    for _, houseInfo in ipairs(houseList) do
-                        DataProvider:Insert({
-                            id = houseInfo.houseGUID,
-                            type = "housing",
-                            name = houseInfo.houseName,
-                            houseInfo = houseInfo,
-                        })
-                    end
-                end
-            end
+            --     if teleportToPlot then
+            --         texture = "dashboard-panel-homestone-teleport-button"
+            --         for _, houseInfo in ipairs(houseList) do
+            --             DataProvider:Insert({
+            --                 id = houseInfo.houseGUID,
+            --                 type = "housing",
+            --                 name = houseInfo.houseName,
+            --                 houseInfo = houseInfo,
+            --             })
+            --         end
+            --     end
+            -- end
 
             local spells = tabs[focusedTab].spells or {}
 
@@ -752,11 +752,6 @@ function ConsoleMenu:SetFastTravelFrame()
 
         UpdateFocus(parentFrame.ScrollBox:GetDataProvider().collection[1], true)
 
-        if WeakAuras then
-            WeakAuras.ScanEvents("CHANGE_CONTEXT", "window")
-            WeakAuras.ScanEvents("SHOW_FAST_TRAVEL_FRAME", true)
-        end
-
     end)
 
     -- Очищаем бинды, когда окно скрывается:
@@ -779,14 +774,7 @@ function ConsoleMenu:SetFastTravelFrame()
         ConsoleMenu:DeleteKeysFrameItem("PADDLEFTRIGHT", "Переключение вкладок")
 
         ConsoleMenu:RemoveWindow("fasttravel")
-        ConsoleMenu:ApplyContextUIChanges()  
-
-        if WeakAuras then
-            WAGlobal = WAGlobal or {}  -- Создаем таблицу, если её ещё нет
-            local previousContext = WAGlobal.previousContext or "exploring"
-            WeakAuras.ScanEvents("CHANGE_CONTEXT", previousContext)
-            WeakAuras.ScanEvents("SHOW_FAST_TRAVEL_FRAME", false)
-        end
+        ConsoleMenu:ApplyContextUIChanges()
 
     end)
     
