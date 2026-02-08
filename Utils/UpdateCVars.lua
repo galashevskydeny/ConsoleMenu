@@ -121,6 +121,9 @@ local function ApplyGamePadCVars()
     SetCVar("GamePadEnable", "1")
     SetCVar("GamePadEmulateShift", "PADRSHOULDER")
     SetCVar("GamePadEmulateCtrl", "PADRTRIGGER")
+
+    SetCVar("GamePadCursorLeftClick", "PAD1")
+    SetCVar("GamePadCursorRightClick", "PAD3")
 end
 
 -- Применяет настройки CVars на основе значений в ConsoleMenuDB
