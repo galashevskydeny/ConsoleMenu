@@ -237,8 +237,6 @@ local function UpdateActionButtonShadows(modifierKey)
         end
     end
 
-    print("PADcount", PADcount)
-    print("PADDcount", PADDcount)
     if PADcount > 0 then
         ConsoleMenu:AnimatedShow(frame.PADshadow)
     else
