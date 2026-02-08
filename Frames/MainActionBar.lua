@@ -357,6 +357,8 @@ local function CreateSpellBarButtonFrame(parent, slotID)
     texture:SetAllPoints(buttonFrame)
     if textureFileID then
         texture:SetTexture(textureFileID)
+        local edge = 3 / buttonSize
+        texture:SetTexCoord(edge, 1 - edge, edge, 1 - edge)
     end
     
     -- Создаём маску для текстуры
