@@ -1,4 +1,7 @@
 local ConsoleMenu = _G.ConsoleMenu
+local healthBarHeight = 16
+local castBarHeight = 12
+local auraIconSize = 32
 
 -- Функция для применения текстуры castbar с задержкой
 local function ApplyCastBarTextureWithDelay(castBar)
@@ -61,12 +64,12 @@ function ConsoleMenu:InitializeNameplate()
         healthBar.deselectedOverlay:Hide()
         healthBar.selectedBorder:Hide()
         healthBar.selectedBorder:SetAlpha(0)
-        PixelUtil.SetHeight(self.HealthBarsContainer, 16)
+        PixelUtil.SetHeight(self.HealthBarsContainer, healthBarHeight)
         container:ClearAllPoints()
         PixelUtil.SetPoint(container, "BOTTOMLEFT", unitFrame, "LEFT", 36, 4)
         PixelUtil.SetPoint(container, "BOTTOMRIGHT", unitFrame, "RIGHT", -36, 4)
 
-        PixelUtil.SetHeight(castBar, 12)
+        PixelUtil.SetHeight(castBar, castBarHeight)
         castBar:SetStatusBarTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\EnemyHealthBar.png")
         castBar:SetStatusBarColor(1.0, 0.960784, 0.772549, 1.0)
         castBar:ClearAllPoints()
@@ -121,6 +124,31 @@ function ConsoleMenu:InitializeNameplate()
         if frame and frame.HealthBarsContainer and frame.HealthBarsContainer.healthBar then
             local healthBar = frame.HealthBarsContainer.healthBar;
             healthBar:SetStatusBarColor(0.188235, 0.811765, 0.556863) -- Цвет 30CF8E
+        end
+    end)
+
+    -- Изменение маски дебаффов (круглая маска через CreateMaskTexture + AddMaskTexture)
+    hooksecurefunc(NamePlateAuraItemMixin, "SetAura", function(self, aura)
+        local icon = self.Icon
+
+        self:SetSize(auraIconSize, auraIconSize)
+        local edge = 3 / auraIconSize
+        icon:SetTexCoord(edge, 1 - edge, edge, 1 - edge)
+        if not icon.mask then
+            local mask = icon:GetParent():CreateMaskTexture()
+            mask:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\MaskCircle.png")
+            mask:SetAllPoints(icon)
+            icon:AddMaskTexture(mask)
+            icon.mask = mask
+        end
+
+        self.Cooldown:SetUseCircularEdge(true)
+        self.Cooldown:SetSwipeTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\MaskCircle.png")
+
+        for _, region in ipairs({ self:GetRegions() }) do
+            if region:GetAtlas() == "UI-HUD-CoolDownManager-IconOverlay" or region:GetAtlas() == "UI-HUD-CoolDownManager-Mask" then
+                region:Hide()
+            end
         end
     end)
 end
