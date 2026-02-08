@@ -113,7 +113,7 @@ local contextsSettings = {
     { name = "Переключение страниц панели команд", variable = "actionBarPageSwitching", default = 2, tooltip = "Управляет переключением страниц панели команд автоматически в зависимости от контекста игрока (в бою, на транспорте, при рассмотрении дружественного игрока и другие).", options = toggleOptions },
     { name = "Игнорировать противников при верховой езде", variable = "softTargetFlightSwitching", default = 2, tooltip = "Отключение Soft Target на противниках при верховой езде.", options = toggleOptions},
     { name = "Игнорировать противников в зонах святилищ", variable = "softTargetSanctuarySwitching", default = 2, tooltip = "Отключение Soft Target на противниках в святилищах.", options = toggleOptions},
-    { name = "Малая дистанция обнаружения союзников", variable = "softTargetFriendSanctuaryRange", default = 2, tooltip = "Радиус фокусировки союзников в святилищах 5 метров (SoftTargetFriendRange).", options = toggleOptions},
+    { name = "Малая дистанция обнаружения союзников", variable = "softTargetFriendRange", default = 2, tooltip = "Радиус фокусировки союзников (SoftTargetFriendRange).", options = toggleOptions},
 }
 
 -- Настройки заданий
