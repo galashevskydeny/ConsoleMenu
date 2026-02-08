@@ -61,7 +61,24 @@ local function UpdateActionButtonTexture(slotID)
     local btn = frame.actionButtons[slotID]
     if not btn or not btn.texture then return end
 
-    local textureFileID = C_ActionBar.GetActionTexture(slotID)
+    local textureFileID = nil
+
+    -- Однокнопочный помощник (Assisted Combat): иконка должна соответствовать заклинанию, которое будет применено
+    if C_ActionBar and C_ActionBar.IsAssistedCombatAction and C_ActionBar.IsAssistedCombatAction(slotID) then
+        if C_AssistedCombat and C_Spell then
+            -- В бою — следующее заклинание в ротации; вне боя — текущее заклинание помощника
+            local spellID = C_AssistedCombat.GetNextCastSpell and C_AssistedCombat.GetNextCastSpell(true)
+
+            if spellID then
+                textureFileID = C_Spell.GetSpellTexture(spellID)
+            end
+        end
+    end
+
+    if not textureFileID then
+        textureFileID = C_ActionBar.GetActionTexture(slotID)
+    end
+
     if issecretvalue(textureFileID) then
         -- Если слот пуст, скрываем кнопку
         btn.texture:SetTexture(nil)
@@ -211,7 +228,7 @@ local function UpdateActionButtonShadows(modifierKey)
     for slotID, btn in pairs(frame.actionButtons) do
         local mainKey = btn.mainKey
         local position = buttonPositions[mainKey]
-        if position and (not modifierKey or (modifierKey and modifierKey == btn.modifierKey)) then
+        if position and (not modifierKey or (modifierKey and modifierKey == btn.modifierKey)) and btn:IsShown() then
             if position[2] == "PADCenter" then
                 PADcount = PADcount + 1
             elseif position[2] == "PADDCenter" then
@@ -320,10 +337,20 @@ local function UpdateActionButtonCount(slotID)
     local frame = ConsoleMenuFrame.ActionBarFrame
     local btn = frame.actionButtons[slotID]
     if not btn or not btn.StackCount or not btn.StackCount.Text then return end
-    
-    local count = C_ActionBar.GetActionDisplayCount(slotID)
+
+    local count = nil
+    -- Однокнопочный помощник: счётчик берём от заклинания помощника (false = не требовать видимую кнопку, иначе spellID часто nil и счётчик не показывается)
+    if C_ActionBar and C_ActionBar.IsAssistedCombatAction and C_ActionBar.IsAssistedCombatAction(slotID) then
+        count = ""
+    end
+    if not count then
+        count = C_ActionBar.GetActionDisplayCount(slotID)
+    end
+
     if count then
         btn.StackCount.Text:SetText(count)
+    else
+        btn.StackCount.Text:SetText("")
     end
 
     if not btn.StackCount.Text:GetText() then
@@ -521,6 +548,12 @@ function ConsoleMenu:InitializeMainActionBar()
     frame:RegisterEvent("ACTIONBAR_UPDATE_USABLE")
 
     frame:RegisterEvent("SPELL_UPDATE_CHARGES")
+    frame:RegisterEvent("ASSISTED_COMBAT_ACTION_SPELL_CAST")
+    frame:RegisterEvent("PLAYER_REGEN_ENABLED")
+    frame:RegisterEvent("PLAYER_REGEN_DISABLED")
+    frame:RegisterEvent("PLAYER_TARGET_CHANGED")
+    frame:RegisterEvent("PLAYER_FOCUS_CHANGED")
+    frame:RegisterEvent("PLAYER_SOFT_ENEMY_CHANGED")
 
     local function OnActionBarEvent(self, event, ...)
         if event == "PLAYER_ENTERING_WORLD" or event == "PLAYER_LOGIN" then
@@ -552,6 +585,17 @@ function ConsoleMenu:InitializeMainActionBar()
                 UpdateActionButtonGlow(slotID, nil, "ACTIONBAR_SLOT_CHANGED")
             end)
             UpdateActionButtonUsable(slotID)
+        elseif event == "ASSISTED_COMBAT_ACTION_SPELL_CAST" or event == "PLAYER_REGEN_ENABLED" or event == "PLAYER_REGEN_DISABLED" or event == "PLAYER_TARGET_CHANGED" or event == "PLAYER_FOCUS_CHANGED" or event == "PLAYER_SOFT_ENEMY_CHANGED" then
+            -- Смена заклинания помощника или вход/выход из боя — обновляем иконки (в бою = следующее, вне боя = текущее)
+            if C_ActionBar and C_ActionBar.FindAssistedCombatActionButtons then
+                local slots = C_ActionBar.FindAssistedCombatActionButtons()
+                if slots then
+                    for _, slotID in pairs(slots) do
+                        UpdateActionButtonTexture(slotID)
+                        UpdateActionButtonCount(slotID)
+                    end
+                end
+            end
         elseif event == "ACTIONBAR_UPDATE_COOLDOWN" or event == "ACTIONBAR_UPDATE_STATE" or event == "ACTIONBAR_UPDATE_USABLE" then
             UpdateActionButtonCooldowns()
         elseif event == "MODIFIER_STATE_CHANGED" then
