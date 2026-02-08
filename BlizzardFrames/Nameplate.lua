@@ -14,7 +14,7 @@ function ConsoleMenu:InitializeNameplate()
     
     if not ConsoleMenuDB or ConsoleMenuDB.enemyNameplateStyle == 1 then return end
 
-    SetCVar(NamePlateConstants.INFO_DISPLAY_CVAR, 0);
+    --SetCVar(NamePlateConstants.INFO_DISPLAY_CVAR, 0);
 
     -- При смене маунта (сел/слез) обновляем видимость всех неймплейтов
     local function RefreshNameplatesVisibility()
@@ -39,12 +39,6 @@ function ConsoleMenu:InitializeNameplate()
         local name = self.name
         local castBar = self.castBar
         local unitFrame = self
-
-        if IsMounted() then
-            self:Hide()
-        else
-            self:Show()
-        end
         
         -- Изменения текста имени
         name:ClearAllPoints()
