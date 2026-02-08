@@ -228,7 +228,7 @@ local function UpdateActionButtonShadows(modifierKey)
     for slotID, btn in pairs(frame.actionButtons) do
         local mainKey = btn.mainKey
         local position = buttonPositions[mainKey]
-        if position and (not modifierKey or (modifierKey and modifierKey == btn.modifierKey)) and btn:IsShown() then
+        if position and (not modifierKey or (modifierKey and modifierKey == btn.modifierKey)) and C_ActionBar.HasAction(slotID) then
             if position[2] == "PADCenter" then
                 PADcount = PADcount + 1
             elseif position[2] == "PADDCenter" then
@@ -237,6 +237,8 @@ local function UpdateActionButtonShadows(modifierKey)
         end
     end
 
+    print("PADcount", PADcount)
+    print("PADDcount", PADDcount)
     if PADcount > 0 then
         ConsoleMenu:AnimatedShow(frame.PADshadow)
     else
