@@ -603,14 +603,18 @@ function ConsoleMenu:InitializeMainActionBar()
         elseif event == "SPELL_ACTIVATION_OVERLAY_GLOW_SHOW" then
             local spellID = ...
             local slots = C_ActionBar.FindSpellActionButtons(spellID)
-            for _, slotID in pairs(slots) do
-                UpdateActionButtonGlow(slotID, spellID, "SPELL_ACTIVATION_OVERLAY_GLOW_SHOW")
+            if slots then
+                for _, slotID in pairs(slots) do
+                    UpdateActionButtonGlow(slotID, spellID, "SPELL_ACTIVATION_OVERLAY_GLOW_SHOW")
+                end
             end
         elseif event == "SPELL_ACTIVATION_OVERLAY_GLOW_HIDE" then
             local spellID = ...
             local slots = C_ActionBar.FindSpellActionButtons(spellID)
-            for _, slotID in pairs(slots) do
-                UpdateActionButtonGlow(slotID, spellID, "SPELL_ACTIVATION_OVERLAY_GLOW_HIDE")
+            if slots then
+                for _, slotID in pairs(slots) do
+                    UpdateActionButtonGlow(slotID, spellID, "SPELL_ACTIVATION_OVERLAY_GLOW_HIDE")
+                end
             end
         elseif event == "ACTIONBAR_UPDATE_USABLE" then
             local changes = ...

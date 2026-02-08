@@ -187,6 +187,10 @@ local function SetBaseSoftTargetSettings()
     SetCVar("SoftTargetIconInteract", 0)
     SetCVar("SoftTargetForce", 0)
     SetCVar("SoftTargetEnemy", 1)
+
+    if ConsoleMenuDB.softTargetFriendRange == 1 then
+        SetCVar("SoftTargetFriendRange", 5)
+    end
 end
 
 -- Возвращает настройки soft target к значениям по умолчанию
@@ -196,6 +200,7 @@ local function ResetBaseSoftTargetSettings()
     SetCVar("SoftTargetIconInteract", GetCVarDefault("SoftTargetIconInteract"))
     SetCVar("SoftTargetForce", GetCVarDefault("SoftTargetForce"))
     SetCVar("SoftTargetEnemy", GetCVarDefault("SoftTargetEnemy"))
+    SetCVar("SoftTargetFriendRange", GetCVarDefault("SoftTargetFriendRange"))
 end
 
 -- Устанавливает значения настроект soft target в зонах святилищах
@@ -208,13 +213,6 @@ local function UpdateZoneSoftTargetSettings()
     else
         SetCVar("SoftTargetEnemy", 1)
     end
-
-    if pvpType ~= "sanctuary" and ConsoleMenuDB.softTargetFriendSanctuaryRange == 1 then
-        SetCVar("SoftTargetFriendRange", ConsoleMenuDB.softTargetFriendRange)
-    elseif pvpType == "sanctuary" and ConsoleMenuDB.softTargetFriendSanctuaryRange == 1 then
-        SetCVar("SoftTargetFriendRange", 5)
-    end
-
 end
 
 function ConsoleMenu:UpdateCVars()
