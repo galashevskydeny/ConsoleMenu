@@ -291,8 +291,19 @@ local function UpdateButtonPositions(slotID)
 end
 
 -- Функция обновления набора иконок в зависимости от состояния модификаторов
-local function UpdateModifierState(modifierKey)
+local function UpdateModifierState()
     local frame = ConsoleMenuFrame.ActionBarFrame
+    local modifierKey
+
+    if not IsModifierKeyDown() then
+        modifierKey = nil
+    elseif IsControlKeyDown() then
+        modifierKey = "CTRL"
+    elseif IsShiftKeyDown() then
+        modifierKey = "SHIFT"
+    elseif IsAltKeyDown() then
+        modifierKey = "ALT"
+    end
 
     for slotID, btn in pairs(frame.actionButtons) do
         if modifierKey == btn.modifierKey then
@@ -533,6 +544,7 @@ function ConsoleMenu:InitializeMainActionBar()
             UpdateButtonPositions(slotID)
             UpdateActionButtonCooldowns()
             UpdateActionButtonCount(slotID)
+            UpdateModifierState()
             -- Используем RunNextFrame для отложенной проверки glow, чтобы дать overlay системе время обновиться
             RunNextFrame(function()
                 UpdateActionButtonGlow(slotID, nil, "ACTIONBAR_SLOT_CHANGED")
@@ -541,15 +553,7 @@ function ConsoleMenu:InitializeMainActionBar()
         elseif event == "ACTIONBAR_UPDATE_COOLDOWN" or event == "ACTIONBAR_UPDATE_STATE" or event == "ACTIONBAR_UPDATE_USABLE" then
             UpdateActionButtonCooldowns()
         elseif event == "MODIFIER_STATE_CHANGED" then
-            if not IsModifierKeyDown() then
-                UpdateModifierState()
-            elseif IsControlKeyDown() then
-                UpdateModifierState("CTRL")
-            elseif IsShiftKeyDown() then
-                UpdateModifierState("SHIFT")
-            elseif IsAltKeyDown() then
-                UpdateModifierState("ALT")
-            end
+            UpdateModifierState()
         elseif event == "SPELL_ACTIVATION_OVERLAY_GLOW_SHOW" then
             local spellID = ...
             local slots = C_ActionBar.FindSpellActionButtons(spellID)
