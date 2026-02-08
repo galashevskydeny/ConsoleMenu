@@ -33,12 +33,16 @@ function ConsoleMenu:InitializeNameplate()
         RefreshNameplatesVisibility()
     end)
 
+    -- Изменение внешнего вида полосы здоровья
     hooksecurefunc(NamePlateUnitFrameMixin, "UpdateAnchors", function(self)
         local container = self.HealthBarsContainer
         local healthBar = self.HealthBarsContainer.healthBar
         local name = self.name
         local castBar = self.castBar
         local unitFrame = self
+
+        local aurasFrame = self.AurasFrame
+        local debuffs = aurasFrame.DebuffListFrame
         
         -- Изменения текста имени
         name:ClearAllPoints()
@@ -74,8 +78,14 @@ function ConsoleMenu:InitializeNameplate()
         PixelUtil.SetPoint(castBar.Text, "TOP", castBar.Background, "BOTTOM", 0, -8)
         castBar.Text:SetFont(fontName, 12, "SLUG")
 
+        -- Меняем расположение дебаффов
+        debuffs:ClearAllPoints()
+        PixelUtil.SetPoint(debuffs, "LEFT", healthBar, "RIGHT", 8, 0)
+        
+
     end)
 
+    -- Изменение внешнего вида castbar
     hooksecurefunc(NamePlateCastingBarMixin, "OnEvent", function(self, event, ...)
         ApplyCastBarTextureWithDelay(self)
     end)
