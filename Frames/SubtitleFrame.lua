@@ -6,7 +6,7 @@ local parentFrame
 local frameWidth = 688
 local frameHeight = 96
 local backgroundOverlapVertical = 160
-local backgroundOverlapHorizontal = 320
+local backgroundOverlapHorizontal = 280
 
 local maxLineLength = 160
 local subtitleUpdateTimer = nil
