@@ -202,7 +202,14 @@ function ConsoleMenu:ApplyContextUIChanges()
                 local binding = ConsoleMenu:GetCommandBinding(command)
 
                 if title and binding and isUsable then
-                    ConsoleMenu:AddKeysFrameItem(binding, title, count)
+                    if issecretvalue(count) then
+                        ConsoleMenu:AddKeysFrameItem(binding, title, count)
+                    else
+                        -- Добавляем элемент, если стаков не 0 и заклинание пригодно к использованию
+                        if count ~= "0" then
+                            ConsoleMenu:AddKeysFrameItem(binding, title, count)
+                        end
+                    end
                 end
             end
         end
@@ -281,7 +288,14 @@ function ConsoleMenu:ApplyContextUIChanges()
                     local binding = ConsoleMenu:GetCommandBinding(command)
     
                     if title and binding then
-                        ConsoleMenu:AddKeysFrameItem(binding, title, count)
+                        if issecretvalue(count) then
+                            ConsoleMenu:AddKeysFrameItem(binding, title, count)
+                        else
+                            -- Добавляем элемент, если стаков не 0 и заклинание пригодно к использованию
+                            if count ~= "0" then
+                                ConsoleMenu:AddKeysFrameItem(binding, title, count)
+                            end
+                        end
                     end
                 end
             end
@@ -289,6 +303,39 @@ function ConsoleMenu:ApplyContextUIChanges()
 
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
     elseif context == "combat" or context == "precombat" then
+        local page = 1
+        local startSlot = 12 * (page - 1) + 1
+        local lastSlot = startSlot + 11
+
+        local positions = ConsoleMenu:GetButtonPositions()
+
+        for slot = startSlot, lastSlot do
+            local command = ConsoleMenu:GetBindingCommandBySlotID(slot)
+            local binding = ConsoleMenu:GetCommandBinding(command)
+
+            if command and binding then
+
+                local actionType, id, subType = GetActionInfo(slot)
+                local isUsable, isLackingResources = C_ActionBar.IsUsableAction(slot)
+                local count = C_ActionBar.GetActionDisplayCount(slot)
+
+                if actionType and id then
+                    local title = ConsoleMenu:GetSlotTitle(actionType, id)
+    
+                    if title and binding and isUsable and positions[binding] == nil then
+                        if issecretvalue(count) then
+                            ConsoleMenu:AddKeysFrameItem(binding, title, count)
+                        else
+                            -- Добавляем элемент, если стаков не 0 и заклинание пригодно к использованию
+                            if count ~= "0" then
+                                ConsoleMenu:AddKeysFrameItem(binding, title, count)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+
         ConsoleMenu:AnimatedShow(ConsoleMenuFrame.ActionBarFrame)
     elseif context == "housing" then
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)

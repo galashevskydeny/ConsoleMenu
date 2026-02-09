@@ -38,6 +38,10 @@ local buttonPositions = {
     PADDDOWN = { "TOP", "PADDCenter", "BOTTOM", 0, -buttonVerticalPadding },
 }
 
+function ConsoleMenu:GetButtonPositions()
+    return buttonPositions
+end
+
 -- Проверка, является ли кулдаун глобальным кулдауном (GCD)
 -- ВАЖНО: isOnGCD помечено как NeverSecret = true, поэтому безопасно для чтения
 local function IsGlobalCooldown(slotID)

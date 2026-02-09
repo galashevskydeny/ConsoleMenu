@@ -708,6 +708,7 @@ function ConsoleMenu:SetBaseKeyBindings()
     
 end
 
+-- Функции для работы с привязками
 -- Функция получения команды по идентификатору слота
 function ConsoleMenu:GetBindingCommandBySlotID(slotID)
     local NUM_ACTIONBAR_BUTTONS = 12
