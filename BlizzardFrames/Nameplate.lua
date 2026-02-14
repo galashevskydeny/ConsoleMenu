@@ -36,6 +36,10 @@ function ConsoleMenu:InitializeNameplate()
         RefreshNameplatesVisibility()
     end)
 
+    ConsoleMenu:RegisterEvent("NAME_PLATE_UNIT_ADDED", function()
+        RefreshNameplatesVisibility()
+    end)
+
     -- Изменение внешнего вида полосы здоровья
     hooksecurefunc(NamePlateUnitFrameMixin, "UpdateAnchors", function(self)
         local container = self.HealthBarsContainer
