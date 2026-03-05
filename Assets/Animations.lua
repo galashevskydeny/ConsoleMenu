@@ -74,4 +74,43 @@ function ConsoleMenu:AnimatedHide(frame)
     frame.fadeOut:Play()
 end
 
+function ConsoleMenu:AnimatedFadeIn(frame)
+    if not frame or not frame.fadeIn or not frame.fadeOut then return end
+
+    -- Если фрейм уже показан, ничего не делаем
+    if frame:GetAlpha() == 1 then return end
+    
+    -- Останавливаем все текущие анимации
+    frame.fadeIn:Stop()
+    frame.fadeOut:Stop()
+    
+    -- Удаляем предыдущий скрипт OnFinished, если он был установлен
+    frame.fadeOut:SetScript("OnFinished", nil)
+    
+    -- Запускаем анимацию появления
+    frame.fadeIn:Play()
+end
+
+function ConsoleMenu:AnimatedFadeOut(frame)
+    if not frame or not frame.fadeIn or not frame.fadeOut then return end
+        
+     -- Если фрейм уже скрыт, ничего не делаем
+     if frame:GetAlpha() == 0 then return end
+    
+     -- Останавливаем все текущие анимации
+     frame.fadeIn:Stop()
+     frame.fadeOut:Stop()
+     
+     -- Удаляем предыдущий скрипт OnFinished, если он был установлен
+     frame.fadeOut:SetScript("OnFinished", nil)
+     
+     -- Устанавливаем скрипт для скрытия фрейма после окончания анимации
+     frame.fadeOut:SetScript("OnFinished", function()
+         frame.fadeOut:SetScript("OnFinished", nil)
+     end)
+     
+     -- Запускаем анимацию исчезновения
+     frame.fadeOut:Play()
+end
+
 

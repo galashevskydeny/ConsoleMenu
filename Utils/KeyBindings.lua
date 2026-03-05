@@ -402,7 +402,9 @@ function ConsoleMenu:InitHousingBindingFrame()
     self.HousingBindingFrame:SetScript("OnEvent", function(frame, event, ...)
 
         if not C_Housing.IsInsideHouseOrPlot() then
-            ClearOverrideBindings(ConsoleMenu.HousingBindingFrame)
+            if not InCombatLockdown() then
+                ClearOverrideBindings(ConsoleMenu.HousingBindingFrame)
+            end
             return
         end
 
@@ -418,7 +420,6 @@ function ConsoleMenu:InitInteractBindingFrame()
     
     self.InteractBindingFrame:RegisterEvent("PLAYER_SOFT_INTERACT_CHANGED")
     self.InteractBindingFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
-    self.InteractBindingFrame:RegisterEvent("PLAYER_SOFT_ENEMY_CHANGED")
     self.InteractBindingFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 
     self.InteractBindingFrame:SetScript("OnEvent", function(frame, event, ...)
@@ -459,24 +460,24 @@ function ConsoleMenu:SetInteractBinding(newTarget)
         return
     end
 
-    -- Проверяем, есть ли враг, перед установкой override бинда
-    local hasEnemy = false
-    if UnitExists("softenemy") and UnitCanAttack("player", "softenemy") then
-        hasEnemy = true
-    elseif UnitExists("target") and UnitCanAttack("player", "target") then
-        hasEnemy = true
-    end
-
-    if newTarget and not hasEnemy then
-        if InCombatLockdown() then return end
-        SetOverrideBinding(self.InteractBindingFrame, true, ConsoleMenuDB.interactButton, "INTERACTTARGET")
-        ConsoleMenu:AddKeysFrameItem("PAD1", "Взаимодействие")
-        ConsoleMenu:UpdateKeysFrame()
+    if newTarget then
+        if InCombatLockdown() then
+            ConsoleMenu:AddKeysFrameItem("SHIFT-PAD1", "Взаимодействие")
+            ConsoleMenu:UpdateKeysFrame()
+        else
+            SetOverrideBinding(self.InteractBindingFrame, true, ConsoleMenuDB.interactButton, "INTERACTTARGET")
+            ConsoleMenu:AddKeysFrameItem("PAD1", "Взаимодействие")
+            ConsoleMenu:UpdateKeysFrame()
+        end
     else
-        if InCombatLockdown() then return end
-        ClearOverrideBindings(self.InteractBindingFrame)
-        ConsoleMenu:DeleteKeysFrameItem("PAD1", "Взаимодействие")
-        ConsoleMenu:UpdateKeysFrame()
+        if InCombatLockdown() then
+            ConsoleMenu:DeleteKeysFrameItem("SHIFT-PAD1", "Взаимодействие")
+            ConsoleMenu:UpdateKeysFrame()
+        else
+            ClearOverrideBindings(self.InteractBindingFrame)
+            ConsoleMenu:DeleteKeysFrameItem("PAD1", "Взаимодействие")
+            ConsoleMenu:UpdateKeysFrame()
+        end
     end
 end
 

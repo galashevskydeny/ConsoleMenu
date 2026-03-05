@@ -990,6 +990,8 @@ function ConsoleMenu:SetCustomGossipFrame()
     frame:RegisterEvent("GOSSIP_CLOSED")
     frame:RegisterEvent("GOSSIP_CONFIRM")
 
+    frame:RegisterEvent("PLAYER_REGEN_DISABLED")
+
     frame:SetScript("OnEvent", function(self, event, ...)
         if event == "GAME_PAD_ACTIVE_CHANGED" then
             gamePadActive = ...
@@ -1005,18 +1007,26 @@ function ConsoleMenu:SetCustomGossipFrame()
             ConsoleMenu:AnimatedShow(frame)
             ConsoleMenu:AddWindow(3)
             ConsoleMenu:ApplyContextUIChanges()
+        elseif event == "PLAYER_REGEN_DISABLED" then
+            ConsoleMenu:AnimatedHide(frame)
+            ConsoleMenu:RemoveWindow(3)
+            ConsoleMenu:ApplyContextUIChanges()
         elseif event == "GOSSIP_CLOSED" or event == "GOSSIP_CONFIRM" or event == "QUEST_FINISHED" then
 
-            local previousCollection = parentFrame.ScrollBox:GetDataProvider().collection
+            
 
-            C_Timer.After(animationDuration, function()
+            C_Timer.After(animationDuration + 0.1, function()
+                local questID = GetQuestID()
+                if questID ~= 0 then return end
+
+                local quests = GetGossipQuests()
+                if #quests > 0 then return end
+
                 print("Hide GossipFrame by event:", event)
-                local collection = parentFrame.ScrollBox:GetDataProvider().collection
-                if collection == previousCollection then
-                    ConsoleMenu:AnimatedHide(frame)
-                    ConsoleMenu:RemoveWindow(3)
-                    ConsoleMenu:ApplyContextUIChanges()
-                end
+                print(questID)
+                ConsoleMenu:AnimatedHide(frame)
+                ConsoleMenu:RemoveWindow(3)
+                ConsoleMenu:ApplyContextUIChanges()
             end)
         end
     end)

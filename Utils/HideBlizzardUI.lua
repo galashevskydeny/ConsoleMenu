@@ -372,4 +372,6 @@ function ConsoleMenu:HideBlizzardUI()
     if ConsoleMenuDB.hideSpellActivationOverlay == 2 then
         DisableSpellActivationOverlay()
     end
+
+    ConsoleMenu:InitFadeAnimations(PlayerFrame, 0.05)
 end
