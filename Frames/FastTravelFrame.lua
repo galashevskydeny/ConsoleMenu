@@ -37,7 +37,7 @@ local mageSpells = {
     },
     actual = {
         single = {1259190},
-        group = {446534}
+        group = {1259194}
     }
 }
 
