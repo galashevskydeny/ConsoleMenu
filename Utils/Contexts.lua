@@ -219,7 +219,6 @@ function ConsoleMenu:ApplyContextUIChanges()
         end
 
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
-        ConsoleMenu:AnimatedFadeOut(PlayerFrame)
 
     elseif context == "window" then
 
@@ -241,7 +240,6 @@ function ConsoleMenu:ApplyContextUIChanges()
         end
 
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
-        ConsoleMenu:AnimatedFadeOut(PlayerFrame)
 
     elseif context == "mount" then
         local page = 4
@@ -305,7 +303,6 @@ function ConsoleMenu:ApplyContextUIChanges()
         end
 
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
-        ConsoleMenu:AnimatedFadeOut(PlayerFrame)
 
     elseif context == "combat" or context == "precombat" then
         local page = 1
@@ -341,8 +338,6 @@ function ConsoleMenu:ApplyContextUIChanges()
             end
         end
         
-        ConsoleMenu:AnimatedFadeIn(PlayerFrame)
-
         ConsoleMenu:AnimatedShow(ConsoleMenuFrame.ActionBarFrame)
     elseif context == "housing" then
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
@@ -357,8 +352,6 @@ function ConsoleMenu:ApplyContextUIChanges()
             if ConsoleMenuFrame.PlayerContext.housing.IsInsideHouse then
             end
         end
-
-        ConsoleMenu:AnimatedFadeOut(PlayerFrame)
             
     end
 
