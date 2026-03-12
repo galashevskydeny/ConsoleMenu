@@ -302,6 +302,11 @@ function ConsoleMenu:ApplyContextUIChanges()
             end
         end
 
+        if UnitIsInteractable("softinteract") then
+            ConsoleMenu:DeleteKeysFrameItem("PAD1")
+            ConsoleMenu:AddKeysFrameItem("PAD1", "Взаимодействие")
+        end
+
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
 
     elseif context == "combat" or context == "precombat" then
