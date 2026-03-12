@@ -373,5 +373,4 @@ function ConsoleMenu:HideBlizzardUI()
         DisableSpellActivationOverlay()
     end
 
-    ConsoleMenu:InitFadeAnimations(PlayerFrame, 0.05)
 end

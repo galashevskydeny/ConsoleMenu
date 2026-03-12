@@ -308,7 +308,7 @@ function ConsoleMenu:AddSubtitles(event, message, sender)
 
         -- Убираем название игрового мира из отправителя игрока
         -- Если event содержит CHAT_MSG и не содержит _MONSTER_, обрезаем у sender все после дефиса
-        if event:find("CHAT_MSG") and not event:find("_MONSTER_") then
+        if event:find("CHAT_MSG") and not event:find("_MONSTER_") and not issecretvalue(sender) then
             sender = sender:match("^([^-]+)") or sender
         end
 
@@ -422,13 +422,8 @@ function ConsoleMenu:SubtitleFrameUpdate(subtitle)
             -- Обновить имя говорящего
             local speaker = current.sender or ""
 
-            if speaker ~= "" then
-                frame.Speaker:SetText(speaker)
-                frame.Speaker:Show()
-            else
-                frame.Speaker:SetText("")
-                frame.Speaker:Hide()
-            end
+            frame.Speaker:SetText(speaker)
+            frame.Speaker:Show()
 
             local height = frame.Speaker:GetStringHeight()
 
