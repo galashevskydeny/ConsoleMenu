@@ -48,9 +48,9 @@ local function UpdateKeyFrame(frame, binding, title, stackCount)
         if gamePadActive then
             if modifierKey == "SHIFT" then
                 modifierKey = GetCVar("GamePadEmulateShift")
-            elseif key1 == "CTRL" then
+            elseif modifierKey == "CTRL" then
                 modifierKey = GetCVar("GamePadEmulateCtrl")
-            elseif key1 == "ALT" then
+            elseif modifierKey == "ALT" then
                 modifierKey = GetCVar("GamePadEmulateAlt")
             end
         end
@@ -70,6 +70,7 @@ local function UpdateKeyFrame(frame, binding, title, stackCount)
         frame.Icon.StackCount:ClearAllPoints()
         frame.Icon.StackCount:SetPoint("BOTTOMRIGHT", frame.Icon.MainTexture, "BOTTOMRIGHT", stackCountOffset, -(stackCountOffset + iconInnerPadding))
 
+        frame.Icon:ClearAllPoints()
         frame.Icon:SetPoint("RIGHT", frame, "RIGHT", iconInnerPadding, 0)
 
     else
@@ -85,10 +86,16 @@ local function UpdateKeyFrame(frame, binding, title, stackCount)
         frame.Icon:SetSize(iconSize, iconSize)
 
         frame.Icon.Background:SetTexture(background)
+
         frame.Icon.MainTexture:SetTexture(texture)
+        frame.Icon.MainTexture:ClearAllPoints()
+        frame.Icon.MainTexture:SetAllPoints()
 
         frame.Icon.StackCount:ClearAllPoints()
         frame.Icon.StackCount:SetPoint("BOTTOMRIGHT", frame.Icon.MainTexture, "BOTTOMRIGHT", stackCountOffset, -stackCountOffset)
+
+        frame.Icon:ClearAllPoints()
+        frame.Icon:SetPoint("RIGHT", frame, "RIGHT", 0, 0)
 
     end
 
@@ -202,6 +209,19 @@ function ConsoleMenu:AddKeysFrameItem(binding, title, stackCount)
             break
         end
     end
+end
+
+function ConsoleMenu:CheckKeysFrameItem(binding)
+    if not binding then return end
+
+    for i = 1, maxItemsCount do
+        local item = ConsoleMenuFrame.KeysFrame.Items[i]
+        if item and item.binding == binding then
+            return true
+        end
+    end
+
+    return false
 end
 
 -- Функция для инициализации LootList

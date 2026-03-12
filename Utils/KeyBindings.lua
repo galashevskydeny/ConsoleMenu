@@ -456,10 +456,6 @@ function ConsoleMenu:SetInteractBinding(newTarget)
         return
     end
 
-    if InCombatLockdown and InCombatLockdown() then
-        return
-    end
-
     if newTarget then
         if InCombatLockdown() then
             ConsoleMenu:DeleteKeysFrameItem("SHIFT-PAD1")
@@ -468,10 +464,12 @@ function ConsoleMenu:SetInteractBinding(newTarget)
         else
             SetOverrideBinding(self.InteractBindingFrame, true, ConsoleMenuDB.interactButton, "INTERACTTARGET")
             ConsoleMenu:DeleteKeysFrameItem("PAD1")
+            ConsoleMenu:DeleteKeysFrameItem("SHIFT-PAD1", "Взаимодействие")
             ConsoleMenu:AddKeysFrameItem("PAD1", "Взаимодействие")
             ConsoleMenu:UpdateKeysFrame()
         end
     else
+        
         if InCombatLockdown() then
             ConsoleMenu:DeleteKeysFrameItem("SHIFT-PAD1", "Взаимодействие")
             ConsoleMenu:UpdateKeysFrame()

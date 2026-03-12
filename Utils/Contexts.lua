@@ -302,7 +302,7 @@ function ConsoleMenu:ApplyContextUIChanges()
             end
         end
 
-        if UnitIsInteractable("softinteract") then
+        if UnitIsInteractable("softinteract")  then
             ConsoleMenu:DeleteKeysFrameItem("PAD1")
             ConsoleMenu:AddKeysFrameItem("PAD1", "Взаимодействие")
         end
@@ -341,6 +341,12 @@ function ConsoleMenu:ApplyContextUIChanges()
                     end
                 end
             end
+        end
+
+        if UnitIsInteractable("softinteract") and context == "combat" then
+            ConsoleMenu:AddKeysFrameItem("SHIFT-PAD1", "Взаимодействие")
+        elseif UnitIsInteractable("softinteract") and context == "precombat" then
+            ConsoleMenu:AddKeysFrameItem("PAD1", "Взаимодействие")
         end
         
         ConsoleMenu:AnimatedShow(ConsoleMenuFrame.ActionBarFrame)
