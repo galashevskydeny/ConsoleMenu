@@ -248,6 +248,10 @@ function ConsoleMenu:ApplyContextUIChanges()
             page = 11
         end
 
+        if page == 4 then
+            gliding = IsFlying()
+        end
+
         local startSlot = 12 * (page - 1) + 1
         local lastSlot = startSlot + 11
 
@@ -284,7 +288,6 @@ function ConsoleMenu:ApplyContextUIChanges()
 
             if shouldShow then
                 if actionType and id and command and isUsable then
-                    local actionType, id, subType = GetActionInfo(slot)
                     local title = ConsoleMenu:GetSlotTitle(actionType, id)
                     local binding = ConsoleMenu:GetCommandBinding(command)
     
@@ -308,6 +311,12 @@ function ConsoleMenu:ApplyContextUIChanges()
         end
 
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
+
+        if page == 4 then
+            C_Timer.After(0.5, function()
+                ConsoleMenu:ApplyContextUIChanges()
+            end)
+        end
 
     elseif context == "combat" or context == "precombat" then
         local page = 1
@@ -391,6 +400,7 @@ function ConsoleMenu:InitializeContexts()
     frame:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED")
     frame:RegisterEvent("UNIT_POWER_BAR_SHOW")
     frame:RegisterEvent("UNIT_POWER_BAR_HIDE")
+
     -- Для отслеживания полетов
     frame:RegisterEvent("PLAYER_IS_GLIDING_CHANGED")
 
