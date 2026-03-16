@@ -93,10 +93,10 @@ local function ApplyMacroSettings()
     EnsureAllMacros()
     
     if ConsoleMenuDB.actionBarPageExploring == 1 then
-        SetActionForSlot(13, "empty", nil)
-        SetActionForSlot(14, "empty", nil)
-        SetActionForSlot(15, "empty", nil)
-        SetActionForSlot(16, "empty", nil)
+        SetActionForSlot(13, "spell", 1231411)
+        -- SetActionForSlot(14, "empty", nil)
+        -- SetActionForSlot(15, "empty", nil)
+        -- SetActionForSlot(16, "empty", nil)
         -- Слот под L3 для классовой способности перемещения
         --SetActionForSlot(17, "empty", nil)
         SetActionForSlot(18, "summonmount", 0)
@@ -109,10 +109,10 @@ local function ApplyMacroSettings()
     end
 
     if ConsoleMenuDB.actionBarPagePlayerInteraction == 1 then
-        SetActionForSlot(25, "empty", nil)
+        -- SetActionForSlot(25, "empty", nil)
         SetActionForSlot(26, "macro", "Осмотреть")
-        SetActionForSlot(27, "empty", nil)
-        SetActionForSlot(28, "empty", nil)
+        -- SetActionForSlot(27, "empty", nil)
+        -- SetActionForSlot(28, "empty", nil)
         -- Слот под L3 для классовой способности перемещения
         --SetActionForSlot(29, "empty", nil)
         SetActionForSlot(30, "summonmount", 0)
