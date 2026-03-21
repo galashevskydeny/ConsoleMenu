@@ -91,6 +91,8 @@ end
 local function ApplyMacroSettings()
     -- Сначала проверяем и создаем все необходимые макросы
     EnsureAllMacros()
+
+    SetActionForSlot(8, "summonmount", 0)
     
     if ConsoleMenuDB.actionBarPageExploring == 1 then
         SetActionForSlot(13, "spell", 1231411)
