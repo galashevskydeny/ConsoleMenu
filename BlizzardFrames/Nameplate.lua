@@ -141,10 +141,13 @@ function ConsoleMenu:InitializeNameplate()
     hooksecurefunc(NamePlateAuraItemMixin, "SetAura", function(self, aura)
         local icon = self.Icon
         if not icon then return end
-
-        self:SetSize(auraIconSize, auraIconSize)
+    
+        -- Размер меняем через icon, а не self
+        icon:SetSize(auraIconSize, auraIconSize)
+    
         local edge = 3 / auraIconSize
         icon:SetTexCoord(edge, 1 - edge, edge, 1 - edge)
+    
         if not icon.mask then
             local mask = icon:GetParent():CreateMaskTexture()
             mask:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\MaskCircle.png")
@@ -152,12 +155,17 @@ function ConsoleMenu:InitializeNameplate()
             icon:AddMaskTexture(mask)
             icon.mask = mask
         end
-
-        self.Cooldown:SetUseCircularEdge(true)
-        self.Cooldown:SetSwipeTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\MaskCircle.png")
-
+    
+        if self.Cooldown then
+            self.Cooldown:SetUseCircularEdge(true)
+            self.Cooldown:SetSwipeTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\MaskCircle.png")
+        end
+    
         for _, region in ipairs({ self:GetRegions() }) do
-            if region:GetAtlas() == "UI-HUD-CoolDownManager-IconOverlay" or region:GetAtlas() == "UI-HUD-CoolDownManager-Mask" then
+            if region.GetAtlas and (
+                region:GetAtlas() == "UI-HUD-CoolDownManager-IconOverlay" or
+                region:GetAtlas() == "UI-HUD-CoolDownManager-Mask"
+            ) then
                 region:Hide()
             end
         end
