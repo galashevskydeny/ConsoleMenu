@@ -328,6 +328,7 @@ function ConsoleMenu:ApplyContextUIChanges()
         for slot = startSlot, lastSlot do
             local command = ConsoleMenu:GetBindingCommandBySlotID(slot)
             local binding = ConsoleMenu:GetCommandBinding(command)
+            local ignoredSlot = ConsoleMenu:IsSlotIgnored(slot)
 
             if command and binding then
 
@@ -338,7 +339,7 @@ function ConsoleMenu:ApplyContextUIChanges()
                 if actionType and id then
                     local title = ConsoleMenu:GetSlotTitle(actionType, id)
     
-                    if title and binding and isUsable and positions[binding] == nil then
+                    if title and binding and isUsable and ignoredSlot then
                         if issecretvalue(count) then
                             ConsoleMenu:AddKeysFrameItem(binding, title, count)
                         else

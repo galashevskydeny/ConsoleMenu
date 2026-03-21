@@ -10,6 +10,7 @@ local modelSize = 160
 local modelOffset = 0.039
 local modelScale = 0.017
 
+local iconSize = 28
 local stackCountSize = 24
 local stackCountOffset = 8
 local stackCountShadowOffsef = 12
@@ -27,6 +28,7 @@ local animationDuration = 0.05
 
 local buttonPositions = {
     PADRSTICK = { "TOP", "PADCenter", "BOTTOM", 0, -buttonVerticalPadding },
+    PADLSTICK = { "TOP", "PADDCenter", "BOTTOM", 0, -buttonVerticalPadding },
 
     PAD2 = { "LEFT", "PADCenter", "RIGHT", buttonHorizontalPadding, 0 },
     PAD3 = { "RIGHT", "PADCenter", "LEFT", -buttonHorizontalPadding, 0 },
@@ -38,8 +40,18 @@ local buttonPositions = {
     PADDDOWN = { "TOP", "PADDCenter", "BOTTOM", 0, -buttonVerticalPadding },
 }
 
+local ignoredSlot = {
+    [8] = true,
+    [53] = true,
+    [65] = true,
+}
+
 function ConsoleMenu:GetButtonPositions()
     return buttonPositions
+end
+
+function ConsoleMenu:IsSlotIgnored(slotID)
+    return ignoredSlot[slotID]
 end
 
 -- Проверка, является ли кулдаун глобальным кулдауном (GCD)
@@ -55,6 +67,24 @@ local function IsGlobalCooldown(slotID)
     end
     
     return false;
+end
+
+-- Функция обновления иконки бинда
+local function UpdateActionButtonIcon(slotID)
+    local frame = ConsoleMenuFrame.ActionBarFrame
+    local btn = frame.actionButtons[slotID]
+    local mainKey = btn.mainKey
+    if not btn or not btn.Icon or not btn.Icon.Texture or not btn.mainKey then return end
+
+    -- Обновление иконки
+    local texture = ConsoleMenu.Textures[mainKey].texture
+    btn.Icon.Texture:SetTexture(texture)
+
+    if mainKey == "PADRSTICK" or mainKey == "PADLSTICK" or mainKey == "4" or mainKey == "5" then
+        ConsoleMenu:AnimatedShow(btn.Icon)
+    else
+        ConsoleMenu:AnimatedHide(btn.Icon)
+    end
 end
 
 -- Функция обновления текстуры кнопки
@@ -99,6 +129,7 @@ local function UpdateActionButtonTexture(slotID)
         btn.texture:SetTexture(nil)
         btn.background:Hide()
     end
+
 end
 
 -- Функция обновления состояния иконки (пригодность, цвет, блокировка)
@@ -274,7 +305,7 @@ local function UpdateButtonPositions(slotID)
 
         local position = buttonPositions[btn.mainKey]
 
-        if position then
+        if position and not (ignoredSlot[slotID] == true) then
             ConsoleMenu:AnimatedShow(btn)
             btn:ClearAllPoints()
             btn:SetPoint(position[1], position[2], position[3], position[4], position[5])
@@ -282,6 +313,7 @@ local function UpdateButtonPositions(slotID)
             ConsoleMenu:AnimatedHide(btn)
         end
 
+        UpdateActionButtonIcon(slotID)
         UpdateActionButtonShadows()
 
         return
@@ -299,13 +331,15 @@ local function UpdateButtonPositions(slotID)
         btn.modifierKey = binding and string.match(binding, "^(.+)%-[^%-]+$")
 
         local position = buttonPositions[btn.mainKey]
-        if position then
+        if position and not (ignoredSlot[slotID] == true) then
             ConsoleMenu:AnimatedShow(btn)
             btn:ClearAllPoints()
             btn:SetPoint(position[1], position[2], position[3], position[4], position[5])
         else
             ConsoleMenu:AnimatedHide(btn)
         end
+
+        UpdateActionButtonIcon(slotID)
     end
 
     UpdateActionButtonShadows()
@@ -465,6 +499,46 @@ local function CreateSpellBarButtonFrame(parent, slotID)
         end
     end
 
+    -- Иконка клавиши
+    if not buttonFrame.Icon then
+        buttonFrame.Icon = CreateFrame("Frame", "ActionButtonIcon" .. slotID, buttonFrame)
+        buttonFrame.Icon:SetSize(iconSize, iconSize)
+        buttonFrame.Icon:SetPoint("TOPRIGHT", buttonFrame.texture, "TOPRIGHT", stackCountOffset, stackCountOffset)
+        ConsoleMenu:InitFadeAnimations(buttonFrame.Icon, animationDuration)
+
+        buttonFrame.Icon:Hide()
+
+        --Иконка бинда
+        if not buttonFrame.Icon.Texture then
+            buttonFrame.Icon.Texture = buttonFrame.Icon:CreateTexture(nil, "ARTWORK")
+            buttonFrame.Icon.Texture:SetAllPoints()
+            buttonFrame.Icon.Texture:SetAlpha(1)
+
+            local texture = ConsoleMenu.Backgrounds["PAD"]
+            buttonFrame.Icon.Texture:SetTexture(texture)
+        end
+
+        -- Фон
+        if not buttonFrame.Icon.Background then
+            buttonFrame.Icon.Background = buttonFrame.Icon:CreateTexture(nil, "BACKGROUND")
+            buttonFrame.Icon.Background:SetAllPoints()
+            buttonFrame.Icon.Background:SetAlpha(0.75)
+
+            local texture = ConsoleMenu.Backgrounds["STICK"]
+            buttonFrame.Icon.Background:SetTexture(texture)
+        end
+
+        --Тень
+        if not buttonFrame.Icon.Shadow then
+            buttonFrame.Icon.Shadow = buttonFrame.Icon:CreateTexture(nil, "BACKGROUND")
+            buttonFrame.Icon.Shadow:SetPoint("TOPLEFT", buttonFrame.Icon.Background, "TOPLEFT", -stackCountShadowOffsef, stackCountShadowOffsef)
+            buttonFrame.Icon.Shadow:SetPoint("BOTTOMRIGHT", buttonFrame.Icon.Background, "BOTTOMRIGHT", stackCountShadowOffsef, -stackCountShadowOffsef)
+
+            local texture = "Interface\\AddOns\\ConsoleMenu\\Assets\\CrossBackgorund.png"
+            buttonFrame.Icon.Shadow:SetTexture(texture)
+        end
+    end
+
     return buttonFrame
 end
 
@@ -565,11 +639,13 @@ function ConsoleMenu:InitializeMainActionBar()
                 UpdateActionButtonTexture(slotID)
                 UpdateActionButtonGlow(slotID, nil, "PLAYER_ENTERING_WORLD")
                 UpdateActionButtonCount(slotID)
+                
             end
             for slotID = 49, 72 do
                 UpdateActionButtonTexture(slotID)
                 UpdateActionButtonGlow(slotID, nil, "PLAYER_ENTERING_WORLD")
                 UpdateActionButtonCount(slotID)
+                
             end
             UpdateButtonPositions()
             UpdateActionButtonCooldowns()
@@ -583,6 +659,7 @@ function ConsoleMenu:InitializeMainActionBar()
             UpdateButtonPositions(slotID)
             UpdateActionButtonCooldowns()
             UpdateActionButtonCount(slotID)
+            
             UpdateModifierState()
             -- Используем RunNextFrame для отложенной проверки glow, чтобы дать overlay системе время обновиться
             RunNextFrame(function()
@@ -597,6 +674,7 @@ function ConsoleMenu:InitializeMainActionBar()
                     for _, slotID in pairs(slots) do
                         UpdateActionButtonTexture(slotID)
                         UpdateActionButtonCount(slotID)
+                        
                     end
                 end
             end
@@ -628,9 +706,11 @@ function ConsoleMenu:InitializeMainActionBar()
         elseif event == "SPELL_UPDATE_CHARGES" then
             for slotID = 1, 12 do
                 UpdateActionButtonCount(slotID)
+                
             end
             for slotID = 49, 72 do
                 UpdateActionButtonCount(slotID)
+                
             end
         end
     end
