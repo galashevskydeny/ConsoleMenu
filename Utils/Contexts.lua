@@ -20,9 +20,10 @@ local function UpdatePlayerInCombat()
 end
 
 local function UpdatePlayerMount()
-    if UnitPowerBarID("player") == 631 then
+    local _, canGlide, _ = C_PlayerInfo.GetGlidingInfo()
+    if canGlide then
         ConsoleMenuFrame.PlayerContext.mount = 2
-    elseif IsMounted() then
+    elseif IsMounted() and not canGlide then
         ConsoleMenuFrame.PlayerContext.mount = 1
     else
         ConsoleMenuFrame.PlayerContext.mount = 0
