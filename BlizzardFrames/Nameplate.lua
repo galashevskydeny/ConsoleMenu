@@ -16,7 +16,11 @@ function ConsoleMenu:InitializeNameplate()
 
     -- При смене маунта (сел/слез) обновляем видимость всех неймплейтов
     local function RefreshNameplatesVisibility()
+        -- Отключение скрытия в PvP зонах
+        if C_PvP.IsPVPMap() then return end
+
         for _, nameplate in pairs(C_NamePlate.GetNamePlates()) do
+            
             local unitFrame = nameplate.UnitFrame or nameplate
             if unitFrame then
                 if IsMounted() then
