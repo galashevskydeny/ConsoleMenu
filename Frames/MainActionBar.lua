@@ -235,20 +235,21 @@ local function UpdateActionButtonCooldowns()
     local frame = ConsoleMenuFrame.ActionBarFrame
 
     for slotID, btn in pairs(frame.actionButtons) do
-        -- Используем CooldownFrame для автоматической обработки secret values
         if btn.cooldown then
-            local cooldownInfo = C_ActionBar.GetActionCooldown(slotID)
-            if cooldownInfo then
-                -- CooldownFrame:SetCooldown может принимать secret values напрямую
-                btn.cooldown:SetCooldown(cooldownInfo.startTime, cooldownInfo.duration, cooldownInfo.modRate)
+            local info = C_ActionBar.GetActionCooldown(slotID)
+
+            if info and info.isActive then
+                local duration = C_ActionBar.GetActionCooldownDuration(slotID)
+
+                btn.cooldown:SetCooldownFromDurationObject(duration)
+                btn.cooldown:Show()
             else
-                btn.cooldown:Hide()
+                btn.cooldown:Clear()
             end
 
             RunNextFrame(function()
                 UpdateActionButtonTextureDesaturation(btn, slotID)
             end)
-
         end
     end
 end
