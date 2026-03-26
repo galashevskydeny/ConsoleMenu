@@ -495,6 +495,8 @@ function ConsoleMenu:InitializeContexts()
                 UpdatePlayerMount()
                 SwitchActionBarPage()
             end)
+        elseif event == "PLAYER_IS_GLIDING_CHANGED" then
+            gliding = ...
         elseif event == "PLAYER_LOSES_VEHICLE_DATA" or event == "PLAYER_GAINS_VEHICLE_DATA" then
             UpdatePlayerVehicle()
         elseif event == "PLAYER_DEAD" or event == "PLAYER_ALIVE" or event == "PLAYER_UNGHOST" then
