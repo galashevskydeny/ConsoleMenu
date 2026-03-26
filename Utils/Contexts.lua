@@ -21,7 +21,7 @@ end
 
 local function UpdatePlayerMount()
     local _, canGlide, _ = C_PlayerInfo.GetGlidingInfo()
-    if canGlide then
+    if IsMounted() and canGlide then
         ConsoleMenuFrame.PlayerContext.mount = 2
     elseif IsMounted() and not canGlide then
         ConsoleMenuFrame.PlayerContext.mount = 1
@@ -475,7 +475,7 @@ function ConsoleMenu:InitializeContexts()
             UpdatePlayerSoftFriend()
             UpdatePlayerTarget()
 
-            C_Timer.After(1, function()
+            C_Timer.After(0.5, function()
                 UpdatePlayerMount()
                 UpdatePlayerVehicle()
 
@@ -491,6 +491,10 @@ function ConsoleMenu:InitializeContexts()
             UpdatePlayerInCombat()
         elseif event == "UNIT_POWER_BAR_SHOW" or event == "UNIT_POWER_BAR_HIDE" or event == "PLAYER_MOUNT_DISPLAY_CHANGED" then
             UpdatePlayerMount()
+            C_Timer.After(0.5, function()
+                UpdatePlayerMount()
+                SwitchActionBarPage()
+            end)
         elseif event == "PLAYER_LOSES_VEHICLE_DATA" or event == "PLAYER_GAINS_VEHICLE_DATA" then
             UpdatePlayerVehicle()
         elseif event == "PLAYER_DEAD" or event == "PLAYER_ALIVE" or event == "PLAYER_UNGHOST" then
@@ -499,8 +503,6 @@ function ConsoleMenu:InitializeContexts()
             ConsoleMenu:AddWindow(...)
         elseif event == "PLAYER_INTERACTION_MANAGER_FRAME_HIDE" then
             ConsoleMenu:RemoveWindow(...)
-        elseif event == "PLAYER_IS_GLIDING_CHANGED" then
-            gliding = ...
         elseif event == "HOUSE_EDITOR_MODE_CHANGED" or event == "HOUSING_BASIC_MODE_SELECTED_TARGET_CHANGED" or event == "HOUSING_DECOR_PRECISION_SUBMODE_CHANGED" or event == "HOUSING_EXPERT_MODE_SELECTED_TARGET_CHANGED" or event == "HOUSE_EDITOR_AVAILABILITY_CHANGED" or event == "HOUSE_INFO_UPDATED" or event == "CURRENT_HOUSE_INFO_RECIEVED" or event == "HOUSE_PLOT_ENTERED" or event == "HOUSE_PLOT_EXITED" then
             UpdatePlayerIsInsideHouseOrPlot()
         end
