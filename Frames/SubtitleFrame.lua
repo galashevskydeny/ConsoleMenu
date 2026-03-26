@@ -340,42 +340,62 @@ end
 
 -- Функция для пропуска субтитра
 function ConsoleMenu:SkipCurrentSubtitle()
-    
-    local startTime = GetTime()
-    local nextSubtitle = nil
-    local currentSubtitle = ConsoleMenuFrame.SubtitleFrame.CurrentSubtitle
 
-    if not currentSubtitle then
+    -- Безопасно получаем текущий фрейм и субтитр
+    local frame = ConsoleMenuFrame and ConsoleMenuFrame.SubtitleFrame
+    local currentSubtitle = frame and frame.CurrentSubtitle
+
+    if not currentSubtitle or not ConsoleMenu or not ConsoleMenu.Subtitles then
         return
     end
 
-    -- Находим индекс текущего элемента
+    -- Сначала удаляем старые субтитры (чтобы не сломать индексы позже)
+    RemoveOldSubtitles()
+
+    -- щем текущий субтитр по ссылке
     local currentIndex = nil
     for i, subtitle in ipairs(ConsoleMenu.Subtitles) do
-        if subtitle and subtitle.text == currentSubtitle.text then
+        if subtitle == currentSubtitle then
             currentIndex = i
+            break -- важно остановиться сразу
         end
     end
 
-    if currentIndex and not currentSubtitle.lastLine then
-        ConsoleMenu.Subtitles[currentIndex].stopTime = GetTime()
+    -- Если не нашли — выходим (защита от рассинхрона)
+    if not currentIndex then
+        return
     end
 
-    RemoveOldSubtitles()
+    -- Завершаем текущий субтитр (если это не последняя строка)
+    if not currentSubtitle.lastLine then
+        currentSubtitle.stopTime = GetTime()
+    end
 
-    for i, subtitle in ipairs(ConsoleMenu.Subtitles) do
+    -- 🔹 Перестраиваем только следующие субтитры того же события
+    local startTime = GetTime()
+    local nextSubtitle = nil
+
+    for i = currentIndex + 1, #ConsoleMenu.Subtitles do
+        local subtitle = ConsoleMenu.Subtitles[i]
+
+        -- Работаем только с той же "цепочкой" (тем же событием)
         if subtitle.event == currentSubtitle.event then
-            
+
+            -- Пересчитываем тайминги последовательно
             subtitle.startTime = startTime
             subtitle.stopTime = startTime + subtitle.duration
-            startTime = subtitle.stopTime
-            
+
+            -- Первый подходящий — это следующий субтитр
             if not nextSubtitle then
                 nextSubtitle = subtitle
             end
+
+            -- Сдвигаем время дальше по цепочке
+            startTime = subtitle.stopTime
         end
     end
-    
+
+    -- Если есть следующий субтитр — сразу показываем его
     if nextSubtitle then
         ConsoleMenu:SubtitleFrameUpdate(nextSubtitle)
     end
@@ -448,7 +468,8 @@ function ConsoleMenu:SubtitleFrameUpdate(subtitle)
                 ConsoleMenu:UpdateKeysFrame()
             else
                 ConsoleMenu:DeleteKeysFrameItem("PAD4")
-                ConsoleMenu:UpdateKeysFrame()            end
+                ConsoleMenu:UpdateKeysFrame()
+            end
         
         elseif current.event == "GOSSIP_CLOSED" or current.event == "QUEST_FINISHED" or current.event == "GOSSIP_CONFIRM" then
             ConsoleMenu:DeleteKeysFrameItem("PAD4")
