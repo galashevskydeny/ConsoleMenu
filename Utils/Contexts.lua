@@ -478,7 +478,6 @@ function ConsoleMenu:InitializeContexts()
             C_Timer.After(0.5, function()
                 UpdatePlayerMount()
                 UpdatePlayerVehicle()
-
                 SwitchActionBarPage()
             end)
         elseif event == "PLAYER_SOFT_ENEMY_CHANGED" then
