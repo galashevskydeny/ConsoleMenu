@@ -49,7 +49,25 @@ local monkSpells = {
     126892,
 }
 
-local hearthstonesToys = {}
+local hearthstonesToys = {
+    265100, 263933, 246565, 190196, 257736, 209035, 245970, 200630, 172179, 168907, 182773, 188952, 208704, 193588, 236687, 184353, 180290, 228940, 165802, 162973, 163045, 166746, 165669, 166747, 210952
+}
+
+-- Возвращает случайную игрушку из hearthstonesToys, которой владеет персонаж
+local function GetRandomOwnedHearthstoneToy()
+    local ownedToys = {}
+    for _, toyID in ipairs(hearthstonesToys) do
+        if PlayerHasToy(toyID) then
+            table.insert(ownedToys, toyID)
+        end
+    end
+
+    if #ownedToys == 0 then
+        return nil -- у персонажа нет ни одной игрушки из списка
+    end
+
+    return ownedToys[math.random(#ownedToys)]
+end
 
 -- Функция для получения отсортированного списка ключей вкладок
 local function GetTabOrder()
@@ -95,36 +113,8 @@ local function InitTabs()
     end
 end
 
--- Функция для телепорта домой или возврата из жилища
-local function TeleportToHouse()
-    -- if not C_Housing then
-    --     return
-    -- end
-    
-    -- local houseInfo = currentHouseInfo
-
-    -- if not houseInfo then
-    --     return
-    -- end
-    
-    -- local teleportToPlot = true
-
-    -- if C_HousingNeighborhood.CanReturnAfterVisitingHouse() then
-    --     local currentNeighborhoodGUID = C_Housing.GetCurrentNeighborhoodGUID()
-    --     if currentNeighborhoodGUID and houseInfo and currentNeighborhoodGUID == houseInfo.neighborhoodGUID then
-    --         teleportToPlot = false
-    --     end
-    -- end
-    
-    -- if teleportToPlot then
-    --     C_Housing.TeleportHome(houseInfo.neighborhoodGUID, houseInfo.houseGUID, houseInfo.plotID)
-    -- else
-    --     C_Housing.ReturnAfterVisitingHouse()
-    -- end
-end
-
 -- Установка иконки пункту списка
-local function setIcon(frame, data)
+local function SetIcon(frame, data)
     if not frame.icon then
         frame.icon = CreateFrame("Frame", nil, frame)
         frame.icon:SetSize(iconSize, iconSize)
@@ -146,69 +136,60 @@ local function setIcon(frame, data)
         frame.icon.border:Hide()
     end
 
-    if data.type == "item" or data.type == "spell" then
-        frame.icon.texture:SetAllPoints()
-        frame.icon.texture:SetTexture(data.texture)
-        ApplyMaskToTexture(frame.icon.texture)
-        frame.icon.border:Show()
-        frame.icon.texture:Show()
-    elseif data.type == "housing" then
-        frame.icon.texture:SetAllPoints()
-        frame.icon.texture:SetAtlas("dashboard-panel-homestone-teleport-button")
-        ApplyMaskToTexture(frame.icon.texture)
-        frame.icon.border:Show()
-        frame.icon.texture:Show()
-    else
-        frame.icon.texture:Hide()
-    end
+    frame.icon.texture:SetAllPoints()
+    frame.icon.texture:SetTexture(data.texture)
+    ApplyMaskToTexture(frame.icon.texture)
+    frame.icon.border:Show()
+    frame.icon.texture:Show()
 end
 
 -- Обновление фокуса
 local function UpdateFocus(element, changeFocus)
+    if not element then return end
+    if InCombatLockdown() then return end
 
-    if not element then
-        return
-    end
-
-    -- Сброс фокуса для всех элементов
     local frames = parentFrame.ScrollBox:GetFrames()
-        for _, frame in ipairs(frames) do
+    for _, frame in ipairs(frames) do
         frame:SetFocused(false)
     end
 
     focusedIndex = parentFrame.ScrollBox:FindElementDataIndex(element)
 
     local frame = parentFrame.ScrollBox:FindFrameByPredicate(function(frame, elementData)
-		return elementData == element;
-	end)
-    
-    if frame and changeFocus then
+        return elementData == element
+    end)
+
+    if not frame then return end
+
+    if changeFocus then
         frame:SetFocused(true)
     end
 
-    -- Прокрутить ScrollBox до текущего элемента
     if gamePadActive then
         parentFrame.ScrollBox:ScrollToElementDataIndex(focusedIndex)
     end
 
-    -- Устанавливаем бинд: при нажатии PAD1 будет использоваться предмет, 
-    local bindString
-
     if element.type == "item" then
-        bindString = "ITEM " .. element.name
+        FastTravelActiveButton:SetAttribute("type", "item")
+        FastTravelActiveButton:SetAttribute("item", element.name)
     elseif element.type == "spell" then
-        bindString = "SPELL " .. element.name
-    elseif element.type == "housing" then
-        currentHouseInfo = element.houseInfo
-        bindString = "CLICK FastTravelHousingTeleportButton:LeftButton"
+        FastTravelActiveButton:SetAttribute("type", "spell")
+        FastTravelActiveButton:SetAttribute("spell", element.id)
+    elseif element.type == "randomhearthstone" then
+        FastTravelActiveButton:SetAttribute("type", "toy")
+        local randomToy = GetRandomOwnedHearthstoneToy()
+        print(randomToy)
+        FastTravelActiveButton:SetAttribute("toy", randomToy)
     end
 
+    bindString = "CLICK FastTravelActiveButton:LeftButton"
     SetOverrideBinding(
-        parentFrame, -- владелец бинда
+        FastTravel, -- владелец бинда
         true, 
         "PAD1", 
         bindString
     )
+
 end
 
 -- Функция переключения фокуса
@@ -250,39 +231,7 @@ local function CreateFastTravelScrollBox()
     -- Инициализатор для элемента списка
     local function Initializer(frame, data)
 
-        if not data then
-            -- Если по какой-то причине data == nil, не вставляем во frames
-            return
-        end
-
-        local hearthstoneButton = CreateFrame("Button", nil, frame, "SecureActionButtonTemplate")
-        frame.SecureActionButton = hearthstoneButton
-
-        hearthstoneButton:SetAllPoints(frame)
-        hearthstoneButton:RegisterForClicks("AnyDown")
-        
-        -- Включаем обработку мыши для переключения фокуса при наведении
-        hearthstoneButton:EnableMouse(true)
-
-        -- -- Настройка атрибутов для SecureActionButton
-        -- if data.type == "item" then
-        --     frame.SecureActionButton:SetAttribute("type", "item")
-        --     frame.SecureActionButton:SetAttribute("item", data.name)
-        -- elseif data.type == "spell" then
-        --     frame.SecureActionButton:SetAttribute("type", "spell")
-        --     frame.SecureActionButton:SetAttribute("spell", data.name)
-        -- elseif data.type == "housing" then
-        --     -- Для housing используем OnClick, так как нет стандартного атрибута
-        --     frame.SecureActionButton:SetScript("OnClick", function(self, button)
-        --         TeleportToHouse(data.houseInfo)
-        --     end)
-        -- end
-        
-        -- Обработчик наведения мыши для переключения фокуса
-        hearthstoneButton:SetScript("OnEnter", function(self)
-            UpdateFocus(data, false)
-            frame:SetFocused(true)
-        end)
+        if not data or not frame then return end
 
         -- Иконка
         if not frame.icon then
@@ -291,7 +240,7 @@ local function CreateFastTravelScrollBox()
             frame.icon:SetPoint("LEFT", sectionPadding, 0)
         end
 
-        setIcon(frame, data)
+        SetIcon(frame, data)
 
         -- Текст
         if not frame.text then
@@ -348,36 +297,13 @@ local function CreateFastTravelScrollBox()
             -- Добавляем камень возвращения
             local itemInfo = 6948
             local itemName, _, _, _, _, _, _, _, _, itemTexture = C_Item.GetItemInfo(itemInfo)
+
             DataProvider:Insert({
-                id = itemInfo,
-                type = "item",
+                id = "randomhearthstone",
+                type = "randomhearthstone",
                 name = itemName,
                 texture = itemTexture,
             })
-
-            -- Добавляем телепорты в жилище / из него
-            -- if C_Housing then
-            --     local teleportToPlot = true
-            
-            --     if C_HousingNeighborhood.CanReturnAfterVisitingHouse() then
-            --         local currentNeighborhoodGUID = C_Housing.GetCurrentNeighborhoodGUID()
-            --         if currentNeighborhoodGUID and C_Housing.GetCurrentHouseInfo() and currentNeighborhoodGUID == C_Housing.GetCurrentHouseInfo().neighborhoodGUID then
-            --             teleportToPlot = false
-            --         end
-            --     end
-
-            --     if teleportToPlot then
-            --         texture = "dashboard-panel-homestone-teleport-button"
-            --         for _, houseInfo in ipairs(houseList) do
-            --             DataProvider:Insert({
-            --                 id = houseInfo.houseGUID,
-            --                 type = "housing",
-            --                 name = houseInfo.houseName,
-            --                 houseInfo = houseInfo,
-            --             })
-            --         end
-            --     end
-            -- end
 
             local spells = tabs[focusedTab].spells or {}
 
@@ -680,6 +606,11 @@ function ConsoleMenu:SetFastTravelFrame()
 
     UpdateTabs()
 
+    FastTravel.SecureActionButton = CreateFrame("Button", "FastTravelActiveButton", FastTravel, "SecureActionButtonTemplate")
+    FastTravel.SecureActionButton:SetAttribute("useOnKeyDown", false)
+    FastTravel.SecureActionButton:RegisterForClicks("AnyUp", "AnyDown")
+    FastTravel.SecureActionButton:SetAllPoints()
+
     -- Создаём «невидимые» кнопки для перемещения фокуса и скрытия окна:
     local focusUpButton = CreateFrame("Button", "FocusUpButton", parentFrame)
     focusUpButton:SetSize(1,1)  -- крошечная, невидимая
@@ -722,14 +653,6 @@ function ConsoleMenu:SetFastTravelFrame()
     hideButton:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 0, 40)
     hideButton:SetScript("OnClick", function()
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.FastTravel)
-    end)
-
-    -- Кнопка для телепорта домой внутри housing
-    local teleportButton = CreateFrame("Button", "FastTravelHousingTeleportButton", parentFrame)
-    teleportButton:SetSize(1, 1)
-    teleportButton:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 0, 60)
-    teleportButton:SetScript("OnClick", function(self)
-        TeleportToHouse()
     end)
 
     -- Вешаем бинды, когда окно показывается:
