@@ -197,8 +197,9 @@ function ConsoleMenu:ApplyContextUIChanges()
             local command = ConsoleMenu:GetBindingCommandBySlotID(slot)
             local isUsable, isLackingResources = C_ActionBar.IsUsableAction(slot)
             local count = C_ActionBar.GetActionDisplayCount(slot)
+            local info = C_ActionBar.GetActionCooldown(slot)
 
-            if actionType and id and command then
+            if actionType and id and command and info and not info.isActive then
                 local title = ConsoleMenu:GetSlotTitle(actionType, id)
                 local binding = ConsoleMenu:GetCommandBinding(command)
 
@@ -220,6 +221,7 @@ function ConsoleMenu:ApplyContextUIChanges()
         end
 
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
+        ConsoleMenu:AnimatedHide(ConsoleMenuFrame.CombatFrame)
 
     elseif context == "window" then
 
@@ -241,6 +243,7 @@ function ConsoleMenu:ApplyContextUIChanges()
         end
 
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
+        ConsoleMenu:AnimatedHide(ConsoleMenuFrame.CombatFrame)
 
     elseif context == "mount" then
         local page = 4
@@ -270,6 +273,9 @@ function ConsoleMenu:ApplyContextUIChanges()
 
             -- Проверяем кулдаун из cooldownInfo
             local isOnCooldown = false
+            if cooldownInfo and cooldownInfo.isActive then
+                isOnCooldown = cooldownInfo.isActive
+            end
 
             -- Проверяем, нужно ли показывать заклинание
             local shouldShow = false
@@ -312,6 +318,7 @@ function ConsoleMenu:ApplyContextUIChanges()
         end
 
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
+        ConsoleMenu:AnimatedHide(ConsoleMenuFrame.CombatFrame)
 
         if page == 4 then
             C_Timer.After(0.5, function()
@@ -336,8 +343,9 @@ function ConsoleMenu:ApplyContextUIChanges()
                 local actionType, id, subType = GetActionInfo(slot)
                 local isUsable, isLackingResources = C_ActionBar.IsUsableAction(slot)
                 local count = C_ActionBar.GetActionDisplayCount(slot)
+                local info = C_ActionBar.GetActionCooldown(slot)
 
-                if actionType and id then
+                if actionType and id and info and not info.isActive then
                     local title = ConsoleMenu:GetSlotTitle(actionType, id)
     
                     if title and binding and isUsable and ignoredSlot then
@@ -361,8 +369,11 @@ function ConsoleMenu:ApplyContextUIChanges()
         end
         
         ConsoleMenu:AnimatedShow(ConsoleMenuFrame.ActionBarFrame)
+        ConsoleMenu:AnimatedShow(ConsoleMenuFrame.CombatFrame)
+
     elseif context == "housing" then
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
+        ConsoleMenu:AnimatedHide(ConsoleMenuFrame.CombatFrame)
     
         if ConsoleMenuFrame.PlayerContext.housing.currentEditMode == 0 then
             if ConsoleMenuFrame.PlayerContext.housing.IsInsideHouse then
