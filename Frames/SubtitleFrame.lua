@@ -229,7 +229,7 @@ local function GetCurrentSubtitleWithMaxPriority()
     -- Проходим по всем субтитрам от конца к началу и ищем активные
     for i = #ConsoleMenu.Subtitles, 1, -1 do
         local subtitle = ConsoleMenu.Subtitles[i]
-        if subtitle and subtitle.startTime <= now and now <= subtitle.stopTime then
+        if subtitle and now >= (subtitle.startTime - 0.1) and now <= subtitle.stopTime then
             if not minPriority or subtitle.priority < minPriority then
                 minPriority = subtitle.priority
                 currentSubtitle = subtitle
@@ -616,6 +616,8 @@ function ConsoleMenu:SetSubtitleFrame()
     -- Добавляем обработчики для событий субтитров
     local function OnSubtitleEvent(self, event, ...)
         RemoveOldSubtitles()
+
+        print(event)
 
         if event == "CHAT_MSG_MONSTER_SAY" or
            event == "CHAT_MSG_MONSTER_YELL" or
