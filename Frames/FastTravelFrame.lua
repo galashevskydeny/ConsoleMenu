@@ -53,6 +53,10 @@ local hearthstonesToys = {
     265100, 263933, 246565, 190196, 257736, 209035, 245970, 200630, 172179, 168907, 182773, 188952, 208704, 193588, 236687, 184353, 180290, 228940, 165802, 162973, 163045, 166746, 165669, 166747, 210952
 }
 
+local toys = {
+    253629, 140192
+}
+
 -- Возвращает случайную игрушку из hearthstonesToys, которой владеет персонаж
 local function GetRandomOwnedHearthstoneToy()
     local ownedToys = {}
@@ -180,6 +184,9 @@ local function UpdateFocus(element, changeFocus)
         local randomToy = GetRandomOwnedHearthstoneToy()
         print(randomToy)
         FastTravelActiveButton:SetAttribute("toy", randomToy)
+    elseif element.type == "toy" then
+        FastTravelActiveButton:SetAttribute("type", "toy")
+        FastTravelActiveButton:SetAttribute("toy", element.id)
     end
 
     bindString = "CLICK FastTravelActiveButton:LeftButton"
@@ -320,6 +327,20 @@ local function CreateFastTravelScrollBox()
                     })
                 end
             end
+
+            for _, v in ipairs(toys) do
+                if PlayerHasToy(v) then
+
+                    local _, toyName, icon, _, _, _ = C_ToyBox.GetToyInfo(v)
+
+                    DataProvider:Insert({
+                        id = v,
+                        type = "toy",
+                        name = toyName,
+                        texture = icon,
+                    })
+                end
+            end
         else
             local spells = tabs[focusedTab].spells or {}
 
@@ -355,8 +376,12 @@ end
 -- Функция предзагрузки данных
 local function PreloadData()
     local itemsToPreload = {
-        6948,    -- Hearthstone
+        6948,
     }
+
+    for _, v in ipairs(toys) do
+        table.insert(itemsToPreload, v)
+    end
 
     for _, itemID in ipairs(itemsToPreload) do
         -- Создаём объект Item
