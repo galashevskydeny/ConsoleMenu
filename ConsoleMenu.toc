@@ -36,6 +36,7 @@ Frames/LootListFrame.lua
 Frames/KeysFrame.lua
 Frames/StatusTrackingFrame.lua
 Frames/MainActionBar.lua
+Frames/PanelFrame.lua
 
 Utils/Contexts.lua
 Utils/HideBlizzardUI.lua

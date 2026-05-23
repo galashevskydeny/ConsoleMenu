@@ -81,6 +81,7 @@ local function Initialize()
         end
 
         ConsoleMenu:SetFastTravelFrame()
+        ConsoleMenu:SetPanelFrame()
 
         _G.ApplyMacroSettings()
         

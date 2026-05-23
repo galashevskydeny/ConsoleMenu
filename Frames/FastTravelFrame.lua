@@ -2,6 +2,7 @@
 
 local ConsoleMenu = _G.ConsoleMenu
 local parentFrame
+local setItemList
 
 local frameWidth = 440
 local viewedItemCount = 3
