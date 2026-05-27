@@ -203,11 +203,19 @@ function ConsoleMenu:AddKeysFrameItem(binding, title, stackCount)
         stackCount = stackCount,
     }
 
+    local inserted = false
     for i = 1, maxItemsCount do
         if not ConsoleMenuFrame.KeysFrame.Items[i] then
             ConsoleMenuFrame.KeysFrame.Items[i] = item
+            inserted = true
             break
         end
+    end
+
+    -- PAD1 всегда должен попадать в список, даже если видимые ячейки заняты:
+    -- ставим его в конец видимого списка.
+    if not inserted and binding == "PAD1" then
+        ConsoleMenuFrame.KeysFrame.Items[maxItemsCount] = item
     end
 end
 
