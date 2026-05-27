@@ -5,8 +5,8 @@ local parentFrame
 
 local frameWidth = 688
 local frameHeight = 96
-local backgroundOverlapVertical = 160
-local backgroundOverlapHorizontal = 240
+local backgroundOverlapVertical = 200
+local backgroundOverlapHorizontal = 160
 
 local maxLineLength = 160
 local subtitleUpdateTimer = nil
@@ -119,10 +119,10 @@ local function SplitTextIntoLines(text)
         local result = {}
         local current = ""
         
-        -- Разбиваем текст по запятым, двоеточиям и тире, сохраняя разделители и их форматирование
+        -- Разбиваем текст по запятым и двоеточиям, исключая сами разделители
         local lastPos = 1
         for commaPos in text:gmatch("()[,:]") do
-            local part = text:sub(lastPos, commaPos)
+            local part = text:sub(lastPos, commaPos - 1)
             parts[#parts + 1] = part
             lastPos = commaPos + 1
         end
@@ -279,6 +279,33 @@ function ConsoleMenu:AddSubtitles(event, message, sender)
 
     local priority = SubtitleEventPriority[event] or 3
 
+    if issecretvalue(message) then
+        local currentTime = GetTime()
+        local duration = 5
+        local startTime = currentTime
+        local stopTime = startTime + duration
+
+        local emotion = (event == "CHAT_MSG_MONSTER_EMOTE" or event == "CHAT_MSG_TEXT_EMOTE")
+
+        local displaySender = sender
+        if event:find("CHAT_MSG") and not event:find("_MONSTER_") and not issecretvalue(sender) then
+            displaySender = sender:match("^([^-]+)") or sender
+        end
+
+        table.insert(ConsoleMenu.Subtitles, {
+            text = message,
+            sender = displaySender,
+            priority = priority,
+            event = event,
+            duration = duration,
+            startTime = startTime,
+            stopTime = stopTime,
+            emotion = emotion,
+            lastLine = true,
+        })
+        return
+    end
+
     local lines = SplitTextIntoLines(message)
     local currentTime = GetTime()
     local startTime = currentTime
@@ -401,6 +428,27 @@ function ConsoleMenu:SkipCurrentSubtitle()
     end
 end
 
+-- Размеры строк с секретным текстом возвращают secret number — их нельзя использовать в арифметике аддона.
+local function setSubtitleBackgroundSizeFromContent(frame, contentWidth, contentHeight)
+    local width = contentWidth
+    if issecretvalue(contentWidth) or issecretvalue(contentHeight) then
+        frame.Background:SetSize(
+            frameWidth + backgroundOverlapHorizontal,
+            frameHeight + backgroundOverlapVertical
+        )
+    else
+        if contentWidth > 160 then
+            width = contentWidth + backgroundOverlapHorizontal
+        else
+            width = frameWidth + backgroundOverlapHorizontal / 2
+        end
+        frame.Background:SetSize(
+            width,
+            contentHeight + backgroundOverlapVertical
+        )
+    end
+end
+
 -- Функция для обновления субтитра
 function ConsoleMenu:SubtitleFrameUpdate(subtitle)
     if not ConsoleMenuFrame or not ConsoleMenuFrame.SubtitleFrame then
@@ -431,7 +479,7 @@ function ConsoleMenu:SubtitleFrameUpdate(subtitle)
 
             local width = frame.Emotion:GetStringWidth()
             local height = frame.Emotion:GetStringHeight()
-            frame.Background:SetSize(width + backgroundOverlapHorizontal, height + backgroundOverlapVertical)
+            setSubtitleBackgroundSizeFromContent(frame, width, height)
 
             frame.Background:ClearAllPoints()
             frame.Background:SetPoint("CENTER", frame.Emotion, "CENTER", 0, 0)
@@ -445,15 +493,19 @@ function ConsoleMenu:SubtitleFrameUpdate(subtitle)
             frame.Speaker:SetText(speaker)
             frame.Speaker:Show()
 
-            local height = frame.Speaker:GetStringHeight()
+            local speakerH = frame.Speaker:GetStringHeight()
 
             -- Обновить текст субтитра
             frame.Subtitle:SetText(current.text or "")
             frame.Subtitle:Show()
 
-            local width = frame.Subtitle:GetStringWidth()
-            height = height + frame.Subtitle:GetStringHeight()
-            frame.Background:SetSize(width + backgroundOverlapHorizontal, height + backgroundOverlapVertical)
+            local subW = frame.Subtitle:GetStringWidth()
+            local subH = frame.Subtitle:GetStringHeight()
+            if issecretvalue(speakerH) or issecretvalue(subW) or issecretvalue(subH) then
+                setSubtitleBackgroundSizeFromContent(frame, frameWidth, frameHeight)
+            else
+                setSubtitleBackgroundSizeFromContent(frame, subW, speakerH + subH)
+            end
 
             frame.Background:ClearAllPoints()
             frame.Background:SetPoint("CENTER", frame.Subtitle, "CENTER", 0, 0)
@@ -616,9 +668,7 @@ function ConsoleMenu:SetSubtitleFrame()
     -- Добавляем обработчики для событий субтитров
     local function OnSubtitleEvent(self, event, ...)
         RemoveOldSubtitles()
-
-        print(event)
-
+        
         if event == "CHAT_MSG_MONSTER_SAY" or
            event == "CHAT_MSG_MONSTER_YELL" or
            event == "CHAT_MSG_MONSTER_WHISPER" or
