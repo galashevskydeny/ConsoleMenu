@@ -31,7 +31,7 @@ local function UpdatePlayerMount()
 end
 
 local function UpdatePlayerVehicle()
-    ConsoleMenuFrame.PlayerContext.vehicle = UnitInVehicle('player') or UnitOnTaxi('player') or false
+    ConsoleMenuFrame.PlayerContext.vehicle = UnitInVehicle('player') or UnitOnTaxi('player')
 end
 
 local function UpdatePlayerTarget()
@@ -238,6 +238,11 @@ function ConsoleMenu:ApplyContextUIChanges()
             ConsoleMenu:AddKeysFrameItem("PAD2", "Выйти")
             ConsoleMenu:AddKeysFrameItem("PAD1", "Выбрать")
             ConsoleMenu:AddKeysFrameItem("PADDLEFTRIGHT", "Переключение вкладок")
+
+            ConsoleMenu:HideChatFrame()
+        elseif ConsoleMenuFrame.PlayerContext.window["panel"] then
+            ConsoleMenu:AddKeysFrameItem("PAD2", "Выйти")
+            ConsoleMenu:AddKeysFrameItem("PAD1", "Выбрать")
 
             ConsoleMenu:HideChatFrame()
         end
