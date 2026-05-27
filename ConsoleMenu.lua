@@ -54,6 +54,7 @@ local function Initialize()
     ConsoleMenu:SetOpenMailFrame()
     ConsoleMenu:SetQuestFrame()
     ConsoleMenu:SetStatusTrackingFrame()
+    ConsoleMenu:SetObjectiveTrackerFrame()
     
     ConsoleMenu:SetSubtitleFrame()
     ConsoleMenu:SetCustomGossipFrame()

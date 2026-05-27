@@ -25,6 +25,7 @@ BlizzardFrames/GossipFrame.lua
 BlizzardFrames/PVEFrame.lua
 BlizzardFrames/WorldMapFrame.lua
 BlizzardFrames/Nameplate.lua
+BlizzardFrames/ObjectiveTrackerFrame.lua
 
 Frames/CommonFrame.lua
 Frames/GossipFrame.lua
