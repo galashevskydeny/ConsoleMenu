@@ -2,6 +2,7 @@ local ConsoleMenu = _G.ConsoleMenu
 local healthBarHeight = 16
 local castBarHeight = 12
 local auraIconSize = 32
+local npcNameColorR, npcNameColorG, npcNameColorB, npcNameColorA = 1.0, 0.960784, 0.772549, 1.0
 
 -- Функция для применения текстуры castbar с задержкой
 local function ApplyCastBarTextureWithDelay(castBar)
@@ -55,7 +56,7 @@ function ConsoleMenu:InitializeNameplate()
         -- Изменения текста имени
         if name then
             name:ClearAllPoints()
-            name:SetTextColor(1.0, 0.960784, 0.772549, 1.0)
+            name:SetTextColor(npcNameColorR, npcNameColorG, npcNameColorB, npcNameColorA)
             local fontName, _, _ = name:GetFont()
             if fontName then
                 name:SetFont(fontName, 14, "SLUG")
@@ -138,6 +139,13 @@ function ConsoleMenu:InitializeNameplate()
         if frame and frame.HealthBarsContainer and frame.HealthBarsContainer.healthBar then
             local healthBar = frame.HealthBarsContainer.healthBar;
             healthBar:SetStatusBarColor(0.188235, 0.811765, 0.556863) -- Цвет 30CF8E
+        end
+    end)
+
+    hooksecurefunc("CompactUnitFrame_UpdateName", function(frame)
+        -- Blizzard может менять цвет имени в бою, принудительно возвращаем кастомный цвет.
+        if frame and frame.HealthBarsContainer and frame.HealthBarsContainer.healthBar and frame.name then
+            frame.name:SetTextColor(npcNameColorR, npcNameColorG, npcNameColorB, npcNameColorA)
         end
     end)
 
