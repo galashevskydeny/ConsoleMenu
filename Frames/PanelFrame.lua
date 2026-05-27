@@ -17,6 +17,10 @@ local animationDuration = 0.1
 local gamePadActive = false
 local focusedIndex = 1
 
+local panelTitle = "Панель команд"
+local actionBarFirstSlot = 1
+local actionBarSlotCount = 12
+
 -- Установка иконки пункту списка
 local function SetIcon(frame, data)
     if not frame.icon then
@@ -167,34 +171,37 @@ local function CreatePanelScrollBox()
 
     end
 
-    local ACTION_BAR_FIRST_SLOT = 145
-    local ACTION_BAR_SLOT_COUNT = 12
-
     -- Наполнение списка элементами
     local function SetItemList()
         DataProvider:Flush()
 
-        for i = 0, ACTION_BAR_SLOT_COUNT - 1 do
-            local actionID = ACTION_BAR_FIRST_SLOT + i
+        for i = 0, actionBarSlotCount - 1 do
+            local actionID = actionBarFirstSlot + i
             if C_ActionBar.HasAction(actionID) then
-                local actionType, outfitID = GetActionInfo(actionID)
+                local actionType, identifier = GetActionInfo(actionID)
                 local name = ""
 
                 if actionType == "outfit" then
-                    local outfitInfo = C_TransmogOutfitInfo.GetOutfitInfo(outfitID)
+                    local outfitInfo = C_TransmogOutfitInfo.GetOutfitInfo(identifier)
                     name = outfitInfo.name
+                elseif actionType == "macro" then
+                    name = C_Macro.GetMacroInfo(identifier).name
+                elseif actionType == "summonmount" then
+                    if identifier == 268435455 then
+                        name = "Избранный маунт"
+                    else
+                        name = C_MountJournal.GetMountInfoByID(identifier)
+                    end
+                elseif actionType == "spell" then
+                    name = C_Spell.GetSpellInfo(identifier).name
                 end
 
-                local isUsable, isLackingResources = C_ActionBar.IsUsableAction(actionID)
-                if isUsable then
-                    DataProvider:Insert({
-                        id = actionID,
-                        type = "action",
-                        name = name,
-                        texture = C_ActionBar.GetActionTexture(actionID),
-                        isLackingResources = isLackingResources,
-                    })
-                end
+                DataProvider:Insert({
+                    id = actionID,
+                    type = "action",
+                    name = name,
+                    texture = C_ActionBar.GetActionTexture(actionID),
+                })
             end
         end
 
@@ -274,7 +281,7 @@ function ConsoleMenu:SetPanelFrame()
     PanelFrame.Title.Text:SetPoint("RIGHT", PanelFrameTitle, "RIGHT", sectionPadding, 0)
     PanelFrame.Title.Text:SetFont("Fonts\\FRIZQT___CYR.TTF", titleFontSize, "")
     PanelFrame.Title.Text:SetTextColor(1.0, 0.960784, 0.772549, 0.6)
-    PanelFrame.Title.Text:SetText("Наряды")
+    PanelFrame.Title.Text:SetText(panelTitle)
     PanelFrame.Title.Text:SetJustifyH("LEFT")
 
     -- Создаём ScrollBox
@@ -346,21 +353,78 @@ function ConsoleMenu:SetPanelFrame()
     
 end
 
--- Слеш-команда
+-- Разбор аргументов: заголовок, первый слот, количество слотов
+-- Пример: /panel Наряды 145 12
+-- Заголовок может содержать пробелы — последние два токена должны быть числами
+local function ParsePanelSlashArgs(msg)
+    local title = panelTitle
+    local firstSlot = actionBarFirstSlot
+    local slotCount = actionBarSlotCount
+
+    if not msg or msg:match("^%s*$") then
+        return title, firstSlot, slotCount
+    end
+
+    local parts = { strsplit(" ", strtrim(msg)) }
+    local partCount = #parts
+
+    if partCount >= 3 then
+        local count = tonumber(parts[partCount])
+        local first = tonumber(parts[partCount - 1])
+        if count and first then
+            slotCount = count
+            firstSlot = first
+            local titleParts = {}
+            for i = 1, partCount - 2 do
+                titleParts[#titleParts + 1] = parts[i]
+            end
+            if #titleParts > 0 then
+                title = table.concat(titleParts, " ")
+            end
+        elseif partCount >= 1 then
+            title = table.concat(parts, " ")
+        end
+    elseif partCount == 2 then
+        local first = tonumber(parts[2])
+        if first then
+            firstSlot = first
+            title = parts[1]
+        else
+            title = table.concat(parts, " ")
+        end
+    elseif partCount == 1 then
+        local first = tonumber(parts[1])
+        if first then
+            firstSlot = first
+        else
+            title = parts[1]
+        end
+    end
+
+    return title, firstSlot, slotCount
+end
+
+-- Слеш-команда: /panel <заголовок> <первый_слот> <количество_слотов>
+-- Пример: /panel Наряды 145 12
 SLASH_PANEL1 = "/panel"
-SlashCmdList["PANEL"] = function()
+SlashCmdList["PANEL"] = function(msg)
     if parentFrame and parentFrame:IsShown() then
         return
     end
+
+    panelTitle, actionBarFirstSlot, actionBarSlotCount = ParsePanelSlashArgs(msg)
 
     if not parentFrame then
         ConsoleMenu:SetPanelFrame()
     end
 
     if parentFrame then
+        if ConsoleMenuFrame.PanelFrame.Title and ConsoleMenuFrame.PanelFrame.Title.Text then
+            ConsoleMenuFrame.PanelFrame.Title.Text:SetText(panelTitle)
+        end
         setItemList()
         ConsoleMenu:AnimatedShow(ConsoleMenuFrame.PanelFrame)
         ConsoleMenu:AddWindow("panel")
-        ConsoleMenu:ApplyContextUIChanges()  
+        ConsoleMenu:ApplyContextUIChanges()
     end
 end
