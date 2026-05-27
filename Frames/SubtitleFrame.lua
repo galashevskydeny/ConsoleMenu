@@ -665,6 +665,38 @@ function ConsoleMenu:SetSubtitleFrame()
     frame:RegisterEvent("QUEST_FINISHED")
     frame:RegisterEvent("GOSSIP_CONFIRM")
     
+    local subtitleCloseToken = 0
+
+    local function HasDialogueContext()
+        local questID = GetQuestID()
+        if questID and questID ~= 0 then
+            return true
+        end
+
+        local gossipActive = C_GossipInfo.GetActiveQuests()
+        if gossipActive and #gossipActive > 0 then
+            return true
+        end
+
+        local gossipAvailable = C_GossipInfo.GetAvailableQuests()
+        if gossipAvailable and #gossipAvailable > 0 then
+            return true
+        end
+
+        local gossipOptions = C_GossipInfo.GetOptions()
+        if gossipOptions and #gossipOptions > 0 then
+            return true
+        end
+
+        local greetingActive = GetNumActiveQuests and GetNumActiveQuests() or 0
+        local greetingAvailable = GetNumAvailableQuests and GetNumAvailableQuests() or 0
+        if greetingActive > 0 or greetingAvailable > 0 then
+            return true
+        end
+
+        return false
+    end
+
     -- Добавляем обработчики для событий субтитров
     local function OnSubtitleEvent(self, event, ...)
         RemoveOldSubtitles()
@@ -684,29 +716,62 @@ function ConsoleMenu:SetSubtitleFrame()
         then
             ConsoleMenu:AddSubtitles(event, ...)
         elseif event == "GOSSIP_SHOW" then
+            subtitleCloseToken = subtitleCloseToken + 1
             local message = C_GossipInfo.GetText()
             local sender = UnitName("npc")
             ConsoleMenu:AddSubtitles(event, message, sender)
         elseif event == "QUEST_DETAIL" then
+            subtitleCloseToken = subtitleCloseToken + 1
             local message = GetQuestText()
             local sender = UnitName("npc")
             ConsoleMenu:AddSubtitles(event, message, sender)
         elseif event == "QUEST_COMPLETE" then
+            subtitleCloseToken = subtitleCloseToken + 1
             local message = GetRewardText()
             local sender = UnitName("npc")
             ConsoleMenu:AddSubtitles(event, message, sender)
         elseif event == "QUEST_PROGRESS" then
+            subtitleCloseToken = subtitleCloseToken + 1
             local message = GetProgressText()
             local sender = UnitName("npc")
             ConsoleMenu:AddSubtitles(event, message, sender)
         elseif event == "QUEST_GREETING" then
+            subtitleCloseToken = subtitleCloseToken + 1
             local message = GetGreetingText()
             local sender = UnitName("npc")
             ConsoleMenu:AddSubtitles(event, message, sender)
-        elseif event == "GOSSIP_CLOSED" or event == "QUEST_FINISHED" or event == "GOSSIP_CONFIRM" then
-            RemoveSubtitlesByPriority(1)
-            -- Задержка перед обновлением, чтобы дать время новым событиям (например, QUEST_DETAIL) добавить субтитры
+        elseif event == "QUEST_FINISHED" then
+            subtitleCloseToken = subtitleCloseToken + 1
+            local currentToken = subtitleCloseToken
+            local questFinishedDelay = animationDuration + 0.2
+
+            C_Timer.After(questFinishedDelay, function()
+                if currentToken ~= subtitleCloseToken then
+                    return
+                end
+
+                if HasDialogueContext() then
+                    return
+                end
+
+                RemoveSubtitlesByPriority(1)
+                ConsoleMenu:SubtitleFrameUpdate()
+            end)
+            return
+        elseif event == "GOSSIP_CLOSED" or event == "GOSSIP_CONFIRM" then
+            subtitleCloseToken = subtitleCloseToken + 1
+            local currentToken = subtitleCloseToken
+
             C_Timer.After(animationDuration + 0.1, function()
+                if currentToken ~= subtitleCloseToken then
+                    return
+                end
+
+                if HasDialogueContext() then
+                    return
+                end
+
+                RemoveSubtitlesByPriority(1)
                 ConsoleMenu:SubtitleFrameUpdate()
             end)
             return

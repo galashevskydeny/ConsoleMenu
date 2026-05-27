@@ -992,11 +992,15 @@ function ConsoleMenu:SetCustomGossipFrame()
 
     frame:RegisterEvent("PLAYER_REGEN_DISABLED")
 
+    local hideRequestToken = 0
+
     frame:SetScript("OnEvent", function(self, event, ...)
         if event == "GAME_PAD_ACTIVE_CHANGED" then
             gamePadActive = ...
         elseif event == "GOSSIP_SHOW" or event == "QUEST_GREETING" then
+            hideRequestToken = hideRequestToken + 1
             ConsoleMenu:AnimatedShow(frame)
+            print("Show GossipFrame by event:", event)
             ConsoleMenu:AddWindow(3)
             ConsoleMenu:ApplyContextUIChanges()
         elseif event == "QUEST_PROGRESS" or event == "QUEST_COMPLETE" or event == "QUEST_TURNED_IN" or event == "QUEST_DETAIL" then
@@ -1004,23 +1008,44 @@ function ConsoleMenu:SetCustomGossipFrame()
 
             if questID == 0 then return end
 
+            hideRequestToken = hideRequestToken + 1
             ConsoleMenu:AnimatedShow(frame)
+            print("Show GossipFrame by event:", event)
             ConsoleMenu:AddWindow(3)
             ConsoleMenu:ApplyContextUIChanges()
         elseif event == "PLAYER_REGEN_DISABLED" then
+            hideRequestToken = hideRequestToken + 1
             ConsoleMenu:AnimatedHide(frame)
+            print("Hide GossipFrame by event:", event)
             ConsoleMenu:RemoveWindow(3)
             ConsoleMenu:ApplyContextUIChanges()
         elseif event == "GOSSIP_CLOSED" or event == "GOSSIP_CONFIRM" or event == "QUEST_FINISHED" then
+            hideRequestToken = hideRequestToken + 1
+            local currentToken = hideRequestToken
+            local hideDelay = animationDuration
 
-            
+            -- QUEST_FINISHED often arrives before the next quest context is loaded.
+            -- Add a short grace window so the next QUEST_GREETING/QUEST_DETAIL can cancel this hide.
+            if event == "QUEST_FINISHED" then
+                hideDelay = hideDelay
+            end
 
-            C_Timer.After(animationDuration + 0.1, function()
+            C_Timer.After(hideDelay, function()
+                if currentToken ~= hideRequestToken then return end
+
                 local questID = GetQuestID()
                 if questID ~= 0 then return end
 
-                local quests = GetGossipQuests()
-                if #quests > 0 then return end
+                local gossipQuests = GetGossipQuests()
+                if gossipQuests and #gossipQuests > 0 then return end
+
+                local greetingQuests = GetGreetingQuests()
+                if greetingQuests and #greetingQuests > 0 then return end
+
+                local gossipOptions = C_GossipInfo.GetOptions()
+                if gossipOptions and #gossipOptions > 0 then return end
+
+                if not frame:IsShown() then return end
 
                 print("Hide GossipFrame by event:", event)
                 print(questID)
