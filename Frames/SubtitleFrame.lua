@@ -440,7 +440,7 @@ local function setSubtitleBackgroundSizeFromContent(frame, contentWidth, content
         if contentWidth > 160 then
             width = contentWidth + backgroundOverlapHorizontal
         else
-            width = frameWidth + backgroundOverlapHorizontal / 2
+            width = frameWidth + backgroundOverlapHorizontal / 4
         end
         frame.Background:SetSize(
             width,
@@ -508,7 +508,7 @@ function ConsoleMenu:SubtitleFrameUpdate(subtitle)
             end
 
             frame.Background:ClearAllPoints()
-            frame.Background:SetPoint("CENTER", frame.Subtitle, "CENTER", 0, 0)
+            frame.Background:SetPoint("CENTER", frame.Subtitle, "CENTER", 0, 10)
 
             frame.Emotion:Hide()
         end
