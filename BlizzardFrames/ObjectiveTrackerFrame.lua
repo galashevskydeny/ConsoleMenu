@@ -100,6 +100,7 @@ local function cleanLine(line)
     if newText ~= oldText then
         line.Text:SetText(newText)
     end
+
 end
 
 local function cleanBlockUsedLines(block)
@@ -135,6 +136,10 @@ local function cleanAllTrackerLines()
         if module.ContentsFrame and module.ContentsFrame.GetChildren then
             for _, block in ipairs({ module.ContentsFrame:GetChildren() }) do
                 cleanBlockUsedLines(block)
+
+                if block.Text and (not block.state or (block.state and block.state < 3)) then
+                    block.Text:SetTextColor(1.0, 0.960784, 0.772549, 1.0)
+                end
             end
         end
 

@@ -61,6 +61,21 @@ local function EnsureAllMacros()
     end
 end
 
+-- mountID -> индекс журнала для C_MountJournal.Pickup (1..GetNumMounts; 0 = избранное)
+local function GetMountDisplayIndexByMountID(mountID)
+    if mountID == 0 then
+        return 0
+    end
+
+    for displayIndex = 1, C_MountJournal.GetNumDisplayedMounts() do
+        if C_MountJournal.GetDisplayedMountID(displayIndex) == mountID then
+            return displayIndex
+        end
+    end
+
+    return nil
+end
+
 -- Функция установки действия для слота
 local function SetActionForSlot(slot, actionType, actionId)
 
@@ -79,8 +94,11 @@ local function SetActionForSlot(slot, actionType, actionId)
         PickupAction(slot)
         ClearCursor()
     elseif actionType == "summonmount" then
-        C_MountJournal.Pickup(actionId)
-        PlaceAction(slot)
+        local displayIndex = GetMountDisplayIndexByMountID(actionId)
+        if displayIndex then
+            C_MountJournal.Pickup(displayIndex)
+            PlaceAction(slot)
+        end
     elseif actionType == "outfit" then
         C_TransmogOutfitInfo.PickupOutfit(actionId)
         PlaceAction(slot)
@@ -93,17 +111,22 @@ local function ApplyMacroSettings()
     EnsureAllMacros()
 
     SetActionForSlot(8, "summonmount", 0)
+    SetActionForSlot(157, "summonmount", 0)
+    SetActionForSlot(158, "summonmount", 2237)
+    SetActionForSlot(159, "summonmount", 2265)
+    C_MountJournal.PickupDynamicFlightMode()
+    PlaceAction(160)
     
     if ConsoleMenuDB.actionBarPageExploring == 1 then
         SetActionForSlot(13, "spell", 1231411)
-        -- SetActionForSlot(14, "empty", nil)
+        SetActionForSlot(14, "macro", "Наряды")
         -- SetActionForSlot(15, "empty", nil)
         -- SetActionForSlot(16, "empty", nil)
         -- Слот под L3 для классовой способности перемещения
         --SetActionForSlot(17, "empty", nil)
         SetActionForSlot(18, "macro", "Перемещение")
         SetActionForSlot(19, "empty", nil)
-        SetActionForSlot(20, "summonmount", 0)
+        SetActionForSlot(20, "macro", "Маунты")
         SetActionForSlot(21, "empty", nil)
         SetActionForSlot(22, "empty", nil)
         SetActionForSlot(23, "empty", nil)
@@ -113,14 +136,14 @@ local function ApplyMacroSettings()
     if ConsoleMenuDB.actionBarPagePlayerInteraction == 1 then
         -- SetActionForSlot(25, "empty", nil)
         SetActionForSlot(26, "macro", "Осмотреть")
-        -- SetActionForSlot(27, "empty", nil)
+        SetActionForSlot(27, "macro", "Предложить обмен")
         -- SetActionForSlot(28, "empty", nil)
         -- Слот под L3 для классовой способности перемещения
         --SetActionForSlot(29, "empty", nil)
         SetActionForSlot(30, "macro", "Перемещение")
         SetActionForSlot(31, "empty", nil)
-        SetActionForSlot(32, "summonmount", 0)
-        SetActionForSlot(33, "macro", "Предложить обмен")
+        SetActionForSlot(32, "macro", "Маунты")
+        SetActionForSlot(33, "empty", nil)
         SetActionForSlot(34, "empty", nil)
         SetActionForSlot(35, "empty", nil)
         SetActionForSlot(36, "empty", nil)
@@ -155,6 +178,17 @@ local function ApplyMacroSettings()
         SetActionForSlot(131, "empty", nil)
         SetActionForSlot(132, "empty", nil)
     end
+
+    -- Получаем список нарядов и устанавливаем их с 145 по 156 ячейку (только 12 первых нарядов)
+    local outfits = C_TransmogOutfitInfo.GetOutfitsInfo and C_TransmogOutfitInfo.GetOutfitsInfo() or {}
+    for i = 1, math.min(12, #outfits) do
+        local slot = 144 + i -- 145..156
+        local outfit = outfits[i]
+        -- id наряда нужен для макроса, если макрос ожидает строковое имя, можно подставить outfit.name
+        SetActionForSlot(slot, "outfit", outfit.outfitID)
+    end
+
+
 end
 
 -- Делаем функцию доступной глобально

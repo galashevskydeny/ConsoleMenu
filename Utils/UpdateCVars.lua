@@ -120,7 +120,7 @@ end
 local function ApplyGamePadCVars()
     SetCVar("GamePadEnable", "1")
     SetCVar("GamePadEmulateShift", "PADRSHOULDER")
-    SetCVar("GamePadEmulateCtrl", "PADRTRIGGER")
+    SetCVar("GamePadEmulateCtrl", "PADLSHOULDER")
 
     SetCVar("GamePadCursorLeftClick", "PAD1")
     SetCVar("GamePadCursorRightClick", "PAD3")

@@ -3,7 +3,7 @@ local ConsoleMenu = _G.ConsoleMenu
 function ConsoleMenu:RegisterAssets()
     -- Фоны кнопок
     ConsoleMenu.Backgrounds = {
-        PAD = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\pad-background.png",
+        PAD = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\key-background.png",
         SHOULDER = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\shoulder-background.png",
         TRIGGER = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\trigger-background.png",
         STICK = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\stick-background.png",
