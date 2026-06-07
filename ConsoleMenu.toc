@@ -26,6 +26,7 @@ BlizzardFrames/PVEFrame.lua
 BlizzardFrames/WorldMapFrame.lua
 BlizzardFrames/Nameplate.lua
 BlizzardFrames/ObjectiveTrackerFrame.lua
+BlizzardFrames/GameDialog.lua
 
 Frames/CommonFrame.lua
 Frames/GossipFrame.lua
@@ -38,6 +39,7 @@ Frames/KeysFrame.lua
 Frames/StatusTrackingFrame.lua
 Frames/MainActionBar.lua
 Frames/PanelFrame.lua
+Frames/PlayerChoice.lua
 
 Utils/Contexts.lua
 Utils/HideBlizzardUI.lua

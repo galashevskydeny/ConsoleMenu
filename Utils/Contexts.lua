@@ -240,6 +240,12 @@ function ConsoleMenu:ApplyContextUIChanges()
             ConsoleMenu:AddKeysFrameItem("PADDLEFTRIGHT", "Переключение вкладок")
 
             ConsoleMenu:HideChatFrame()
+
+        elseif ConsoleMenuFrame.PlayerContext.window["playerchoice"] then
+            ConsoleMenu:AddKeysFrameItem("PAD2", "Выйти")
+            ConsoleMenu:AddKeysFrameItem("PAD1", "Выбрать")
+            
+            ConsoleMenu:HideChatFrame()
         elseif ConsoleMenuFrame.PlayerContext.window["panel"] then
             ConsoleMenu:AddKeysFrameItem("PAD2", "Выйти")
             ConsoleMenu:AddKeysFrameItem("PAD1", "Выбрать")
@@ -454,6 +460,10 @@ function ConsoleMenu:InitializeContexts()
     frame:RegisterEvent("HOUSE_PLOT_ENTERED")
     frame:RegisterEvent("HOUSE_PLOT_EXITED")
 
+    -- Отслеживание открытия диалогов
+    frame:RegisterEvent("SPELL_CONFIRMATION_PROMPT")
+    frame:RegisterEvent("SPELL_CONFIRMATION_TIMEOUT")
+
     ConsoleMenuFrame.PlayerContext = {
         -- Жив ли персонаж
         alive = nil,
@@ -522,6 +532,10 @@ function ConsoleMenu:InitializeContexts()
             ConsoleMenu:RemoveWindow(...)
         elseif event == "HOUSE_EDITOR_MODE_CHANGED" or event == "HOUSING_BASIC_MODE_SELECTED_TARGET_CHANGED" or event == "HOUSING_DECOR_PRECISION_SUBMODE_CHANGED" or event == "HOUSING_EXPERT_MODE_SELECTED_TARGET_CHANGED" or event == "HOUSE_EDITOR_AVAILABILITY_CHANGED" or event == "HOUSE_INFO_UPDATED" or event == "CURRENT_HOUSE_INFO_RECIEVED" or event == "HOUSE_PLOT_ENTERED" or event == "HOUSE_PLOT_EXITED" then
             UpdatePlayerIsInsideHouseOrPlot()
+        elseif event == "SPELL_CONFIRMATION_PROMPT" then
+            ConsoleMenu:AddWindow("staticpopup")
+        elseif event == "SPELL_CONFIRMATION_TIMEOUT" then
+            ConsoleMenu:RemoveWindow("staticpopup")
         end
 
         ConsoleMenu:ApplyContextUIChanges()  

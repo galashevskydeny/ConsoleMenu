@@ -55,6 +55,8 @@ local function Initialize()
     ConsoleMenu:SetQuestFrame()
     ConsoleMenu:SetStatusTrackingFrame()
     ConsoleMenu:SetObjectiveTrackerFrame()
+    ConsoleMenu:SetGameDialog()
+    ConsoleMenu:SetPlayerChoice()
     
     ConsoleMenu:SetSubtitleFrame()
     ConsoleMenu:SetCustomGossipFrame()
@@ -86,20 +88,6 @@ local function Initialize()
 
         _G.ApplyMacroSettings()
         
-        -- Интеграция с ConsolePort
-        if ConsolePortUtilityToggle then
-            ConsolePortUtilityToggle:HookScript("OnShow", function()
-                if WeakAuras then
-                    WeakAuras.ScanEvents("CHANGE_CONTEXT", "ring")
-                end
-            end)
-            
-            ConsolePortUtilityToggle:HookScript("OnHide", function()                
-                if WeakAuras then
-                    WeakAuras.ScanEvents("CHANGE_CONTEXT", ConsoleMenu.PlayerContext.lastContext)
-                end
-            end)
-        end
     end)
 
     -- Вибрация при отображении проков (overlay glow)
