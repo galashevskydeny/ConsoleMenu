@@ -81,7 +81,7 @@ local function UpdateFocus(element, changeFocus)
     PanelActiveButton:SetAttribute("type", "action")
     PanelActiveButton:SetAttribute("action", element.id)
 
-    bindString = "CLICK PanelActiveButton:LeftButton"
+    local bindString = "CLICK PanelActiveButton:LeftButton"
     SetOverrideBinding(
         PanelFrame, -- владелец бинда
         true, 
@@ -194,6 +194,9 @@ local function CreatePanelScrollBox()
                     end
                 elseif actionType == "spell" then
                     name = C_Spell.GetSpellInfo(identifier).name
+                elseif actionType == "summonpet" then
+                    local _, _, _, _, _, _, _, petName = C_PetJournal.GetPetInfoByPetID(identifier)
+                    name = petName
                 end
 
                 DataProvider:Insert({
@@ -256,13 +259,29 @@ function ConsoleMenu:SetPanelFrame()
 
     PanelFrame:RegisterEvent("PLAYER_REGEN_DISABLED") -- Начало боя
     PanelFrame:RegisterUnitEvent("UNIT_SPELLCAST_START", "player") -- Игрок начал каст
+    PanelFrame:RegisterUnitEvent("UNIT_SPELLCAST_SENT", "player") -- Игрок отправил каст
     PanelFrame:RegisterEvent("GAME_PAD_ACTIVE_CHANGED") -- Событие изменения режима геймпада
     PanelFrame:RegisterEvent("TRANSMOG_DISPLAYED_OUTFIT_CHANGED") -- Событие изменения отображаемого наряда
+    PanelFrame:RegisterEvent("COMPANION_UPDATE") -- Событие изменения питомца
 
     PanelFrame:SetScript("OnEvent", function(self, event, ...)
+        local unit = ...
+
+        if event == "UNIT_SPELLCAST_START" or event == "UNIT_SPELLCAST_SENT" then
+            if unit ~= "player" then
+                return
+            end
+        end
+
         if event == "GAME_PAD_ACTIVE_CHANGED" then
-            gamePadActive = ...
+            gamePadActive = unit
             return
+        end
+
+        if event == "COMPANION_UPDATE" then
+            if unit ~= "CRITTER" then
+                return
+            end
         end
 
         if PanelFrame:IsShown() then
