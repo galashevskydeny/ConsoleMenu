@@ -55,15 +55,27 @@ end
 
 -- Функция для добавления предмета в список
 local function AddItem(itemData)
+    if not itemData then
+        return
+    end
+
+    local normalizedData = {
+        quantity = itemData.quantity or 1,
+        itemName = itemData.itemName or UNKNOWN,
+        itemQuality = itemData.itemQuality or 0,
+        itemTexture = itemData.itemTexture,
+        craftingQuality = itemData.craftingQuality,
+        isCraftingReagent = itemData.isCraftingReagent,
+    }
 
     -- Проверяем, не является ли добавляемый предмет дубликатом
     for i = #ConsoleMenuFrame.LootListFrame.DisplayedItems, 1, -1 do
         local item = ConsoleMenuFrame.LootListFrame.DisplayedItems[i]
-        if item.itemName == itemData.itemName
-        and item.itemQuality == itemData.itemQuality
-        and item.craftingQuality == itemData.craftingQuality
-        and item.quantity == itemData.quantity
-        and item.itemTexture == itemData.itemTexture
+        if item.itemName == normalizedData.itemName
+        and item.itemQuality == normalizedData.itemQuality
+        and item.craftingQuality == normalizedData.craftingQuality
+        and item.quantity == normalizedData.quantity
+        and item.itemTexture == normalizedData.itemTexture
         then
             return
         end
@@ -71,12 +83,12 @@ local function AddItem(itemData)
 
     -- Добавляем предмет в очередь
     table.insert(ConsoleMenuFrame.LootListFrame.Queue, {
-        quantity = itemData.quantity,
-        itemName = itemData.itemName,
-        itemQuality = itemData.itemQuality,
-        itemTexture = itemData.itemTexture,
-        craftingQuality = itemData.craftingQuality,
-        isCraftingReagent = itemData.isCraftingReagent,
+        quantity = normalizedData.quantity,
+        itemName = normalizedData.itemName,
+        itemQuality = normalizedData.itemQuality,
+        itemTexture = normalizedData.itemTexture,
+        craftingQuality = normalizedData.craftingQuality,
+        isCraftingReagent = normalizedData.isCraftingReagent,
         startTime = GetTime(),
     })
     
@@ -137,7 +149,11 @@ end
 -- Функция для обновления фрейма предмета
 local function UpdateItemFrame(frame, item)
     if not item then return end
-    
+
+    local itemName = item.itemName or UNKNOWN
+    local itemQuality = item.itemQuality or 0
+    local quantity = item.quantity or 1
+
     frame.Icon.Texture:SetTexture(item.itemTexture)
     
     if item.craftingQuality then
@@ -156,16 +172,16 @@ local function UpdateItemFrame(frame, item)
         frame.Icon.CraftingQuality:Hide()
     end
 
-    local text = item.itemName
+    local text = itemName
 
-    local colorCode = ITEM_QUALITY_COLORS[item.itemQuality] and ITEM_QUALITY_COLORS[item.itemQuality].hex
+    local colorCode = ITEM_QUALITY_COLORS[itemQuality] and ITEM_QUALITY_COLORS[itemQuality].hex
 
-    if colorCode and item.itemQuality >= 3 then
+    if colorCode and itemQuality >= 3 then
         text = colorCode .. text .. "|r"
     end
 
-    if item.quantity > 1 then
-        text = text .. " x" .. item.quantity
+    if quantity > 1 then
+        text = text .. " x" .. quantity
     end
 
     frame.Text:SetText(text)
