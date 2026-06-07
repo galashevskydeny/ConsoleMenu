@@ -97,7 +97,7 @@ local function InitTabs()
     order = order + 1
 
     local flyoutSpellID = 244
-    _, _, numSlots, isKnown = GetFlyoutInfo(flyoutSpellID)
+    local _, _, numSlots, isKnown = GetFlyoutInfo(flyoutSpellID)
 
     if isKnown then
         tabs["hero"] = { title = "Путь героя", spells = {}, key = "hero", order = order }
@@ -190,7 +190,7 @@ local function UpdateFocus(element, changeFocus)
         FastTravelActiveButton:SetAttribute("toy", element.id)
     end
 
-    bindString = "CLICK FastTravelActiveButton:LeftButton"
+    local bindString = "CLICK FastTravelActiveButton:LeftButton"
     SetOverrideBinding(
         FastTravel, -- владелец бинда
         true, 
