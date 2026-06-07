@@ -4,9 +4,17 @@ local castBarHeight = 12
 local auraIconSize = 32
 local npcNameColorR, npcNameColorG, npcNameColorB, npcNameColorA = 1.0, 0.960784, 0.772549, 1.0
 
+local function IsObjectOfType(object, objectType)
+    return (type(object) == "table" or type(object) == "userdata")
+        and object.IsObjectType
+        and object:IsObjectType(objectType)
+end
+
 -- Функция для применения текстуры castbar с задержкой
 local function ApplyCastBarTextureWithDelay(castBar)
-    if not castBar then return end
+    if not IsObjectOfType(castBar, "StatusBar") then
+        return
+    end
     castBar:SetStatusBarTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\EnemyHealthBar.png")
 end
 
@@ -42,61 +50,76 @@ function ConsoleMenu:InitializeNameplate()
 
     -- Изменение внешнего вида полосы здоровья
     hooksecurefunc(NamePlateUnitFrameMixin, "UpdateAnchors", function(self)
-        local container = self.HealthBarsContainer
-        local healthBar = self.HealthBarsContainer.healthBar
-        local name = self.name
+        local container = self and self.HealthBarsContainer
+        local healthBar = container and container.healthBar
+        local name = self and self.name
         local castBar = self.castBar
         local unitFrame = self
 
-        local aurasFrame = self.AurasFrame
-        local debuffs = aurasFrame.DebuffListFrame
+        local aurasFrame = self and self.AurasFrame
+        local debuffs = aurasFrame and aurasFrame.DebuffListFrame
 
-        local fontName, _, _ = name:GetFont()
+        local fontName = "Fonts\\FRIZQT___CYR.TTF"
         
         -- Изменения текста имени
-        if name then
+        if IsObjectOfType(name, "FontString") then
             name:ClearAllPoints()
             name:SetTextColor(npcNameColorR, npcNameColorG, npcNameColorB, npcNameColorA)
-            local fontName, _, _ = name:GetFont()
-            if fontName then
-                name:SetFont(fontName, 14, "SLUG")
+            name:SetFont(fontName, 14, "SLUG")
+            if IsObjectOfType(healthBar, "StatusBar") then
+                PixelUtil.SetPoint(name, "BOTTOM", healthBar, "TOP", 0, 8)
             end
-            PixelUtil.SetPoint(name, "BOTTOM", self.HealthBarsContainer.healthBar, "TOP",0, 8)
         end
 
-        if healthBar then
+        if IsObjectOfType(healthBar, "StatusBar") then
             -- Меняем вид полосы здоровья
             healthBar:SetStatusBarColor(0.188235, 0.811765, 0.556863) -- Цвет 30CF8E
-            healthBar.barTexture:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\EnemyHealthBar.png")
-            healthBar.bgTexture:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\EnemyHealthBar.png")
-            healthBar.bgTexture:SetVertexColor(0, 0, 0, 0.5)
-            healthBar.bgTexture:ClearAllPoints()
-            healthBar.bgTexture:SetAllPoints(container)
-            healthBar.deselectedOverlay:Hide()
-            healthBar.selectedBorder:Hide()
-            healthBar.selectedBorder:SetAlpha(0)
-            PixelUtil.SetHeight(self.HealthBarsContainer, healthBarHeight)
-            container:ClearAllPoints()
-            PixelUtil.SetPoint(container, "BOTTOMLEFT", unitFrame, "LEFT", 36, 4)
-            PixelUtil.SetPoint(container, "BOTTOMRIGHT", unitFrame, "RIGHT", -36, 4)
+            if IsObjectOfType(healthBar.barTexture, "Texture") then
+                healthBar.barTexture:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\EnemyHealthBar.png")
+            end
+            if IsObjectOfType(healthBar.bgTexture, "Texture") then
+                healthBar.bgTexture:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\EnemyHealthBar.png")
+                healthBar.bgTexture:SetVertexColor(0, 0, 0, 0.5)
+                healthBar.bgTexture:ClearAllPoints()
+                if IsObjectOfType(container, "Frame") then
+                    healthBar.bgTexture:SetAllPoints(container)
+                end
+            end
+            if IsObjectOfType(healthBar.deselectedOverlay, "Texture") then
+                healthBar.deselectedOverlay:Hide()
+            end
+            if IsObjectOfType(healthBar.selectedBorder, "Texture") then
+                healthBar.selectedBorder:Hide()
+                healthBar.selectedBorder:SetAlpha(0)
+            end
+            if IsObjectOfType(container, "Frame") and IsObjectOfType(unitFrame, "Button") then
+                PixelUtil.SetHeight(container, healthBarHeight)
+                container:ClearAllPoints()
+                PixelUtil.SetPoint(container, "BOTTOMLEFT", unitFrame, "LEFT", 36, 4)
+                PixelUtil.SetPoint(container, "BOTTOMRIGHT", unitFrame, "RIGHT", -36, 4)
+            end
         end
 
-        if castBar then
+        if IsObjectOfType(castBar, "StatusBar") then
             PixelUtil.SetHeight(castBar, castBarHeight)
-            castBar:SetStatusBarTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\EnemyHealthBar.png")
+            ApplyCastBarTextureWithDelay(castBar)
             castBar:SetStatusBarColor(1.0, 0.960784, 0.772549, 1.0)
             castBar:ClearAllPoints()
-            castBar.Background:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\EnemyHealthBar.png")
-            castBar.Background:SetVertexColor(0, 0, 0, 0.5)
+            if IsObjectOfType(castBar.Background, "Texture") then
+                castBar.Background:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\EnemyHealthBar.png")
+                castBar.Background:SetVertexColor(0, 0, 0, 0.5)
+            end
             PixelUtil.SetPoint(castBar, "TOPLEFT", unitFrame, "LEFT", 48, 0)
             PixelUtil.SetPoint(castBar, "TOPRIGHT", unitFrame, "RIGHT", -48, 0)
-            castBar.Text:ClearAllPoints()
-            PixelUtil.SetPoint(castBar.Text, "TOP", castBar.Background, "BOTTOM", 0, -8)
-            castBar.Text:SetFont(fontName, 12, "SLUG")
+            if IsObjectOfType(castBar.Text, "FontString") and IsObjectOfType(castBar.Background, "Texture") then
+                castBar.Text:ClearAllPoints()
+                PixelUtil.SetPoint(castBar.Text, "TOP", castBar.Background, "BOTTOM", 0, -8)
+                castBar.Text:SetFont(fontName, 12, "SLUG")
+            end
         end
 
         -- Меняем расположение дебаффов
-        if debuffs then
+        if IsObjectOfType(debuffs, "Frame") and IsObjectOfType(healthBar, "StatusBar") then
             debuffs:ClearAllPoints()
             PixelUtil.SetPoint(debuffs, "LEFT", healthBar, "RIGHT", 8, 0)
         end
@@ -129,23 +152,25 @@ function ConsoleMenu:InitializeNameplate()
     end)
 
     hooksecurefunc(NamePlateCastingBarMixin, "UpdateIconShown", function(self)
-        if self.BorderShield then
-            self.BorderShield:Hide();
+        local borderShield = self and self.BorderShield
+        if IsObjectOfType(borderShield, "Texture") then
+            borderShield:Hide()
         end
     end)
 
     hooksecurefunc("CompactUnitFrame_UpdateHealthColor", function(frame)
         -- Проверяем, что это nameplate healthbar
-        if frame and frame.HealthBarsContainer and frame.HealthBarsContainer.healthBar then
-            local healthBar = frame.HealthBarsContainer.healthBar;
+        local healthBar = frame and frame.HealthBarsContainer and frame.HealthBarsContainer.healthBar
+        if IsObjectOfType(healthBar, "StatusBar") then
             healthBar:SetStatusBarColor(0.188235, 0.811765, 0.556863) -- Цвет 30CF8E
         end
     end)
 
     hooksecurefunc("CompactUnitFrame_UpdateName", function(frame)
         -- Blizzard может менять цвет имени в бою, принудительно возвращаем кастомный цвет.
-        if frame and frame.HealthBarsContainer and frame.HealthBarsContainer.healthBar and frame.name then
-            frame.name:SetTextColor(npcNameColorR, npcNameColorG, npcNameColorB, npcNameColorA)
+        local nameText = frame and frame.name
+        if IsObjectOfType(nameText, "FontString") then
+            nameText:SetTextColor(npcNameColorR, npcNameColorG, npcNameColorB, npcNameColorA)
         end
     end)
 
