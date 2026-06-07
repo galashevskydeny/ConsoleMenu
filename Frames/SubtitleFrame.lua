@@ -324,7 +324,7 @@ function ConsoleMenu:AddSubtitles(event, message, sender)
         
         local stopTime = startTime + duration
 
-        if event == "CHAT_MSG_MONSTER_EMOTE" then
+        if event == "CHAT_MSG_MONSTER_EMOTE" and not issecretvalue(sender) then
             line = string.gsub(line, "%%s", sender or "")
         end
 
@@ -335,7 +335,7 @@ function ConsoleMenu:AddSubtitles(event, message, sender)
 
         -- Убираем название игрового мира из отправителя игрока
         -- Если event содержит CHAT_MSG и не содержит _MONSTER_, обрезаем у sender все после дефиса
-        if event:find("CHAT_MSG") and not event:find("_MONSTER_") and not issecretvalue(sender) then
+        if sender and event:find("CHAT_MSG") and not event:find("_MONSTER_") and not issecretvalue(sender) then
             sender = sender:match("^([^-]+)") or sender
         end
 
@@ -714,7 +714,10 @@ function ConsoleMenu:SetSubtitleFrame()
            event == "CHAT_MSG_TEXT_EMOTE" or
            event == "CHAT_MSG_SAY"
         then
-            ConsoleMenu:AddSubtitles(event, ...)
+            local message, sender = ...
+            if not issecretvalue(message) and not issecretvalue(sender) then
+                ConsoleMenu:AddSubtitles(event, message, sender)
+            end
         elseif event == "GOSSIP_SHOW" then
             subtitleCloseToken = subtitleCloseToken + 1
             local message = C_GossipInfo.GetText()
