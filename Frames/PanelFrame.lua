@@ -185,7 +185,8 @@ local function CreatePanelScrollBox()
                     local outfitInfo = C_TransmogOutfitInfo.GetOutfitInfo(identifier)
                     name = outfitInfo.name
                 elseif actionType == "macro" then
-                    name = C_Macro.GetMacroInfo(identifier).name
+                    local macroName = C_Macro.GetMacroName(identifier)
+                    name = macroName or ""
                 elseif actionType == "summonmount" then
                     if identifier == 268435455 then
                         name = "Избранный маунт"
@@ -194,6 +195,8 @@ local function CreatePanelScrollBox()
                     end
                 elseif actionType == "spell" then
                     name = C_Spell.GetSpellInfo(identifier).name
+                elseif actionType == "item" then
+                    name = C_Item.GetItemNameByID(identifier)
                 elseif actionType == "summonpet" then
                     local _, _, _, _, _, _, _, petName = C_PetJournal.GetPetInfoByPetID(identifier)
                     name = petName

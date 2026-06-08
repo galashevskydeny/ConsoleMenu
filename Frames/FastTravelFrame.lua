@@ -18,7 +18,7 @@ local animationDuration = 0.1
 local className, classFile = UnitClass("player")
 
 local focusedIndex = 1
-local focusedTab = "favorites"
+local focusedTab = nil
 local tabs = {}
 
 local houseList = {}
@@ -35,44 +35,8 @@ local mageSpells = {
     world = {
         single = {344587, 176248, 176242, 35715, 33690},
         group = {344597, 176246, 176244, 33691, 35717}
-    },
-    actual = {
-        single = {1259190},
-        group = {1259194}
     }
 }
-
-local deathknightSpells = {
-    50977,
-}
-
-local monkSpells = {
-    126892,
-}
-
-local hearthstonesToys = {
-    265100, 263933, 246565, 190196, 257736, 209035, 245970, 200630, 172179, 168907, 182773, 188952, 208704, 193588, 236687, 184353, 180290, 228940, 165802, 162973, 163045, 166746, 165669, 166747, 210952
-}
-
-local toys = {
-    253629, 140192
-}
-
--- Возвращает случайную игрушку из hearthstonesToys, которой владеет персонаж
-local function GetRandomOwnedHearthstoneToy()
-    local ownedToys = {}
-    for _, toyID in ipairs(hearthstonesToys) do
-        if PlayerHasToy(toyID) then
-            table.insert(ownedToys, toyID)
-        end
-    end
-
-    if #ownedToys == 0 then
-        return nil -- у персонажа нет ни одной игрушки из списка
-    end
-
-    return ownedToys[math.random(#ownedToys)]
-end
 
 -- Функция для получения отсортированного списка ключей вкладок
 local function GetTabOrder()
@@ -91,10 +55,7 @@ end
 -- Функция для инициализации вкладок
 local function InitTabs()
     local order = 1
-    
-    -- Создаем вкладки
-    tabs["favorites"] = { title = "Избранное", key = "favorites", order = order }
-    order = order + 1
+    tabs = {}
 
     local flyoutSpellID = 244
     local _, _, numSlots, isKnown = GetFlyoutInfo(flyoutSpellID)
@@ -180,11 +141,6 @@ local function UpdateFocus(element, changeFocus)
     elseif element.type == "spell" then
         FastTravelActiveButton:SetAttribute("type", "spell")
         FastTravelActiveButton:SetAttribute("spell", element.id)
-    elseif element.type == "randomhearthstone" then
-        FastTravelActiveButton:SetAttribute("type", "toy")
-        local randomToy = GetRandomOwnedHearthstoneToy()
-        print(randomToy)
-        FastTravelActiveButton:SetAttribute("toy", randomToy)
     elseif element.type == "toy" then
         FastTravelActiveButton:SetAttribute("type", "toy")
         FastTravelActiveButton:SetAttribute("toy", element.id)
@@ -285,78 +241,37 @@ local function CreateFastTravelScrollBox()
         DataProvider:Flush()
 
         -- Обновляем списки заклинаний для вкладок мага, если они существуют
-        if classFile == "MAGE" and tabs["favorites"] and tabs["azeroth"] and tabs["world"] then
+        if classFile == "MAGE" and tabs["azeroth"] and tabs["world"] then
             if IsInGroup() then
-                tabs["favorites"].spells = mageSpells.actual.group
                 tabs["azeroth"].spells = mageSpells.azeroth.group
                 tabs["world"].spells = mageSpells.world.group
             else
-                tabs["favorites"].spells = mageSpells.actual.single
                 tabs["azeroth"].spells = mageSpells.azeroth.single
                 tabs["world"].spells = mageSpells.world.single
             end
-        elseif classFile == "DEATHKNIGHT" and tabs["favorites"] then
-            tabs["favorites"].spells = deathknightSpells
-        elseif classFile == "MONK" and tabs["favorites"] then
-            tabs["favorites"].spells = monkSpells
         end
-    
-        if focusedTab == "favorites" then
-            -- Добавляем камень возвращения
-            local itemInfo = 6948
-            local itemName, _, _, _, _, _, _, _, _, itemTexture = C_Item.GetItemInfo(itemInfo)
 
-            DataProvider:Insert({
-                id = "randomhearthstone",
-                type = "randomhearthstone",
-                name = itemName,
-                texture = itemTexture,
-            })
+        if not focusedTab or not tabs[focusedTab] then
+            focusedTab = GetTabOrder()[1]
+        end
+        if not focusedTab then
+            UpdateScrollBarVisibility()
+            return
+        end
 
-            local spells = tabs[focusedTab].spells or {}
+        local spells = tabs[focusedTab].spells or {}
 
-            for _, spellID in ipairs(spells) do
-                if IsSpellKnown(spellID) then
-                    -- Получаем инфо о заклинании
-                    local spellInfo = C_Spell.GetSpellInfo(spellID)
+        for _, spellID in ipairs(spells) do
+            if IsSpellKnown(spellID) then
+                -- Получаем инфо о заклинании
+                local spellInfo = C_Spell.GetSpellInfo(spellID)
 
-                    DataProvider:Insert({
-                        id = spellInfo.spellID,
-                        type = "spell",
-                        name = spellInfo.name,
-                        texture = spellInfo.iconID,
-                    })
-                end
-            end
-
-            for _, v in ipairs(toys) do
-                if PlayerHasToy(v) then
-
-                    local _, toyName, icon, _, _, _ = C_ToyBox.GetToyInfo(v)
-
-                    DataProvider:Insert({
-                        id = v,
-                        type = "toy",
-                        name = toyName,
-                        texture = icon,
-                    })
-                end
-            end
-        else
-            local spells = tabs[focusedTab].spells or {}
-
-            for _, spellID in ipairs(spells) do
-                if IsSpellKnown(spellID) then
-                    -- Получаем инфо о заклинании
-                    local spellInfo = C_Spell.GetSpellInfo(spellID)
-
-                    DataProvider:Insert({
-                        id = spellInfo.spellID,
-                        type = "spell",
-                        name = spellInfo.name,
-                        texture = spellInfo.iconID,
-                    })
-                end
+                DataProvider:Insert({
+                    id = spellInfo.spellID,
+                    type = "spell",
+                    name = spellInfo.name,
+                    texture = spellInfo.iconID,
+                })
             end
         end
     
@@ -376,46 +291,14 @@ end
 
 -- Функция предзагрузки данных
 local function PreloadData()
-    local itemsToPreload = {
-        6948,
-    }
-
-    for _, v in ipairs(toys) do
-        table.insert(itemsToPreload, v)
-    end
-
-    for _, itemID in ipairs(itemsToPreload) do
-        -- Создаём объект Item
-        local itemObj = Item:CreateFromItemID(itemID)
-        -- Запрашиваем загрузку данных
-        itemObj:ContinueOnItemLoad(function()
-           
-        end)
-    end
-
     local spells = {}
 
     local className, classFile = UnitClass("player")
     if classFile == "MAGE" then
-        for _, spellID in ipairs(mageSpells.azeroth.single) do
-            table.insert(spells, spellID)
-        end
-        for _, spellID in ipairs(mageSpells.azeroth.group) do
-            table.insert(spells, spellID)
-        end
-        for _, spellID in ipairs(mageSpells.world.single) do
-            table.insert(spells, spellID)
-        end
-        for _, spellID in ipairs(mageSpells.world.group) do
-            table.insert(spells, spellID)
-        end
-    elseif classFile == "DEATHKNIGHT" then
-        for _, spellID in ipairs(deathknightSpells) do
-            table.insert(spells, spellID)
-        end
-    elseif classFile == "MONK" then
-        for _, spellID in ipairs(monkSpells) do
-            table.insert(spells, spellID)
+        for _, spellSet in ipairs({mageSpells.azeroth.single, mageSpells.azeroth.group, mageSpells.world.single, mageSpells.world.group}) do
+            for _, spellID in ipairs(spellSet) do
+                table.insert(spells, spellID)
+            end
         end
     end
 
@@ -469,6 +352,9 @@ end
 -- Функция для смены текущей вкладки
 local function SwitchTab(direction)
     local tabOrder = GetTabOrder()
+    if #tabOrder == 0 then
+        return
+    end
     local currentIndex = 1
     for i, tabKey in ipairs(tabOrder) do
         if tabKey == focusedTab then
@@ -552,7 +438,7 @@ function ConsoleMenu:SetFastTravelFrame()
     FastTravel.Title.Text:SetPoint("RIGHT", FastTravelTitle, "RIGHT", sectionPadding, 0)
     FastTravel.Title.Text:SetFont("Fonts\\FRIZQT___CYR.TTF", titleFontSize, "")
     FastTravel.Title.Text:SetTextColor(1.0, 0.960784, 0.772549, 0.6)
-    FastTravel.Title.Text:SetText("Быстрое перемещение")
+    FastTravel.Title.Text:SetText("Порталы")
     FastTravel.Title.Text:SetJustifyH("LEFT")
 
     -- Создаём ScrollBox
@@ -560,6 +446,7 @@ function ConsoleMenu:SetFastTravelFrame()
 
     -- Создаем вкладки
     InitTabs()
+    focusedTab = GetTabOrder()[1]
 
     FastTravel.Tabs = CreateFrame("Frame", "FastTravelTabs", FastTravel)
     FastTravel.Tabs:SetPoint("BOTTOMLEFT", FastTravel, "BOTTOMLEFT", 0, 0)
@@ -685,6 +572,8 @@ function ConsoleMenu:SetFastTravelFrame()
     parentFrame:HookScript("OnShow", function()
         softTargetEnemy = GetCVar("SoftTargetEnemy")
         SetCVar("SoftTargetEnemy", 0)
+
+        ConsoleMenu:AnimatedHide(ConsoleMenuFrame.PanelFrame)
         
         -- Привязываем PADDUP к клику по FocusUpButton
         SetOverrideBindingClick(focusUpButton, true, "PADDUP", "FocusUpButton", "LeftButton")
@@ -699,7 +588,10 @@ function ConsoleMenu:SetFastTravelFrame()
         -- Привязываем PAD2 к клику по FastTravelHideButton (чтобы закрывать окно)
         SetOverrideBindingClick(hideButton, true, "PAD2", "FastTravelHideButton", "LeftButton")
 
-        UpdateFocus(parentFrame.ScrollBox:GetDataProvider().collection[1], true)
+        local firstElement = parentFrame.ScrollBox:GetDataProvider().collection[1]
+        if firstElement then
+            UpdateFocus(firstElement, true)
+        end
 
     end)
 
@@ -730,7 +622,7 @@ function ConsoleMenu:SetFastTravelFrame()
 end
 
 -- Слеш-команда
-SLASH_FASTTRAVEL1 = "/fasttravel"
+SLASH_FASTTRAVEL1 = "/portals"
 SlashCmdList["FASTTRAVEL"] = function()
     if parentFrame and parentFrame:IsShown() then
         return

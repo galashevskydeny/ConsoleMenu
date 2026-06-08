@@ -6,7 +6,7 @@ local ConsoleMenu = _G.ConsoleMenu
 -- Таблица определений всех возможных макросов: имя -> {тело, иконка}
 local macroDefinitions = {
     ["Спешиться"] = {"/dismount [mounted, noflying]", "Ability_DragonRiding_LegStretches01"},
-    ["Перемещение"] = {"/fasttravel", "INV_HearthstonePet"},
+    ["Порталы"] = {"/portals", "SPELL_ARCANE_TELEPORTHALLOFTHEGUARDIAN"},
     ["Осмотреть"] = {"/targetfriend\n/inspect", "ACHIEVEMENT_GUILDPERK_LADYLUCK"},
     ["Предложить обмен"] = {"/targetfriend\n/trade", "ACHIEVEMENT_GUILDPERK_CASHFLOW_RANK2"},
     ["Трюк"] = {"/mountspecial", "INV_TreasureCrabPet_Purple"},
@@ -21,13 +21,13 @@ local function EnsureAllMacros()
     
     -- Заполняем таблицу в зависимости от включенных страниц панели действий
     if ConsoleMenuDB.actionBarPageExploring == 1 then
-        requiredMacros["Перемещение"] = macroDefinitions["Перемещение"]
+        requiredMacros["Порталы"] = macroDefinitions["Порталы"]
     end
     
     if ConsoleMenuDB.actionBarPagePlayerInteraction == 1 then
         requiredMacros["Осмотреть"] = macroDefinitions["Осмотреть"]
         requiredMacros["Предложить обмен"] = macroDefinitions["Предложить обмен"]
-        requiredMacros["Перемещение"] = macroDefinitions["Перемещение"]
+        requiredMacros["Порталы"] = macroDefinitions["Порталы"]
     end
     
     if ConsoleMenuDB.actionBarPageMount == 1 then
@@ -124,7 +124,7 @@ local function ApplyMacroSettings()
         -- SetActionForSlot(16, "empty", nil)
         -- Слот под L3 для классовой способности перемещения
         --SetActionForSlot(17, "empty", nil)
-        SetActionForSlot(18, "macro", "Перемещение")
+        --SetActionForSlot(18, "empty", "nil")
         SetActionForSlot(19, "empty", nil)
         SetActionForSlot(20, "summonmount", 0)
         SetActionForSlot(21, "empty", nil)
@@ -140,7 +140,7 @@ local function ApplyMacroSettings()
         -- SetActionForSlot(28, "empty", nil)
         -- Слот под L3 для классовой способности перемещения
         --SetActionForSlot(29, "empty", nil)
-        SetActionForSlot(30, "macro", "Перемещение")
+        --SetActionForSlot(30, "macro", "Перемещение")
         SetActionForSlot(31, "empty", nil)
         SetActionForSlot(32, "summonmount", 0)
         SetActionForSlot(33, "empty", nil)
