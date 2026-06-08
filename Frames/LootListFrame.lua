@@ -16,6 +16,9 @@ local captionFontSize = 20
 
 local padding = 20
 
+local lootListBackgroundVOffset = 280
+local lootListBackgroundHOffset = 720
+
 local frameHeight = titleFontSize + padding + sectionHeight * maxItemsCount + padding * (maxItemsCount - 1) + padding + captionFontSize
 
 local duration = 8
@@ -131,18 +134,67 @@ end
 
 -- Функция для обновления заголовков списка предметов
 local function UpdateListItemsTitle()
+    local lootFrame = ConsoleMenuFrame.LootListFrame
     local displayedCount = #ConsoleMenuFrame.LootListFrame.DisplayedItems
     
     if displayedCount > 0 then
-        ConsoleMenu:AnimatedShow(ConsoleMenuFrame.LootListFrame.Title)
+        ConsoleMenu:AnimatedShow(lootFrame.Title)
+        if lootFrame.background then
+            ConsoleMenu:AnimatedShow(lootFrame.background)
+        end
     else
-        ConsoleMenu:AnimatedHide(ConsoleMenuFrame.LootListFrame.Title)
+        ConsoleMenu:AnimatedHide(lootFrame.Title)
+        if lootFrame.background then
+            ConsoleMenu:AnimatedHide(lootFrame.background)
+        end
     end
 
     if displayedCount == maxItemsCount and #ConsoleMenuFrame.LootListFrame.Queue > 0 then
         ConsoleMenu:AnimatedShow(ConsoleMenuFrame.LootListFrame.AdditionalItemsCount)
     else
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.LootListFrame.AdditionalItemsCount)
+    end
+end
+
+local function ReanchorLootListBackground(pendingItemFrame)
+    local lootFrame = ConsoleMenuFrame and ConsoleMenuFrame.LootListFrame
+    if not lootFrame or not lootFrame.background or not lootFrame.Title then
+        return
+    end
+
+    local background = lootFrame.background
+    background:ClearAllPoints()
+    background:SetPoint("TOPLEFT", lootFrame.Title, "TOPLEFT", -lootListBackgroundHOffset, lootListBackgroundVOffset)
+    background:SetPoint("TOPRIGHT", lootFrame.Title, "TOPRIGHT", lootListBackgroundHOffset / 2, lootListBackgroundVOffset)
+
+    local totalItemsCount = #lootFrame.DisplayedItems + #lootFrame.Queue
+    if totalItemsCount > maxItemsCount and lootFrame.AdditionalItemsCount then
+        background:SetPoint("BOTTOMLEFT", lootFrame.AdditionalItemsCount, "BOTTOMLEFT", -lootListBackgroundHOffset, -lootListBackgroundVOffset)
+        background:SetPoint("BOTTOMRIGHT", lootFrame.AdditionalItemsCount, "BOTTOMRIGHT", lootListBackgroundHOffset / 2, -lootListBackgroundVOffset * 2)
+        return
+    end
+
+    local lastItem
+    local lowestBottom
+    if lootFrame.Items then
+        for i = 1, maxItemsCount do
+            local itemFrame = lootFrame.Items["Item" .. i]
+            if itemFrame and (itemFrame:IsShown() or itemFrame == pendingItemFrame) then
+                local bottom = itemFrame:GetBottom() or math.huge
+                if not lowestBottom or bottom < lowestBottom then
+                    lowestBottom = bottom
+                    lastItem = itemFrame
+                end
+            end
+        end
+    end
+
+    if lastItem then
+        background:SetPoint("BOTTOMLEFT", lastItem, "BOTTOMLEFT", -lootListBackgroundHOffset, -lootListBackgroundVOffset)
+        background:SetPoint("BOTTOMRIGHT", lastItem, "BOTTOMRIGHT", lootListBackgroundHOffset / 2, -lootListBackgroundVOffset)
+    elseif lootFrame.AdditionalItemsCount then
+        background:SetPoint("BOTTOMLEFT", lootFrame.AdditionalItemsCount, "BOTTOMLEFT", -lootListBackgroundHOffset, -lootListBackgroundVOffset)
+        background:SetPoint("BOTTOMRIGHT", lootFrame.AdditionalItemsCount, "BOTTOMRIGHT", lootListBackgroundHOffset / 2, -lootListBackgroundVOffset)
     end
 end
 
@@ -198,9 +250,10 @@ local function UpdateItemFrame(frame, item)
         end
     end
 
-    ConsoleMenu:AnimatedShow(frame)
     UpdateListItemsPoints()
     UpdateListItemsTitle()
+    ReanchorLootListBackground(frame)
+    ConsoleMenu:AnimatedShow(frame)
 
     C_Timer.After(duration, function()
 
@@ -217,6 +270,7 @@ local function UpdateItemFrame(frame, item)
         end
 
         UpdateListItemsTitle()
+        ReanchorLootListBackground()
         ConsoleMenu:AnimatedHide(frame)
     end)
 
@@ -313,6 +367,17 @@ function ConsoleMenu:SetLootList()
 
     end
 
+    -- Добавляем фон с текстурой
+    if not frame.background and frame.Title and frame.AdditionalItemsCount then
+        frame.background = frame:CreateTexture(nil, "BACKGROUND")
+        frame.background:SetParent(frame)
+        frame.background:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\CrossBackgorund.png")
+        frame.background:SetDrawLayer("BACKGROUND", 0)
+        ConsoleMenu:InitFadeAnimations(frame.background, animationDuration)
+        frame.background:Hide()
+        ReanchorLootListBackground()
+    end
+
     -- Секции предметов
     if not frame.Items then
         frame.Items = CreateFrame("Frame", "LootListFrameItems", frame)
@@ -370,13 +435,13 @@ function ConsoleMenu:SetLootList()
             end
 
             -- Затемнение фона
-            if not item.Background then
-                item.Background = item:CreateTexture(nil, "BACKGROUND")
-                item.Background:SetPoint("TOPLEFT", item, "TOPLEFT", -32, 32)
-                item.Background:SetPoint("BOTTOMRIGHT", item, "BOTTOMRIGHT", 32, -24)
-                item.Background:SetAtlas("Garr_BuildingInfoShadow")
-                item.Background:SetAlpha(shadowOpacity)
-            end
+            -- if not item.Background then
+            --     item.Background = item:CreateTexture(nil, "BACKGROUND")
+            --     item.Background:SetPoint("TOPLEFT", item, "TOPLEFT", -32, 32)
+            --     item.Background:SetPoint("BOTTOMRIGHT", item, "BOTTOMRIGHT", 32, -24)
+            --     item.Background:SetAtlas("Garr_BuildingInfoShadow")
+            --     item.Background:SetAlpha(shadowOpacity)
+            -- end
         end
     end
 
