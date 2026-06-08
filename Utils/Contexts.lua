@@ -249,6 +249,7 @@ function ConsoleMenu:ApplyContextUIChanges()
         elseif ConsoleMenuFrame.PlayerContext.window["panel"] then
             ConsoleMenu:AddKeysFrameItem("PAD2", "Выйти")
             ConsoleMenu:AddKeysFrameItem("PAD1", "Выбрать")
+            ConsoleMenu:AddKeysFrameItem("PADDLEFTRIGHT", "Переключение вкладок")
 
             ConsoleMenu:HideChatFrame()
         end

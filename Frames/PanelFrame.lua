@@ -10,16 +10,69 @@ local sectionHeight = 52
 local sectionPadding = 8
 local iconSize = sectionHeight - sectionPadding * 2
 local titleFontSize = 20
+local tabFontSize = 18
 local itemFontSize = 20
 
 local animationDuration = 0.1
 
 local gamePadActive = false
 local focusedIndex = 1
+local focusedTab = nil
+local tabs = {}
+local usePresetTabs = true
 
 local panelTitle = "Панель команд"
 local actionBarFirstSlot = 1
 local actionBarSlotCount = 12
+
+local panelsByNumber = {
+    [6] = { "Наряды", 145 },
+    [7] = { "Полезности", 157 },
+    [8] = { "Перемещение", 169 },
+}
+
+-- Функция для получения отсортированного списка ключей вкладок
+local function GetTabOrder()
+    local orderedKeys = {}
+    for key, tab in pairs(tabs) do
+        table.insert(orderedKeys, { key = key, order = tab.order })
+    end
+    table.sort(orderedKeys, function(a, b) return a.order < b.order end)
+    local result = {}
+    for _, item in ipairs(orderedKeys) do
+        table.insert(result, item.key)
+    end
+    return result
+end
+
+-- Инициализация вкладок панели
+local function InitTabs()
+    tabs = {}
+    local order = 1
+
+    local panelNumbers = {}
+    for panelNumber in pairs(panelsByNumber) do
+        table.insert(panelNumbers, panelNumber)
+    end
+    table.sort(panelNumbers)
+
+    for _, panelNumber in ipairs(panelNumbers) do
+        local panelData = panelsByNumber[panelNumber]
+        local title = panelData and panelData[1]
+        local firstSlot = panelData and panelData[2]
+        if title and firstSlot then
+            local key = tostring(panelNumber)
+            tabs[key] = {
+                key = key,
+                title = title,
+                firstSlot = firstSlot,
+                slotCount = actionBarSlotCount,
+                order = order,
+            }
+            order = order + 1
+        end
+    end
+end
 
 -- Установка иконки пункту списка
 local function SetIcon(frame, data)
@@ -98,6 +151,77 @@ local function MoveFocus(delta)
     UpdateFocus(element, true)
 end
 
+-- Обновление фреймов вкладок в зависимости от фокуса
+local function UpdateTabs()
+    local tabOrder = GetTabOrder()
+    local focusedTabIndex = 1
+    for i, tabKey in ipairs(tabOrder) do
+        if tabKey == focusedTab then
+            focusedTabIndex = i
+            break
+        end
+    end
+
+    for i, tabKey in ipairs(tabOrder) do
+        local tab = _G["PanelTab" .. i]
+        if not tab then
+            return
+        end
+        if tabKey == focusedTab then
+            tab.circle:Hide()
+            tab.text:Show()
+            local textWidth = tab.text:GetStringWidth()
+            tab:SetWidth(textWidth)
+        else
+            tab.circle:Show()
+            tab.text:Hide()
+
+            local diff = math.abs(focusedTabIndex - i)
+
+            if diff == 1 then
+                tab.circle:SetSize(sectionPadding, sectionPadding)
+                tab:SetWidth(sectionPadding)
+            else
+                local newSize = sectionPadding * ((#tabOrder - diff) / #tabOrder + 0.35)
+                tab.circle:SetSize(newSize, newSize)
+                tab:SetWidth(newSize)
+            end
+        end
+    end
+end
+
+-- Функция для смены текущей вкладки
+local function SwitchTab(direction)
+    local tabOrder = GetTabOrder()
+    if #tabOrder == 0 then
+        return
+    end
+
+    local currentIndex = 1
+    for i, tabKey in ipairs(tabOrder) do
+        if tabKey == focusedTab then
+            currentIndex = i
+            break
+        end
+    end
+
+    local newTabIndex = currentIndex + direction
+    if newTabIndex < 1 then
+        newTabIndex = 1
+    elseif newTabIndex > #tabOrder then
+        newTabIndex = #tabOrder
+    end
+
+    focusedTab = tabOrder[newTabIndex]
+    usePresetTabs = true
+    local selectedTab = tabs[focusedTab]
+    if selectedTab then
+        actionBarFirstSlot = selectedTab.firstSlot
+        actionBarSlotCount = selectedTab.slotCount
+    end
+    UpdateTabs()
+end
+
 -- Создание ScrollBox
 local function CreatePanelScrollBox()
 
@@ -106,7 +230,7 @@ local function CreatePanelScrollBox()
     local ScrollBox = CreateFrame("Frame", "PanelScrollBox", PanelScrollBox, "WowScrollBoxList")
     PanelScrollBox.ScrollBox = ScrollBox
     ScrollBox:SetPoint("TOPLEFT", PanelScrollBox, "TOPLEFT", 0, -sectionHeight)
-    ScrollBox:SetPoint("BOTTOMRIGHT", PanelScrollBox, "BOTTOMRIGHT", 0, 0)
+    ScrollBox:SetPoint("BOTTOMRIGHT", PanelScrollBox, "BOTTOMRIGHT", 0, sectionHeight)
 
     local ScrollBar = CreateFrame("EventFrame", "PanelScrollBar", PanelScrollBox, "MinimalScrollBar")
     PanelScrollBox.ScrollBox.ScrollBar = ScrollBar
@@ -175,6 +299,20 @@ local function CreatePanelScrollBox()
     local function SetItemList()
         DataProvider:Flush()
 
+        if usePresetTabs and (not focusedTab or not tabs[focusedTab]) then
+            focusedTab = GetTabOrder()[1]
+        end
+
+        if usePresetTabs and focusedTab and tabs[focusedTab] then
+            local selectedTab = tabs[focusedTab]
+            actionBarFirstSlot = selectedTab.firstSlot
+            actionBarSlotCount = selectedTab.slotCount
+        end
+
+        if ConsoleMenuFrame.PanelFrame and ConsoleMenuFrame.PanelFrame.Title and ConsoleMenuFrame.PanelFrame.Title.Text then
+            ConsoleMenuFrame.PanelFrame.Title.Text:SetText(panelTitle)
+        end
+
         for i = 0, actionBarSlotCount - 1 do
             local actionID = actionBarFirstSlot + i
             if C_ActionBar.HasAction(actionID) then
@@ -241,7 +379,7 @@ function ConsoleMenu:SetPanelFrame()
     ConsoleMenuFrame.PanelFrame = PanelFrame
     ConsoleMenu:InitFadeAnimations(PanelFrame, animationDuration)
 
-    PanelFrame:SetSize(frameWidth, sectionHeight * (viewedItemCount + 1))
+    PanelFrame:SetSize(frameWidth, sectionHeight * (viewedItemCount + 2))
     PanelFrame:SetPoint("BOTTOMLEFT", ConsoleMenuFrame, "BOTTOMLEFT", 48, 48)
 
     PanelFrame.Background = PanelFrame:CreateTexture(nil, "BACKGROUND")
@@ -309,6 +447,80 @@ function ConsoleMenu:SetPanelFrame()
     -- Создаём ScrollBox
     parentFrame, setItemList = CreatePanelScrollBox()
 
+    -- Создаем вкладки
+    InitTabs()
+    if not focusedTab or not tabs[focusedTab] then
+        focusedTab = GetTabOrder()[1]
+    end
+
+    PanelFrame.Tabs = CreateFrame("Frame", "PanelTabs", PanelFrame)
+    PanelFrame.Tabs:SetPoint("BOTTOMLEFT", PanelFrame, "BOTTOMLEFT", 0, 0)
+    PanelFrame.Tabs:SetPoint("BOTTOMRIGHT", PanelFrame, "BOTTOMRIGHT", 0, 0)
+    PanelFrame.Tabs:SetHeight(sectionHeight)
+
+    local previousTab = nil
+    local tabOrder = GetTabOrder()
+    for i, tabKey in ipairs(tabOrder) do
+        local tab = CreateFrame("Button", "PanelTab" .. i, PanelTabs)
+        if i == 1 then
+            tab:SetPoint("LEFT", PanelTabs, "LEFT", sectionPadding, 0)
+        else
+            tab:SetPoint("LEFT", previousTab, "RIGHT", sectionPadding, 0)
+        end
+
+        local text = tabs[tabKey].title
+        local tabFont = "Fonts\\FRIZQT___CYR.TTF"
+        if not tab.text then
+            tab.text = tab:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+            tab.text:SetFont(tabFont, tabFontSize, "")
+            tab.text:SetTextColor(1.0, 0.960784, 0.772549, 0.4)
+            tab.text:SetPoint("CENTER")
+        end
+        tab.text:SetText(text)
+
+        if not tab.circle then
+            tab.circle = CreateFrame("Frame", nil, tab)
+            tab.circle:SetSize(sectionPadding, sectionPadding)
+            tab.circle:SetPoint("CENTER", tab, "CENTER", 0, 0)
+
+            tab.circle.texture = tab.circle:CreateTexture(nil, "ARTWORK")
+            tab.circle.texture:SetAllPoints(tab.circle)
+            tab.circle.texture:SetColorTexture(1.0, 0.960784, 0.772549, 0.4)
+            tab.circle.texture:SetTexCoord(0, 1, 0, 1)
+
+            tab.circle.mask = tab.circle:CreateMaskTexture()
+            tab.circle.mask:SetAllPoints(tab.circle)
+            tab.circle.mask:SetTexture(
+                "Interface\\AddOns\\ConsoleMenu\\Assets\\MaskCircle.png",
+                "CLAMPTOBLACK"
+            )
+
+            tab.circle.texture:AddMaskTexture(tab.circle.mask)
+        end
+
+        tab.circle:Hide()
+        tab:SetWidth(tab.text:GetStringWidth())
+        tab:SetHeight(sectionHeight)
+
+        tab:SetScript("OnClick", function()
+            focusedTab = tabKey
+            usePresetTabs = true
+            local selectedTab = tabs[focusedTab]
+            if selectedTab then
+                actionBarFirstSlot = selectedTab.firstSlot
+                actionBarSlotCount = selectedTab.slotCount
+                PanelFrame.Title.Text:SetText(panelTitle)
+            end
+            UpdateTabs()
+            setItemList()
+            local element = parentFrame.ScrollBox:GetDataProvider().collection[1]
+            UpdateFocus(element, true)
+        end)
+
+        previousTab = tab
+    end
+
+    UpdateTabs()
 
     PanelFrame.SecureActionButton = CreateFrame("Button", "PanelActiveButton", PanelFrame, "SecureActionButtonTemplate")
     PanelFrame.SecureActionButton:SetAttribute("useOnKeyDown", false)
@@ -337,6 +549,32 @@ function ConsoleMenu:SetPanelFrame()
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.PanelFrame)
     end)
 
+    local tabLeftButton = CreateFrame("Button", "PanelTabLeftButton", parentFrame)
+    tabLeftButton:SetSize(1,1)
+    tabLeftButton:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 0, 80)
+    tabLeftButton:SetScript("OnClick", function()
+        SwitchTab(-1)
+        if PanelFrame.Title and PanelFrame.Title.Text then
+            PanelFrame.Title.Text:SetText(panelTitle)
+        end
+        setItemList()
+        local element = parentFrame.ScrollBox:GetDataProvider().collection[1]
+        UpdateFocus(element, true)
+    end)
+
+    local tabRightButton = CreateFrame("Button", "PanelTabRightButton", parentFrame)
+    tabRightButton:SetSize(1,1)
+    tabRightButton:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 0, 100)
+    tabRightButton:SetScript("OnClick", function()
+        SwitchTab(1)
+        if PanelFrame.Title and PanelFrame.Title.Text then
+            PanelFrame.Title.Text:SetText(panelTitle)
+        end
+        setItemList()
+        local element = parentFrame.ScrollBox:GetDataProvider().collection[1]
+        UpdateFocus(element, true)
+    end)
+
     -- Вешаем бинды, когда окно показывается:
     parentFrame:HookScript("OnShow", function()
         
@@ -347,6 +585,8 @@ function ConsoleMenu:SetPanelFrame()
 
         -- Привязываем PAD2 к клику по PanelHideButton (чтобы закрывать окно)
         SetOverrideBindingClick(hideButton, true, "PAD2", "PanelHideButton", "LeftButton")
+        SetOverrideBindingClick(tabLeftButton, true, "PADDLEFT", "PanelTabLeftButton", "LeftButton")
+        SetOverrideBindingClick(tabRightButton, true, "PADDRIGHT", "PanelTabRightButton", "LeftButton")
 
         local firstElement = parentFrame.ScrollBox:GetDataProvider().collection[1]
         if firstElement then
@@ -364,9 +604,12 @@ function ConsoleMenu:SetPanelFrame()
         ClearOverrideBindings(focusUpButton)
         ClearOverrideBindings(focusDownButton)
         ClearOverrideBindings(hideButton)
+        ClearOverrideBindings(tabLeftButton)
+        ClearOverrideBindings(tabRightButton)
 
         ConsoleMenu:DeleteKeysFrameItem("PAD1", "Выбрать")
         ConsoleMenu:DeleteKeysFrameItem("PAD2", "Выйти")
+        ConsoleMenu:DeleteKeysFrameItem("PADDLEFTRIGHT", "Переключение вкладок")
 
         ConsoleMenu:RemoveWindow("panel")
         ConsoleMenu:ApplyContextUIChanges()
@@ -375,72 +618,50 @@ function ConsoleMenu:SetPanelFrame()
     
 end
 
--- Разбор аргументов: заголовок, первый слот, количество слотов
--- Пример: /panel Наряды 145 12
--- Заголовок может содержать пробелы — последние два токена должны быть числами
-local function ParsePanelSlashArgs(msg)
-    local title = panelTitle
-    local firstSlot = actionBarFirstSlot
-    local slotCount = actionBarSlotCount
-
+-- Разбор аргумента: только номер панели, например /panel 6
+local function ParsePanelNumber(msg)
     if not msg or msg:match("^%s*$") then
-        return title, firstSlot, slotCount
+        return nil
     end
 
-    local parts = { strsplit(" ", strtrim(msg)) }
-    local partCount = #parts
-
-    if partCount >= 3 then
-        local count = tonumber(parts[partCount])
-        local first = tonumber(parts[partCount - 1])
-        if count and first then
-            slotCount = count
-            firstSlot = first
-            local titleParts = {}
-            for i = 1, partCount - 2 do
-                titleParts[#titleParts + 1] = parts[i]
-            end
-            if #titleParts > 0 then
-                title = table.concat(titleParts, " ")
-            end
-        elseif partCount >= 1 then
-            title = table.concat(parts, " ")
-        end
-    elseif partCount == 2 then
-        local first = tonumber(parts[2])
-        if first then
-            firstSlot = first
-            title = parts[1]
-        else
-            title = table.concat(parts, " ")
-        end
-    elseif partCount == 1 then
-        local first = tonumber(parts[1])
-        if first then
-            firstSlot = first
-        else
-            title = parts[1]
-        end
+    local panelNumber = tonumber(strtrim(msg))
+    if not panelNumber then
+        return nil
     end
 
-    return title, firstSlot, slotCount
+    if not panelsByNumber[panelNumber] then
+        return nil
+    end
+
+    return panelNumber
 end
 
--- Слеш-команда: /panel <заголовок> <первый_слот> <количество_слотов>
--- Пример: /panel Наряды 145 12
+-- Слеш-команда: /panel <номер_панели>
+-- Пример: /panel 6
 SLASH_PANEL1 = "/panel"
 SlashCmdList["PANEL"] = function(msg)
     if parentFrame and parentFrame:IsShown() then
         return
     end
 
-    panelTitle, actionBarFirstSlot, actionBarSlotCount = ParsePanelSlashArgs(msg)
+    local panelNumber = ParsePanelNumber(msg)
+    usePresetTabs = true
+
+    if panelNumber then
+        local panelData = panelsByNumber[panelNumber]
+        actionBarFirstSlot = panelData[2]
+        actionBarSlotCount = 12
+        focusedTab = tostring(panelNumber)
+    elseif not focusedTab then
+        focusedTab = GetTabOrder()[1]
+    end
 
     if not parentFrame then
         ConsoleMenu:SetPanelFrame()
     end
 
     if parentFrame then
+        UpdateTabs()
         if ConsoleMenuFrame.PanelFrame.Title and ConsoleMenuFrame.PanelFrame.Title.Text then
             ConsoleMenuFrame.PanelFrame.Title.Text:SetText(panelTitle)
         end
