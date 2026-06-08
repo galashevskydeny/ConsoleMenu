@@ -764,12 +764,25 @@ function ConsoleMenu:GetBindingCommandBySlotID(slotID)
     return bindingFormat:format(buttonID)
 end
 
+local function IsGamePadBindingKey(key)
+    return type(key) == "string" and string.match(key, "^PAD") ~= nil
+end
+
 --  Функция получения кнопки по идентификатору бинда
-function ConsoleMenu:GetCommandBinding(bindingCommand)
+function ConsoleMenu:GetCommandBinding(bindingCommand, preferGamePad)
 
     if not bindingCommand then return end
 
     local key1, key2 = GetBindingKey(bindingCommand)
-    return key1
+    if preferGamePad then
+        if IsGamePadBindingKey(key1) then
+            return key1
+        end
+        if IsGamePadBindingKey(key2) then
+            return key2
+        end
+    end
+
+    return key1 or key2
     
 end
