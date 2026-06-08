@@ -119,7 +119,7 @@ local function ApplyMacroSettings()
     
     if ConsoleMenuDB.actionBarPageExploring == 1 then
         SetActionForSlot(13, "macro", "Полезности")
-        SetActionForSlot(14, "macro", "Наряды")
+        --SetActionForSlot(14, "macro", "Наряды")
         -- SetActionForSlot(15, "empty", nil)
         -- SetActionForSlot(16, "empty", nil)
         -- Слот под L3 для классовой способности перемещения
