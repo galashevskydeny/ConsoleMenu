@@ -3,7 +3,7 @@
 local ConsoleMenu = _G.ConsoleMenu
 local parentFrame
 
-local frameWidth = 688
+local frameWidth = 640
 local frameHeight = 96
 local backgroundOverlapVertical = 200
 local backgroundOverlapHorizontal = 160
