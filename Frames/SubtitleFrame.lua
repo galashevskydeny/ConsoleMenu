@@ -3,7 +3,7 @@
 local ConsoleMenu = _G.ConsoleMenu
 local parentFrame
 
-local frameWidth = 640
+local frameWidth = 680
 local frameHeight = 96
 local backgroundOverlapVertical = 200
 local backgroundOverlapHorizontal = 160
@@ -45,6 +45,18 @@ local function SplitTextIntoLines(text)
     
     local lines = {}
     local maxLen = maxLineLength
+
+    local function trim_trailing_period(line)
+        line = line:gsub("%s+$", "")
+        if line:match("%.%.+%s*>$") or line:match("…%s*>$") then
+            return line
+        end
+        line = line:gsub("%.%s*>$", ">")
+        if line:match("%.%.+$") or line:match("…$") then
+            return line
+        end
+        return line:gsub("%.$", "")
+    end
     
     -- Вспомогательная функция для группировки предложений
     local function split_and_group_text(text, max_length)
@@ -165,12 +177,18 @@ local function SplitTextIntoLines(text)
             for i = 1, #grouped do
                 local groupedLine = grouped[i]
                 if #groupedLine < maxLen then
-                    lines[#lines + 1] = groupedLine
+                    local normalizedLine = trim_trailing_period(groupedLine)
+                    if normalizedLine ~= "" then
+                        lines[#lines + 1] = normalizedLine
+                    end
                 else
                     -- Если строка все еще длиннее maxLen, разбиваем по запятым
                     local commaSplit = split_by_commas(groupedLine, maxLen)
                     for j = 1, #commaSplit do
-                        lines[#lines + 1] = commaSplit[j]
+                        local normalizedLine = trim_trailing_period(commaSplit[j])
+                        if normalizedLine ~= "" then
+                            lines[#lines + 1] = normalizedLine
+                        end
                     end
                 end
             end
