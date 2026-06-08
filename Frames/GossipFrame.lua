@@ -3,7 +3,7 @@
 local ConsoleMenu = _G.ConsoleMenu
 local parentFrame
 
-local frameWidth = 688
+local frameWidth = 640
 
 local viewedItemCount = 3
 local sectionHeight = 52
@@ -355,8 +355,8 @@ local function CreateGossipScrollBox()
     -- Создаем ScrollBox
     local ScrollBox = CreateFrame("Frame", "GossipScrollBox", GossipScrollBox, "WowScrollBoxList")
     GossipScrollBox.ScrollBox = ScrollBox
-    ScrollBox:SetPoint("TOPLEFT", GossipScrollBox, "TOPLEFT", iconSize, 0)
-    ScrollBox:SetPoint("BOTTOMRIGHT", GossipScrollBox, "BOTTOMRIGHT", -iconSize, 0)
+    ScrollBox:SetPoint("TOPLEFT", GossipScrollBox, "TOPLEFT", 0, 0)
+    ScrollBox:SetPoint("BOTTOMRIGHT", GossipScrollBox, "BOTTOMRIGHT", -0, 0)
     
     -- Создаем ScrollBar
     local ScrollBar = CreateFrame("EventFrame", "GossipScrollBar", GossipScrollBox, "MinimalScrollBar")
@@ -945,7 +945,7 @@ function ConsoleMenu:SetCustomGossipFrame()
     
 
     frame:SetSize(frameWidth, sectionHeight * viewedItemCount)
-    frame:SetPoint("TOP", SubtitleFrame, "BOTTOM", 0, -16)
+    frame:SetPoint("TOP", SubtitleFrame, "BOTTOM", 0, -20)
     frame:Hide()
     ConsoleMenu:InitFadeAnimations(frame, animationDuration)
 

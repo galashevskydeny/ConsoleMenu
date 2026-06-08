@@ -3,10 +3,10 @@
 local ConsoleMenu = _G.ConsoleMenu
 local parentFrame
 
-local frameWidth = 680
+local frameWidth = 640
 local frameHeight = 96
 local backgroundOverlapVertical = 200
-local backgroundOverlapHorizontal = 160
+local backgroundOverlapHorizontal = 176
 
 local maxLineLength = 160
 local subtitleUpdateTimer = nil
@@ -448,20 +448,14 @@ end
 
 -- Размеры строк с секретным текстом возвращают secret number — их нельзя использовать в арифметике аддона.
 local function setSubtitleBackgroundSizeFromContent(frame, contentWidth, contentHeight)
-    local width = contentWidth
     if issecretvalue(contentWidth) or issecretvalue(contentHeight) then
         frame.Background:SetSize(
             frameWidth + backgroundOverlapHorizontal,
             frameHeight + backgroundOverlapVertical
         )
     else
-        if contentWidth > 160 then
-            width = contentWidth + backgroundOverlapHorizontal
-        else
-            width = frameWidth + backgroundOverlapHorizontal / 4
-        end
         frame.Background:SetSize(
-            width,
+            contentWidth + backgroundOverlapHorizontal,
             contentHeight + backgroundOverlapVertical
         )
     end
