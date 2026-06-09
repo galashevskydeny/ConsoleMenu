@@ -4,9 +4,9 @@ local ConsoleMenu = _G.ConsoleMenu
 local parentFrame
 local setItemList
 
-local frameWidth = 440
+local frameWidth = 480
 local viewedItemCount = 3
-local sectionHeight = 52
+local sectionHeight = 56
 local sectionPadding = 8
 local iconSize = sectionHeight - sectionPadding * 2
 local titleFontSize = 20
@@ -89,12 +89,19 @@ local function SetIcon(frame, data)
 
     if not frame.icon.border then
         frame.icon.border = frame.icon:CreateTexture(nil, "OVERLAY")
-        frame.icon.border:SetPoint("TOPLEFT", frame.icon.texture, "TOPLEFT", -6, 6)
-        frame.icon.border:SetPoint("BOTTOMRIGHT", frame.icon.texture, "BOTTOMRIGHT", 6, -6)
-        frame.icon.border:SetAtlas("plunderstorm-actionbar-slot-border")
         frame.icon.border:Hide()
     else
         frame.icon.border:Hide()
+    end
+
+    if data.type == "spell" then
+        frame.icon.border:SetAtlas("spellbook-item-iconframe")
+        frame.icon.border:SetPoint("TOPLEFT", frame.icon.texture, "TOPLEFT", -13, 3)
+        frame.icon.border:SetPoint("BOTTOMRIGHT", frame.icon.texture, "BOTTOMRIGHT", 3, -9)
+    else
+        frame.icon.border:SetAtlas("plunderstorm-actionbar-slot-border")
+        frame.icon.border:SetPoint("TOPLEFT", frame.icon.texture, "TOPLEFT", -8, 8)
+        frame.icon.border:SetPoint("BOTTOMRIGHT", frame.icon.texture, "BOTTOMRIGHT", 8, -8)
     end
 
     frame.icon.texture:SetAllPoints()
@@ -260,7 +267,7 @@ local function CreatePanelScrollBox()
         if not frame.icon then
             frame.icon = CreateFrame("Frame", nil, frame)
             frame.icon:SetSize(iconSize, iconSize)
-            frame.icon:SetPoint("LEFT", sectionPadding, 0)
+            frame.icon:SetPoint("LEFT", sectionPadding * 1.5, 0)
         end
 
         SetIcon(frame, data)
@@ -342,7 +349,7 @@ local function CreatePanelScrollBox()
 
                 DataProvider:Insert({
                     id = actionID,
-                    type = "action",
+                    type = actionType,
                     name = name,
                     texture = C_ActionBar.GetActionTexture(actionID),
                 })
@@ -437,7 +444,7 @@ function ConsoleMenu:SetPanelFrame()
     PanelFrame.Title:SetHeight(sectionHeight)
 
     PanelFrame.Title.Text = PanelFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    PanelFrame.Title.Text:SetPoint("LEFT", PanelFrameTitle, "LEFT", sectionPadding, 0)
+    PanelFrame.Title.Text:SetPoint("LEFT", PanelFrameTitle, "LEFT", sectionPadding * 1.5, 0)
     PanelFrame.Title.Text:SetPoint("RIGHT", PanelFrameTitle, "RIGHT", sectionPadding, 0)
     PanelFrame.Title.Text:SetFont("Fonts\\FRIZQT___CYR.TTF", titleFontSize, "")
     PanelFrame.Title.Text:SetTextColor(1.0, 0.960784, 0.772549, 0.6)
@@ -463,7 +470,7 @@ function ConsoleMenu:SetPanelFrame()
     for i, tabKey in ipairs(tabOrder) do
         local tab = CreateFrame("Button", "PanelTab" .. i, PanelTabs)
         if i == 1 then
-            tab:SetPoint("LEFT", PanelTabs, "LEFT", sectionPadding, 0)
+            tab:SetPoint("LEFT", PanelTabs, "LEFT", sectionPadding * 1.5, 0)
         else
             tab:SetPoint("LEFT", previousTab, "RIGHT", sectionPadding, 0)
         end

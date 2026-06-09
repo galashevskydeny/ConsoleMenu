@@ -4,9 +4,9 @@ local ConsoleMenu = _G.ConsoleMenu
 local parentFrame
 local setItemList
 
-local frameWidth = 440
+local frameWidth = 480
 local viewedItemCount = 3
-local sectionHeight = 52
+local sectionHeight = 56
 local sectionPadding = 8
 local iconSize = sectionHeight - sectionPadding * 2
 local titleFontSize = 20
@@ -91,8 +91,8 @@ local function SetIcon(frame, data)
 
     if not frame.icon.border then
         frame.icon.border = frame.icon:CreateTexture(nil, "OVERLAY")
-        frame.icon.border:SetPoint("TOPLEFT", frame.icon.texture, "TOPLEFT", -6, 6)
-        frame.icon.border:SetPoint("BOTTOMRIGHT", frame.icon.texture, "BOTTOMRIGHT", 6, -6)
+        frame.icon.border:SetPoint("TOPLEFT", frame.icon.texture, "TOPLEFT", -8, 8)
+        frame.icon.border:SetPoint("BOTTOMRIGHT", frame.icon.texture, "BOTTOMRIGHT", 8, -8)
         frame.icon.border:SetAtlas("plunderstorm-actionbar-slot-border")
         frame.icon.border:Hide()
     else
@@ -132,15 +132,9 @@ local function UpdateFocus(element, changeFocus)
         parentFrame.ScrollBox:ScrollToElementDataIndex(focusedIndex)
     end
 
-    if element.type == "item" then
-        FastTravelActiveButton:SetAttribute("type", "item")
-        FastTravelActiveButton:SetAttribute("item", element.name)
-    elseif element.type == "spell" then
+    if element.type == "spell" then
         FastTravelActiveButton:SetAttribute("type", "spell")
         FastTravelActiveButton:SetAttribute("spell", element.id)
-    elseif element.type == "toy" then
-        FastTravelActiveButton:SetAttribute("type", "toy")
-        FastTravelActiveButton:SetAttribute("toy", element.id)
     end
 
     local bindString = "CLICK FastTravelActiveButton:LeftButton"
@@ -198,7 +192,7 @@ local function CreateFastTravelScrollBox()
         if not frame.icon then
             frame.icon = CreateFrame("Frame", nil, frame)
             frame.icon:SetSize(iconSize, iconSize)
-            frame.icon:SetPoint("LEFT", sectionPadding, 0)
+            frame.icon:SetPoint("LEFT", sectionPadding * 1.5, 0)
         end
 
         SetIcon(frame, data)
@@ -286,23 +280,17 @@ local function CreateFastTravelScrollBox()
     return FastTravelScrollBox, SetItemList
 end
 
--- Функция предзагрузки данных
-local function PreloadData()
-    local spells = {}
+-- Предзагрузка данных заклинаний для более быстрого открытия списка
+local function PreloadSpellData()
+    if classFile ~= "MAGE" then
+        return
+    end
 
-    local className, classFile = UnitClass("player")
-    if classFile == "MAGE" then
-        for _, spellSet in ipairs({mageSpells.azeroth.single, mageSpells.azeroth.group, mageSpells.world.single, mageSpells.world.group}) do
-            for _, spellID in ipairs(spellSet) do
-                table.insert(spells, spellID)
-            end
+    for _, spellSet in ipairs({mageSpells.azeroth.single, mageSpells.azeroth.group, mageSpells.world.single, mageSpells.world.group}) do
+        for _, spellID in ipairs(spellSet) do
+            C_Spell.RequestLoadSpellData(spellID)
         end
     end
-
-    for _, spellID in ipairs(spells) do
-        C_Spell.RequestLoadSpellData(spellID)
-    end
-
 end
 
 -- Обновление фреймов вкладок в зависимости от фокуса
@@ -373,7 +361,7 @@ local function SwitchTab(direction)
 end
 
 function ConsoleMenu:SetFastTravelFrame()
-    PreloadData()
+    PreloadSpellData()
 
     if ConsoleMenuFrame.FastTravel then
         return
@@ -424,7 +412,7 @@ function ConsoleMenu:SetFastTravelFrame()
     FastTravel.Title:SetHeight(sectionHeight)
 
     FastTravel.Title.Text = FastTravel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    FastTravel.Title.Text:SetPoint("LEFT", FastTravelTitle, "LEFT", sectionPadding, 0)
+    FastTravel.Title.Text:SetPoint("LEFT", FastTravelTitle, "LEFT", sectionPadding * 1.5, 0)
     FastTravel.Title.Text:SetPoint("RIGHT", FastTravelTitle, "RIGHT", sectionPadding, 0)
     FastTravel.Title.Text:SetFont("Fonts\\FRIZQT___CYR.TTF", titleFontSize, "")
     FastTravel.Title.Text:SetTextColor(1.0, 0.960784, 0.772549, 0.6)
@@ -448,7 +436,7 @@ function ConsoleMenu:SetFastTravelFrame()
     for i, tabKey in ipairs(tabOrder) do
         local tab = CreateFrame("Button", "FastTravelTab" .. i, FastTravelTabs)
         if i == 1 then
-            tab:SetPoint("LEFT", FastTravelTabs, "LEFT", sectionPadding, 0)
+            tab:SetPoint("LEFT", FastTravelTabs, "LEFT", sectionPadding * 1.5, 0)
         else
             tab:SetPoint("LEFT", previousTab, "RIGHT", sectionPadding, 0)
         end
