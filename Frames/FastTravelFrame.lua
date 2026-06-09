@@ -21,9 +21,6 @@ local focusedIndex = 1
 local focusedTab = nil
 local tabs = {}
 
-local houseList = {}
-local currentHouseInfo = nil
-
 local softTargetEnemy
 local gamePadActive = false
 
@@ -306,7 +303,6 @@ local function PreloadData()
         C_Spell.RequestLoadSpellData(spellID)
     end
 
-    C_Housing.GetPlayerOwnedHouses()
 end
 
 -- Обновление фреймов вкладок в зависимости от фокуса
@@ -409,16 +405,10 @@ function ConsoleMenu:SetFastTravelFrame()
     FastTravel:RegisterEvent("PLAYER_REGEN_DISABLED") -- Начало боя
     FastTravel:RegisterUnitEvent("UNIT_SPELLCAST_START", "player") -- Игрок начал каст
     FastTravel:RegisterEvent("GAME_PAD_ACTIVE_CHANGED") -- Событие изменения режима геймпада
-    FastTravel:RegisterEvent("PLAYER_HOUSE_LIST_UPDATED")
 
     FastTravel:SetScript("OnEvent", function(self, event, ...)
         if event == "GAME_PAD_ACTIVE_CHANGED" then
             gamePadActive = ...
-            return
-        end
-
-        if event == "PLAYER_HOUSE_LIST_UPDATED" then
-            houseList = ...
             return
         end
 
