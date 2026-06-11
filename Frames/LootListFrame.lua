@@ -138,11 +138,15 @@ local function UpdateListItemsTitle()
     local displayedCount = #ConsoleMenuFrame.LootListFrame.DisplayedItems
     
     if displayedCount > 0 then
+        ConsoleMenu:PlayFadeOut(PartyFrame)
+        ConsoleMenu:PlayFadeOut(CompactRaidFrameContainer)
         ConsoleMenu:AnimatedShow(lootFrame.Title)
         if lootFrame.background then
             ConsoleMenu:AnimatedShow(lootFrame.background)
         end
     else
+        ConsoleMenu:PlayFadeIn(PartyFrame)
+        ConsoleMenu:PlayFadeIn(CompactRaidFrameContainer)
         ConsoleMenu:AnimatedHide(lootFrame.Title)
         if lootFrame.background then
             ConsoleMenu:AnimatedHide(lootFrame.background)

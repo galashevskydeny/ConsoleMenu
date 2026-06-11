@@ -136,7 +136,6 @@ function ConsoleMenu:GetPlayerContext()
         context = "housing"
     end
 
-    ConsoleMenuFrame.PlayerContext.lastContext = context
     return context
 end
 
@@ -185,6 +184,7 @@ end
 function ConsoleMenu:ApplyContextUIChanges()
 
     local context = ConsoleMenu:GetPlayerContext()
+
     ConsoleMenu:ResetKeysItems()
 
     if context == "exploring" then
@@ -220,8 +220,17 @@ function ConsoleMenu:ApplyContextUIChanges()
             ConsoleMenu:SetInteractBinding("softinteract")
         end
 
+        ConsoleMenu:UpdateKeysFrame()
+
+        if context == ConsoleMenuFrame.PlayerContext.lastContext then
+            return
+        end
+
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.CombatFrame)
+        ConsoleMenu:PlayFadeIn(ObjectiveTrackerFrame)
+        ConsoleMenu:AnimatedShow(Minimap)
+        PlayerFrame:SetAlpha(0)
 
     elseif context == "window" then
 
@@ -254,8 +263,15 @@ function ConsoleMenu:ApplyContextUIChanges()
             ConsoleMenu:HideChatFrame()
         end
 
+        ConsoleMenu:UpdateKeysFrame()
+
+        if context == ConsoleMenuFrame.PlayerContext.lastContext then
+            return
+        end
+
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.CombatFrame)
+        PlayerFrame:SetAlpha(0)
 
     elseif context == "mount" then
         local page = 4
@@ -329,8 +345,15 @@ function ConsoleMenu:ApplyContextUIChanges()
             ConsoleMenu:AddKeysFrameItem("PAD1", "Взаимодействие")
         end
 
+        ConsoleMenu:UpdateKeysFrame()
+
+        if context == ConsoleMenuFrame.PlayerContext.lastContext then
+            return
+        end
+
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.CombatFrame)
+        PlayerFrame:SetAlpha(0)
 
         if page == 4 then
             C_Timer.After(0.5, function()
@@ -379,14 +402,27 @@ function ConsoleMenu:ApplyContextUIChanges()
         elseif UnitIsInteractable("softinteract") and context == "precombat" then
             ConsoleMenu:AddKeysFrameItem("PAD1", "Взаимодействие")
         end
+
+        ConsoleMenu:UpdateKeysFrame()
+
+        if context == ConsoleMenuFrame.PlayerContext.lastContext then
+            return
+        end
+
+        if EncounterTimeline:IsShown() then
+            ConsoleMenu:PlayFadeOut(ObjectiveTrackerFrame)
+            ConsoleMenu:AnimatedHide(Minimap)
+        else
+            ConsoleMenu:PlayFadeIn(ObjectiveTrackerFrame)
+            ConsoleMenu:AnimatedShow(Minimap)
+        end
         
         ConsoleMenu:AnimatedShow(ConsoleMenuFrame.ActionBarFrame)
         ConsoleMenu:AnimatedShow(ConsoleMenuFrame.CombatFrame)
+        PlayerFrame:SetAlpha(1)
 
     elseif context == "housing" then
-        ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
-        ConsoleMenu:AnimatedHide(ConsoleMenuFrame.CombatFrame)
-    
+
         if ConsoleMenuFrame.PlayerContext.housing.currentEditMode == 0 then
             if ConsoleMenuFrame.PlayerContext.housing.IsInsideHouse then
                 ConsoleMenu:AddKeysFrameItem("PAD2", "Выйти из дома")
@@ -397,10 +433,22 @@ function ConsoleMenu:ApplyContextUIChanges()
             if ConsoleMenuFrame.PlayerContext.housing.IsInsideHouse then
             end
         end
+
+        ConsoleMenu:UpdateKeysFrame()
+
+        if context == ConsoleMenuFrame.PlayerContext.lastContext then
+            return
+        end
+
+        ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
+        ConsoleMenu:AnimatedHide(ConsoleMenuFrame.CombatFrame)
+        ConsoleMenu:PlayFadeOut(ObjectiveTrackerFrame)
+        ConsoleMenu:AnimatedHide(Minimap)
+        PlayerFrame:SetAlpha(0)
             
     end
 
-    ConsoleMenu:UpdateKeysFrame()
+    ConsoleMenuFrame.PlayerContext.lastContext = context
 end
 
 -- Функция инициализации контекстов

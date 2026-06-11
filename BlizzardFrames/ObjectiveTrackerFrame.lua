@@ -228,6 +228,8 @@ function ConsoleMenu:SetObjectiveTrackerFrame()
     --moveFrames()
     hideFramesAndRegions()
     setupQuestEventsCleanup()
+    ConsoleMenu:InitFadeAnimations(ObjectiveTrackerFrame, 0.2)
+
     --updateTextures()
 
 end

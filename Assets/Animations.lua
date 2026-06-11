@@ -74,4 +74,16 @@ function ConsoleMenu:AnimatedHide(frame)
     frame.fadeOut:Play()
 end
 
+function ConsoleMenu:PlayFadeIn(frame)
+    if not frame or not frame.fadeIn then return end
+    if frame:GetAlpha() ~= 0 then return end
+    frame.fadeIn:Play()
+end
+
+function ConsoleMenu:PlayFadeOut(frame)
+    if frame:GetAlpha() ~= 1 then return end
+    if not frame or not frame.fadeOut then return end
+    frame.fadeOut:Play()
+end
+
 
