@@ -40,6 +40,7 @@ Frames/StatusTrackingFrame.lua
 Frames/MainActionBar.lua
 Frames/PanelFrame.lua
 Frames/PlayerChoice.lua
+Frames/MerchantFrame.lua
 
 Utils/Contexts.lua
 Utils/HideBlizzardUI.lua
