@@ -117,19 +117,20 @@ local function UpdateFocus(element, changeFocus)
     end
 
     focusedIndex = parentFrame.ScrollBox:FindElementDataIndex(element)
+    if not focusedIndex then return end
+
+    -- Сначала прокручиваем к элементу: его frame может быть ещё не создан
+    -- из-за виртуализации ScrollBox, если элемент вне видимой области.
+    if changeFocus then
+        parentFrame.ScrollBox:ScrollToElementDataIndex(focusedIndex)
+    end
 
     local frame = parentFrame.ScrollBox:FindFrameByPredicate(function(frame, elementData)
         return elementData == element
     end)
 
-    if not frame then return end
-
-    if changeFocus then
+    if frame and changeFocus then
         frame:SetFocused(true)
-    end
-
-    if gamePadActive then
-        parentFrame.ScrollBox:ScrollToElementDataIndex(focusedIndex)
     end
 
     if element.type == "spell" then
@@ -149,7 +150,18 @@ end
 
 -- Функция переключения фокуса
 local function MoveFocus(delta)
-    local newIndex = math.max(1, math.min(focusedIndex + delta, FastTravelScrollBox:GetDataProviderSize()))
+    local totalItems = FastTravelScrollBox:GetDataProviderSize()
+    if totalItems <= 0 then
+        return
+    end
+
+    local newIndex = focusedIndex + delta
+    if newIndex < 1 then
+        newIndex = totalItems
+    elseif newIndex > totalItems then
+        newIndex = 1
+    end
+
     local element = parentFrame.ScrollBox:GetDataProvider().collection[newIndex]
     UpdateFocus(element, true)
 end
@@ -175,11 +187,11 @@ local function CreateFastTravelScrollBox()
 
     -- Обновление видимости скролл бара
     local function UpdateScrollBarVisibility()
-        local totalHeight = ScrollView:GetExtent() - 1
-        if totalHeight <= FastTravelScrollBox:GetHeight() then
-            FastTravelScrollBar:Hide()
+        local dataProviderSize = ScrollBox:GetDataProviderSize() or 0
+        if dataProviderSize <= viewedItemCount then
+            ScrollBar:Hide()
         else
-            FastTravelScrollBar:Show()
+            ScrollBar:Show()
         end
     end
 
@@ -267,6 +279,7 @@ local function CreateFastTravelScrollBox()
         end
     
         UpdateScrollBarVisibility()
+        C_Timer.After(0, UpdateScrollBarVisibility)
     end
 
     ScrollView:SetElementExtent(sectionHeight)
