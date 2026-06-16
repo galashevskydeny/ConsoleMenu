@@ -9,6 +9,8 @@ local buttonSize = 52
 local modelSize = 160
 local modelOffset = 0.039
 local modelScale = 0.017
+-- Изначальный modelOffset подбирался на экране MacBook Pro (примерно 16:10).
+local modelReferenceAspect = 16 / 10
 
 local iconSize = 28
 local stackCountSize = 24
@@ -22,9 +24,10 @@ local paddingPADD = buttonSize * 1.5
 local buttonVerticalPadding = buttonSize * 0.6
 local buttonHorizontalPadding = buttonSize * 0.6
 
-local shadowSize = 272
+local shadowSize = 320
 
 local animationDuration = 0.05
+local gamePadActive = false
 
 local buttonPositions = {
     PADRSTICK = { "TOP", "PADCenter", "BOTTOM", 0, -buttonVerticalPadding },
@@ -45,6 +48,40 @@ local ignoredSlot = {
     [53] = true,
     [65] = true,
 }
+
+local stackCountChange = {}
+
+-- Компенсация смещения под aspect ratio экрана,
+-- чтобы glow-эффект PlayerModel оставался по центру кнопки.
+local function GetGlowTransformOffset()
+    local width, height = GetPhysicalScreenSize()
+    if not width or not height or height == 0 then
+        return modelOffset
+    end
+
+    local currentAspect = width / height
+    if currentAspect <= 0 then
+        return modelOffset
+    end
+
+    return modelOffset * (modelReferenceAspect / currentAspect)
+end
+
+-- Масштаб glow также нормализуем относительно эталонного aspect,
+-- чтобы размер эффекта не "плавал" между экранами.
+local function GetGlowTransformScale()
+    local width, height = GetPhysicalScreenSize()
+    if not width or not height or height == 0 then
+        return modelScale
+    end
+
+    local currentAspect = width / height
+    if currentAspect <= 0 then
+        return modelScale
+    end
+
+    return modelScale * (modelReferenceAspect / currentAspect)
+end
 
 function ConsoleMenu:GetButtonPositions()
     return buttonPositions
@@ -73,18 +110,42 @@ end
 local function UpdateActionButtonIcon(slotID)
     local frame = ConsoleMenuFrame.ActionBarFrame
     local btn = frame.actionButtons[slotID]
-    local mainKey = btn.mainKey
     if not btn or not btn.Icon or not btn.Icon.Texture or not btn.mainKey then return end
+    local mainKey = btn.mainKey
+
+    -- Для пустых слотов иконку бинда не показываем.
+    if not C_ActionBar.HasAction(slotID) then
+        ConsoleMenu:AnimatedHide(btn.Icon)
+        return
+    end
+
+    local shouldShowIcon = (
+        mainKey == "PADRSTICK" or
+        mainKey == "PADLSTICK" or
+        mainKey == "4" or
+        mainKey == "5"
+    )
+
+    if not shouldShowIcon then
+        ConsoleMenu:AnimatedHide(btn.Icon)
+        return
+    end
 
     -- Обновление иконки
-    local texture = ConsoleMenu.Textures[mainKey].texture
-    btn.Icon.Texture:SetTexture(texture)
-
-    if mainKey == "PADRSTICK" or mainKey == "PADLSTICK" or mainKey == "4" or mainKey == "5" then
-        ConsoleMenu:AnimatedShow(btn.Icon)
-    else
+    local textureInfo = ConsoleMenu.Textures and ConsoleMenu.Textures[mainKey]
+    local texture = textureInfo and textureInfo.texture
+    if not texture or texture == "" then
+        -- Во время боя биндинг/текстура могут обновляться неатомарно.
+        -- Не трогаем текущую иконку, чтобы не получать неверное мигание.
+        if InCombatLockdown and InCombatLockdown() then
+            return
+        end
         ConsoleMenu:AnimatedHide(btn.Icon)
+        return
     end
+
+    btn.Icon.Texture:SetTexture(texture)
+    ConsoleMenu:AnimatedShow(btn.Icon)
 end
 
 -- Функция обновления текстуры кнопки
@@ -114,10 +175,8 @@ local function UpdateActionButtonTexture(slotID)
     end
 
     if issecretvalue(textureFileID) then
-        -- Если слот пуст, скрываем кнопку
-        btn.texture:SetTexture(nil)
-        btn.background:Hide()
-        ConsoleMenu:AnimatedHide(btn)
+        -- Во время боя API может вернуть secret-значение.
+        -- В этом случае не трогаем текущее состояние кнопки, чтобы не терять иконки.
         return
     end
 
@@ -126,8 +185,20 @@ local function UpdateActionButtonTexture(slotID)
         btn.background:Show()
         -- Кнопка будет показана/скрыта в UpdateButtonPositions на основе биндинга
     else
+        -- В бою API иногда временно возвращает nil даже для заполненного слота.
+        -- В этом случае сохраняем текущую иконку, чтобы она не исчезала визуально.
+        if InCombatLockdown and InCombatLockdown() and C_ActionBar.HasAction(slotID) then
+            return
+        end
+
         btn.texture:SetTexture(nil)
         btn.background:Hide()
+        if btn.StackCount then
+            ConsoleMenu:AnimatedHide(btn.StackCount)
+        end
+        if btn.Icon then
+            ConsoleMenu:AnimatedHide(btn.Icon)
+        end
     end
 
 end
@@ -193,16 +264,20 @@ local function UpdateActionButtonGlow(slotID, spellID, event)
         btn.Glow:SetKeepModelOnHide(true)
         btn.Glow:SetAnimation(1)
 
-        btn.Glow:SetTransform(
-            CreateVector3D(modelOffset, modelOffset, 0),
-            CreateVector3D(0, 0, 0),
-            modelScale
-        )
         btn.Glow:SetAlpha(1.0)
         btn.Glow:Show()
 
         ConsoleMenu:InitFadeAnimations(btn.Glow, animationDuration)
     end
+
+    -- Переустанавливаем transform на каждом обновлении:
+    -- это удерживает визуальный центр при разном соотношении сторон и смене разрешения.
+    local transformOffset = GetGlowTransformOffset()
+    btn.Glow:SetTransform(
+        CreateVector3D(transformOffset, transformOffset, 0),
+        CreateVector3D(0, 0, 0),
+        GetGlowTransformScale()
+    )
 
     -- Если spellID не передан, пытаемся получить его из слота
     if not spellID then
@@ -296,7 +371,7 @@ local function UpdateButtonPositions(slotID)
         if not btn then return end
         
         local command = ConsoleMenu:GetBindingCommandBySlotID(slotID)
-        local binding = ConsoleMenu:GetCommandBinding(command)
+        local binding = ConsoleMenu:GetCommandBinding(command, gamePadActive)
         btn.binding = binding
         
         -- Всегда записываем mainKey: если есть дефис - извлекаем, если нет - весь binding
@@ -323,7 +398,7 @@ local function UpdateButtonPositions(slotID)
     -- Обновление всех кнопок (если не передан slotID)
     for slotID, btn in pairs(frame.actionButtons) do
         local command = ConsoleMenu:GetBindingCommandBySlotID(slotID)
-        local binding = ConsoleMenu:GetCommandBinding(command)
+        local binding = ConsoleMenu:GetCommandBinding(command, gamePadActive)
         btn.binding = binding
         
         -- Всегда записываем mainKey: если есть дефис - извлекаем, если нет - весь binding
@@ -377,25 +452,23 @@ local function UpdateActionButtonCount(slotID)
     local btn = frame.actionButtons[slotID]
     if not btn or not btn.StackCount or not btn.StackCount.Text then return end
 
-    local count = nil
-    -- Однокнопочный помощник: счётчик берём от заклинания помощника (false = не требовать видимую кнопку, иначе spellID часто nil и счётчик не показывается)
-    if C_ActionBar and C_ActionBar.IsAssistedCombatAction and C_ActionBar.IsAssistedCombatAction(slotID) then
-        count = ""
-    end
-    if not count then
-        count = C_ActionBar.GetActionDisplayCount(slotID)
+    local count = C_ActionBar.GetActionDisplayCount(slotID)
+
+    if count and issecretvalue(count) then
+        -- Во время боя count может быть secret-значением.
+        -- Обновляем только текст, но не меняем видимость фрейма,
+        -- чтобы не возвращать баг с "вечным" фоном стаков.
+        btn.StackCount.Text:SetText(count)
+        return
     end
 
-    if count then
+    if (count and count ~= "" and count ~= "0" and count ~= 0) or stackCountChange[slotID] then
         btn.StackCount.Text:SetText(count)
+        stackCountChange[slotID] = true
+        ConsoleMenu:AnimatedShow(btn.StackCount)
     else
         btn.StackCount.Text:SetText("")
-    end
-
-    if not btn.StackCount.Text:GetText() then
         ConsoleMenu:AnimatedHide(btn.StackCount)
-    else
-        ConsoleMenu:AnimatedShow(btn.StackCount)
     end
 end
 
@@ -408,7 +481,10 @@ local function CreateSpellBarButtonFrame(parent, slotID)
     ConsoleMenu:InitFadeAnimations(buttonFrame, animationDuration)
 
     local textureFileID = C_ActionBar.GetActionTexture(slotID)
-    if issecretvalue(textureFileID) then return end
+    if issecretvalue(textureFileID) then
+        -- Не считаем слот пустым: просто отложим установку текстуры.
+        textureFileID = nil
+    end
 
     -- Добавляем фон под иконку, тоже текстура (создаем первым, чтобы был ниже)
     local background = buttonFrame:CreateTexture(nil, "BACKGROUND")
@@ -416,7 +492,7 @@ local function CreateSpellBarButtonFrame(parent, slotID)
     background:SetPoint("CENTER", buttonFrame, "CENTER", 0, 0)
     background:SetSize(backgroundSize, backgroundSize)
     background:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\pad-background.png")
-    background:SetVertexColor(0, 0, 0, 0.4)
+    background:SetVertexColor(0, 0, 0, 1)
     buttonFrame.background = background
 
     local texture = buttonFrame:CreateTexture(nil, "ARTWORK")
@@ -467,7 +543,7 @@ local function CreateSpellBarButtonFrame(parent, slotID)
         buttonFrame.StackCount:SetPoint("BOTTOMRIGHT", buttonFrame.texture, "BOTTOMRIGHT", stackCountOffset, -stackCountOffset)
         ConsoleMenu:InitFadeAnimations(buttonFrame.StackCount, animationDuration)
 
-        -- buttonFrame.StackCount:Hide()
+        buttonFrame.StackCount:Hide()
 
         -- Фон счетчика
         if not buttonFrame.StackCount.Background then
@@ -594,14 +670,18 @@ function ConsoleMenu:InitializeMainActionBar()
 
     for slotID = 1, 12 do
         local btn = CreateSpellBarButtonFrame(frame, slotID)
-        btn.slotID = slotID
-        frame.actionButtons[slotID] = btn
+        if btn then
+            btn.slotID = slotID
+            frame.actionButtons[slotID] = btn
+        end
     end
 
     for slotID = 49, 72 do
         local btn = CreateSpellBarButtonFrame(frame, slotID)
-        btn.slotID = slotID
-        frame.actionButtons[slotID] = btn
+        if btn then
+            btn.slotID = slotID
+            frame.actionButtons[slotID] = btn
+        end
     end
 
     frame:RegisterEvent("PLAYER_ENTERING_WORLD")
@@ -615,7 +695,6 @@ function ConsoleMenu:InitializeMainActionBar()
     frame:RegisterEvent("ACTIONBAR_UPDATE_COOLDOWN")
     frame:RegisterEvent("SPELL_UPDATE_COOLDOWN")
     frame:RegisterEvent("ACTIONBAR_UPDATE_STATE")
-    frame:RegisterEvent("ACTIONBAR_UPDATE_USABLE")
 
     frame:RegisterEvent("MODIFIER_STATE_CHANGED")
 
@@ -651,7 +730,11 @@ function ConsoleMenu:InitializeMainActionBar()
             UpdateButtonPositions()
             UpdateActionButtonCooldowns()
             UpdateModifierState()
-        elseif event == "GAME_PAD_ACTIVE_CHANGED" or event == "ACTIONBAR_SHOWGRID" or event == "ACTIONBAR_HIDEGRID" then
+        elseif event == "GAME_PAD_ACTIVE_CHANGED" then
+            gamePadActive = ...
+            UpdateButtonPositions()
+            UpdateModifierState()
+        elseif event == "ACTIONBAR_SHOWGRID" or event == "ACTIONBAR_HIDEGRID" then
             UpdateButtonPositions()
             UpdateModifierState()
         elseif event == "ACTIONBAR_SLOT_CHANGED" then
@@ -674,12 +757,13 @@ function ConsoleMenu:InitializeMainActionBar()
                 if slots then
                     for _, slotID in pairs(slots) do
                         UpdateActionButtonTexture(slotID)
+                        UpdateActionButtonIcon(slotID)
                         UpdateActionButtonCount(slotID)
                         
                     end
                 end
             end
-        elseif event == "ACTIONBAR_UPDATE_COOLDOWN" or event == "ACTIONBAR_UPDATE_STATE" or event == "ACTIONBAR_UPDATE_USABLE" then
+        elseif event == "ACTIONBAR_UPDATE_COOLDOWN" or event == "ACTIONBAR_UPDATE_STATE" then
             UpdateActionButtonCooldowns()
         elseif event == "MODIFIER_STATE_CHANGED" then
             UpdateModifierState()
@@ -701,8 +785,28 @@ function ConsoleMenu:InitializeMainActionBar()
             end
         elseif event == "ACTIONBAR_UPDATE_USABLE" then
             local changes = ...
-            for slotID, isUsable, isLackingResources in pairs(changes) do
-                UpdateActionButtonUsable(slotID, isUsable, isLackingResources)
+            if changes then
+                for slotID, changeData in pairs(changes) do
+                    local isUsable, isLackingResources
+                    if type(changeData) == "table" then
+                        isUsable = changeData.isUsable
+                        if isUsable == nil then
+                            isUsable = changeData[1]
+                        end
+
+                        isLackingResources = changeData.isLackingResources
+                        if isLackingResources == nil then
+                            isLackingResources = changeData[2]
+                        end
+                    else
+                        -- Поддержка плоского формата: значение = isUsable.
+                        isUsable = changeData
+                    end
+
+                    UpdateActionButtonUsable(slotID, isUsable, isLackingResources)
+                end
+            else
+                UpdateActionButtonCooldowns()
             end
         elseif event == "SPELL_UPDATE_CHARGES" then
             for slotID = 1, 12 do
@@ -722,10 +826,13 @@ end
 
 function ConsoleMenu:GetSlotTitle(actionType, id)
     if actionType == "macro" then
-        if subtype == "spell" then
-            actionType = "spell"
+        if C_Macro and C_Macro.GetMacroSpell then
+            local spellID = C_Macro.GetMacroSpell(id)
+            if spellID then
+                actionType = "spell"
+                id = spellID
+            end
         end
-        
     end
     
     if actionType == "spell" then
