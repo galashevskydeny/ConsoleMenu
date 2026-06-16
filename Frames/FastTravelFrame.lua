@@ -54,6 +54,13 @@ local function InitTabs()
     local order = 1
     tabs = {}
 
+    if classFile == "MAGE" then
+        tabs["azeroth"] = { title = "Азерот", spells = {}, key = "azeroth", order = order }
+        order = order + 1
+        tabs["world"] = { title = "Мир", spells = {}, key = "world", order = order }
+        order = order + 1
+    end
+
     local flyoutSpellID = 244
     local _, _, numSlots, isKnown = GetFlyoutInfo(flyoutSpellID)
 
@@ -67,13 +74,6 @@ local function InitTabs()
             end
         end
     end 
-
-    if classFile == "MAGE" then
-        tabs["azeroth"] = { title = "Азерот", spells = {}, key = "azeroth", order = order }
-        order = order + 1
-        tabs["world"] = { title = "Мир", spells = {}, key = "world", order = order }
-        order = order + 1
-    end
 end
 
 -- Установка иконки пункту списка
