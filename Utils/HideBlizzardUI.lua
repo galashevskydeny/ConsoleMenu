@@ -260,6 +260,25 @@ local function DisableSpellActivationOverlay()
     SpellActivationOverlayFrame:UnregisterAllEvents()
 end
 
+local function DisableMerchantFrame()
+    if MerchantFrame then
+        MerchantFrame:SetAlpha(0)
+    end
+
+    if type(OpenAllBags) ~= "function" then
+        return
+    end
+
+    originalOpenAllBags = OpenAllBags
+    OpenAllBags = function(frame, forceUpdate)
+        if frame and frame.GetName and frame:GetName() == "MerchantFrame" then
+            return
+        end
+        return originalOpenAllBags(frame, forceUpdate)
+    end
+end
+
+
 -- Основная функция, которая управляет отображением всех элементов UI Blizzard (1 = "Показать", 2 = "Скрыть")
 function ConsoleMenu:HideBlizzardUI()
 
@@ -376,5 +395,6 @@ function ConsoleMenu:HideBlizzardUI()
     ConsoleMenu:InitFadeAnimations(PartyFrame, 0.2)
     ConsoleMenu:InitFadeAnimations(CompactRaidFrameContainer, 0.2)
     ConsoleMenu:InitFadeAnimations(Minimap, 0.2)
+    DisableMerchantFrame()
 
 end

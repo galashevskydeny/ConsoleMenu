@@ -226,6 +226,7 @@ function ConsoleMenu:ApplyContextUIChanges()
             return
         end
 
+        ConsoleMenu:HideMerchantFrame()
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.CombatFrame)
         ConsoleMenu:PlayFadeIn(ObjectiveTrackerFrame)
@@ -243,6 +244,12 @@ function ConsoleMenu:ApplyContextUIChanges()
             end
 
             ConsoleMenu:HideChatFrame()
+        elseif ConsoleMenuFrame.PlayerContext.window[5] then
+            ConsoleMenu:ShowMerchantFrame()
+            ConsoleMenu:PlayFadeOut(ObjectiveTrackerFrame)
+            ConsoleMenu:AnimatedHide(Minimap)
+            ConsoleMenu:AddKeysFrameItem("PAD2", "Выйти")
+            ConsoleMenu:UpdateMerchantFrameKeysFrame()
         elseif ConsoleMenuFrame.PlayerContext.window["fasttravel"] then
             ConsoleMenu:AddKeysFrameItem("PAD2", "Выйти")
             ConsoleMenu:AddKeysFrameItem("PAD1", "Выбрать")
@@ -351,6 +358,7 @@ function ConsoleMenu:ApplyContextUIChanges()
             return
         end
 
+        ConsoleMenu:HideMerchantFrame()
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.CombatFrame)
         PlayerFrame:SetAlpha(0)
@@ -417,6 +425,8 @@ function ConsoleMenu:ApplyContextUIChanges()
             ConsoleMenu:AnimatedShow(Minimap)
         end
         
+        ConsoleMenu:HideMerchantFrame()
+
         ConsoleMenu:AnimatedShow(ConsoleMenuFrame.ActionBarFrame)
         ConsoleMenu:AnimatedShow(ConsoleMenuFrame.CombatFrame)
         PlayerFrame:SetAlpha(1)
@@ -440,6 +450,7 @@ function ConsoleMenu:ApplyContextUIChanges()
             return
         end
 
+        ConsoleMenu:HideMerchantFrame()
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.CombatFrame)
         ConsoleMenu:PlayFadeOut(ObjectiveTrackerFrame)

@@ -954,7 +954,7 @@ function ConsoleMenu:SetCustomGossipFrame()
     frame.Background:SetHeight(400)
     frame.Background:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 0)
     frame.Background:SetAtlas("LevelUp-Shadow-Upper")
-    frame.Background:SetAlpha(0.75)
+    frame.Background:SetAlpha(0.9)
 
     frame:HookScript("OnShow", function()
         softTargetEnemy = GetCVar("SoftTargetEnemy")
