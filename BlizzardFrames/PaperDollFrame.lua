@@ -286,7 +286,7 @@ function ApplyMaskToTexture(texture)
         local mask = texture:GetParent():CreateMaskTexture()
         
         -- Устанавливаем текстуру маски
-        mask:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\Mask")
+        mask:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\Mask.png")
         mask:SetAllPoints(texture)  -- Маска будет размером с текстуру
         
         -- Применяем маску

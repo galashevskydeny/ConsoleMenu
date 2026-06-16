@@ -29,7 +29,9 @@ local SubtitleEventPriority = {
     QUEST_DETAIL = 1,
     QUEST_PROGRESS = 1,
     QUEST_COMPLETE = 1,
-    QUEST_GREETING = 1
+    QUEST_GREETING = 1,
+    MERCHANT_SHOW = 1,
+    MERCHANT_ITEM_TOOLTIP = 1,
 }
 
 -- Локальная функция для разбиения текста на строки с учетом максимальной длины
@@ -672,10 +674,13 @@ function ConsoleMenu:SetSubtitleFrame()
     frame:RegisterEvent("QUEST_PROGRESS")
     frame:RegisterEvent("QUEST_COMPLETE")
     frame:RegisterEvent("QUEST_GREETING")
+
+    frame:RegisterEvent("MERCHANT_SHOW")
     -- Необходимо удалять субтитры
     frame:RegisterEvent("GOSSIP_CLOSED")
     frame:RegisterEvent("QUEST_FINISHED")
     frame:RegisterEvent("GOSSIP_CONFIRM")
+    frame:RegisterEvent("MERCHANT_CLOSED")
     
     local subtitleCloseToken = 0
 
@@ -755,6 +760,11 @@ function ConsoleMenu:SetSubtitleFrame()
             local message = GetGreetingText()
             local sender = UnitName("npc")
             ConsoleMenu:AddSubtitles(event, message, sender)
+        elseif event == "MERCHANT_SHOW" then
+            subtitleCloseToken = subtitleCloseToken + 1
+            local message = "Вот, что у меня есть для продажи"
+            local sender = UnitName("npc")
+            ConsoleMenu:AddSubtitles(event, message, sender)
         elseif event == "QUEST_FINISHED" then
             subtitleCloseToken = subtitleCloseToken + 1
             local currentToken = subtitleCloseToken
@@ -789,6 +799,26 @@ function ConsoleMenu:SetSubtitleFrame()
                 RemoveSubtitlesByPriority(1)
                 ConsoleMenu:SubtitleFrameUpdate()
             end)
+            return
+
+        elseif event == "MERCHANT_CLOSED" then
+            subtitleCloseToken = subtitleCloseToken + 1
+            local currentToken = subtitleCloseToken
+
+            C_Timer.After(animationDuration + 0.1, function()
+                if currentToken ~= subtitleCloseToken then
+                    return
+                end
+
+                if HasDialogueContext() then
+                    return
+                end
+
+                RemoveSubtitlesByPriority(1)
+                ConsoleMenu:SubtitleFrameUpdate()
+
+            end)
+
             return
         end
 

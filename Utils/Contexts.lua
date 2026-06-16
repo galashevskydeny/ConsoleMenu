@@ -246,8 +246,6 @@ function ConsoleMenu:ApplyContextUIChanges()
             ConsoleMenu:HideChatFrame()
         elseif ConsoleMenuFrame.PlayerContext.window[5] then
             ConsoleMenu:ShowMerchantFrame()
-            ConsoleMenu:PlayFadeOut(ObjectiveTrackerFrame)
-            ConsoleMenu:AnimatedHide(Minimap)
             ConsoleMenu:AddKeysFrameItem("PAD2", "Выйти")
             ConsoleMenu:UpdateMerchantFrameKeysFrame()
         elseif ConsoleMenuFrame.PlayerContext.window["fasttravel"] then

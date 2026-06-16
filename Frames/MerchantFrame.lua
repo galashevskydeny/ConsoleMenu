@@ -2,25 +2,21 @@ local ConsoleMenu = _G.ConsoleMenu
 
 local dataProvider
 
-local frameWidth = 560
-local contentPadding = 52
+local frameWidth = 640
+local contentPadding = 0
 local backdropTemplateOffset = 20
 
 local titleSectionHeight = 32
-local titleFontSize = 24
 
-local viewedItemCount = 10
+local viewedItemCount = 3
 
-local sectionHeight = 64
-local sectionPadding = 10
-local unfocusedItemTextAlpha = 0.85
+local sectionHeight = 52
+local sectionPadding = 8
 local itemsSectionHeight = sectionHeight * viewedItemCount
 
 local iconSize = sectionHeight - sectionPadding * 2
-local itemFontSize = 16
-local descriptionFontSize = 14
-local currencyIconSize = 18
-local focusedTitleFontSize = itemFontSize + 2
+local itemFontSize = 20
+local currencyIconSize = 16
 
 local focusedIndex = 1
 local focusedMerchantSlot = nil
@@ -103,6 +99,12 @@ local function GetMerchantItemStackSize(merchantSlot)
 end
 
 local function UpdateMerchantActionKeys(element)
+    if element and element.type == "item" then
+        ConsoleMenu:AddKeysFrameItem("PAD3", "Описание предмета")
+    else
+        ConsoleMenu:DeleteKeysFrameItem("PAD3")
+    end
+
     if element and not element.isUnavailable then
         ConsoleMenu:AddKeysFrameItem("PAD1", "Купить предмет")
         if GetMerchantItemStackSize(element.merchantSlot) > 1 then
@@ -147,6 +149,72 @@ local function MoveFocus(delta)
     -- Если все элементы оказались разделителями, фокус не меняем.
 end
 
+local function RemoveTooltipQuotes(text)
+    if not text then
+        return text
+    end
+
+    for _, quote in ipairs({
+        "«", "»", '"', "'",
+        "\226\128\156", -- "
+        "\226\128\157", -- "
+        "\226\128\152", -- '
+        "\226\128\153", -- '
+    }) do
+        text = text:gsub(quote, "")
+    end
+
+    return text
+end
+
+local function TooltipPartNeedsSpaceSeparator(text)
+    if text:match("…$") then
+        return true
+    end
+
+    local lastChar = text:sub(-1)
+    return lastChar == "." or lastChar == "!" or lastChar == "?"
+end
+
+local function GetFocusedItemTooltip()
+    local focusedElement = GetFocusedElement()
+    if not focusedElement or focusedElement.type ~= "item" then
+        return nil
+    end
+
+    local merchantSlot = focusedElement.merchantSlot or focusedMerchantSlot
+    if not merchantSlot then
+        return nil
+    end
+
+    local tooltipData = C_TooltipInfo.GetMerchantItem(merchantSlot)
+    if not tooltipData or not tooltipData.lines then
+        return nil
+    end
+
+    local tooltipParts = { "Посмотрим..." }
+    for _, line in ipairs(tooltipData.lines) do
+        local leftText = line and line.leftText
+        local containsAngleBrackets = leftText and leftText:find("<", 1, true) and leftText:find(">", 1, true)
+        if leftText and leftText ~= "" and not containsAngleBrackets then
+            leftText = leftText:gsub("Использование: ", "", 1)
+            leftText = RemoveTooltipQuotes(leftText)
+            if leftText ~= "" then
+                table.insert(tooltipParts, leftText)
+            end
+        end
+    end
+
+    if #tooltipParts == 0 then
+        return nil
+    end
+
+    local tooltipText = table.concat(tooltipParts, ". ")
+
+    ConsoleMenu:AddSubtitles("MERCHANT_ITEM_TOOLTIP", tooltipText, UnitName("npc"))
+    ConsoleMenu:SubtitleFrameUpdate()
+end
+
 function ConsoleMenu:UpdateMerchantFrameKeysFrame()
     local candidate = dataProvider.collection[focusedIndex]
     UpdateMerchantActionKeys(candidate)
@@ -181,55 +249,33 @@ end
 
 function ConsoleMenu:SetMerchantFrame()
 
-    if not ConsoleMenuFrame.MerchantFrame then
-        local frame = CreateFrame("Frame", "MerchantFrame", ConsoleMenuFrame)
+    if not ConsoleMenuFrame.MerchantFrame or ConsoleMenuFrame.MerchantFrame == _G.MerchantFrame then
+        local frame = CreateFrame("Frame", "ConsoleMenuMerchantFrame", ConsoleMenuFrame)
         ConsoleMenuFrame.MerchantFrame = frame
     end
 
     local frame = ConsoleMenuFrame.MerchantFrame
     ConsoleMenu:InitFadeAnimations(frame, animationDuration)
 
-    frame:SetPoint("TOPLEFT", ConsoleMenuFrame, "TOPLEFT", 48, -(48))
+    frame:SetPoint("BOTTOM", ConsoleMenuFrame, "BOTTOM", 0, 100)
     frame:SetWidth(frameWidth)
-    frame:SetPoint("BOTTOMLEFT", ConsoleMenuFrame, "BOTTOMLEFT", 48, (48 - backdropTemplateOffset))
+    frame:SetHeight(itemsSectionHeight)
     --frame:SetSize(frameWidth, itemsSectionHeight + contentPadding * 2 + titleSectionHeight + 32)
     frame:Hide()
 
     if not frame.Background then
-        local background = CreateFrame("Frame", "MerchantFrameBackground", frame, "BackdropTemplate")
-        frame.Background = background
-        background:SetFrameStrata("BACKGROUND")
-        background:SetAllPoints(frame)
-        NineSliceUtil.ApplyLayoutByName(background, "CharacterCreateDropdown")
-        background:SetAlpha(0.85)
-    end
-
-    if not frame.Title then
-        local title = CreateFrame("Frame", "MerchantFrameTitle", frame)
-        frame.Title = title
-        title:SetPoint("TOPLEFT", frame, "TOPLEFT", contentPadding, -contentPadding)
-        title:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -contentPadding, -contentPadding)
-        title:SetHeight(titleSectionHeight)
-
-        if not frame.Title.Text then
-            local text = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-            frame.Title.Text = text
-            text:SetPoint("TOPLEFT", frame.Title, "TOPLEFT", 0, 0)
-            text:SetPoint("TOPRIGHT", frame.Title, "TOPRIGHT", 0, 0)
-            text:SetJustifyH("LEFT")
-            text:SetFont("Fonts\\FRIZQT___CYR.TTF", titleFontSize, "")
-            text:SetTextColor(1.0, 0.82, 0, 1)
-            text:SetText("Продавец")
-        end
+        frame.Background = frame:CreateTexture(nil, "BACKGROUND")
+        frame.Background:SetWidth(1300)
+        frame.Background:SetHeight(400)
+        frame.Background:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 0)
+        frame.Background:SetAtlas("LevelUp-Shadow-Upper")
+        frame.Background:SetAlpha(0.9)
     end
 
     if not frame.Items then
         local items = CreateFrame("Frame", "MerchantFrameItems", frame)
         frame.Items = items
-        items:SetPoint("TOPLEFT", frame.Title, "BOTTOMLEFT", 0, -contentPadding / 3)
-        items:SetPoint("TOPRIGHT", frame.Title, "BOTTOMRIGHT", 0, -contentPadding / 3)
-        items:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", contentPadding, contentPadding + backdropTemplateOffset)
-        --items:SetHeight(itemsSectionHeight)
+        items:SetAllPoints(frame)
 
         local scrollBox = CreateFrame("Frame", "MerchantFrameScrollBox", items, "WowScrollBoxList")
         items.ScrollBox = scrollBox
@@ -238,8 +284,8 @@ function ConsoleMenu:SetMerchantFrame()
         local scrollBar = CreateFrame("EventFrame", "MerchantFrameScrollBar", items, "MinimalScrollBar")
         items.ScrollBar = scrollBar
 
-        scrollBar:SetPoint("TOPRIGHT", scrollBox, "TOPRIGHT")
-        scrollBar:SetPoint("BOTTOMRIGHT", scrollBox, "BOTTOMRIGHT")
+        scrollBar:SetPoint("TOPLEFT", scrollBox, "TOPRIGHT")
+        scrollBar:SetPoint("BOTTOMLEFT", scrollBox, "BOTTOMRIGHT")
 
         local scrollView = CreateScrollBoxListLinearView()
         dataProvider = CreateDataProvider()
@@ -252,7 +298,7 @@ function ConsoleMenu:SetMerchantFrame()
             if not frame.icon then
                 frame.icon = CreateFrame("Frame", nil, frame)
                 frame.icon:SetSize(iconSize, iconSize)
-                frame.icon:SetPoint("LEFT", 0, 0)
+                frame.icon:SetPoint("LEFT", sectionPadding * 2, 0)
             end
 
 
@@ -286,12 +332,8 @@ function ConsoleMenu:SetMerchantFrame()
             -- Текст
             if not frame.text then
                 frame.text = CreateFrame("Frame", nil, frame)
-                frame.text:SetPoint("LEFT", frame.icon, "RIGHT", sectionPadding * 2, 0)
-                frame.text:SetHeight(sectionHeight)
 
                 frame.text.title = frame.text:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-                frame.text.title:SetPoint("TOPLEFT", frame.text, "TOPLEFT", 0, 0)
-                frame.text.title:SetPoint("TOPRIGHT", frame.text, "TOPRIGHT", 0, 0)
                 frame.text.title:SetJustifyH("LEFT")
                 frame.text.title:SetFont("Fonts\\FRIZQT___CYR.TTF", itemFontSize, "OUTLINE")
 
@@ -299,8 +341,8 @@ function ConsoleMenu:SetMerchantFrame()
                 frame.text.price:Hide()
 
                 frame.text.price.text = frame.text.price:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-                frame.text.price.text:SetJustifyH("LEFT")
-                frame.text.price.text:SetFont("Fonts\\FRIZQT___CYR.TTF", itemFontSize, "OUTLINE")
+                frame.text.price.text:SetJustifyH("RIGHT")
+                frame.text.price.text:SetFont("Fonts\\FRIZQT___CYR.TTF", currencyIconSize, "OUTLINE")
                 frame.text.price.text:SetTextColor(1, 0.976, 0.855, 1)
 
                 frame.text.price.icon = CreateFrame("Frame", nil, frame.text.price)
@@ -317,70 +359,15 @@ function ConsoleMenu:SetMerchantFrame()
                 frame.text.price.icon:Hide()
             end
 
+            if not frame.bg then
+                frame.bg = frame:CreateTexture(nil, "BACKGROUND")
+                frame.bg:SetAllPoints()
+                frame.bg:SetAtlas("Garr_BuildingInfoShadow")
+                frame.bg:Hide()
+            end
+
             if not frame.text.lines then
                 frame.text.lines = {}
-            end
-
-            local function UpdateTextHeight()
-                local titleHeight = frame.text.title:GetStringHeight()
-                if titleHeight <= 0 then
-                    titleHeight = itemFontSize
-                end
-
-                local totalHeight = titleHeight
-
-                local visibleLineHeights = {}
-                for _, lineText in ipairs(frame.text.lines) do
-                    if lineText:IsShown() then
-                        local lineHeight = lineText:GetStringHeight()
-                        if lineHeight <= 0 then
-                            lineHeight = descriptionFontSize
-                        end
-                        table.insert(visibleLineHeights, lineHeight)
-                    end
-                end
-
-                if #visibleLineHeights > 0 then
-                    -- Первая строка lines привязана к title с отступом -sectionPadding.
-                    totalHeight = totalHeight + sectionPadding
-                    for i, lineHeight in ipairs(visibleLineHeights) do
-                        totalHeight = totalHeight + lineHeight
-                        if i < #visibleLineHeights then
-                            totalHeight = totalHeight
-                        end
-                    end
-                end
-
-                if frame.text.price and frame.text.price:IsShown() then
-                    local priceHeight = frame.text.price.text:GetStringHeight()
-                    if priceHeight <= 0 then
-                        priceHeight = itemFontSize
-                    end
-                    priceHeight = math.max(priceHeight, currencyIconSize)
-                    local descriptionLineCount = #visibleLineHeights
-                    local priceTopGap = sectionPadding
-                    if descriptionLineCount > 1 then
-                        priceTopGap = sectionPadding * 2
-                    end
-                    totalHeight = totalHeight + priceTopGap + priceHeight
-                end
-
-                frame.text.height = totalHeight
-                frame.text:SetHeight(totalHeight)
-            end
-
-            local function UpdatePriceFrameHeight()
-                local textHeight = frame.text.price.text:GetStringHeight()
-                if textHeight <= 0 then
-                    textHeight = itemFontSize
-                end
-
-                local iconHeight = 0
-                if frame.text.price.icon:IsShown() then
-                    iconHeight = currencyIconSize
-                end
-
-                frame.text.price:SetHeight(math.max(textHeight, iconHeight))
             end
 
             -- Жесткий reset визуального состояния обязателен:
@@ -396,6 +383,7 @@ function ConsoleMenu:SetMerchantFrame()
             frame.icon.texture:Hide()
             frame.icon.border:Hide()
             frame.icon.overlay:Hide()
+            frame.bg:Hide()
             frame.text.price.text:SetText("")
             frame.text.price:Hide()
             frame.text.price.icon.texture:SetTexture(nil)
@@ -405,7 +393,6 @@ function ConsoleMenu:SetMerchantFrame()
                 lineText:Hide()
                 lineText:SetText("")
             end
-            UpdateTextHeight()
 
             if not data then
                 frame:SetHeight(sectionHeight)
@@ -413,13 +400,16 @@ function ConsoleMenu:SetMerchantFrame()
                 return
             end
 
+            frame.text:ClearAllPoints()
+            frame.text:SetPoint("LEFT", frame.icon, "RIGHT", sectionPadding, 0)
+            frame.text:SetPoint("RIGHT", frame, "RIGHT", -sectionPadding, 0)
+            frame.text:SetHeight(sectionHeight)
+
             frame.text.title:SetText(data.name or "")
+            frame.text.title:ClearAllPoints()
+            frame.text.title:SetPoint("LEFT", frame.text, "LEFT", 0, 0)
 
             if data.type == "item" then
-                frame.text:ClearAllPoints()
-                frame.text:SetPoint("LEFT", frame.icon, "RIGHT", sectionPadding * 2, -2)
-                frame.text:SetPoint("RIGHT", frame, "RIGHT", -sectionPadding * 4, -2)
-                frame.text.title:SetTextColor(1, 0.976, 0.855, 1)
 
                 frame.icon.texture:SetTexture(data.texture)
                 frame.icon.texture:SetDesaturated(data.isUnavailable or false)
@@ -446,128 +436,24 @@ function ConsoleMenu:SetMerchantFrame()
                 end
             elseif data.type == "separator" then
                 frame.text:ClearAllPoints()
-                frame.text:SetPoint("LEFT", frame, "LEFT", 0, -2)
-                frame.text:SetPoint("RIGHT", frame, "RIGHT", -sectionPadding * 4, -2)
+                frame.text:SetPoint("LEFT", frame, "LEFT", sectionPadding * 2, 0)
+                frame.text:SetPoint("RIGHT", frame, "RIGHT", -sectionPadding, 0)
                 frame.text.title:SetTextColor(1.0, 0.960784, 0.772549, 0.6)
                 frame.icon:Hide()
             else
-                -- Неизвестный тип: оставляем безопасный базовый текстовый стиль.
-                frame.text:ClearAllPoints()
-                frame.text:SetPoint("LEFT", frame.icon, "RIGHT", sectionPadding * 2, -2)
-                frame.text:SetPoint("RIGHT", frame, "RIGHT", -sectionPadding * 4, -2)
+
                 frame.text.title:SetTextColor(1, 0.976, 0.855, 1)
             end
 
             function frame:SetFocused(isFocused)
-
-                local function SetDefaultTitleText()
-                    frame.text.title:SetText(data.name or "")
-                end
-
-                local function SetFocusedTitleText()
-                    if data.stackCount and data.stackCount > 1 then
-                        frame.text.title:SetText(string.format("%s x%d", data.name, data.stackCount))
-                    else
-                        frame.text.title:SetText(data.name or "")
-                    end
-                end
-
-                local function ApplyDefaultItemLayout()
-                    frame.icon:ClearAllPoints()
-                    frame.icon:SetPoint("LEFT", frame, "LEFT", 0, 0)
-                    frame.text:ClearAllPoints()
-                    frame.text:SetPoint("LEFT", frame.icon, "RIGHT", sectionPadding * 2, -2)
-                    frame.text:SetPoint("RIGHT", frame, "RIGHT", -sectionPadding * 4, -2)
-                end
-
-                local function ApplySeparatorLayout()
-                    frame.text:ClearAllPoints()
-                    frame.text:SetPoint("LEFT", frame, "LEFT", 0, -2)
-                    frame.text:SetPoint("RIGHT", frame, "RIGHT", -sectionPadding * 4, -2)
-                end
-
-                local function ApplyExpandedItemLayout()
-                    frame.icon:ClearAllPoints()
-                    frame.icon:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -sectionPadding)
-                    frame.text:ClearAllPoints()
-                    frame.text:SetPoint("TOPLEFT", frame.icon, "TOPRIGHT", sectionPadding * 2, 0)
-                    frame.text:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -sectionPadding * 4, -sectionPadding)
-                end
-
-                if not isFocused or data.type ~= "item" or not data.merchantSlot then
-                    frame:SetHeight(sectionHeight)
-                    frame.text.title:SetFont("Fonts\\FRIZQT___CYR.TTF", itemFontSize, "OUTLINE")
-                    SetDefaultTitleText()
-                    if data.type == "separator" then
-                        frame.text:SetAlpha(1)
-                        ApplySeparatorLayout()
-                    else
-                        frame.text:SetAlpha(unfocusedItemTextAlpha)
-                        ApplyDefaultItemLayout()
-                    end
-                    for _, lineText in ipairs(frame.text.lines) do
-                        lineText:Hide()
-                        lineText:SetText("")
-                    end
-                    frame.text.price.text:SetText("")
-                    frame.text.price:Hide()
-                    frame.text.price.icon.texture:SetTexture(nil)
-                    frame.text.price.icon:Hide()
-                    frame.text.price:SetHeight(0)
-                    UpdateTextHeight()
-                    local wasDynamic = data.focusedHeight ~= nil
-                    data.focusedHeight = nil
-                    return wasDynamic
-                end
-
-                frame.text.title:SetFont("Fonts\\FRIZQT___CYR.TTF", focusedTitleFontSize, "OUTLINE")
-                local tooltipData = C_TooltipInfo.GetMerchantItem(data.merchantSlot)
-                frame.text:SetAlpha(1)
-                SetFocusedTitleText()
-                local tooltipLines = (tooltipData and tooltipData.lines) or {}
-                local lineIndex = 1
-                for tooltipLineIndex = 2, #tooltipLines do
-                    local tooltipLine = tooltipLines[tooltipLineIndex]
-                    local leftText = tooltipLine and tooltipLine.leftText
-                    local containsAngleBrackets = leftText and leftText:find("<", 1, true) and leftText:find(">", 1, true)
-                    if leftText and leftText ~= "" and not containsAngleBrackets then
-                        local lineText = frame.text.lines[lineIndex]
-                        if not lineText then
-                            lineText = frame.text:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-                            frame.text.lines[lineIndex] = lineText
-                            lineText:SetJustifyH("LEFT")
-                            lineText:SetFont("Fonts\\FRIZQT___CYR.TTF", descriptionFontSize, "")
-                        end
-
-                        lineText:ClearAllPoints()
-                        if lineIndex == 1 then
-                            lineText:SetPoint("TOPLEFT", frame.text.title, "BOTTOMLEFT", 0, -sectionPadding)
-                            lineText:SetPoint("TOPRIGHT", frame.text.title, "BOTTOMRIGHT", 0, -sectionPadding)
-                        else
-                            lineText:SetPoint("TOPLEFT", frame.text.lines[lineIndex - 1], "BOTTOMLEFT", 0, -1)
-                            lineText:SetPoint("TOPRIGHT", frame.text.lines[lineIndex - 1], "BOTTOMRIGHT", 0, -1)
-                        end
-
-                        lineText:SetText(leftText)
-                        local leftColor = tooltipLine.leftColor
-                        if leftColor then
-                            lineText:SetTextColor(
-                                leftColor.r or 0.9,
-                                leftColor.g or 0.9,
-                                leftColor.b or 0.9,
-                                leftColor.a or 0.95
-                            )
-                        else
-                            lineText:SetTextColor(0.9, 0.9, 0.9, 0.95)
-                        end
-                        lineText:Show()
-                        lineIndex = lineIndex + 1
-                    end
-                end
-
-                for i = lineIndex, #frame.text.lines do
-                    frame.text.lines[i]:Hide()
-                    frame.text.lines[i]:SetText("")
+                if isFocused and data.type == "item" then
+                    frame.text.title:SetTextColor(1, 0.768, 0.071, 1)
+                    frame.bg:Show()
+                elseif data.type == "item" then
+                    frame.text.title:SetTextColor(1, 0.976, 0.855, 1)
+                    frame.bg:Hide()
+                else
+                    frame.bg:Hide()
                 end
 
                 local priceText = nil
@@ -600,7 +486,7 @@ function ConsoleMenu:SetMerchantFrame()
 
                         local formattedCostParts = {}
                         for _, costPart in ipairs(costParts) do
-                            table.insert(formattedCostParts, string.format("%s x%d", costPart.name, costPart.value))
+                            table.insert(formattedCostParts, string.format("x%d", costPart.value))
                         end
 
                         if data.price and data.price > 0 then
@@ -619,53 +505,41 @@ function ConsoleMenu:SetMerchantFrame()
                 frame.text.price.icon:ClearAllPoints()
                 frame.text.price.text:ClearAllPoints()
 
-                local descriptionLineCount = lineIndex - 1
-                if descriptionLineCount > 1 then
-                    frame.text.price:SetPoint("TOPLEFT", frame.text.lines[lineIndex - 1], "BOTTOMLEFT", 0, -sectionPadding * 2)
-                elseif descriptionLineCount == 1 then
-                    frame.text.price:SetPoint("TOPLEFT", frame.text.lines[lineIndex - 1], "BOTTOMLEFT", 0, -sectionPadding)
-                else
-                    frame.text.price:SetPoint("TOPLEFT", frame.text.title, "BOTTOMLEFT", 0, -sectionPadding)
-                end
-
-                frame.text.price:SetPoint("TOPRIGHT", frame.text, "TOPRIGHT", 0, 0)
-
                 if priceText then
+                    frame.text.price.text:SetText(priceText)
+                    frame.text.price.text:SetPoint("RIGHT", frame, "RIGHT", -sectionPadding * 2, 0)
+
+                    local titleRightAnchor = frame.text.price.text
                     if priceIconTexture and priceIconTexture ~= 0 then
                         frame.text.price.icon.texture:SetTexture(priceIconTexture)
-                        frame.text.price.icon:SetPoint("LEFT", frame.text.price, "LEFT", 0, 0)
+                        frame.text.price.icon:SetPoint("RIGHT", frame.text.price.text, "LEFT", -sectionPadding, 0)
                         frame.text.price.icon:Show()
-                        frame.text.price.text:SetPoint("LEFT", frame.text.price.icon, "RIGHT", sectionPadding, 0)
-                        frame.text.price.text:SetPoint("RIGHT", frame.text.price, "RIGHT", 0, 0)
+                        titleRightAnchor = frame.text.price.icon
                     else
                         frame.text.price.icon.texture:SetTexture(nil)
                         frame.text.price.icon:Hide()
-                        frame.text.price.text:SetPoint("TOPLEFT", frame.text.price, "TOPLEFT", 0, 0)
-                        frame.text.price.text:SetPoint("TOPRIGHT", frame.text.price, "TOPRIGHT", 0, 0)
                     end
-                    frame.text.price.text:SetText(priceText)
-                    UpdatePriceFrameHeight()
+
+                    frame.text.price:SetPoint("RIGHT", frame, "RIGHT", -sectionPadding * 2, 0)
+                    frame.text.price:SetHeight(math.max(itemFontSize, currencyIconSize))
                     frame.text.price:Show()
+
+                    frame.text.title:ClearAllPoints()
+                    frame.text.title:SetPoint("LEFT", frame.text, "LEFT", 0, 0)
+                    frame.text.title:SetPoint("RIGHT", titleRightAnchor, "LEFT", -sectionPadding, 0)
                 else
                     frame.text.price.icon.texture:SetTexture(nil)
                     frame.text.price.icon:Hide()
                     frame.text.price.text:SetText("")
                     frame.text.price:Hide()
                     frame.text.price:SetHeight(0)
+
+                    frame.text.title:ClearAllPoints()
+                    frame.text.title:SetPoint("LEFT", frame.text, "LEFT", 0, 0)
                 end
 
-                UpdateTextHeight()
-
-                local focusedHeight = math.max(sectionHeight, (frame.text.height or sectionHeight) + sectionPadding * 2)
-                frame:SetHeight(focusedHeight)
-                if focusedHeight > sectionHeight then
-                    ApplyExpandedItemLayout()
-                else
-                    ApplyDefaultItemLayout()
-                end
-                local changed = data.focusedHeight ~= focusedHeight
-                data.focusedHeight = focusedHeight
-                return changed
+                frame:SetHeight(sectionHeight)
+                return false
             end
 
             local isCurrentFocused = dataProvider
@@ -675,19 +549,7 @@ function ConsoleMenu:SetMerchantFrame()
 
         end
 
-        if scrollView.SetElementExtentCalculator then
-            scrollView:SetElementExtentCalculator(function(index, elementData)
-                local data = elementData
-                if type(data) ~= "table" and type(index) == "table" then
-                    data = index
-                end
-
-                local focusedHeight = data and data.focusedHeight or sectionHeight
-                return math.max(sectionHeight, focusedHeight)
-            end)
-        else
-            scrollView:SetElementExtent(sectionHeight)
-        end
+        scrollView:SetElementExtent(sectionHeight)
         scrollView:SetElementInitializer("Button", Initializer, "SecureActionButtonTemplate")
     
         ScrollUtil.InitScrollBoxListWithScrollBar(scrollBox, scrollBar, scrollView)
@@ -754,6 +616,18 @@ function ConsoleMenu:SetMerchantFrame()
         end)
     end
 
+    if not frame.TooltipButton then
+        local tooltipButton = CreateFrame("Button", "MerchantTooltipButton", frame, "SecureActionButtonTemplate")
+        frame.TooltipButton = tooltipButton
+        tooltipButton:SetAttribute("useOnKeyDown", false)
+        tooltipButton:RegisterForClicks("LeftButtonUp")
+        tooltipButton:SetSize(1, 1)
+        tooltipButton:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 100)
+        tooltipButton:SetScript("OnClick", function()
+            GetFocusedItemTooltip()
+        end)
+    end
+
     if not frame.FocusBindingHooksSet then
         frame.FocusBindingHooksSet = true
 
@@ -763,6 +637,7 @@ function ConsoleMenu:SetMerchantFrame()
             SetOverrideBindingClick(self.BuyButton, true, "PAD1", "MerchantBuyButton", "LeftButton")
             SetOverrideBindingClick(self.BuyStackButton, true, "PAD4", "MerchantBuyStackButton", "LeftButton")
             SetOverrideBindingClick(self.CloseButton, true, "PAD2", "MerchantCloseButton", "LeftButton")
+            SetOverrideBindingClick(self.TooltipButton, true, "PAD3", "MerchantTooltipButton", "LeftButton")
         end)
 
         frame:HookScript("OnHide", function(self)
@@ -784,6 +659,9 @@ function ConsoleMenu:SetMerchantFrame()
             if self.CloseButton then
                 ClearOverrideBindings(self.CloseButton)
             end
+            if self.TooltipButton then
+                ClearOverrideBindings(self.TooltipButton)
+            end
         end)
     end
 
@@ -795,20 +673,22 @@ function ConsoleMenu:ShowMerchantFrame()
         return
     end
 
-    local children = { MerchantFrame:GetChildren() }
-    for _, child in ipairs(children) do
-        child:Hide()
-    end
+    local blizzardMerchantFrame = _G.MerchantFrame
+    if blizzardMerchantFrame then
+        local children = { blizzardMerchantFrame:GetChildren() }
+        for _, child in ipairs(children) do
+            child:Hide()
+        end
 
-    local merchantRegions = { MerchantFrame:GetRegions() }
-    for _, region in ipairs(merchantRegions) do
-        if region and region.Hide then
-            region:Hide()
+        local merchantRegions = { blizzardMerchantFrame:GetRegions() }
+        for _, region in ipairs(merchantRegions) do
+            if region and region.Hide then
+                region:Hide()
+            end
         end
     end
 
     dataProvider:Flush()
-    frame.Title.Text:SetText(UnitName("npc"))
     local availableItems = {}
     local unavailableItems = {}
 
@@ -853,32 +733,32 @@ function ConsoleMenu:ShowMerchantFrame()
         })
     end
 
-    if #unavailableItems > 0 then
-        dataProvider:Insert({
-            type = "separator",
-            name = "Недоступные предметы",
-        })
+    -- if #unavailableItems > 0 then
+    --     dataProvider:Insert({
+    --         type = "separator",
+    --         name = "Недоступные предметы",
+    --     })
 
-        for _, item in ipairs(unavailableItems) do
-            dataProvider:Insert({
-                type = "item",
-                isUnavailable = true,
-                merchantSlot = item.merchantSlot,
-                itemID = item.itemID,
-                name = item.name,
-                texture = item.texture,
-                price = item.price or 0,
-                stackCount = item.stackCount,
-                numAvailable = item.numAvailable,
-                isPurchasable = item.isPurchasable,
-                isUsable = item.isUsable,
-                hasExtendedCost = item.hasExtendedCost,
-                currencyID = item.currencyID,
-                spellID = item.spellID,
-                isQuestStartItem = item.isQuestStartItem,
-            })
-        end
-    end
+    --     for _, item in ipairs(unavailableItems) do
+    --         dataProvider:Insert({
+    --             type = "item",
+    --             isUnavailable = true,
+    --             merchantSlot = item.merchantSlot,
+    --             itemID = item.itemID,
+    --             name = item.name,
+    --             texture = item.texture,
+    --             price = item.price or 0,
+    --             stackCount = item.stackCount,
+    --             numAvailable = item.numAvailable,
+    --             isPurchasable = item.isPurchasable,
+    --             isUsable = item.isUsable,
+    --             hasExtendedCost = item.hasExtendedCost,
+    --             currencyID = item.currencyID,
+    --             spellID = item.spellID,
+    --             isQuestStartItem = item.isQuestStartItem,
+    --         })
+    --     end
+    -- end
 
     local targetElement = nil
     if lastFocusedMerchantSlot then
