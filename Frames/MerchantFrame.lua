@@ -118,6 +118,23 @@ local function BuyFocusedItem()
     BuyMerchantItem(focusedMerchantSlot)
 end
 
+local function BuyFocusedItemStack()
+    if not focusedMerchantSlot then
+        return
+    end
+
+    local quantity = 1
+    local itemID = GetMerchantItemID(focusedMerchantSlot)
+    if itemID then
+        local stackSize = C_Item.GetItemMaxStackSizeByID(itemID)
+        if stackSize and stackSize > 0 then
+            quantity = stackSize
+        end
+    end
+
+    BuyMerchantItem(focusedMerchantSlot, quantity)
+end
+
 function ConsoleMenu:SetMerchantFrame()
 
     if not ConsoleMenuFrame.MerchantFrame then
@@ -647,6 +664,18 @@ function ConsoleMenu:SetMerchantFrame()
         end)
     end
 
+    if not frame.BuyStackButton then
+        local buyStackButton = CreateFrame("Button", "MerchantBuyStackButton", frame, "SecureActionButtonTemplate")
+        frame.BuyStackButton = buyStackButton
+        buyStackButton:SetAttribute("useOnKeyDown", false)
+        buyStackButton:RegisterForClicks("LeftButtonUp")
+        buyStackButton:SetSize(1, 1)
+        buyStackButton:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 80)
+        buyStackButton:SetScript("OnClick", function()
+            BuyFocusedItemStack()
+        end)
+    end
+
     if not frame.CloseButton then
         local closeButton = CreateFrame("Button", "MerchantCloseButton", frame, "SecureActionButtonTemplate")
         frame.CloseButton = closeButton
@@ -666,6 +695,7 @@ function ConsoleMenu:SetMerchantFrame()
             SetOverrideBindingClick(self.FocusUpButton, true, "PADDUP", "MerchantFocusUpButton", "LeftButton")
             SetOverrideBindingClick(self.FocusDownButton, true, "PADDDOWN", "MerchantFocusDownButton", "LeftButton")
             SetOverrideBindingClick(self.BuyButton, true, "PAD1", "MerchantBuyButton", "LeftButton")
+            SetOverrideBindingClick(self.BuyStackButton, true, "PAD4", "MerchantBuyStackButton", "LeftButton")
             SetOverrideBindingClick(self.CloseButton, true, "PAD2", "MerchantCloseButton", "LeftButton")
 
             local firstElement = dataProvider and dataProvider.collection[focusedIndex]
@@ -692,6 +722,9 @@ function ConsoleMenu:SetMerchantFrame()
             if self.BuyButton then
                 ClearOverrideBindings(self.BuyButton)
             end
+            if self.BuyStackButton then
+                ClearOverrideBindings(self.BuyStackButton)
+            end
             if self.CloseButton then
                 ClearOverrideBindings(self.CloseButton)
             end
@@ -705,6 +738,7 @@ function ConsoleMenu:SetMerchantFrame()
     local function OnMerchantFrameEvent(self, event, ...)
         if event == "MERCHANT_SHOW" or event == "MERCHANT_UPDATE" then
             C_Timer.After(0, function()
+                dataProvider:Flush()
                 frame.Title.Text:SetText(UnitName("npc"))
                 local availableItems = {}
                 local unavailableItems = {}
@@ -729,10 +763,6 @@ function ConsoleMenu:SetMerchantFrame()
                 end
 
                 local lastFocusedMerchantSlot = focusedMerchantSlot
-
-                if event == "MERCHANT_SHOW" then
-                    dataProvider:Flush()
-                end
 
                 for _, item in ipairs(availableItems) do
                     dataProvider:Insert({
@@ -781,13 +811,6 @@ function ConsoleMenu:SetMerchantFrame()
                     end
                 end
 
-                local providerSize = dataProvider:GetSize()
-                if providerSize <= viewedItemCount then
-                    frame.Items.ScrollBar:Hide()
-                else
-                    frame.Items.ScrollBar:Show()
-                end
-
                 local targetElement = nil
                 if lastFocusedMerchantSlot then
                     for _, element in ipairs(dataProvider.collection) do
@@ -812,6 +835,13 @@ function ConsoleMenu:SetMerchantFrame()
                 else
                     focusedIndex = 1
                     focusedMerchantSlot = nil
+                end
+
+                local scrollRange = frame.Items.ScrollBox and frame.Items.ScrollBox:GetDerivedScrollRange() or 0
+                if scrollRange > 0 then
+                    frame.Items.ScrollBar:Show()
+                else
+                    frame.Items.ScrollBar:Hide()
                 end
 
                 ConsoleMenu:AnimatedShow(frame)
