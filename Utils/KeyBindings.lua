@@ -456,8 +456,11 @@ function ConsoleMenu:SetInteractBinding(newTarget)
         return
     end
 
-    if newTarget then
+    local hasInteractTarget = UnitIsInteractable("softinteract") or UnitIsInteractable("softenemy")
+
+    if newTarget and hasInteractTarget then
         if InCombatLockdown() then
+            ConsoleMenu:DeleteKeysFrameItem("PAD1", "Взаимодействие")
             ConsoleMenu:DeleteKeysFrameItem("SHIFT-PAD1")
             ConsoleMenu:AddKeysFrameItem("SHIFT-PAD1", "Взаимодействие")
             ConsoleMenu:UpdateKeysFrame()
@@ -471,11 +474,13 @@ function ConsoleMenu:SetInteractBinding(newTarget)
     else
         
         if InCombatLockdown() then
+            ConsoleMenu:DeleteKeysFrameItem("PAD1", "Взаимодействие")
             ConsoleMenu:DeleteKeysFrameItem("SHIFT-PAD1", "Взаимодействие")
             ConsoleMenu:UpdateKeysFrame()
         else
             ClearOverrideBindings(self.InteractBindingFrame)
             ConsoleMenu:DeleteKeysFrameItem("PAD1", "Взаимодействие")
+            ConsoleMenu:DeleteKeysFrameItem("SHIFT-PAD1", "Взаимодействие")
             ConsoleMenu:UpdateKeysFrame()
         end
     end
