@@ -11,12 +11,14 @@ local titleFontSize = 24
 local viewedItemCount = 10
 local sectionHeight = 56
 local sectionPadding = 8
-local unfocusedItemTextAlpha = 0.7
+local unfocusedItemTextAlpha = 0.5
 local itemsSectionHeight = sectionHeight * viewedItemCount
 
 local iconSize = sectionHeight - sectionPadding * 2
 local itemFontSize = 14
 local descriptionFontSize = 12
+local currencyIconSize = 18
+local focusedTitleFontSize = itemFontSize + 2
 
 local focusedIndex = 1
 local focusedMerchantSlot = nil
@@ -136,7 +138,7 @@ function ConsoleMenu:SetMerchantFrame()
         background:SetFrameStrata("BACKGROUND")
         background:SetAllPoints(frame)
         NineSliceUtil.ApplyLayoutByName(background, "CharacterCreateDropdown")
-        background:SetAlpha(0.8)
+        background:SetAlpha(0.85)
     end
 
     if not frame.Title then
@@ -218,6 +220,27 @@ function ConsoleMenu:SetMerchantFrame()
                 frame.text.title:SetPoint("TOPRIGHT", frame.text, "TOPRIGHT", 0, 0)
                 frame.text.title:SetJustifyH("LEFT")
                 frame.text.title:SetFont("Fonts\\FRIZQT___CYR.TTF", itemFontSize, "OUTLINE")
+
+                frame.text.price = CreateFrame("Frame", nil, frame.text)
+                frame.text.price:Hide()
+
+                frame.text.price.text = frame.text.price:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+                frame.text.price.text:SetJustifyH("LEFT")
+                frame.text.price.text:SetFont("Fonts\\FRIZQT___CYR.TTF", itemFontSize, "OUTLINE")
+                frame.text.price.text:SetTextColor(1, 0.976, 0.855, 1)
+
+                frame.text.price.icon = CreateFrame("Frame", nil, frame.text.price)
+                frame.text.price.icon:SetSize(currencyIconSize, currencyIconSize)
+                frame.text.price.icon.texture = frame.text.price.icon:CreateTexture(nil, "ARTWORK")
+                frame.text.price.icon.texture:SetAllPoints()
+                frame.text.price.icon.mask = frame.text.price.icon:CreateMaskTexture()
+                frame.text.price.icon.mask:SetAllPoints(frame.text.price.icon.texture)
+                frame.text.price.icon.mask:SetTexture(
+                    "Interface\\AddOns\\ConsoleMenu\\Assets\\MaskCircle.png",
+                    "CLAMPTOBLACK"
+                )
+                frame.text.price.icon.texture:AddMaskTexture(frame.text.price.icon.mask)
+                frame.text.price.icon:Hide()
             end
 
             if not frame.text.lines then
@@ -231,30 +254,64 @@ function ConsoleMenu:SetMerchantFrame()
                 end
 
                 local totalHeight = titleHeight
-                local hasVisibleLines = false
+
+                local visibleLineHeights = {}
                 for _, lineText in ipairs(frame.text.lines) do
                     if lineText:IsShown() then
-                        hasVisibleLines = true
                         local lineHeight = lineText:GetStringHeight()
                         if lineHeight <= 0 then
                             lineHeight = descriptionFontSize
                         end
-                        totalHeight = totalHeight + lineHeight + 1
+                        table.insert(visibleLineHeights, lineHeight)
                     end
                 end
 
-                if hasVisibleLines then
-                    totalHeight = totalHeight + 2
+                if #visibleLineHeights > 0 then
+                    -- Первая строка lines привязана к title с отступом -sectionPadding.
+                    totalHeight = totalHeight + sectionPadding
+                    for i, lineHeight in ipairs(visibleLineHeights) do
+                        totalHeight = totalHeight + lineHeight
+                        -- Между строками lines отступ -1.
+                        if i < #visibleLineHeights then
+                            totalHeight = totalHeight + 1
+                        end
+                    end
+                end
+
+                if frame.text.price and frame.text.price:IsShown() then
+                    local priceHeight = frame.text.price.text:GetStringHeight()
+                    if priceHeight <= 0 then
+                        priceHeight = itemFontSize
+                    end
+                    priceHeight = math.max(priceHeight, currencyIconSize)
+                    -- price привязан под title/последнюю line с отступом -sectionPadding*2.
+                    totalHeight = totalHeight + sectionPadding * 2 + priceHeight
                 end
 
                 frame.text.height = totalHeight
                 frame.text:SetHeight(totalHeight)
             end
 
+            local function UpdatePriceFrameHeight()
+                local textHeight = frame.text.price.text:GetStringHeight()
+                if textHeight <= 0 then
+                    textHeight = itemFontSize
+                end
+
+                local iconHeight = 0
+                if frame.text.price.icon:IsShown() then
+                    iconHeight = currencyIconSize
+                end
+
+                frame.text.price:SetHeight(math.max(textHeight, iconHeight))
+            end
+
             -- Жесткий reset визуального состояния обязателен:
             -- ScrollBox переиспользует один и тот же frame для разных данных.
             frame.text.title:SetText("")
             frame.text:Show()
+            frame.text:SetAlpha(1)
+            frame.text.title:SetAlpha(1)
             frame.text.title:SetTextColor(1, 0.976, 0.855, 1)
             frame.icon:Show()
             frame.icon.texture:SetTexture(nil)
@@ -262,6 +319,11 @@ function ConsoleMenu:SetMerchantFrame()
             frame.icon.texture:Hide()
             frame.icon.border:Hide()
             frame.icon.overlay:Hide()
+            frame.text.price.text:SetText("")
+            frame.text.price:Hide()
+            frame.text.price.icon.texture:SetTexture(nil)
+            frame.text.price.icon:Hide()
+            frame.text.price:SetHeight(0)
             for _, lineText in ipairs(frame.text.lines) do
                 lineText:Hide()
                 lineText:SetText("")
@@ -344,6 +406,7 @@ function ConsoleMenu:SetMerchantFrame()
 
                 if not isFocused or data.type ~= "item" or not data.merchantSlot then
                     frame:SetHeight(sectionHeight)
+                    frame.text.title:SetFont("Fonts\\FRIZQT___CYR.TTF", itemFontSize, "OUTLINE")
                     if data.type == "separator" then
                         frame.text:SetAlpha(1)
                         ApplySeparatorLayout()
@@ -355,6 +418,11 @@ function ConsoleMenu:SetMerchantFrame()
                         lineText:Hide()
                         lineText:SetText("")
                     end
+                    frame.text.price.text:SetText("")
+                    frame.text.price:Hide()
+                    frame.text.price.icon.texture:SetTexture(nil)
+                    frame.text.price.icon:Hide()
+                    frame.text.price:SetHeight(0)
                     UpdateTextHeight()
                     local wasDynamic = data.focusedHeight ~= nil
                     data.focusedHeight = nil
@@ -364,8 +432,9 @@ function ConsoleMenu:SetMerchantFrame()
                 local tooltipData = C_TooltipInfo.GetMerchantItem(data.merchantSlot)
                 if not tooltipData or not tooltipData.lines then
                     frame.text:SetAlpha(1)
+                    frame.text.title:SetFont("Fonts\\FRIZQT___CYR.TTF", focusedTitleFontSize, "OUTLINE")
                     UpdateTextHeight()
-                    local focusedHeight = math.max(sectionHeight, (frame.text.height or sectionHeight))
+                    local focusedHeight = math.max(sectionHeight, (frame.text.height or sectionHeight) + sectionPadding * 2)
                     frame:SetHeight(focusedHeight)
                     if focusedHeight > sectionHeight then
                         ApplyExpandedItemLayout()
@@ -378,11 +447,13 @@ function ConsoleMenu:SetMerchantFrame()
                 end
 
                 frame.text:SetAlpha(1)
+                frame.text.title:SetFont("Fonts\\FRIZQT___CYR.TTF", focusedTitleFontSize, "OUTLINE")
                 local lineIndex = 1
                 for tooltipLineIndex = 2, #tooltipData.lines do
                     local tooltipLine = tooltipData.lines[tooltipLineIndex]
                     local leftText = tooltipLine and tooltipLine.leftText
-                    if leftText and leftText ~= "" then
+                    local containsAngleBrackets = leftText and leftText:find("<", 1, true) and leftText:find(">", 1, true)
+                    if leftText and leftText ~= "" and not containsAngleBrackets then
                         local lineText = frame.text.lines[lineIndex]
                         if not lineText then
                             lineText = frame.text:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -393,8 +464,8 @@ function ConsoleMenu:SetMerchantFrame()
 
                         lineText:ClearAllPoints()
                         if lineIndex == 1 then
-                            lineText:SetPoint("TOPLEFT", frame.text.title, "BOTTOMLEFT", 0, -3)
-                            lineText:SetPoint("TOPRIGHT", frame.text.title, "BOTTOMRIGHT", 0, -3)
+                            lineText:SetPoint("TOPLEFT", frame.text.title, "BOTTOMLEFT", 0, -sectionPadding)
+                            lineText:SetPoint("TOPRIGHT", frame.text.title, "BOTTOMRIGHT", 0, -sectionPadding)
                         else
                             lineText:SetPoint("TOPLEFT", frame.text.lines[lineIndex - 1], "BOTTOMLEFT", 0, -1)
                             lineText:SetPoint("TOPRIGHT", frame.text.lines[lineIndex - 1], "BOTTOMRIGHT", 0, -1)
@@ -421,9 +492,88 @@ function ConsoleMenu:SetMerchantFrame()
                     frame.text.lines[i]:Hide()
                     frame.text.lines[i]:SetText("")
                 end
+
+                local priceText = nil
+                local priceIconTexture = nil
+                local costCount = data.merchantSlot and (GetMerchantItemCostInfo(data.merchantSlot) or 0) or 0
+                if costCount > 0 and data.merchantSlot then
+                    local costParts = {}
+
+                    for costIndex = 1, costCount do
+                        local costTexture, costValue, costLink, currencyName = GetMerchantItemCostItem(data.merchantSlot, costIndex)
+                        if costValue and costValue > 0 then
+                            local costName = currencyName
+                            if not costName and costLink then
+                                local itemName = C_Item.GetItemInfo(costLink)
+                                costName = itemName or costLink
+                            end
+
+                            table.insert(costParts, {
+                                name = (costName and costName ~= "") and costName or "Валюта",
+                                value = costValue,
+                                texture = costTexture,
+                            })
+
+                            if not priceIconTexture and costTexture and costTexture ~= 0 then
+                                priceIconTexture = costTexture
+                            end
+                        end
+                    end
+
+                    local formattedCostParts = {}
+                    for _, costPart in ipairs(costParts) do
+                        table.insert(formattedCostParts, string.format("%s x%d", costPart.name, costPart.value))
+                    end
+
+                    if data.price and data.price > 0 then
+                        table.insert(formattedCostParts, GetMoneyString(data.price, true))
+                    end
+
+                    if #formattedCostParts > 0 then
+                        priceText = table.concat(formattedCostParts, ", ")
+                    end
+                elseif data.price and data.price > 0 then
+                    priceText = GetMoneyString(data.price, true)
+                end
+
+                frame.text.price:ClearAllPoints()
+                frame.text.price.icon:ClearAllPoints()
+                frame.text.price.text:ClearAllPoints()
+
+                if lineIndex > 1 then
+                    frame.text.price:SetPoint("TOPLEFT", frame.text.lines[lineIndex - 1], "BOTTOMLEFT", 0, -sectionPadding * 2)
+                else
+                    frame.text.price:SetPoint("TOPLEFT", frame.text.title, "BOTTOMLEFT", 0, -sectionPadding * 2)
+                end
+                frame.text.price:SetPoint("TOPRIGHT", frame.text, "TOPRIGHT", 0, 0)
+
+                if priceText then
+                    if priceIconTexture and priceIconTexture ~= 0 then
+                        frame.text.price.icon.texture:SetTexture(priceIconTexture)
+                        frame.text.price.icon:SetPoint("LEFT", frame.text.price, "LEFT", 0, 0)
+                        frame.text.price.icon:Show()
+                        frame.text.price.text:SetPoint("LEFT", frame.text.price.icon, "RIGHT", sectionPadding, 0)
+                        frame.text.price.text:SetPoint("RIGHT", frame.text.price, "RIGHT", 0, 0)
+                    else
+                        frame.text.price.icon.texture:SetTexture(nil)
+                        frame.text.price.icon:Hide()
+                        frame.text.price.text:SetPoint("TOPLEFT", frame.text.price, "TOPLEFT", 0, 0)
+                        frame.text.price.text:SetPoint("TOPRIGHT", frame.text.price, "TOPRIGHT", 0, 0)
+                    end
+                    frame.text.price.text:SetText(priceText)
+                    UpdatePriceFrameHeight()
+                    frame.text.price:Show()
+                else
+                    frame.text.price.icon.texture:SetTexture(nil)
+                    frame.text.price.icon:Hide()
+                    frame.text.price.text:SetText("")
+                    frame.text.price:Hide()
+                    frame.text.price:SetHeight(0)
+                end
+
                 UpdateTextHeight()
 
-                local focusedHeight = math.max(sectionHeight, (frame.text.height or sectionHeight) + sectionPadding * 4)
+                local focusedHeight = math.max(sectionHeight, (frame.text.height or sectionHeight) + sectionPadding * 2)
                 frame:SetHeight(focusedHeight)
                 if focusedHeight > sectionHeight then
                     ApplyExpandedItemLayout()
@@ -435,7 +585,10 @@ function ConsoleMenu:SetMerchantFrame()
                 return changed
             end
 
-            frame:SetFocused(false)
+            local isCurrentFocused = dataProvider
+                and dataProvider.collection
+                and dataProvider.collection[focusedIndex] == data
+            frame:SetFocused(isCurrentFocused)
 
         end
 
@@ -494,6 +647,18 @@ function ConsoleMenu:SetMerchantFrame()
         end)
     end
 
+    if not frame.CloseButton then
+        local closeButton = CreateFrame("Button", "MerchantCloseButton", frame, "SecureActionButtonTemplate")
+        frame.CloseButton = closeButton
+        closeButton:SetAttribute("useOnKeyDown", false)
+        closeButton:RegisterForClicks("LeftButtonUp")
+        closeButton:SetSize(1, 1)
+        closeButton:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 60)
+        closeButton:SetScript("OnClick", function()
+            CloseMerchant()
+        end)
+    end
+
     if not frame.FocusBindingHooksSet then
         frame.FocusBindingHooksSet = true
 
@@ -501,6 +666,7 @@ function ConsoleMenu:SetMerchantFrame()
             SetOverrideBindingClick(self.FocusUpButton, true, "PADDUP", "MerchantFocusUpButton", "LeftButton")
             SetOverrideBindingClick(self.FocusDownButton, true, "PADDDOWN", "MerchantFocusDownButton", "LeftButton")
             SetOverrideBindingClick(self.BuyButton, true, "PAD1", "MerchantBuyButton", "LeftButton")
+            SetOverrideBindingClick(self.CloseButton, true, "PAD2", "MerchantCloseButton", "LeftButton")
 
             local firstElement = dataProvider and dataProvider.collection[focusedIndex]
             if not firstElement and dataProvider then
@@ -526,6 +692,9 @@ function ConsoleMenu:SetMerchantFrame()
             if self.BuyButton then
                 ClearOverrideBindings(self.BuyButton)
             end
+            if self.CloseButton then
+                ClearOverrideBindings(self.CloseButton)
+            end
         end)
     end
 
@@ -537,34 +706,64 @@ function ConsoleMenu:SetMerchantFrame()
         if event == "MERCHANT_SHOW" or event == "MERCHANT_UPDATE" then
             C_Timer.After(0, function()
                 frame.Title.Text:SetText(UnitName("npc"))
-                dataProvider:Flush()
-                C_Timer.After(0, function()
-                    local availableItems = {}
-                    local unavailableItems = {}
+                local availableItems = {}
+                local unavailableItems = {}
 
-                    local count = GetMerchantNumItems()
-                    for i = 1, count do
-                        local info = C_MerchantFrame.GetItemInfo(i)
-                        local itemID = GetMerchantItemID(i)
-                        local isHeirloom = itemID and C_Heirloom.IsItemHeirloom(itemID)
-                        local isKnownHeirloom = isHeirloom and C_Heirloom.PlayerHasHeirloom(itemID)
-                        local hasTransmog = C_TransmogCollection.PlayerHasTransmogByItemInfo(itemID)
+                local count = GetMerchantNumItems()
+                for i = 1, count do
+                    local info = C_MerchantFrame.GetItemInfo(i)
+                    local itemID = GetMerchantItemID(i)
+                    local isHeirloom = itemID and C_Heirloom.IsItemHeirloom(itemID)
+                    local isKnownHeirloom = isHeirloom and C_Heirloom.PlayerHasHeirloom(itemID)
+                    local hasTransmog = C_TransmogCollection.PlayerHasTransmogByItemInfo(itemID)
 
-                        if info then
-                            info.itemID = itemID
-                            info.merchantSlot = i
-                            if not info.isPurchasable or (not info.isUsable and not isHeirloom) or info.numAvailable == 0 or isKnownHeirloom or hasTransmog then
-                                table.insert(unavailableItems, info)
-                            else
-                                table.insert(availableItems, info)
-                            end
+                    if info then
+                        info.itemID = itemID
+                        info.merchantSlot = i
+                        if not info.isPurchasable or (not info.isUsable and not isHeirloom) or info.numAvailable == 0 or isKnownHeirloom or hasTransmog then
+                            table.insert(unavailableItems, info)
+                        else
+                            table.insert(availableItems, info)
                         end
                     end
-                    
-                    for _, item in ipairs(availableItems) do
+                end
+
+                local lastFocusedMerchantSlot = focusedMerchantSlot
+
+                if event == "MERCHANT_SHOW" then
+                    dataProvider:Flush()
+                end
+
+                for _, item in ipairs(availableItems) do
+                    dataProvider:Insert({
+                        type = "item",
+                        isUnavailable = false,
+                        merchantSlot = item.merchantSlot,
+                        itemID = item.itemID,
+                        name = item.name,
+                        texture = item.texture,
+                        price = item.price or 0,
+                        stackCount = item.stackCount,
+                        numAvailable = item.numAvailable,
+                        isPurchasable = item.isPurchasable,
+                        isUsable = item.isUsable,
+                        hasExtendedCost = item.hasExtendedCost,
+                        currencyID = item.currencyID,
+                        spellID = item.spellID,
+                        isQuestStartItem = item.isQuestStartItem,
+                    })
+                end
+
+                if #unavailableItems > 0 then
+                    dataProvider:Insert({
+                        type = "separator",
+                        name = "Недоступные предметы",
+                    })
+
+                    for _, item in ipairs(unavailableItems) do
                         dataProvider:Insert({
                             type = "item",
-                            isUnavailable = false,
+                            isUnavailable = true,
                             merchantSlot = item.merchantSlot,
                             itemID = item.itemID,
                             name = item.name,
@@ -580,49 +779,42 @@ function ConsoleMenu:SetMerchantFrame()
                             isQuestStartItem = item.isQuestStartItem,
                         })
                     end
+                end
 
-                    if #unavailableItems > 0 then
-                        dataProvider:Insert({
-                            type = "separator",
-                            name = "Недоступные предметы",
-                        })
-            
-                        for _, item in ipairs(unavailableItems) do
-                            dataProvider:Insert({
-                                type = "item",
-                                isUnavailable = true,
-                                merchantSlot = item.merchantSlot,
-                                itemID = item.itemID,
-                                name = item.name,
-                                texture = item.texture,
-                                price = item.price or 0,
-                                stackCount = item.stackCount,
-                                numAvailable = item.numAvailable,
-                                isPurchasable = item.isPurchasable,
-                                isUsable = item.isUsable,
-                                hasExtendedCost = item.hasExtendedCost,
-                                currencyID = item.currencyID,
-                                spellID = item.spellID,
-                                isQuestStartItem = item.isQuestStartItem,
-                            })
+                local providerSize = dataProvider:GetSize()
+                if providerSize <= viewedItemCount then
+                    frame.Items.ScrollBar:Hide()
+                else
+                    frame.Items.ScrollBar:Show()
+                end
+
+                local targetElement = nil
+                if lastFocusedMerchantSlot then
+                    for _, element in ipairs(dataProvider.collection) do
+                        if element.type == "item" and element.merchantSlot == lastFocusedMerchantSlot then
+                            targetElement = element
+                            break
                         end
                     end
+                end
 
-                    local count = dataProvider:GetSize()
-                    if count <= viewedItemCount then
-                        frame.Items.ScrollBar:Hide()
-                    else
-                        frame.Items.ScrollBar:Show()
+                if not targetElement then
+                    for _, element in ipairs(dataProvider.collection) do
+                        if element.type == "item" then
+                            targetElement = element
+                            break
+                        end
                     end
+                end
 
+                if targetElement then
+                    UpdateFocus(targetElement, true)
+                else
                     focusedIndex = 1
-                    local firstElement = dataProvider.collection[focusedIndex]
-                    if firstElement then
-                        UpdateFocus(firstElement, true)
-                    end
+                    focusedMerchantSlot = nil
+                end
 
-                    ConsoleMenu:AnimatedShow(frame)
-                end)
+                ConsoleMenu:AnimatedShow(frame)
             end)
         elseif event == "MERCHANT_CLOSED" then
             ConsoleMenu:AnimatedHide(frame)
