@@ -57,6 +57,46 @@ local function SplitTextIntoLines(text)
         end
         return line:gsub("%.$", "")
     end
+
+    local function capitalize_first_letter(line)
+        local i = 1
+        local len = #line
+        local prefix = ""
+
+        while i <= len do
+            if line:sub(i, i) == "<" then
+                local tagEnd = line:find(">", i, true)
+                if not tagEnd then
+                    break
+                end
+                prefix = prefix .. line:sub(i, tagEnd)
+                i = tagEnd + 1
+            elseif line:sub(i, i):match("%s") then
+                prefix = prefix .. line:sub(i, i)
+                i = i + 1
+            else
+                break
+            end
+        end
+
+        if i > len then
+            return line
+        end
+
+        local byte = line:byte(i)
+        local charLen = 1
+        if byte and byte >= 0xC0 then
+            if byte < 0xE0 then
+                charLen = 2
+            elseif byte < 0xF0 then
+                charLen = 3
+            else
+                charLen = 4
+            end
+        end
+
+        return prefix .. line:sub(i, i + charLen - 1):upper() .. line:sub(i + charLen)
+    end
     
     -- Вспомогательная функция для группировки предложений
     local function split_and_group_text(text, max_length)
@@ -194,7 +234,11 @@ local function SplitTextIntoLines(text)
             end
         end
     end
-    
+
+    for i = 1, #lines do
+        lines[i] = capitalize_first_letter(lines[i])
+    end
+
     return lines
 end
 
