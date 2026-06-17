@@ -24,6 +24,7 @@ local focusedTitleFontSize = itemFontSize + 2
 
 local focusedIndex = 1
 local focusedMerchantSlot = nil
+local focusedItemExtent = sectionHeight
 
 local merchantItemTooltipDataCache = {}
 
@@ -66,6 +67,18 @@ local function RefreshMerchantScrollLayout()
     end
 end
 
+local function GetMerchantElementExtent(elementData)
+    if elementData
+        and elementData.type == "item"
+        and focusedMerchantSlot
+        and elementData.merchantSlot == focusedMerchantSlot
+    then
+        return math.max(sectionHeight, focusedItemExtent)
+    end
+
+    return sectionHeight
+end
+
 local function UpdateFocus(element, changeFocus)
     if not element then return end
 
@@ -77,6 +90,7 @@ local function UpdateFocus(element, changeFocus)
     local scrollBox = frame.Items.ScrollBox
     local frames = scrollBox:GetFrames()
     local layoutChanged = false
+
     for _, listItemFrame in ipairs(frames) do
         if listItemFrame.SetFocused then
             layoutChanged = listItemFrame:SetFocused(false) or layoutChanged
@@ -85,11 +99,12 @@ local function UpdateFocus(element, changeFocus)
 
     focusedIndex = scrollBox:FindElementDataIndex(element)
     if not focusedIndex then return end
-    focusedMerchantSlot = (element.type == "item") and element.merchantSlot or nil
 
-    if changeFocus then
-        scrollBox:ScrollToElementDataIndex(focusedIndex)
+    local nextMerchantSlot = (element.type == "item") and element.merchantSlot or nil
+    if nextMerchantSlot ~= focusedMerchantSlot then
+        focusedItemExtent = sectionHeight
     end
+    focusedMerchantSlot = nextMerchantSlot
 
     local focusedFrame = scrollBox:FindFrameByPredicate(function(listItemFrame, elementData)
         return elementData == element
@@ -101,6 +116,10 @@ local function UpdateFocus(element, changeFocus)
 
     if layoutChanged then
         RefreshMerchantScrollLayout()
+    end
+
+    if changeFocus then
+        scrollBox:ScrollToElementDataIndex(focusedIndex)
     end
 end
 
@@ -218,6 +237,7 @@ function ConsoleMenu:UpdateMerchantFrameKeysFrame()
     UpdateMerchantActionKeys(candidate)
 end
 
+--  Купить предмет
 local function BuyFocusedItem()
     if not focusedMerchantSlot then
         return
@@ -231,6 +251,7 @@ local function BuyFocusedItem()
     BuyMerchantItem(focusedMerchantSlot)
 end
 
+-- Купить пачку предметов
 local function BuyFocusedItemStack()
     if not focusedMerchantSlot then
         return
@@ -250,13 +271,45 @@ local function BuyFocusedItemStack()
     BuyMerchantItem(focusedMerchantSlot, quantity)
 end
 
+-- Загрузить данные торговца
+local function BuildMerchantItemElement(item, isUnavailable)
+    return {
+        type = "item",
+        isUnavailable = isUnavailable,
+        merchantSlot = item.merchantSlot,
+        itemID = item.itemID,
+        name = item.name,
+        texture = item.texture,
+        price = item.price or 0,
+        stackCount = item.stackCount,
+        numAvailable = item.numAvailable,
+        isPurchasable = item.isPurchasable,
+        isUsable = item.isUsable,
+        hasExtendedCost = item.hasExtendedCost,
+        currencyID = item.currencyID,
+        spellID = item.spellID,
+        isQuestStartItem = item.isQuestStartItem,
+    }
+end
+
 local function LoadMerchantData()
+    -- Очистка данных
+    -- Очистить кэш tooltip данных
     ClearMerchantItemTooltipDataCache()
+
+    -- Очистить скролл бокса
     dataProvider:Flush()
     
+    -- Загрузка данных
+    -- Загрузить tooltip данные для первых двух предметов
     merchantItemTooltipDataCache[1] = C_TooltipInfo.GetMerchantItem(1)
     merchantItemTooltipDataCache[2] = C_TooltipInfo.GetMerchantItem(2)
+    if focusedMerchantSlot then
+        merchantItemTooltipDataCache[focusedMerchantSlot] = C_TooltipInfo.GetMerchantItem(focusedMerchantSlot)
+    end
 
+
+    -- Загрузка данных предметов
 
     local availableItems = {}
     local unavailableItems = {}
@@ -280,26 +333,12 @@ local function LoadMerchantData()
         end
     end
 
+    -- Добавление доступных предметов
     for _, item in ipairs(availableItems) do
-        dataProvider:Insert({
-            type = "item",
-            isUnavailable = false,
-            merchantSlot = item.merchantSlot,
-            itemID = item.itemID,
-            name = item.name,
-            texture = item.texture,
-            price = item.price or 0,
-            stackCount = item.stackCount,
-            numAvailable = item.numAvailable,
-            isPurchasable = item.isPurchasable,
-            isUsable = item.isUsable,
-            hasExtendedCost = item.hasExtendedCost,
-            currencyID = item.currencyID,
-            spellID = item.spellID,
-            isQuestStartItem = item.isQuestStartItem,
-        })
+        dataProvider:Insert(BuildMerchantItemElement(item, false))
     end
 
+    -- Добавление секции недоступных предметов
     if #unavailableItems > 0 then
         dataProvider:Insert({
             type = "separator",
@@ -307,27 +346,12 @@ local function LoadMerchantData()
         })
 
         for _, item in ipairs(unavailableItems) do
-            dataProvider:Insert({
-                type = "item",
-                isUnavailable = true,
-                merchantSlot = item.merchantSlot,
-                itemID = item.itemID,
-                name = item.name,
-                texture = item.texture,
-                price = item.price or 0,
-                stackCount = item.stackCount,
-                numAvailable = item.numAvailable,
-                isPurchasable = item.isPurchasable,
-                isUsable = item.isUsable,
-                hasExtendedCost = item.hasExtendedCost,
-                currencyID = item.currencyID,
-                spellID = item.spellID,
-                isQuestStartItem = item.isQuestStartItem,
-            })
+            dataProvider:Insert(BuildMerchantItemElement(item, true))
         end
     end
 end
 
+-- Инициализация фрейма торговца
 function ConsoleMenu:SetMerchantFrame()
 
     if not ConsoleMenuFrame.MerchantFrame then
@@ -667,9 +691,10 @@ function ConsoleMenu:SetMerchantFrame()
                     frame.text.price.icon:Hide()
                     frame.text.price:SetHeight(0)
                     UpdateTextHeight()
-                    local wasDynamic = data.focusedHeight ~= nil
-                    data.focusedHeight = nil
-                    return wasDynamic
+                    return data.type == "item"
+                        and focusedMerchantSlot
+                        and data.merchantSlot == focusedMerchantSlot
+                        and focusedItemExtent > sectionHeight
                 end
 
                 frame.text.title:SetFont("Fonts\\FRIZQT___CYR.TTF", focusedTitleFontSize, "OUTLINE")
@@ -826,21 +851,21 @@ function ConsoleMenu:SetMerchantFrame()
 
                 UpdateTextHeight()
 
-                local focusedHeight = math.max(sectionHeight, (frame.text.height or sectionHeight) + sectionPadding * 2)
-                frame:SetHeight(focusedHeight)
-                if focusedHeight > sectionHeight then
+                local newExtent = math.max(sectionHeight, (frame.text.height or sectionHeight) + sectionPadding * 2)
+                frame:SetHeight(newExtent)
+                if newExtent > sectionHeight then
                     ApplyExpandedItemLayout()
                 else
                     ApplyDefaultItemLayout()
                 end
-                local changed = data.focusedHeight ~= focusedHeight
-                data.focusedHeight = focusedHeight
-                return changed
+                local previousExtent = focusedItemExtent
+                focusedItemExtent = newExtent
+                return previousExtent ~= newExtent
             end
 
-            local isCurrentFocused = dataProvider
-                and dataProvider.collection
-                and dataProvider.collection[focusedIndex] == data
+            local isCurrentFocused = data.type == "item"
+                and focusedMerchantSlot ~= nil
+                and data.merchantSlot == focusedMerchantSlot
             frame:SetFocused(isCurrentFocused)
 
         end
@@ -852,8 +877,7 @@ function ConsoleMenu:SetMerchantFrame()
                     data = index
                 end
 
-                local focusedHeight = data and data.focusedHeight or sectionHeight
-                return math.max(sectionHeight, focusedHeight)
+                return GetMerchantElementExtent(data)
             end)
         else
             scrollView:SetElementExtent(sectionHeight)
@@ -967,6 +991,7 @@ function ConsoleMenu:SetMerchantFrame()
             if InCombatLockdown() then return end
 
             focusedMerchantSlot = nil
+            focusedItemExtent = sectionHeight
 
             ClearOverrideBindings(self)
             if self.FocusUpButton then
@@ -995,6 +1020,7 @@ function ConsoleMenu:SetMerchantFrame()
 
         if event == "MERCHANT_CLOSED" then
             ClearMerchantItemTooltipDataCache()
+            focusedItemExtent = sectionHeight
             dataProvider:Flush()
             return
         end
