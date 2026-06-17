@@ -88,23 +88,27 @@ local function UpdateFocus(element, changeFocus)
     end
 
     local scrollBox = frame.Items.ScrollBox
-    local frames = scrollBox:GetFrames()
     local layoutChanged = false
-
-    for _, listItemFrame in ipairs(frames) do
-        if listItemFrame.SetFocused then
-            layoutChanged = listItemFrame:SetFocused(false) or layoutChanged
-        end
-    end
 
     focusedIndex = scrollBox:FindElementDataIndex(element)
     if not focusedIndex then return end
 
     local nextMerchantSlot = (element.type == "item") and element.merchantSlot or nil
-    if nextMerchantSlot ~= focusedMerchantSlot then
+    local slotChanged = nextMerchantSlot ~= focusedMerchantSlot
+    if slotChanged then
         focusedItemExtent = sectionHeight
     end
     focusedMerchantSlot = nextMerchantSlot
+
+    if changeFocus then
+        scrollBox:ScrollToElementDataIndex(focusedIndex)
+    end
+
+    for _, listItemFrame in ipairs(scrollBox:GetFrames()) do
+        if listItemFrame.SetFocused then
+            layoutChanged = listItemFrame:SetFocused(false) or layoutChanged
+        end
+    end
 
     local focusedFrame = scrollBox:FindFrameByPredicate(function(listItemFrame, elementData)
         return elementData == element
@@ -114,7 +118,7 @@ local function UpdateFocus(element, changeFocus)
         layoutChanged = focusedFrame:SetFocused(true) or layoutChanged
     end
 
-    if layoutChanged then
+    if layoutChanged or slotChanged then
         RefreshMerchantScrollLayout()
     end
 
@@ -271,7 +275,7 @@ local function BuyFocusedItemStack()
     BuyMerchantItem(focusedMerchantSlot, quantity)
 end
 
--- Загрузить данные торговца
+-- Построить элемент списка предметов
 local function BuildMerchantItemElement(item, isUnavailable)
     return {
         type = "item",
@@ -292,6 +296,7 @@ local function BuildMerchantItemElement(item, isUnavailable)
     }
 end
 
+-- Загрузить данные торговца
 local function LoadMerchantData()
     -- Очистка данных
     -- Очистить кэш tooltip данных
@@ -671,6 +676,7 @@ function ConsoleMenu:SetMerchantFrame()
                 end
 
                 if not isFocused or data.type ~= "item" or not data.merchantSlot then
+                    local wasExpanded = frame:GetHeight() > sectionHeight
                     frame:SetHeight(sectionHeight)
                     frame.text.title:SetFont("Fonts\\FRIZQT___CYR.TTF", itemFontSize, "OUTLINE")
                     SetDefaultTitleText()
@@ -691,10 +697,7 @@ function ConsoleMenu:SetMerchantFrame()
                     frame.text.price.icon:Hide()
                     frame.text.price:SetHeight(0)
                     UpdateTextHeight()
-                    return data.type == "item"
-                        and focusedMerchantSlot
-                        and data.merchantSlot == focusedMerchantSlot
-                        and focusedItemExtent > sectionHeight
+                    return wasExpanded
                 end
 
                 frame.text.title:SetFont("Fonts\\FRIZQT___CYR.TTF", focusedTitleFontSize, "OUTLINE")
