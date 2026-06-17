@@ -248,14 +248,13 @@ function ConsoleMenu:ApplyContextUIChanges()
             C_Timer.After(0.1, function()
                 if ConsoleMenuFrame.PlayerContext.window[5] then
                     ConsoleMenu:ShowMerchantFrame()
-                    ConsoleMenu:UpdateMerchantFrameKeysFrame()
-                    ConsoleMenu:UpdateKeysFrame()
                 end
             end)
 
+            ConsoleMenu:AddKeysFrameItem("PAD2", "Выйти")
+
             ConsoleMenu:PlayFadeOut(ObjectiveTrackerFrame)
             ConsoleMenu:AnimatedHide(Minimap)
-            ConsoleMenu:AddKeysFrameItem("PAD2", "Выйти")
 
         elseif ConsoleMenuFrame.PlayerContext.window["fasttravel"] then
             ConsoleMenu:AddKeysFrameItem("PAD2", "Выйти")
