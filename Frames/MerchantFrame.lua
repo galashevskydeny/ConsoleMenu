@@ -6,9 +6,6 @@ local frameWidth = 480
 local contentPadding = 52
 local backdropTemplateOffset = 20
 
-local titleSectionHeight = 32
-local titleFontSize = 24
-
 local viewedItemCount = 10
 
 local sectionHeight = 76
@@ -17,30 +14,45 @@ local unfocusedItemTextAlpha = 0.7
 local itemsSectionHeight = sectionHeight * viewedItemCount
 
 local iconSize = sectionHeight - sectionPadding * 2
+
+local titleFontSize = 24
+local titleSectionHeight = titleFontSize
+
+local emptyListFontSize = 32
+local emptyListDescriptionFontSize = 20
+
 local itemFontSize = 18
+local focusedItemFontSize = itemFontSize + 2
 local descriptionFontSize = 14
+
 local currencyIconSize = 18
-local focusedTitleFontSize = itemFontSize + 2
 
 local focusedIndex = 1
 local focusedMerchantSlot = nil
-local focusedItemExtent = sectionHeight
+local focusedItemExtent = sectionHeigh
 
 local merchantItemTooltipDataCache = {}
+local merchantItemStackSizeDataCache = {}
 
 local animationDuration = 0.1
 
 local merchantBackgroundVOffset = 600
 local merchantBackgroundHOffset = 960
 
-local function ReanchorMerchantBackground()
+local function ReanchorMerchantBackground(countItems)
     local merchantFrame = ConsoleMenuFrame and ConsoleMenuFrame.MerchantFrame
     if not merchantFrame or not merchantFrame.background then
         return
     end
 
     local background = merchantFrame.background
-    local anchorFrame = merchantFrame.Items or merchantFrame
+    local anchorFrame = merchantFrame
+
+    if countItems and countItems > 0 then
+        anchorFrame = merchantFrame.Items or merchantFrame
+    else
+        anchorFrame = merchantFrame.EmptyList or merchantFrame
+    end
 
     background:ClearAllPoints()
     background:SetPoint("TOPLEFT", anchorFrame, "TOPLEFT", -merchantBackgroundHOffset, merchantBackgroundVOffset)
@@ -135,14 +147,25 @@ local function GetFocusedElement()
 end
 
 local function GetMerchantItemStackSize(merchantSlot)
+    if not merchantSlot then
+        return 1
+    end
+
+    local cachedStackSize = merchantItemStackSizeDataCache[merchantSlot]
+    if cachedStackSize then
+        return cachedStackSize
+    end
+
     local quantity = 1
-    local itemID = merchantSlot and GetMerchantItemID(merchantSlot)
+    local itemID = GetMerchantItemID(merchantSlot)
     if itemID then
         local stackSize = C_Item.GetItemMaxStackSizeByID(itemID)
         if stackSize and stackSize > 0 then
             quantity = stackSize
         end
     end
+
+    merchantItemStackSizeDataCache[merchantSlot] = quantity
     return quantity
 end
 
@@ -169,24 +192,29 @@ local function LoadNearItemsTooltipData(merchantSlot)
     local nextSlot = merchantSlot + 1
     local previousSlot = merchantSlot - 1
 
-    if nextSlot <= GetMerchantNumItems() and not merchantItemTooltipDataCache[nextSlot] then
-        local nextTooltipData = GetMerchantItemTooltipData(nextSlot)
-        if nextTooltipData then
-            merchantItemTooltipDataCache[nextSlot] = nextTooltipData
-        end
+    GetMerchantItemTooltipData(merchantSlot)
+    GetMerchantItemStackSize(merchantSlot)
+
+    if nextSlot <= GetMerchantNumItems() then
+        GetMerchantItemTooltipData(nextSlot)
+        GetMerchantItemStackSize(nextSlot)
     end
 
-    if previousSlot >= 1 and not merchantItemTooltipDataCache[previousSlot] then
-        local previousTooltipData = GetMerchantItemTooltipData(previousSlot)
-        if previousTooltipData then
-            merchantItemTooltipDataCache[previousSlot] = previousTooltipData
-        end
+    if previousSlot >= 1 then
+        GetMerchantItemTooltipData(previousSlot)
+        GetMerchantItemStackSize(previousSlot)
     end
 end
 
 local function ClearMerchantItemTooltipDataCache()
     for slot in pairs(merchantItemTooltipDataCache) do
         merchantItemTooltipDataCache[slot] = nil
+    end
+end
+
+local function ClearMerchantItemStackSizeDataCache()
+    for slot in pairs(merchantItemStackSizeDataCache) do
+        merchantItemStackSizeDataCache[slot] = nil
     end
 end
 
@@ -299,20 +327,27 @@ end
 -- Загрузить данные торговца
 local function LoadMerchantData()
     -- Очистка данных
+
     -- Очистить кэш tooltip данных
     ClearMerchantItemTooltipDataCache()
+
+    -- Очистить кэш размера пачек предметов
+    ClearMerchantItemStackSizeDataCache()
 
     -- Очистить скролл бокса
     dataProvider:Flush()
     
     -- Загрузка данных
-    -- Загрузить tooltip данные для первых двух предметов
-    merchantItemTooltipDataCache[1] = C_TooltipInfo.GetMerchantItem(1)
-    merchantItemTooltipDataCache[2] = C_TooltipInfo.GetMerchantItem(2)
+    -- Загрузить tooltip данные для первых предметов / предметов в окрестности предмета в фокусе
     if focusedMerchantSlot then
-        merchantItemTooltipDataCache[focusedMerchantSlot] = C_TooltipInfo.GetMerchantItem(focusedMerchantSlot)
+        LoadNearItemsTooltipData(focusedMerchantSlot)
+    else
+        LoadNearItemsTooltipData(1)
     end
 
+    -- Загрузка данных о продавце
+    local text = UnitName("NPC") .. " не может предложить товары на продажу"
+    ConsoleMenuFrame.MerchantFrame.EmptyList.Text:SetText(text)
 
     -- Загрузка данных предметов
 
@@ -320,6 +355,17 @@ local function LoadMerchantData()
     local unavailableItems = {}
 
     local count = GetMerchantNumItems()
+
+    if count == 0 then
+        ConsoleMenuFrame.MerchantFrame.EmptyList:Show()
+        ReanchorMerchantBackground(count)
+        return
+    else
+        ConsoleMenuFrame.MerchantFrame.EmptyList:Hide()
+    end
+
+    ReanchorMerchantBackground(count)
+
     for i = 1, count do
         local info = C_MerchantFrame.GetItemInfo(i)
         local itemID = GetMerchantItemID(i)
@@ -379,7 +425,35 @@ function ConsoleMenu:SetMerchantFrame()
         frame.background:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\CrossBackgorundDark.png")
         frame.background:SetDrawLayer("BACKGROUND", 0)
         frame.background:Show()
-        ReanchorMerchantBackground()
+        ReanchorMerchantBackground(0)
+    end
+
+    if not frame.EmptyList then
+        local emptyList = CreateFrame("Frame", "MerchantFrameEmptyList", frame)
+        frame.EmptyList = emptyList
+        emptyList:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
+        emptyList:SetPoint("TOPRIGHT", frame, "TOPRIGHT", 0, 0)
+        emptyList:SetHeight(200)
+
+        local text = emptyList:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        emptyList.Text = text
+        text:SetPoint("TOPLEFT", emptyList, "TOPLEFT", 0, 0)
+        text:SetWidth(frameWidth)
+        text:SetJustifyH("LEFT")
+        text:SetNonSpaceWrap(true)
+        text:SetFont("Fonts\\morpheus_cyr.ttf", emptyListFontSize, "OUTLINE")
+        text:SetTextColor(1, 0.976, 0.855, 1)
+        text:SetText("")
+
+        local description = emptyList:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        emptyList.Description = description
+        description:SetPoint("TOPLEFT", emptyList.Text, "BOTTOMLEFT", 0, -24)
+        description:SetWidth(frameWidth)
+        description:SetJustifyH("LEFT")
+        description:SetNonSpaceWrap(true)
+        description:SetFont("Fonts\\FRIZQT___CYR.TTF", emptyListDescriptionFontSize, "OUTLINE")
+        description:SetTextColor(1.0, 0.960784, 0.772549, 0.6)
+        description:SetText("Вы можете заняться ремонтом снаряжения, продажей или выкупом предметов.")
     end
 
     -- if not frame.Title then
@@ -699,8 +773,8 @@ function ConsoleMenu:SetMerchantFrame()
                     UpdateTextHeight()
                     return wasExpanded
                 end
-
-                frame.text.title:SetFont("Fonts\\FRIZQT___CYR.TTF", focusedTitleFontSize, "OUTLINE")
+                
+                frame.text.title:SetFont("Fonts\\FRIZQT___CYR.TTF", focusedItemFontSize, "OUTLINE")
 
                 local tooltipData = GetMerchantItemTooltipData(data.merchantSlot)
 
@@ -889,7 +963,7 @@ function ConsoleMenu:SetMerchantFrame()
     
         ScrollUtil.InitScrollBoxListWithScrollBar(scrollBox, scrollBar, scrollView)
         scrollBox:SetDataProvider(dataProvider)
-        ReanchorMerchantBackground()
+        
     end
 
     if not frame.FocusUpButton then
@@ -1023,6 +1097,7 @@ function ConsoleMenu:SetMerchantFrame()
 
         if event == "MERCHANT_CLOSED" then
             ClearMerchantItemTooltipDataCache()
+            ClearMerchantItemStackSizeDataCache()
             focusedItemExtent = sectionHeight
             dataProvider:Flush()
             return
@@ -1043,7 +1118,7 @@ function ConsoleMenu:SetMerchantFrame()
     end)
 end
 
-
+-- Показать фрейм торговца
 function ConsoleMenu:ShowMerchantFrame()
     local frame = ConsoleMenuFrame and ConsoleMenuFrame.MerchantFrame
     if not frame or not dataProvider then
@@ -1073,6 +1148,7 @@ function ConsoleMenu:ShowMerchantFrame()
 
 end
 
+-- Скрыть фрейм торговца
 function ConsoleMenu:HideMerchantFrame()
     local frame = ConsoleMenuFrame and ConsoleMenuFrame.MerchantFrame
     if not frame or not dataProvider then
