@@ -562,7 +562,8 @@ local function CreateGossipScrollBox()
         -- Тень (фон)
         if not frame.bg then
             frame.bg = frame:CreateTexture(nil, "BACKGROUND")
-            frame.bg:SetAllPoints()
+            frame.bg:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 5)
+            frame.bg:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, -4)
             frame.bg:SetAtlas("Garr_BuildingInfoShadow") -- Прозрачный фон при наведении
             frame.bg:Hide() -- Скрываем фон по умолчанию
         end
