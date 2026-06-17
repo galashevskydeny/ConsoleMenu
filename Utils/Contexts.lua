@@ -245,11 +245,18 @@ function ConsoleMenu:ApplyContextUIChanges()
 
             ConsoleMenu:HideChatFrame()
         elseif ConsoleMenuFrame.PlayerContext.window[5] then
-            ConsoleMenu:ShowMerchantFrame()
+            C_Timer.After(0.1, function()
+                if ConsoleMenuFrame.PlayerContext.window[5] then
+                    ConsoleMenu:ShowMerchantFrame()
+                    ConsoleMenu:UpdateMerchantFrameKeysFrame()
+                    ConsoleMenu:UpdateKeysFrame()
+                end
+            end)
+
             ConsoleMenu:PlayFadeOut(ObjectiveTrackerFrame)
             ConsoleMenu:AnimatedHide(Minimap)
             ConsoleMenu:AddKeysFrameItem("PAD2", "Выйти")
-            ConsoleMenu:UpdateMerchantFrameKeysFrame()
+
         elseif ConsoleMenuFrame.PlayerContext.window["fasttravel"] then
             ConsoleMenu:AddKeysFrameItem("PAD2", "Выйти")
             ConsoleMenu:AddKeysFrameItem("PAD1", "Выбрать")
