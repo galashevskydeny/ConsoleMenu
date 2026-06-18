@@ -25,7 +25,9 @@ local itemFontSize = 18
 local focusedItemFontSize = itemFontSize + 2
 local descriptionFontSize = 14
 
-local currencyIconSize = 18
+local currencyIconSize = 20
+local currencyIconOverlap = currencyIconSize / 4
+local currencyIconDualHeight = currencyIconSize * 2 - currencyIconOverlap
 
 local focusedIndex = 1
 local focusedMerchantSlot = nil
@@ -560,15 +562,32 @@ function ConsoleMenu:SetMerchantFrame()
 
                 frame.text.price.icon = CreateFrame("Frame", nil, frame.text.price)
                 frame.text.price.icon:SetSize(currencyIconSize, currencyIconSize)
-                frame.text.price.icon.texture = frame.text.price.icon:CreateTexture(nil, "ARTWORK")
-                frame.text.price.icon.texture:SetAllPoints()
-                frame.text.price.icon.mask = frame.text.price.icon:CreateMaskTexture()
-                frame.text.price.icon.mask:SetAllPoints(frame.text.price.icon.texture)
-                frame.text.price.icon.mask:SetTexture(
-                    "Interface\\AddOns\\ConsoleMenu\\Assets\\MaskCircle.png",
-                    "CLAMPTOBLACK"
+
+                local function CreateCurrencyIconTexture(parent, drawLayer, subLevel)
+                    local texture = parent:CreateTexture(nil, drawLayer, nil, subLevel)
+                    local mask = parent:CreateMaskTexture()
+                    mask:SetAllPoints(texture)
+                    mask:SetTexture(
+                        "Interface\\AddOns\\ConsoleMenu\\Assets\\MaskCircle.png",
+                        "CLAMPTOBLACK"
+                    )
+                    texture:AddMaskTexture(mask)
+                    return texture, mask
+                end
+
+                frame.text.price.icon.texture, frame.text.price.icon.mask = CreateCurrencyIconTexture(
+                    frame.text.price.icon,
+                    "ARTWORK",
+                    0
                 )
-                frame.text.price.icon.texture:AddMaskTexture(frame.text.price.icon.mask)
+                frame.text.price.icon.texture:SetAllPoints()
+
+                frame.text.price.icon.texture2, frame.text.price.icon.mask2 = CreateCurrencyIconTexture(
+                    frame.text.price.icon,
+                    "ARTWORK",
+                    1
+                )
+                frame.text.price.icon.texture2:Hide()
                 frame.text.price.icon:Hide()
             end
 
@@ -611,7 +630,11 @@ function ConsoleMenu:SetMerchantFrame()
                     if priceHeight <= 0 then
                         priceHeight = itemFontSize
                     end
-                    priceHeight = math.max(priceHeight, currencyIconSize)
+                    local priceIconHeight = currencyIconSize
+                    if frame.text.price.icon.texture2:IsShown() then
+                        priceIconHeight = currencyIconDualHeight
+                    end
+                    priceHeight = math.max(priceHeight, priceIconHeight)
                     local descriptionLineCount = #visibleLineHeights
                     local priceTopGap = sectionPadding
                     if descriptionLineCount > 1 then
@@ -633,6 +656,9 @@ function ConsoleMenu:SetMerchantFrame()
                 local iconHeight = 0
                 if frame.text.price.icon:IsShown() then
                     iconHeight = currencyIconSize
+                    if frame.text.price.icon.texture2:IsShown() then
+                        iconHeight = currencyIconDualHeight
+                    end
                 end
 
                 frame.text.price:SetHeight(math.max(textHeight, iconHeight))
@@ -654,6 +680,9 @@ function ConsoleMenu:SetMerchantFrame()
             frame.text.price.text:SetText("")
             frame.text.price:Hide()
             frame.text.price.icon.texture:SetTexture(nil)
+            frame.text.price.icon.texture2:SetTexture(nil)
+            frame.text.price.icon.texture2:Hide()
+            frame.text.price.icon:SetSize(currencyIconSize, currencyIconSize)
             frame.text.price.icon:Hide()
             frame.text.price:SetHeight(0)
             for _, lineText in ipairs(frame.text.lines) do
@@ -768,6 +797,9 @@ function ConsoleMenu:SetMerchantFrame()
                     frame.text.price.text:SetText("")
                     frame.text.price:Hide()
                     frame.text.price.icon.texture:SetTexture(nil)
+                    frame.text.price.icon.texture2:SetTexture(nil)
+                    frame.text.price.icon.texture2:Hide()
+                    frame.text.price.icon:SetSize(currencyIconSize, currencyIconSize)
                     frame.text.price.icon:Hide()
                     frame.text.price:SetHeight(0)
                     UpdateTextHeight()
@@ -843,7 +875,7 @@ function ConsoleMenu:SetMerchantFrame()
                 end
 
                 local priceText = nil
-                local priceIconTexture = nil
+                local priceIconTextures = {}
                 if not data.isUnavailable then
                     local costCount = data.merchantSlot and (GetMerchantItemCostInfo(data.merchantSlot) or 0) or 0
                     if costCount > 0 and data.merchantSlot then
@@ -864,8 +896,8 @@ function ConsoleMenu:SetMerchantFrame()
                                     texture = costTexture,
                                 })
 
-                                if not priceIconTexture and costTexture and costTexture ~= 0 then
-                                    priceIconTexture = costTexture
+                                if costTexture and costTexture ~= 0 and #priceIconTextures < 2 then
+                                    table.insert(priceIconTextures, costTexture)
                                 end
                             end
                         end
@@ -903,14 +935,46 @@ function ConsoleMenu:SetMerchantFrame()
                 frame.text.price:SetPoint("TOPRIGHT", frame.text, "TOPRIGHT", 0, 0)
 
                 if priceText then
-                    if priceIconTexture and priceIconTexture ~= 0 then
-                        frame.text.price.icon.texture:SetTexture(priceIconTexture)
-                        frame.text.price.icon:SetPoint("LEFT", frame.text.price, "LEFT", 0, 0)
-                        frame.text.price.icon:Show()
-                        frame.text.price.text:SetPoint("LEFT", frame.text.price.icon, "RIGHT", sectionPadding, 0)
+                    if #priceIconTextures > 0 then
+                        local priceIcon = frame.text.price.icon
+                        local iconOffset = currencyIconSize - currencyIconOverlap
+
+                        priceIcon.texture:ClearAllPoints()
+                        priceIcon.texture2:ClearAllPoints()
+
+                        if #priceIconTextures >= 2 then
+                            priceIcon:SetSize(currencyIconSize, currencyIconDualHeight)
+                            priceIcon.texture:SetPoint("TOPLEFT", priceIcon, "TOPLEFT", 0, 0)
+                            priceIcon.texture:SetPoint("BOTTOMRIGHT", priceIcon, "TOPLEFT", currencyIconSize, -currencyIconSize)
+                            priceIcon.texture:SetTexture(priceIconTextures[1])
+
+                            priceIcon.texture2:SetTexture(priceIconTextures[2])
+                            priceIcon.texture2:SetPoint("TOPLEFT", priceIcon, "TOPLEFT", 0, -iconOffset)
+                            priceIcon.texture2:SetPoint(
+                                "BOTTOMRIGHT",
+                                priceIcon,
+                                "TOPLEFT",
+                                currencyIconSize,
+                                -(currencyIconSize + iconOffset)
+                            )
+                            priceIcon.texture2:Show()
+                        else
+                            priceIcon:SetSize(currencyIconSize, currencyIconSize)
+                            priceIcon.texture:SetAllPoints()
+                            priceIcon.texture:SetTexture(priceIconTextures[1])
+                            priceIcon.texture2:SetTexture(nil)
+                            priceIcon.texture2:Hide()
+                        end
+
+                        priceIcon:SetPoint("LEFT", frame.text.price, "LEFT", 0, 0)
+                        priceIcon:Show()
+                        frame.text.price.text:SetPoint("LEFT", priceIcon, "RIGHT", sectionPadding, 0)
                         frame.text.price.text:SetPoint("RIGHT", frame.text.price, "RIGHT", 0, 0)
                     else
                         frame.text.price.icon.texture:SetTexture(nil)
+                        frame.text.price.icon.texture2:SetTexture(nil)
+                        frame.text.price.icon.texture2:Hide()
+                        frame.text.price.icon:SetSize(currencyIconSize, currencyIconSize)
                         frame.text.price.icon:Hide()
                         frame.text.price.text:SetPoint("TOPLEFT", frame.text.price, "TOPLEFT", 0, 0)
                         frame.text.price.text:SetPoint("TOPRIGHT", frame.text.price, "TOPRIGHT", 0, 0)
@@ -920,6 +984,9 @@ function ConsoleMenu:SetMerchantFrame()
                     frame.text.price:Show()
                 else
                     frame.text.price.icon.texture:SetTexture(nil)
+                    frame.text.price.icon.texture2:SetTexture(nil)
+                    frame.text.price.icon.texture2:Hide()
+                    frame.text.price.icon:SetSize(currencyIconSize, currencyIconSize)
                     frame.text.price.icon:Hide()
                     frame.text.price.text:SetText("")
                     frame.text.price:Hide()
