@@ -226,7 +226,7 @@ function ConsoleMenu:ApplyContextUIChanges()
             return
         end
 
-        ConsoleMenu:HideMerchantFrame()
+        ConsoleMenu:HideItemListFrame()
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.CombatFrame)
         ConsoleMenu:PlayFadeIn(ObjectiveTrackerFrame)
@@ -247,7 +247,7 @@ function ConsoleMenu:ApplyContextUIChanges()
         elseif ConsoleMenuFrame.PlayerContext.window[5] then
             C_Timer.After(0.1, function()
                 if ConsoleMenuFrame.PlayerContext.window[5] then
-                    ConsoleMenu:ShowMerchantFrame()
+                    ConsoleMenu:ShowItemListFrame()
                 end
             end)
 
@@ -364,7 +364,7 @@ function ConsoleMenu:ApplyContextUIChanges()
             return
         end
 
-        ConsoleMenu:HideMerchantFrame()
+        ConsoleMenu:HideItemListFrame()
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.CombatFrame)
         PlayerFrame:SetAlpha(0)
@@ -431,7 +431,7 @@ function ConsoleMenu:ApplyContextUIChanges()
             ConsoleMenu:AnimatedShow(Minimap)
         end
         
-        ConsoleMenu:HideMerchantFrame()
+        ConsoleMenu:HideItemListFrame()
 
         ConsoleMenu:AnimatedShow(ConsoleMenuFrame.ActionBarFrame)
         ConsoleMenu:AnimatedShow(ConsoleMenuFrame.CombatFrame)
@@ -456,7 +456,7 @@ function ConsoleMenu:ApplyContextUIChanges()
             return
         end
 
-        ConsoleMenu:HideMerchantFrame()
+        ConsoleMenu:HideItemListFrame()
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.CombatFrame)
         ConsoleMenu:PlayFadeOut(ObjectiveTrackerFrame)

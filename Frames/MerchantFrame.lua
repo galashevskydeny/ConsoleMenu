@@ -33,39 +33,39 @@ local focusedIndex = 1
 local focusedMerchantSlot = nil
 local focusedItemExtent = sectionHeigh
 
-local merchantItemTooltipDataCache = {}
-local merchantItemStackSizeDataCache = {}
+local itemListTooltipDataCache = {}
+local itemListStackSizeDataCache = {}
 
 local animationDuration = 0.1
 
-local merchantBackgroundVOffset = 600
-local merchantBackgroundHOffset = 960
+local itemListBackgroundVOffset = 600
+local itemListBackgroundHOffset = 960
 
-local function ReanchorMerchantBackground(countItems)
-    local merchantFrame = ConsoleMenuFrame and ConsoleMenuFrame.MerchantFrame
-    if not merchantFrame or not merchantFrame.background then
+local function ReanchorItemListBackground(countItems)
+    local itemListFrame = ConsoleMenuFrame and ConsoleMenuFrame.ItemListFrame
+    if not itemListFrame or not itemListFrame.background then
         return
     end
 
-    local background = merchantFrame.background
-    local anchorFrame = merchantFrame
+    local background = itemListFrame.background
+    local anchorFrame = itemListFrame
 
     if countItems and countItems > 0 then
-        anchorFrame = merchantFrame.Items or merchantFrame
+        anchorFrame = itemListFrame.Items or itemListFrame
     else
-        anchorFrame = merchantFrame.EmptyList or merchantFrame
+        anchorFrame = itemListFrame.EmptyList or itemListFrame
     end
 
     background:ClearAllPoints()
-    background:SetPoint("TOPLEFT", anchorFrame, "TOPLEFT", -merchantBackgroundHOffset, merchantBackgroundVOffset)
-    background:SetPoint("TOPRIGHT", anchorFrame, "TOPRIGHT", merchantBackgroundHOffset / 2, merchantBackgroundVOffset)
-    background:SetPoint("BOTTOMLEFT", anchorFrame, "BOTTOMLEFT", -merchantBackgroundHOffset, -merchantBackgroundVOffset)
-    background:SetPoint("BOTTOMRIGHT", anchorFrame, "BOTTOMRIGHT", merchantBackgroundHOffset / 2, -merchantBackgroundVOffset)
+    background:SetPoint("TOPLEFT", anchorFrame, "TOPLEFT", -itemListBackgroundHOffset, itemListBackgroundVOffset)
+    background:SetPoint("TOPRIGHT", anchorFrame, "TOPRIGHT", itemListBackgroundHOffset / 2, itemListBackgroundVOffset)
+    background:SetPoint("BOTTOMLEFT", anchorFrame, "BOTTOMLEFT", -itemListBackgroundHOffset, -itemListBackgroundVOffset)
+    background:SetPoint("BOTTOMRIGHT", anchorFrame, "BOTTOMRIGHT", itemListBackgroundHOffset / 2, -itemListBackgroundVOffset)
 end
 
 local function ReanchorItems(needOffset)
-    local merchantFrame = ConsoleMenuFrame and ConsoleMenuFrame.MerchantFrame
-    local items = merchantFrame and merchantFrame.Items
+    local itemListFrame = ConsoleMenuFrame and ConsoleMenuFrame.ItemListFrame
+    local items = itemListFrame and itemListFrame.Items
     local scrollBox = items and items.ScrollBox
     if not scrollBox then
         return
@@ -78,9 +78,9 @@ local function ReanchorItems(needOffset)
     scrollBox:SetPoint("BOTTOMRIGHT", items, "BOTTOMRIGHT", 0, 0)
 end
 
-local function RefreshMerchantScrollLayout()
-    local merchantFrame = ConsoleMenuFrame and ConsoleMenuFrame.MerchantFrame
-    local scrollBox = merchantFrame and merchantFrame.Items and merchantFrame.Items.ScrollBox
+local function RefreshItemListScrollLayout()
+    local itemListFrame = ConsoleMenuFrame and ConsoleMenuFrame.ItemListFrame
+    local scrollBox = itemListFrame and itemListFrame.Items and itemListFrame.Items.ScrollBox
     if not scrollBox then
         return
     end
@@ -96,7 +96,7 @@ local function RefreshMerchantScrollLayout()
     end
 end
 
-local function GetMerchantElementExtent(elementData)
+local function GetItemListElementExtent(elementData)
     if elementData
         and elementData.type == "item"
         and focusedMerchantSlot
@@ -111,7 +111,7 @@ end
 local function UpdateFocus(element, changeFocus)
     if not element then return end
 
-    local frame = ConsoleMenuFrame and ConsoleMenuFrame.MerchantFrame
+    local frame = ConsoleMenuFrame and ConsoleMenuFrame.ItemListFrame
     if not frame or not frame.Items or not frame.Items.ScrollBox then
         return
     end
@@ -148,7 +148,7 @@ local function UpdateFocus(element, changeFocus)
     end
 
     if layoutChanged or slotChanged then
-        RefreshMerchantScrollLayout()
+        RefreshItemListScrollLayout()
     end
 
     if changeFocus then
@@ -163,18 +163,18 @@ local function GetFocusedElement()
     return dataProvider.collection[focusedIndex]
 end
 
-local function GetMerchantItemStackSize(merchantSlot)
-    if not merchantSlot then
+local function GetMerchantItemStackSize(itemSlot)
+    if not itemSlot then
         return 1
     end
 
-    local cachedStackSize = merchantItemStackSizeDataCache[merchantSlot]
+    local cachedStackSize = itemListStackSizeDataCache[itemSlot]
     if cachedStackSize then
         return cachedStackSize
     end
 
     local quantity = 1
-    local itemID = GetMerchantItemID(merchantSlot)
+    local itemID = GetMerchantItemID(itemSlot)
     if itemID then
         local stackSize = C_Item.GetItemMaxStackSizeByID(itemID)
         if stackSize and stackSize > 0 then
@@ -182,22 +182,22 @@ local function GetMerchantItemStackSize(merchantSlot)
         end
     end
 
-    merchantItemStackSizeDataCache[merchantSlot] = quantity
+    itemListStackSizeDataCache[itemSlot] = quantity
     return quantity
 end
 
-local function GetMerchantItemTooltipData(merchantSlot)
-    if not merchantSlot then
+local function GetMerchantItemTooltipData(itemSlot)
+    if not itemSlot then
         return nil
     end
 
-    local cachedTooltipData = merchantItemTooltipDataCache[merchantSlot]
+    local cachedTooltipData = itemListTooltipDataCache[itemSlot]
     if cachedTooltipData then
         return cachedTooltipData
     end
 
-    local tooltipData = C_TooltipInfo.GetMerchantItem(merchantSlot)
-    merchantItemTooltipDataCache[merchantSlot] = tooltipData
+    local tooltipData = C_TooltipInfo.GetMerchantItem(itemSlot)
+    itemListTooltipDataCache[itemSlot] = tooltipData
     return tooltipData
 end
 
@@ -223,15 +223,15 @@ local function LoadNearItemsTooltipData(merchantSlot)
     end
 end
 
-local function ClearMerchantItemTooltipDataCache()
-    for slot in pairs(merchantItemTooltipDataCache) do
-        merchantItemTooltipDataCache[slot] = nil
+local function ClearItemListTooltipDataCache()
+    for slot in pairs(itemListTooltipDataCache) do
+        itemListTooltipDataCache[slot] = nil
     end
 end
 
-local function ClearMerchantItemStackSizeDataCache()
-    for slot in pairs(merchantItemStackSizeDataCache) do
-        merchantItemStackSizeDataCache[slot] = nil
+local function ClearItemListStackSizeDataCache()
+    for slot in pairs(itemListStackSizeDataCache) do
+        itemListStackSizeDataCache[slot] = nil
     end
 end
 
@@ -281,7 +281,7 @@ local function MoveFocus(delta)
     -- Если все элементы оказались разделителями, фокус не меняем.
 end
 
-function ConsoleMenu:UpdateMerchantFrameKeysFrame()
+function ConsoleMenu:UpdateItemListFrameKeysFrame()
     local candidate = dataProvider.collection[focusedIndex]
     UpdateMerchantActionKeys(candidate)
 end
@@ -346,10 +346,10 @@ local function LoadMerchantData()
     -- Очистка данных
 
     -- Очистить кэш tooltip данных
-    ClearMerchantItemTooltipDataCache()
+    ClearItemListTooltipDataCache()
 
     -- Очистить кэш размера пачек предметов
-    ClearMerchantItemStackSizeDataCache()
+    ClearItemListStackSizeDataCache()
 
     -- Очистить скролл бокса
     dataProvider:Flush()
@@ -364,7 +364,7 @@ local function LoadMerchantData()
 
     -- Загрузка данных о продавце
     local text = UnitName("NPC") .. " не может предложить товары на продажу"
-    ConsoleMenuFrame.MerchantFrame.EmptyList.Text:SetText(text)
+    ConsoleMenuFrame.ItemListFrame.EmptyList.Text:SetText(text)
 
     -- Загрузка данных предметов
 
@@ -374,16 +374,16 @@ local function LoadMerchantData()
     local count = GetMerchantNumItems()
 
     if count == 0 then
-        ConsoleMenuFrame.MerchantFrame.EmptyList:Show()
-        ReanchorMerchantBackground(count)
-        RefreshMerchantScrollLayout()
+        ConsoleMenuFrame.ItemListFrame.EmptyList:Show()
+        ReanchorItemListBackground(count)
+        RefreshItemListScrollLayout()
         ReanchorItems(false)
         return
     else
-        ConsoleMenuFrame.MerchantFrame.EmptyList:Hide()
+        ConsoleMenuFrame.ItemListFrame.EmptyList:Hide()
     end
 
-    ReanchorMerchantBackground(count)
+    ReanchorItemListBackground(count)
 
     for i = 1, count do
         local info = C_MerchantFrame.GetItemInfo(i)
@@ -420,19 +420,19 @@ local function LoadMerchantData()
         end
     end
 
-    RefreshMerchantScrollLayout()
+    RefreshItemListScrollLayout()
     ReanchorItems(true)
 end
 
 -- Инициализация фрейма торговца
-function ConsoleMenu:SetMerchantFrame()
+function ConsoleMenu:SetItemListFrame()
 
-    if not ConsoleMenuFrame.MerchantFrame then
-        local frame = CreateFrame("Frame", "MerchantFrame", ConsoleMenuFrame)
-        ConsoleMenuFrame.MerchantFrame = frame
+    if not ConsoleMenuFrame.ItemListFrame then
+        local frame = CreateFrame("Frame", "ItemListFrame", ConsoleMenuFrame)
+        ConsoleMenuFrame.ItemListFrame = frame
     end
 
-    local frame = ConsoleMenuFrame.MerchantFrame
+    local frame = ConsoleMenuFrame.ItemListFrame
     ConsoleMenu:InitFadeAnimations(frame, animationDuration)
 
     frame:SetPoint("TOPLEFT", ConsoleMenuFrame, "TOPLEFT", 48, -48 * 4)
@@ -447,11 +447,11 @@ function ConsoleMenu:SetMerchantFrame()
         frame.background:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\CrossBackgorundDark.png")
         frame.background:SetDrawLayer("BACKGROUND", 0)
         frame.background:Show()
-        ReanchorMerchantBackground(0)
+        ReanchorItemListBackground(0)
     end
 
     if not frame.EmptyList then
-        local emptyList = CreateFrame("Frame", "MerchantFrameEmptyList", frame)
+        local emptyList = CreateFrame("Frame", "ItemListFrameEmptyList", frame)
         frame.EmptyList = emptyList
         emptyList:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, 0)
         emptyList:SetPoint("TOPRIGHT", frame, "TOPRIGHT", 0, 0)
@@ -479,7 +479,7 @@ function ConsoleMenu:SetMerchantFrame()
     end
 
     -- if not frame.Title then
-    --     local title = CreateFrame("Frame", "MerchantFrameTitle", frame)
+    --     local title = CreateFrame("Frame", "ItemListFrameTitle", frame)
     --     frame.Title = title
     --     title:SetPoint("TOPLEFT", frame, "TOPLEFT", contentPadding, -contentPadding)
     --     title:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -contentPadding, -contentPadding)
@@ -498,17 +498,17 @@ function ConsoleMenu:SetMerchantFrame()
     -- end
 
     if not frame.Items then
-        local items = CreateFrame("Frame", "MerchantFrameItems", frame)
+        local items = CreateFrame("Frame", "ItemListFrameItems", frame)
         frame.Items = items
         items:SetAllPoints(frame)
         --items:SetHeight(itemsSectionHeight)
 
-        local scrollBox = CreateFrame("Frame", "MerchantFrameScrollBox", items, "WowScrollBoxList")
+        local scrollBox = CreateFrame("Frame", "ItemListFrameScrollBox", items, "WowScrollBoxList")
         items.ScrollBox = scrollBox
         scrollBox:SetPoint("TOPLEFT", items, "TOPLEFT", 0, 0)
         scrollBox:SetPoint("BOTTOMRIGHT", items, "BOTTOMRIGHT", 0, 0)
 
-        local scrollBar = CreateFrame("EventFrame", "MerchantFrameScrollBar", items, "MinimalScrollBar")
+        local scrollBar = CreateFrame("EventFrame", "ItemListFrameScrollBar", items, "MinimalScrollBar")
         items.ScrollBar = scrollBar
 
         scrollBar:SetAlpha(0.4)
@@ -1042,7 +1042,7 @@ function ConsoleMenu:SetMerchantFrame()
                     data = index
                 end
 
-                return GetMerchantElementExtent(data)
+                return GetItemListElementExtent(data)
             end)
         else
             scrollView:SetElementExtent(sectionHeight)
@@ -1055,7 +1055,7 @@ function ConsoleMenu:SetMerchantFrame()
     end
 
     if not frame.FocusUpButton then
-        local focusUpButton = CreateFrame("Button", "MerchantFocusUpButton", frame, "SecureActionButtonTemplate")
+        local focusUpButton = CreateFrame("Button", "ItemListFocusUpButton", frame, "SecureActionButtonTemplate")
         frame.FocusUpButton = focusUpButton
         focusUpButton:SetAttribute("useOnKeyDown", false)
         focusUpButton:RegisterForClicks("LeftButtonUp")
@@ -1067,7 +1067,7 @@ function ConsoleMenu:SetMerchantFrame()
     end
 
     if not frame.FocusDownButton then
-        local focusDownButton = CreateFrame("Button", "MerchantFocusDownButton", frame, "SecureActionButtonTemplate")
+        local focusDownButton = CreateFrame("Button", "ItemListFocusDownButton", frame, "SecureActionButtonTemplate")
         frame.FocusDownButton = focusDownButton
         focusDownButton:SetAttribute("useOnKeyDown", false)
         focusDownButton:RegisterForClicks("LeftButtonUp")
@@ -1079,7 +1079,7 @@ function ConsoleMenu:SetMerchantFrame()
     end
 
     if not frame.BuyButton then
-        local buyButton = CreateFrame("Button", "MerchantBuyButton", frame, "SecureActionButtonTemplate")
+        local buyButton = CreateFrame("Button", "ItemListBuyButton", frame, "SecureActionButtonTemplate")
         frame.BuyButton = buyButton
         buyButton:SetAttribute("useOnKeyDown", false)
         buyButton:RegisterForClicks("LeftButtonUp")
@@ -1091,7 +1091,7 @@ function ConsoleMenu:SetMerchantFrame()
     end
 
     if not frame.BuyStackButton then
-        local buyStackButton = CreateFrame("Button", "MerchantBuyStackButton", frame, "SecureActionButtonTemplate")
+        local buyStackButton = CreateFrame("Button", "ItemListBuyStackButton", frame, "SecureActionButtonTemplate")
         frame.BuyStackButton = buyStackButton
         buyStackButton:SetAttribute("useOnKeyDown", false)
         buyStackButton:RegisterForClicks("LeftButtonUp")
@@ -1103,7 +1103,7 @@ function ConsoleMenu:SetMerchantFrame()
     end
 
     if not frame.CloseButton then
-        local closeButton = CreateFrame("Button", "MerchantCloseButton", frame, "SecureActionButtonTemplate")
+        local closeButton = CreateFrame("Button", "ItemListCloseButton", frame, "SecureActionButtonTemplate")
         frame.CloseButton = closeButton
         closeButton:SetAttribute("useOnKeyDown", false)
         closeButton:RegisterForClicks("LeftButtonUp")
@@ -1145,11 +1145,11 @@ function ConsoleMenu:SetMerchantFrame()
                 focusedMerchantSlot = nil
             end
             
-            SetOverrideBindingClick(self.FocusUpButton, true, "PADDUP", "MerchantFocusUpButton", "LeftButton")
-            SetOverrideBindingClick(self.FocusDownButton, true, "PADDDOWN", "MerchantFocusDownButton", "LeftButton")
-            SetOverrideBindingClick(self.BuyButton, true, "PAD1", "MerchantBuyButton", "LeftButton")
-            SetOverrideBindingClick(self.BuyStackButton, true, "PAD4", "MerchantBuyStackButton", "LeftButton")
-            SetOverrideBindingClick(self.CloseButton, true, "PAD2", "MerchantCloseButton", "LeftButton")
+            SetOverrideBindingClick(self.FocusUpButton, true, "PADDUP", "ItemListFocusUpButton", "LeftButton")
+            SetOverrideBindingClick(self.FocusDownButton, true, "PADDDOWN", "ItemListFocusDownButton", "LeftButton")
+            SetOverrideBindingClick(self.BuyButton, true, "PAD1", "ItemListBuyButton", "LeftButton")
+            SetOverrideBindingClick(self.BuyStackButton, true, "PAD4", "ItemListBuyStackButton", "LeftButton")
+            SetOverrideBindingClick(self.CloseButton, true, "PAD2", "ItemListCloseButton", "LeftButton")
         end)
 
         frame:HookScript("OnHide", function(self)
@@ -1184,8 +1184,8 @@ function ConsoleMenu:SetMerchantFrame()
     frame:SetScript("OnEvent", function(self, event, ...)
 
         if event == "MERCHANT_CLOSED" then
-            ClearMerchantItemTooltipDataCache()
-            ClearMerchantItemStackSizeDataCache()
+            ClearItemListTooltipDataCache()
+            ClearItemListStackSizeDataCache()
             focusedItemExtent = sectionHeight
             dataProvider:Flush()
             return
@@ -1207,8 +1207,8 @@ function ConsoleMenu:SetMerchantFrame()
 end
 
 -- Показать фрейм торговца
-function ConsoleMenu:ShowMerchantFrame()
-    local frame = ConsoleMenuFrame and ConsoleMenuFrame.MerchantFrame
+function ConsoleMenu:ShowItemListFrame()
+    local frame = ConsoleMenuFrame and ConsoleMenuFrame.ItemListFrame
     if not frame or not dataProvider then
         return
     end
@@ -1225,7 +1225,7 @@ function ConsoleMenu:ShowMerchantFrame()
         end
     end
 
-    RefreshMerchantScrollLayout()
+    RefreshItemListScrollLayout()
 
     local scrollRange = frame.Items.ScrollBox and frame.Items.ScrollBox:GetDerivedScrollRange() or 0
     if scrollRange > 0 then
@@ -1241,8 +1241,8 @@ function ConsoleMenu:ShowMerchantFrame()
 end
 
 -- Скрыть фрейм торговца
-function ConsoleMenu:HideMerchantFrame()
-    local frame = ConsoleMenuFrame and ConsoleMenuFrame.MerchantFrame
+function ConsoleMenu:HideItemListFrame()
+    local frame = ConsoleMenuFrame and ConsoleMenuFrame.ItemListFrame
     if not frame or not dataProvider then
         return
     end
