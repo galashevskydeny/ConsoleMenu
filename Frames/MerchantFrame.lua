@@ -163,18 +163,19 @@ local function GetFocusedElement()
     return dataProvider.collection[focusedIndex]
 end
 
-local function GetMerchantItemStackSize(itemSlot)
-    if not itemSlot then
+local function GetListItemStackSize(element)
+    if not element or not element.merchantSlot then
         return 1
     end
 
+    local itemSlot = element.merchantSlot
     local cachedStackSize = itemListStackSizeDataCache[itemSlot]
     if cachedStackSize then
         return cachedStackSize
     end
 
     local quantity = 1
-    local itemID = GetMerchantItemID(itemSlot)
+    local itemID = element.itemID or GetMerchantItemID(itemSlot)
     if itemID then
         local stackSize = C_Item.GetItemMaxStackSizeByID(itemID)
         if stackSize and stackSize > 0 then
@@ -186,11 +187,12 @@ local function GetMerchantItemStackSize(itemSlot)
     return quantity
 end
 
-local function GetMerchantItemTooltipData(itemSlot)
-    if not itemSlot then
+local function GetListItemTooltipData(element)
+    if not element or not element.merchantSlot then
         return nil
     end
 
+    local itemSlot = element.merchantSlot
     local cachedTooltipData = itemListTooltipDataCache[itemSlot]
     if cachedTooltipData then
         return cachedTooltipData
@@ -201,25 +203,60 @@ local function GetMerchantItemTooltipData(itemSlot)
     return tooltipData
 end
 
-local function LoadNearItemsTooltipData(merchantSlot)
-    if not merchantSlot then
+local function FindListItemElementBySlot(itemSlot)
+    if not dataProvider or not itemSlot then
+        return nil
+    end
+
+    for _, element in ipairs(dataProvider.collection) do
+        if element.type == "item" and element.merchantSlot == itemSlot then
+            return element
+        end
+    end
+
+    return {
+        type = "item",
+        merchantSlot = itemSlot,
+    }
+end
+
+local function LoadNearItemListTooltipData(element)
+    if not element or not element.merchantSlot then
         return
     end
 
-    local nextSlot = merchantSlot + 1
-    local previousSlot = merchantSlot - 1
+    local itemSlot = element.merchantSlot
+    local nextSlot = itemSlot + 1
+    local previousSlot = itemSlot - 1
 
-    GetMerchantItemTooltipData(merchantSlot)
-    GetMerchantItemStackSize(merchantSlot)
+    GetListItemTooltipData(element)
 
     if nextSlot <= GetMerchantNumItems() then
-        GetMerchantItemTooltipData(nextSlot)
-        GetMerchantItemStackSize(nextSlot)
+        GetListItemTooltipData(FindListItemElementBySlot(nextSlot))
     end
 
     if previousSlot >= 1 then
-        GetMerchantItemTooltipData(previousSlot)
-        GetMerchantItemStackSize(previousSlot)
+        GetListItemTooltipData(FindListItemElementBySlot(previousSlot))
+    end
+end
+
+local function LoadNearItemListStackSizeData(element)
+    if not element or not element.merchantSlot then
+        return
+    end
+
+    local itemSlot = element.merchantSlot
+    local nextSlot = itemSlot + 1
+    local previousSlot = itemSlot - 1
+
+    GetListItemStackSize(element)
+
+    if nextSlot <= GetMerchantNumItems() then
+        GetListItemStackSize(FindListItemElementBySlot(nextSlot))
+    end
+
+    if previousSlot >= 1 then
+        GetListItemStackSize(FindListItemElementBySlot(previousSlot))
     end
 end
 
@@ -238,7 +275,7 @@ end
 local function UpdateMerchantActionKeys(element)
     if element and not element.isUnavailable then
         ConsoleMenu:AddKeysFrameItem("PAD1", "Купить предмет")
-        if GetMerchantItemStackSize(element.merchantSlot) > 1 then
+        if GetListItemStackSize(element) > 1 then
             ConsoleMenu:AddKeysFrameItem("PAD4", "Купить пачку предметов")
         else
             ConsoleMenu:DeleteKeysFrameItem("PAD4")
@@ -270,7 +307,8 @@ local function MoveFocus(delta)
 
         local candidate = dataProvider.collection[newIndex]
         if candidate and candidate.type ~= "separator" then
-            LoadNearItemsTooltipData(candidate.merchantSlot)
+            LoadNearItemListTooltipData(candidate)
+            LoadNearItemListStackSizeData(candidate)
             UpdateFocus(candidate, true)
             UpdateMerchantActionKeys(candidate)
             ConsoleMenu:UpdateKeysFrame()
@@ -311,7 +349,7 @@ local function BuyFocusedItemStack()
         return
     end
 
-    local quantity = GetMerchantItemStackSize(focusedMerchantSlot)
+    local quantity = GetListItemStackSize(focusedElement)
 
     if quantity == 1 then
         return
@@ -357,9 +395,11 @@ local function LoadMerchantData()
     -- Загрузка данных
     -- Загрузить tooltip данные для первых предметов / предметов в окрестности предмета в фокусе
     if focusedMerchantSlot then
-        LoadNearItemsTooltipData(focusedMerchantSlot)
+        LoadNearItemListTooltipData(FindListItemElementBySlot(focusedMerchantSlot))
+        LoadNearItemListStackSizeData(FindListItemElementBySlot(focusedMerchantSlot))
     else
-        LoadNearItemsTooltipData(1)
+        LoadNearItemListTooltipData(FindListItemElementBySlot(1))
+        LoadNearItemListStackSizeData(FindListItemElementBySlot(1))
     end
 
     -- Загрузка данных о продавце
@@ -829,7 +869,7 @@ function ConsoleMenu:SetItemListFrame()
                 
                 frame.text.title:SetFont("Fonts\\FRIZQT___CYR.TTF", focusedItemFontSize, "OUTLINE")
 
-                local tooltipData = GetMerchantItemTooltipData(data.merchantSlot)
+                local tooltipData = GetListItemTooltipData(data)
 
                 frame.text:SetAlpha(1)
                 SetFocusedTitleText()
