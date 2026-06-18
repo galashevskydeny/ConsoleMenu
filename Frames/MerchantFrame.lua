@@ -41,6 +41,7 @@ local animationDuration = 0.1
 local itemListBackgroundVOffset = 600
 local itemListBackgroundHOffset = 960
 
+-- Функция для перепривязки фона списка предметов
 local function ReanchorItemListBackground(countItems)
     local itemListFrame = ConsoleMenuFrame and ConsoleMenuFrame.ItemListFrame
     if not itemListFrame or not itemListFrame.background then
@@ -63,6 +64,8 @@ local function ReanchorItemListBackground(countItems)
     background:SetPoint("BOTTOMRIGHT", anchorFrame, "BOTTOMRIGHT", itemListBackgroundHOffset / 2, -itemListBackgroundVOffset)
 end
 
+
+-- Функция для перепривязки списка предметов к левому краю в зависимости от наличия скроллбара
 local function ReanchorItems(needOffset)
     local itemListFrame = ConsoleMenuFrame and ConsoleMenuFrame.ItemListFrame
     local items = itemListFrame and itemListFrame.Items
@@ -78,6 +81,7 @@ local function ReanchorItems(needOffset)
     scrollBox:SetPoint("BOTTOMRIGHT", items, "BOTTOMRIGHT", 0, 0)
 end
 
+-- Функция для обновления отображения списка предметов
 local function RefreshItemListScrollLayout()
     local itemListFrame = ConsoleMenuFrame and ConsoleMenuFrame.ItemListFrame
     local scrollBox = itemListFrame and itemListFrame.Items and itemListFrame.Items.ScrollBox
@@ -96,9 +100,10 @@ local function RefreshItemListScrollLayout()
     end
 end
 
+-- Функция для получения высоты элемента списка предметов
 local function GetItemListElementExtent(elementData)
     if elementData
-        and elementData.type == "item"
+        and elementData.type == "merchantItem"
         and focusedSlot
         and elementData.slot == focusedSlot
     then
@@ -108,6 +113,7 @@ local function GetItemListElementExtent(elementData)
     return sectionHeight
 end
 
+-- Функция для обновления фокуса на элементе списка предметов
 local function UpdateFocus(element, changeFocus)
     if not element then return end
 
@@ -122,7 +128,7 @@ local function UpdateFocus(element, changeFocus)
     focusedIndex = scrollBox:FindElementDataIndex(element)
     if not focusedIndex then return end
 
-    local nextSlot = (element.type == "item") and element.slot or nil
+    local nextSlot = (element.type == "merchantItem") and element.slot or nil
     local slotChanged = nextSlot ~= focusedSlot
     if slotChanged then
         focusedItemExtent = sectionHeight
@@ -209,13 +215,13 @@ local function FindListItemElementBySlot(slot)
     end
 
     for _, element in ipairs(dataProvider.collection) do
-        if element.type == "item" and element.slot == slot then
+        if element.type == "merchantItem" and element.slot == slot then
             return element
         end
     end
 
     return {
-        type = "item",
+        type = "merchantItem",
         slot = slot,
     }
 end
@@ -361,7 +367,7 @@ end
 -- Построить элемент списка предметов
 local function BuildMerchantItemElement(item, isUnavailable)
     return {
-        type = "item",
+        type = "merchantItem",
         isUnavailable = isUnavailable,
         slot = item.slot,
         itemID = item.itemID,
@@ -760,7 +766,7 @@ function ConsoleMenu:SetItemListFrame()
 
             frame.text.title:SetText(data.name or "")
 
-            if data.type == "item" then
+            if data.type == "merchantItem" then
                 frame.text:ClearAllPoints()
                 frame.text:SetPoint("LEFT", frame.icon, "RIGHT", sectionPadding * 2, -2)
                 frame.text:SetPoint("RIGHT", frame, "RIGHT", -sectionPadding * 4, -2)
@@ -839,7 +845,7 @@ function ConsoleMenu:SetItemListFrame()
                     frame.text:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -sectionPadding * 4, -sectionPadding)
                 end
 
-                if not isFocused or data.type ~= "item" or not data.slot then
+                if not isFocused or data.type ~= "merchantItem" or not data.slot then
                     local wasExpanded = frame:GetHeight() > sectionHeight
                     frame:SetHeight(sectionHeight)
                     frame.text.title:SetFont("Fonts\\FRIZQT___CYR.TTF", itemFontSize, "OUTLINE")
@@ -1068,7 +1074,7 @@ function ConsoleMenu:SetItemListFrame()
                 return previousExtent ~= newExtent
             end
 
-            local isCurrentFocused = data.type == "item"
+            local isCurrentFocused = data.type == "merchantItem"
                 and focusedSlot ~= nil
                 and data.slot == focusedSlot
             frame:SetFocused(isCurrentFocused)
@@ -1162,7 +1168,7 @@ function ConsoleMenu:SetItemListFrame()
             local targetElement = nil
             if lastFocusedSlot then
                 for _, element in ipairs(dataProvider.collection) do
-                    if element.type == "item" and element.slot == lastFocusedSlot then
+                    if element.type == "merchantItem" and element.slot == lastFocusedSlot then
                         targetElement = element
                         break
                     end
@@ -1171,7 +1177,7 @@ function ConsoleMenu:SetItemListFrame()
 
             if not targetElement then
                 for _, element in ipairs(dataProvider.collection) do
-                    if element.type == "item" then
+                    if element.type == "merchantItem" then
                         targetElement = element
                         break
                     end
@@ -1236,7 +1242,7 @@ function ConsoleMenu:SetItemListFrame()
 
             if focusedSlot then
                 for _, element in ipairs(dataProvider.collection) do
-                    if element.type == "item" and element.slot == focusedSlot then
+                    if element.type == "merchantItem" and element.slot == focusedSlot then
                         UpdateFocus(element, true)
                         break
                     end
