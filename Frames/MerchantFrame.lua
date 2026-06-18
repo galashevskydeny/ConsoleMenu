@@ -38,7 +38,7 @@ local itemListStackSizeDataCache = {}
 
 local animationDuration = 0.1
 
-local itemListBackgroundVOffset = 720
+local itemListBackgroundVOffset = 640
 local itemListBackgroundHOffset = 960
 
 -- Функция для перепривязки фона списка предметов
