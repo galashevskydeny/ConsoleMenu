@@ -8,7 +8,7 @@ local backdropTemplateOffset = 20
 
 local viewedItemCount = 10
 
-local sectionHeight = 76
+local sectionHeight = 80
 local sectionPadding = 10
 local unfocusedItemTextAlpha = 0.7
 local itemsSectionHeight = sectionHeight * viewedItemCount
@@ -38,7 +38,7 @@ local itemListStackSizeDataCache = {}
 
 local animationDuration = 0.1
 
-local itemListBackgroundVOffset = 600
+local itemListBackgroundVOffset = 720
 local itemListBackgroundHOffset = 960
 
 -- Функция для перепривязки фона списка предметов
@@ -58,27 +58,10 @@ local function ReanchorItemListBackground(countItems)
     end
 
     background:ClearAllPoints()
-    background:SetPoint("TOPLEFT", anchorFrame, "TOPLEFT", -itemListBackgroundHOffset, itemListBackgroundVOffset)
-    background:SetPoint("TOPRIGHT", anchorFrame, "TOPRIGHT", itemListBackgroundHOffset / 2, itemListBackgroundVOffset)
-    background:SetPoint("BOTTOMLEFT", anchorFrame, "BOTTOMLEFT", -itemListBackgroundHOffset, -itemListBackgroundVOffset)
-    background:SetPoint("BOTTOMRIGHT", anchorFrame, "BOTTOMRIGHT", itemListBackgroundHOffset / 2, -itemListBackgroundVOffset)
-end
-
-
--- Функция для перепривязки списка предметов к левому краю в зависимости от наличия скроллбара
-local function ReanchorItems(needOffset)
-    local itemListFrame = ConsoleMenuFrame and ConsoleMenuFrame.ItemListFrame
-    local items = itemListFrame and itemListFrame.Items
-    local scrollBox = items and items.ScrollBox
-    if not scrollBox then
-        return
-    end
-
-    local offsetX = needOffset and 48 or 16
-
-    scrollBox:ClearAllPoints()
-    scrollBox:SetPoint("TOPLEFT", items, "TOPLEFT", offsetX, 0)
-    scrollBox:SetPoint("BOTTOMRIGHT", items, "BOTTOMRIGHT", 0, 0)
+    background:SetPoint("TOPLEFT", anchorFrame, "TOPLEFT", -itemListBackgroundHOffset * 1.5, itemListBackgroundVOffset)
+    background:SetPoint("TOPRIGHT", anchorFrame, "TOPRIGHT", itemListBackgroundHOffset, itemListBackgroundVOffset)
+    background:SetPoint("BOTTOMLEFT", anchorFrame, "BOTTOMLEFT", -itemListBackgroundHOffset * 1.5, -itemListBackgroundVOffset)
+    background:SetPoint("BOTTOMRIGHT", anchorFrame, "BOTTOMRIGHT", itemListBackgroundHOffset, -itemListBackgroundVOffset)
 end
 
 -- Функция для обновления отображения списка предметов
@@ -97,6 +80,30 @@ local function RefreshItemListScrollLayout()
         end
     elseif scrollBox.Update then
         scrollBox:Update()
+    end
+end
+
+-- Обновить скроллбар и горизонтальный отступ списка
+local function UpdateItemsScrollBarLayout()
+    local itemListFrame = ConsoleMenuFrame and ConsoleMenuFrame.ItemListFrame
+    local items = itemListFrame and itemListFrame.Items
+    local scrollBox = items and items.ScrollBox
+    local scrollBar = items and items.ScrollBar
+    if not scrollBox then
+        return
+    end
+
+    RefreshItemListScrollLayout()
+
+    if not scrollBar then
+        return
+    end
+
+    local scrollRange = scrollBox:GetDerivedScrollRange() or 0
+    if scrollRange > 0 then
+        scrollBar:Show()
+    else
+        scrollBar:Hide()
     end
 end
 
@@ -154,7 +161,7 @@ local function UpdateFocus(element, changeFocus)
     end
 
     if layoutChanged or slotChanged then
-        RefreshItemListScrollLayout()
+        UpdateItemsScrollBarLayout()
     end
 
     if changeFocus then
@@ -181,11 +188,15 @@ local function GetListItemStackSize(element)
     end
 
     local quantity = 1
-    local itemID = element.itemID or GetMerchantItemID(slot)
-    if itemID then
-        local stackSize = C_Item.GetItemMaxStackSizeByID(itemID)
-        if stackSize and stackSize > 0 then
-            quantity = stackSize
+    local itemID
+    
+    if element.type == "merchantItem" then
+        itemID = element.itemID or GetMerchantItemID(slot)
+        if itemID then
+            local stackSize = C_Item.GetItemMaxStackSizeByID(itemID)
+            if stackSize and stackSize > 0 then
+                quantity = stackSize
+            end
         end
     end
 
@@ -204,9 +215,13 @@ local function GetListItemTooltipData(element)
         return cachedTooltipData
     end
 
-    local tooltipData = C_TooltipInfo.GetMerchantItem(slot)
-    itemListTooltipDataCache[slot] = tooltipData
-    return tooltipData
+    if element.type == "merchantItem" then
+        local tooltipData = C_TooltipInfo.GetMerchantItem(slot)
+        itemListTooltipDataCache[slot] = tooltipData
+        return tooltipData
+    end
+
+    return nil
 end
 
 local function FindListItemElementBySlot(slot)
@@ -215,11 +230,12 @@ local function FindListItemElementBySlot(slot)
     end
 
     for _, element in ipairs(dataProvider.collection) do
-        if element.type == "merchantItem" and element.slot == slot then
+        if element.type ~= "separator" and element.slot == slot then
             return element
         end
     end
 
+    -- Заглушка
     return {
         type = "merchantItem",
         slot = slot,
@@ -279,7 +295,8 @@ local function ClearItemListStackSizeDataCache()
 end
 
 local function UpdateMerchantActionKeys(element)
-    if element and not element.isUnavailable then
+
+    if element and element.type == "merchantItem" and not element.isUnavailable then
         ConsoleMenu:AddKeysFrameItem("PAD1", "Купить предмет")
         if GetListItemStackSize(element) > 1 then
             ConsoleMenu:AddKeysFrameItem("PAD4", "Купить пачку предметов")
@@ -290,6 +307,7 @@ local function UpdateMerchantActionKeys(element)
         ConsoleMenu:DeleteKeysFrameItem("PAD1")
         ConsoleMenu:DeleteKeysFrameItem("PAD4")
     end
+
 end
 
 local function MoveFocus(delta)
@@ -314,7 +332,11 @@ local function MoveFocus(delta)
         local candidate = dataProvider.collection[newIndex]
         if candidate and candidate.type ~= "separator" then
             LoadNearItemListTooltipData(candidate)
-            LoadNearItemListStackSizeData(candidate)
+
+            if candidate.type == "merchantItem" then
+                LoadNearItemListStackSizeData(candidate)
+            end
+
             UpdateFocus(candidate, true)
             UpdateMerchantActionKeys(candidate)
             ConsoleMenu:UpdateKeysFrame()
@@ -331,37 +353,51 @@ function ConsoleMenu:UpdateItemListFrameKeysFrame()
 end
 
 --  Купить предмет
-local function BuyFocusedItem()
+local function PrimaryAction()
     if not focusedSlot then
         return
     end
 
     local focusedElement = GetFocusedElement()
-    if not focusedElement or focusedElement.isUnavailable then
+
+    if not focusedElement then
         return
     end
 
-    BuyMerchantItem(focusedSlot)
+    if focusedElement.type == "merchantItem" then
+        if focusedElement.isUnavailable then
+            return
+        end
+
+        BuyMerchantItem(focusedSlot)
+    end
 end
 
 -- Купить пачку предметов
-local function BuyFocusedItemStack()
+local function SecondaryAction()
     if not focusedSlot then
         return
     end
 
     local focusedElement = GetFocusedElement()
-    if not focusedElement or focusedElement.isUnavailable then
+    if not focusedElement then
         return
     end
 
-    local quantity = GetListItemStackSize(focusedElement)
+    if focusedElement.type == "merchantItem" then
 
-    if quantity == 1 then
-        return
+        if focusedElement.isUnavailable then
+            return
+        end
+
+        local quantity = GetListItemStackSize(focusedElement)
+
+        if quantity == 1 then
+            return
+        end
+
+        BuyMerchantItem(focusedSlot, quantity)
     end
-
-    BuyMerchantItem(focusedSlot, quantity)
 end
 
 -- Построить элемент списка предметов
@@ -422,8 +458,6 @@ local function LoadMerchantData()
     if count == 0 then
         ConsoleMenuFrame.ItemListFrame.EmptyList:Show()
         ReanchorItemListBackground(count)
-        RefreshItemListScrollLayout()
-        ReanchorItems(false)
         return
     else
         ConsoleMenuFrame.ItemListFrame.EmptyList:Hide()
@@ -465,9 +499,6 @@ local function LoadMerchantData()
             dataProvider:Insert(BuildMerchantItemElement(item, true))
         end
     end
-
-    RefreshItemListScrollLayout()
-    ReanchorItems(true)
 end
 
 -- Инициализация фрейма торговца
@@ -483,7 +514,7 @@ function ConsoleMenu:SetItemListFrame()
 
     frame:SetPoint("TOPLEFT", ConsoleMenuFrame, "TOPLEFT", 48, -48 * 4)
     frame:SetWidth(frameWidth)
-    frame:SetPoint("BOTTOMLEFT", ConsoleMenuFrame, "BOTTOMLEFT", 48, 48 * 5)
+    frame:SetPoint("BOTTOMLEFT", ConsoleMenuFrame, "BOTTOMLEFT", 48, 48 * 4)
     --frame:SetSize(frameWidth, itemsSectionHeight + contentPadding * 2 + titleSectionHeight + 32)
     frame:Hide()
 
@@ -499,8 +530,8 @@ function ConsoleMenu:SetItemListFrame()
     if not frame.EmptyList then
         local emptyList = CreateFrame("Frame", "ItemListFrameEmptyList", frame)
         frame.EmptyList = emptyList
-        emptyList:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, 0)
-        emptyList:SetPoint("TOPRIGHT", frame, "TOPRIGHT", 0, 0)
+        emptyList:SetPoint("TOPLEFT", frame, "TOPLEFT", 52, 0)
+        emptyList:SetPoint("TOPRIGHT", frame, "TOPRIGHT", 128, 0)
         emptyList:SetHeight(160)
 
         local text = emptyList:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -551,7 +582,7 @@ function ConsoleMenu:SetItemListFrame()
 
         local scrollBox = CreateFrame("Frame", "ItemListFrameScrollBox", items, "WowScrollBoxList")
         items.ScrollBox = scrollBox
-        scrollBox:SetPoint("TOPLEFT", items, "TOPLEFT", 0, 0)
+        scrollBox:SetPoint("TOPLEFT", items, "TOPLEFT", 52, 0)
         scrollBox:SetPoint("BOTTOMRIGHT", items, "BOTTOMRIGHT", 0, 0)
 
         local scrollBar = CreateFrame("EventFrame", "ItemListFrameScrollBar", items, "MinimalScrollBar")
@@ -598,8 +629,8 @@ function ConsoleMenu:SetItemListFrame()
             if not frame.icon.border then
                 frame.icon.border = frame.icon:CreateTexture(nil, "OVERLAY")
                 frame.icon.border:SetAtlas("plunderstorm-actionbar-slot-border")
-                frame.icon.border:SetPoint("TOPLEFT", frame.icon.texture, "TOPLEFT", -10, 10)
-                frame.icon.border:SetPoint("BOTTOMRIGHT", frame.icon.texture, "BOTTOMRIGHT", 10, -10)
+                frame.icon.border:SetPoint("TOPLEFT", frame.icon.texture, "TOPLEFT", -11, 11)
+                frame.icon.border:SetPoint("BOTTOMRIGHT", frame.icon.texture, "BOTTOMRIGHT", 11, -11)
             end
 
             if not frame.icon.overlay then
@@ -1132,7 +1163,7 @@ function ConsoleMenu:SetItemListFrame()
         buyButton:SetSize(1, 1)
         buyButton:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 40)
         buyButton:SetScript("OnClick", function()
-            BuyFocusedItem()
+            PrimaryAction()
         end)
     end
 
@@ -1144,7 +1175,7 @@ function ConsoleMenu:SetItemListFrame()
         buyStackButton:SetSize(1, 1)
         buyStackButton:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 80)
         buyStackButton:SetScript("OnClick", function()
-            BuyFocusedItemStack()
+            SecondaryAction()
         end)
     end
 
@@ -1248,6 +1279,8 @@ function ConsoleMenu:SetItemListFrame()
                     end
                 end
             end
+
+            UpdateItemsScrollBarLayout()
         end)
     end)
 end
@@ -1271,16 +1304,7 @@ function ConsoleMenu:ShowItemListFrame()
         end
     end
 
-    RefreshItemListScrollLayout()
-
-    local scrollRange = frame.Items.ScrollBox and frame.Items.ScrollBox:GetDerivedScrollRange() or 0
-    if scrollRange > 0 then
-        frame.Items.ScrollBar:Show()
-        ReanchorItems(true)
-    else
-        frame.Items.ScrollBar:Hide()
-        ReanchorItems(false)
-    end
+    UpdateItemsScrollBarLayout()
 
     ConsoleMenu:AnimatedShow(frame)
 
