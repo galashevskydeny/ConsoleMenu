@@ -63,6 +63,30 @@ local function ReanchorMerchantBackground(countItems)
     background:SetPoint("BOTTOMRIGHT", anchorFrame, "BOTTOMRIGHT", merchantBackgroundHOffset / 2, -merchantBackgroundVOffset)
 end
 
+local function ReanchorItems()
+    local merchantFrame = ConsoleMenuFrame and ConsoleMenuFrame.MerchantFrame
+    local items = merchantFrame and merchantFrame.Items
+    local scrollBox = items and items.ScrollBox
+    if not scrollBox then
+        return
+    end
+
+    local viewportHeight = scrollBox:GetHeight()
+    local contentHeight = viewportHeight
+
+    if items.ScrollView and items.ScrollView.GetExtent then
+        contentHeight = items.ScrollView:GetExtent() - 1
+    else
+        contentHeight = viewportHeight + (scrollBox:GetDerivedScrollRange() or 0)
+    end
+
+    local offsetX = contentHeight > viewportHeight and 48 or 0
+
+    scrollBox:ClearAllPoints()
+    scrollBox:SetPoint("TOPLEFT", items, "TOPLEFT", offsetX, 0)
+    scrollBox:SetPoint("BOTTOMRIGHT", items, "BOTTOMRIGHT", 0, 0)
+end
+
 local function RefreshMerchantScrollLayout()
     local merchantFrame = ConsoleMenuFrame and ConsoleMenuFrame.MerchantFrame
     local scrollBox = merchantFrame and merchantFrame.Items and merchantFrame.Items.ScrollBox
@@ -79,6 +103,8 @@ local function RefreshMerchantScrollLayout()
     elseif scrollBox.Update then
         scrollBox:Update()
     end
+
+    ReanchorItems()
 end
 
 local function GetMerchantElementExtent(elementData)
@@ -361,6 +387,7 @@ local function LoadMerchantData()
     if count == 0 then
         ConsoleMenuFrame.MerchantFrame.EmptyList:Show()
         ReanchorMerchantBackground(count)
+        RefreshMerchantScrollLayout()
         return
     else
         ConsoleMenuFrame.MerchantFrame.EmptyList:Hide()
@@ -402,6 +429,8 @@ local function LoadMerchantData()
             dataProvider:Insert(BuildMerchantItemElement(item, true))
         end
     end
+
+    RefreshMerchantScrollLayout()
 end
 
 -- Инициализация фрейма торговца
@@ -415,9 +444,9 @@ function ConsoleMenu:SetMerchantFrame()
     local frame = ConsoleMenuFrame.MerchantFrame
     ConsoleMenu:InitFadeAnimations(frame, animationDuration)
 
-    frame:SetPoint("TOPLEFT", ConsoleMenuFrame, "TOPLEFT", 48, -48 * 4)
+    frame:SetPoint("TOPLEFT", ConsoleMenuFrame, "TOPLEFT", 48, -48 * 5)
     frame:SetWidth(frameWidth)
-    frame:SetPoint("BOTTOMLEFT", ConsoleMenuFrame, "BOTTOMLEFT", 48, 48 * 4)
+    frame:SetPoint("BOTTOMLEFT", ConsoleMenuFrame, "BOTTOMLEFT", 48, 48 * 5)
     --frame:SetSize(frameWidth, itemsSectionHeight + contentPadding * 2 + titleSectionHeight + 32)
     frame:Hide()
 
@@ -485,7 +514,7 @@ function ConsoleMenu:SetMerchantFrame()
 
         local scrollBox = CreateFrame("Frame", "MerchantFrameScrollBox", items, "WowScrollBoxList")
         items.ScrollBox = scrollBox
-        scrollBox:SetPoint("TOPLEFT", items, "TOPLEFT", 48, 0)
+        scrollBox:SetPoint("TOPLEFT", items, "TOPLEFT", 0, 0)
         scrollBox:SetPoint("BOTTOMRIGHT", items, "BOTTOMRIGHT", 0, 0)
 
         local scrollBar = CreateFrame("EventFrame", "MerchantFrameScrollBar", items, "MinimalScrollBar")
@@ -498,6 +527,7 @@ function ConsoleMenu:SetMerchantFrame()
         scrollBar.Back:Hide()
 
         local scrollView = CreateScrollBoxListLinearView()
+        items.ScrollView = scrollView
         dataProvider = CreateDataProvider()
 
         -- Инициализатор для элемента списка
@@ -1203,6 +1233,8 @@ function ConsoleMenu:ShowMerchantFrame()
             region:Hide()
         end
     end
+
+    RefreshMerchantScrollLayout()
 
     local scrollRange = frame.Items.ScrollBox and frame.Items.ScrollBox:GetDerivedScrollRange() or 0
     if scrollRange > 0 then
