@@ -30,7 +30,7 @@ local currencyIconOverlap = currencyIconSize / 4
 local currencyIconDualHeight = currencyIconSize * 2 - currencyIconOverlap
 
 local focusedIndex = 1
-local focusedMerchantSlot = nil
+local focusedSlot = nil
 local focusedItemExtent = sectionHeigh
 
 local itemListTooltipDataCache = {}
@@ -99,8 +99,8 @@ end
 local function GetItemListElementExtent(elementData)
     if elementData
         and elementData.type == "item"
-        and focusedMerchantSlot
-        and elementData.merchantSlot == focusedMerchantSlot
+        and focusedSlot
+        and elementData.slot == focusedSlot
     then
         return math.max(sectionHeight, focusedItemExtent)
     end
@@ -122,12 +122,12 @@ local function UpdateFocus(element, changeFocus)
     focusedIndex = scrollBox:FindElementDataIndex(element)
     if not focusedIndex then return end
 
-    local nextMerchantSlot = (element.type == "item") and element.merchantSlot or nil
-    local slotChanged = nextMerchantSlot ~= focusedMerchantSlot
+    local nextSlot = (element.type == "item") and element.slot or nil
+    local slotChanged = nextSlot ~= focusedSlot
     if slotChanged then
         focusedItemExtent = sectionHeight
     end
-    focusedMerchantSlot = nextMerchantSlot
+    focusedSlot = nextSlot
 
     if changeFocus then
         scrollBox:ScrollToElementDataIndex(focusedIndex)
@@ -164,18 +164,18 @@ local function GetFocusedElement()
 end
 
 local function GetListItemStackSize(element)
-    if not element or not element.merchantSlot then
+    if not element or not element.slot then
         return 1
     end
 
-    local itemSlot = element.merchantSlot
-    local cachedStackSize = itemListStackSizeDataCache[itemSlot]
+    local slot = element.slot
+    local cachedStackSize = itemListStackSizeDataCache[slot]
     if cachedStackSize then
         return cachedStackSize
     end
 
     local quantity = 1
-    local itemID = element.itemID or GetMerchantItemID(itemSlot)
+    local itemID = element.itemID or GetMerchantItemID(slot)
     if itemID then
         local stackSize = C_Item.GetItemMaxStackSizeByID(itemID)
         if stackSize and stackSize > 0 then
@@ -183,51 +183,51 @@ local function GetListItemStackSize(element)
         end
     end
 
-    itemListStackSizeDataCache[itemSlot] = quantity
+    itemListStackSizeDataCache[slot] = quantity
     return quantity
 end
 
 local function GetListItemTooltipData(element)
-    if not element or not element.merchantSlot then
+    if not element or not element.slot then
         return nil
     end
 
-    local itemSlot = element.merchantSlot
-    local cachedTooltipData = itemListTooltipDataCache[itemSlot]
+    local slot = element.slot
+    local cachedTooltipData = itemListTooltipDataCache[slot]
     if cachedTooltipData then
         return cachedTooltipData
     end
 
-    local tooltipData = C_TooltipInfo.GetMerchantItem(itemSlot)
-    itemListTooltipDataCache[itemSlot] = tooltipData
+    local tooltipData = C_TooltipInfo.GetMerchantItem(slot)
+    itemListTooltipDataCache[slot] = tooltipData
     return tooltipData
 end
 
-local function FindListItemElementBySlot(itemSlot)
-    if not dataProvider or not itemSlot then
+local function FindListItemElementBySlot(slot)
+    if not dataProvider or not slot then
         return nil
     end
 
     for _, element in ipairs(dataProvider.collection) do
-        if element.type == "item" and element.merchantSlot == itemSlot then
+        if element.type == "item" and element.slot == slot then
             return element
         end
     end
 
     return {
         type = "item",
-        merchantSlot = itemSlot,
+        slot = slot,
     }
 end
 
 local function LoadNearItemListTooltipData(element)
-    if not element or not element.merchantSlot then
+    if not element or not element.slot then
         return
     end
 
-    local itemSlot = element.merchantSlot
-    local nextSlot = itemSlot + 1
-    local previousSlot = itemSlot - 1
+    local slot = element.slot
+    local nextSlot = slot + 1
+    local previousSlot = slot - 1
 
     GetListItemTooltipData(element)
 
@@ -241,13 +241,13 @@ local function LoadNearItemListTooltipData(element)
 end
 
 local function LoadNearItemListStackSizeData(element)
-    if not element or not element.merchantSlot then
+    if not element or not element.slot then
         return
     end
 
-    local itemSlot = element.merchantSlot
-    local nextSlot = itemSlot + 1
-    local previousSlot = itemSlot - 1
+    local slot = element.slot
+    local nextSlot = slot + 1
+    local previousSlot = slot - 1
 
     GetListItemStackSize(element)
 
@@ -326,7 +326,7 @@ end
 
 --  Купить предмет
 local function BuyFocusedItem()
-    if not focusedMerchantSlot then
+    if not focusedSlot then
         return
     end
 
@@ -335,12 +335,12 @@ local function BuyFocusedItem()
         return
     end
 
-    BuyMerchantItem(focusedMerchantSlot)
+    BuyMerchantItem(focusedSlot)
 end
 
 -- Купить пачку предметов
 local function BuyFocusedItemStack()
-    if not focusedMerchantSlot then
+    if not focusedSlot then
         return
     end
 
@@ -355,7 +355,7 @@ local function BuyFocusedItemStack()
         return
     end
 
-    BuyMerchantItem(focusedMerchantSlot, quantity)
+    BuyMerchantItem(focusedSlot, quantity)
 end
 
 -- Построить элемент списка предметов
@@ -363,7 +363,7 @@ local function BuildMerchantItemElement(item, isUnavailable)
     return {
         type = "item",
         isUnavailable = isUnavailable,
-        merchantSlot = item.merchantSlot,
+        slot = item.slot,
         itemID = item.itemID,
         name = item.name,
         texture = item.texture,
@@ -394,9 +394,9 @@ local function LoadMerchantData()
     
     -- Загрузка данных
     -- Загрузить tooltip данные для первых предметов / предметов в окрестности предмета в фокусе
-    if focusedMerchantSlot then
-        LoadNearItemListTooltipData(FindListItemElementBySlot(focusedMerchantSlot))
-        LoadNearItemListStackSizeData(FindListItemElementBySlot(focusedMerchantSlot))
+    if focusedSlot then
+        LoadNearItemListTooltipData(FindListItemElementBySlot(focusedSlot))
+        LoadNearItemListStackSizeData(FindListItemElementBySlot(focusedSlot))
     else
         LoadNearItemListTooltipData(FindListItemElementBySlot(1))
         LoadNearItemListStackSizeData(FindListItemElementBySlot(1))
@@ -434,7 +434,7 @@ local function LoadMerchantData()
 
         if info then
             info.itemID = itemID
-            info.merchantSlot = i
+            info.slot = i
             if not info.isPurchasable or (not info.isUsable and not isHeirloom) or info.numAvailable == 0 or isKnownHeirloom or hasTransmog then
                 table.insert(unavailableItems, info)
             else
@@ -839,7 +839,7 @@ function ConsoleMenu:SetItemListFrame()
                     frame.text:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -sectionPadding * 4, -sectionPadding)
                 end
 
-                if not isFocused or data.type ~= "item" or not data.merchantSlot then
+                if not isFocused or data.type ~= "item" or not data.slot then
                     local wasExpanded = frame:GetHeight() > sectionHeight
                     frame:SetHeight(sectionHeight)
                     frame.text.title:SetFont("Fonts\\FRIZQT___CYR.TTF", itemFontSize, "OUTLINE")
@@ -938,12 +938,12 @@ function ConsoleMenu:SetItemListFrame()
                 local priceText = nil
                 local priceIconTextures = {}
                 if not data.isUnavailable then
-                    local costCount = data.merchantSlot and (GetMerchantItemCostInfo(data.merchantSlot) or 0) or 0
-                    if costCount > 0 and data.merchantSlot then
+                    local costCount = data.slot and (GetMerchantItemCostInfo(data.slot) or 0) or 0
+                    if costCount > 0 and data.slot then
                         local costParts = {}
 
                         for costIndex = 1, costCount do
-                            local costTexture, costValue, costLink, currencyName = GetMerchantItemCostItem(data.merchantSlot, costIndex)
+                            local costTexture, costValue, costLink, currencyName = GetMerchantItemCostItem(data.slot, costIndex)
                             if costValue and costValue > 0 then
                                 local costName = currencyName
                                 if not costName and costLink then
@@ -1069,8 +1069,8 @@ function ConsoleMenu:SetItemListFrame()
             end
 
             local isCurrentFocused = data.type == "item"
-                and focusedMerchantSlot ~= nil
-                and data.merchantSlot == focusedMerchantSlot
+                and focusedSlot ~= nil
+                and data.slot == focusedSlot
             frame:SetFocused(isCurrentFocused)
 
         end
@@ -1160,9 +1160,9 @@ function ConsoleMenu:SetItemListFrame()
         frame:HookScript("OnShow", function(self)
 
             local targetElement = nil
-            if lastFocusedMerchantSlot then
+            if lastFocusedSlot then
                 for _, element in ipairs(dataProvider.collection) do
-                    if element.type == "item" and element.merchantSlot == lastFocusedMerchantSlot then
+                    if element.type == "item" and element.slot == lastFocusedSlot then
                         targetElement = element
                         break
                     end
@@ -1182,7 +1182,7 @@ function ConsoleMenu:SetItemListFrame()
                 UpdateFocus(targetElement, true)
             else
                 focusedIndex = 1
-                focusedMerchantSlot = nil
+                focusedSlot = nil
             end
             
             SetOverrideBindingClick(self.FocusUpButton, true, "PADDUP", "ItemListFocusUpButton", "LeftButton")
@@ -1195,7 +1195,7 @@ function ConsoleMenu:SetItemListFrame()
         frame:HookScript("OnHide", function(self)
             if InCombatLockdown() then return end
 
-            focusedMerchantSlot = nil
+            focusedSlot = nil
             focusedItemExtent = sectionHeight
 
             ClearOverrideBindings(self)
@@ -1234,9 +1234,9 @@ function ConsoleMenu:SetItemListFrame()
         C_Timer.After(0, function()
             LoadMerchantData()
 
-            if focusedMerchantSlot then
+            if focusedSlot then
                 for _, element in ipairs(dataProvider.collection) do
-                    if element.type == "item" and element.merchantSlot == focusedMerchantSlot then
+                    if element.type == "item" and element.slot == focusedSlot then
                         UpdateFocus(element, true)
                         break
                     end
