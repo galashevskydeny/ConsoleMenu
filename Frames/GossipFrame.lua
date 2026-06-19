@@ -3,7 +3,7 @@
 local ConsoleMenu = _G.ConsoleMenu
 local parentFrame
 
-local frameWidth = 640
+local frameWidth = 600
 
 local viewedItemCount = 3
 local sectionHeight = 52
@@ -356,14 +356,17 @@ local function CreateGossipScrollBox()
     local ScrollBox = CreateFrame("Frame", "GossipScrollBox", GossipScrollBox, "WowScrollBoxList")
     GossipScrollBox.ScrollBox = ScrollBox
     ScrollBox:SetPoint("TOPLEFT", GossipScrollBox, "TOPLEFT", 0, 0)
-    ScrollBox:SetPoint("BOTTOMRIGHT", GossipScrollBox, "BOTTOMRIGHT", -0, 0)
+    ScrollBox:SetPoint("BOTTOMRIGHT", GossipScrollBox, "BOTTOMRIGHT", sectionPadding * 4, 0)
     
     -- Создаем ScrollBar
     local ScrollBar = CreateFrame("EventFrame", "GossipScrollBar", GossipScrollBox, "MinimalScrollBar")
     GossipScrollBox.ScrollBox.ScrollBar = ScrollBar
 
-    ScrollBar:SetPoint("TOPLEFT", ScrollBox, "TOPRIGHT")
-    ScrollBar:SetPoint("BOTTOMLEFT", ScrollBox, "BOTTOMRIGHT")
+    ScrollBar:SetPoint("TOPLEFT", ScrollBox, "TOPRIGHT", 0, -sectionPadding)
+    ScrollBar:SetPoint("BOTTOMLEFT", ScrollBox, "BOTTOMRIGHT", 0, sectionPadding)
+    ScrollBar.Forward:Hide()
+    ScrollBar.Back:Hide()
+    ScrollBar:SetAlpha(0.7)
 
     -- Создаем DataProvider и ScrollView
     local DataProvider = CreateDataProvider()
