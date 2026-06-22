@@ -38,17 +38,22 @@ local itemListStackSizeDataCache = {}
 
 local animationDuration = 0.1
 
-local itemListBackgroundVOffset = 640
-local itemListBackgroundHOffset = 960
+local itemListBackgroundVOffset = 560
+local itemListBackgroundHOffset = 560
 
 -- Функция для перепривязки фона списка предметов
 local function ReanchorItemListBackground(countItems)
     local itemListFrame = ConsoleMenuFrame and ConsoleMenuFrame.ItemListFrame
-    if not itemListFrame or not itemListFrame.background then
+    if not itemListFrame or not itemListFrame.Background then
         return
     end
 
-    local background = itemListFrame.background
+    if not itemListFrame.AdditionalShadow then
+        return
+    end
+
+    local background = itemListFrame.Background
+    local additionalShadow = itemListFrame.AdditionalShadow
     local anchorFrame = itemListFrame
 
     if countItems and countItems > 0 then
@@ -58,10 +63,16 @@ local function ReanchorItemListBackground(countItems)
     end
 
     background:ClearAllPoints()
+
     background:SetPoint("TOPLEFT", anchorFrame, "TOPLEFT", -itemListBackgroundHOffset * 1.5, itemListBackgroundVOffset)
     background:SetPoint("TOPRIGHT", anchorFrame, "TOPRIGHT", itemListBackgroundHOffset, itemListBackgroundVOffset)
     background:SetPoint("BOTTOMLEFT", anchorFrame, "BOTTOMLEFT", -itemListBackgroundHOffset * 1.5, -itemListBackgroundVOffset)
     background:SetPoint("BOTTOMRIGHT", anchorFrame, "BOTTOMRIGHT", itemListBackgroundHOffset, -itemListBackgroundVOffset)
+
+    additionalShadow:ClearAllPoints()
+    additionalShadow:SetPoint("TOP", anchorFrame, "TOP", 0, itemListBackgroundVOffset * 1.2)
+    additionalShadow:SetPoint("BOTTOM", anchorFrame, "BOTTOM", 0, -itemListBackgroundVOffset * 1.2)
+    additionalShadow:SetPoint("RIGHT", anchorFrame, "CENTER", itemListBackgroundHOffset / 2, 0)
 end
 
 -- Функция для обновления отображения списка предметов
@@ -518,14 +529,24 @@ function ConsoleMenu:SetItemListFrame()
     --frame:SetSize(frameWidth, itemsSectionHeight + contentPadding * 2 + titleSectionHeight + 32)
     frame:Hide()
 
-    if not frame.background then
-        frame.background = frame:CreateTexture(nil, "BACKGROUND")
-        frame.background:SetParent(frame)
-        frame.background:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\CrossBackgorundDark.png")
-        frame.background:SetDrawLayer("BACKGROUND", 0)
-        frame.background:Show()
-        ReanchorItemListBackground(0)
+    if not frame.Background then
+        frame.Background = frame:CreateTexture(nil, "BACKGROUND")
+        frame.Background:SetParent(frame)
+        frame.Background:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\CrossBackgorundDark.png")
+        frame.Background:SetDrawLayer("BACKGROUND", 0)
+        frame.Background:Show()
+
     end
+
+    if not frame.AdditionalShadow then
+        frame.AdditionalShadow = frame:CreateTexture(nil, "BACKGROUND")
+        frame.AdditionalShadow:SetParent(frame)
+        frame.AdditionalShadow:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\CrossBackgorundDark.png")
+        frame.AdditionalShadow:SetDrawLayer("BACKGROUND", 0)
+        frame.AdditionalShadow:Show()
+    end
+
+    ReanchorItemListBackground(0)
 
     if not frame.EmptyList then
         local emptyList = CreateFrame("Frame", "ItemListFrameEmptyList", frame)
