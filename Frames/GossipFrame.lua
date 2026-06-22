@@ -949,7 +949,7 @@ function ConsoleMenu:SetCustomGossipFrame()
     
 
     frame:SetSize(frameWidth, sectionHeight * viewedItemCount)
-    frame:SetPoint("TOP", SubtitleFrame, "BOTTOM", 0, -20)
+    frame:SetPoint("TOP", SubtitleFrame, "BOTTOM", 0, -32)
     frame:Hide()
     ConsoleMenu:InitFadeAnimations(frame, animationDuration)
 
