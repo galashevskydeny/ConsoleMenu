@@ -41,6 +41,18 @@ local animationDuration = 0.1
 local itemListBackgroundVOffset = 560
 local itemListBackgroundHOffset = 560
 
+local currenciesData = {}
+
+local currenciesWidth = 304
+local currenciesSectionHeight = 32
+
+local currenciesMaxItems = 3
+local currenciesHeight = currenciesSectionHeight * currenciesMaxItems
+
+local currenciesIconSize = currenciesSectionHeight
+local currenciesIconInnerPadding = 8
+local currenciesFontSize = 16
+
 -- Функция для перепривязки фона списка предметов
 local function ReanchorItemListBackground(countItems)
     local itemListFrame = ConsoleMenuFrame and ConsoleMenuFrame.ItemListFrame
@@ -508,6 +520,84 @@ local function LoadMerchantData()
 
         for _, item in ipairs(unavailableItems) do
             dataProvider:Insert(BuildMerchantItemElement(item, true))
+        end
+    end
+end
+
+local function UpdateCurrencyItemFrame(frame, item)
+    if not frame then
+        return
+    end
+
+    if not item then
+        frame:Hide()
+        return
+    end
+    
+    frame:Show()
+
+    if not frame.Icon then return end
+
+    if item.texture then
+        frame.Icon:Show()
+        frame.Icon.MainTexture:SetTexture(item.texture)
+        
+    else
+        frame.Icon:Hide()
+    end
+
+    if item.name and item.count then
+        frame.Text:SetText(item.name .. "  " .. item.separator .. item.count)
+    elseif item.name then
+        frame.Text:SetText(item.name)
+    else
+        frame.Text:SetText("")
+    end
+
+end
+
+local function UpdateCurrenciesFrame()
+    local itemListFrame = ConsoleMenuFrame and ConsoleMenuFrame.ItemListFrame
+    if not itemListFrame or not itemListFrame.Currencies or not currenciesData then
+        return
+    end
+
+    for i = 1, currenciesMaxItems do
+        local currencyFrame = itemListFrame.Currencies["Item" .. i]
+        local item = currenciesData[i]
+        UpdateCurrencyItemFrame(currencyFrame, item)
+    end
+end
+
+local function LoadMerchantCurrenciesData()
+    currenciesData = {}
+
+    table.insert(currenciesData, {
+        count = GetMoneyString(GetMoney(), true),
+        name = "Золото",
+        texture = "Interface\\Icons\\UI_PlunderCoins.tga",
+        separator = ""
+    })
+
+    local merchantCurrencyIDs = C_MerchantFrame.GetMerchantCurrencies()
+    if merchantCurrencyIDs then
+        for i = 1, #merchantCurrencyIDs do
+            if #currenciesData >= currenciesMaxItems then
+                break
+            end
+
+            local currencyID = merchantCurrencyIDs[i]
+            if currencyID then
+                local info = C_CurrencyInfo.GetCurrencyInfo(currencyID)
+                if info then
+                    table.insert(currenciesData, {
+                        texture = info.iconFileID,
+                        name = info.name,
+                        count = info.quantity,
+                        separator = "x",
+                    })
+                end
+            end
         end
     end
 end
@@ -1152,6 +1242,74 @@ function ConsoleMenu:SetItemListFrame()
         
     end
 
+    if not frame.Currencies then
+        local currencies = CreateFrame("Frame", "ItemListCurrencies", frame)
+        frame.Currencies = currencies
+        currencies:SetSize(currenciesWidth, currenciesHeight)
+        currencies:SetPoint("TOPRIGHT", ConsoleMenuFrame, "TOPRIGHT", -64, -48 * 4)
+
+        if not currencies.Background then
+            currencies.Background = currencies:CreateTexture(nil, "BACKGROUND")
+            currencies.Background:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\CrossBackgorundDark.png")
+            currencies.Background:SetDrawLayer("BACKGROUND", 0)
+            currencies.Background:SetPoint("LEFT", currencies, "LEFT", -itemListBackgroundHOffset, 0)
+            currencies.Background:SetPoint("RIGHT", currencies, "RIGHT", itemListBackgroundHOffset * 2, 0)
+            
+            currencies.Background:SetPoint("TOP", currencies, "TOP", 0, itemListBackgroundVOffset * 0.8)
+            currencies.Background:SetPoint("BOTTOM", currencies, "BOTTOM", 0, -itemListBackgroundVOffset * 0.8)
+            currencies.Background:Show()
+        end
+
+        for i = 1, currenciesMaxItems do
+            local item = CreateFrame("Frame", "CurrenciesItem" .. i, currencies)
+            currencies["Item" .. i] = item
+    
+            item:SetWidth(currenciesWidth)
+            item:SetHeight(currenciesSectionHeight)
+    
+            item:Hide()
+    
+            if i == 1 then
+                item:SetPoint("TOPLEFT", currencies, "TOPLEFT", 0, 0)
+            else
+                item:SetPoint("TOPLEFT", currencies["Item" .. (i-1)], "BOTTOMLEFT", 0, -currenciesIconInnerPadding * 1.5)
+            end
+    
+            ConsoleMenu:InitFadeAnimations(item, animationDuration)
+    
+            -- Иконка
+            if not item.Icon then
+                item.Icon = CreateFrame("Frame", nil, item)
+                item.Icon:SetSize(currenciesIconSize, currenciesIconSize)
+                item.Icon:SetPoint("RIGHT", item, "RIGHT", 0, 0)
+    
+                -- Текстура иконки
+                if not item.Icon.MainTexture then
+                    item.Icon.MainTexture = item.Icon:CreateTexture(nil, "ARTWORK")
+                    item.Icon.MainTexture:SetAllPoints()
+
+                    item.Icon.Mask = item.Icon:CreateMaskTexture()
+                    item.Icon.Mask:SetAllPoints(item.Icon.MainTexture)
+                    item.Icon.Mask:SetTexture(
+                        "Interface\\AddOns\\ConsoleMenu\\Assets\\MaskCircle.png",
+                        "CLAMPTOBLACK"
+                    )
+                    item.Icon.MainTexture:AddMaskTexture(item.Icon.Mask)
+                end
+            end
+    
+            -- Текст
+            if not item.Text then
+                item.Text = item:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+                item.Text:SetPoint("RIGHT", item.Icon, "LEFT", -currenciesIconInnerPadding * 2, 0)
+                item.Text:SetJustifyH("LEFT")
+                item.Text:SetFont("Fonts\\FRIZQT___CYR.TTF", currenciesFontSize, "")
+                item.Text:SetTextColor(1.0, 0.960784, 0.772549, 1)
+            end
+    
+        end
+    end
+
     if not frame.FocusUpButton then
         local focusUpButton = CreateFrame("Button", "ItemListFocusUpButton", frame, "SecureActionButtonTemplate")
         frame.FocusUpButton = focusUpButton
@@ -1291,6 +1449,7 @@ function ConsoleMenu:SetItemListFrame()
 
         C_Timer.After(0, function()
             LoadMerchantData()
+            LoadMerchantCurrenciesData()
 
             if focusedSlot then
                 for _, element in ipairs(dataProvider.collection) do
@@ -1326,7 +1485,7 @@ function ConsoleMenu:ShowItemListFrame()
     end
 
     UpdateItemsScrollBarLayout()
-
+    UpdateCurrenciesFrame()
     ConsoleMenu:AnimatedShow(frame)
 
 end
