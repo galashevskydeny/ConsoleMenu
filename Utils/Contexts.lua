@@ -229,9 +229,9 @@ function ConsoleMenu:ApplyContextUIChanges()
         ConsoleMenu:HideItemListFrame()
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.CombatFrame)
+        ConsoleMenu:AnimatedHide(PersonalResourceDisplayFrame)
         ConsoleMenu:PlayFadeIn(ObjectiveTrackerFrame)
         ConsoleMenu:AnimatedShow(Minimap)
-        PlayerFrame:SetAlpha(0)
 
     elseif context == "window" then
 
@@ -284,7 +284,7 @@ function ConsoleMenu:ApplyContextUIChanges()
 
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.CombatFrame)
-        PlayerFrame:SetAlpha(0)
+        ConsoleMenu:AnimatedHide(PersonalResourceDisplayFrame)
 
     elseif context == "mount" then
         local page = 4
@@ -358,6 +358,12 @@ function ConsoleMenu:ApplyContextUIChanges()
             ConsoleMenu:AddKeysFrameItem("PAD1", "Взаимодействие")
         end
 
+        if page == 4 then
+            C_Timer.After(1, function()
+                ConsoleMenu:ApplyContextUIChanges()
+            end)
+        end
+
         ConsoleMenu:UpdateKeysFrame()
 
         if context == ConsoleMenuFrame.PlayerContext.lastContext then
@@ -367,13 +373,7 @@ function ConsoleMenu:ApplyContextUIChanges()
         ConsoleMenu:HideItemListFrame()
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.CombatFrame)
-        PlayerFrame:SetAlpha(0)
-
-        if page == 4 then
-            C_Timer.After(0.5, function()
-                ConsoleMenu:ApplyContextUIChanges()
-            end)
-        end
+        ConsoleMenu:AnimatedHide(PersonalResourceDisplayFrame)
 
     elseif context == "combat" or context == "precombat" then
         local page = 1
@@ -418,6 +418,7 @@ function ConsoleMenu:ApplyContextUIChanges()
         end
 
         ConsoleMenu:UpdateKeysFrame()
+        ConsoleMenu:AnimatedShow(PersonalResourceDisplayFrame)
 
         if context == ConsoleMenuFrame.PlayerContext.lastContext then
             return
@@ -433,9 +434,9 @@ function ConsoleMenu:ApplyContextUIChanges()
         
         ConsoleMenu:HideItemListFrame()
 
+        
         ConsoleMenu:AnimatedShow(ConsoleMenuFrame.ActionBarFrame)
         ConsoleMenu:AnimatedShow(ConsoleMenuFrame.CombatFrame)
-        PlayerFrame:SetAlpha(1)
 
     elseif context == "housing" then
 
@@ -459,9 +460,9 @@ function ConsoleMenu:ApplyContextUIChanges()
         ConsoleMenu:HideItemListFrame()
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.CombatFrame)
+        ConsoleMenu:AnimatedHide(PersonalResourceDisplayFrame)
         ConsoleMenu:PlayFadeOut(ObjectiveTrackerFrame)
         ConsoleMenu:AnimatedHide(Minimap)
-        PlayerFrame:SetAlpha(0)
             
     end
 
