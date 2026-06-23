@@ -39,7 +39,7 @@ local itemListStackSizeDataCache = {}
 local animationDuration = 0.1
 
 local itemListBackgroundVOffset = 560
-local itemListBackgroundHOffset = 560
+local itemListBackgroundHOffset = 400
 
 local currenciesData = {}
 
@@ -547,7 +547,7 @@ local function UpdateCurrencyItemFrame(frame, item)
     end
 
     if item.name and item.count then
-        frame.Text:SetText(item.name .. "  " .. item.separator .. item.count)
+        frame.Text:SetText(item.name .. " " .. item.separator .. item.count)
     elseif item.name then
         frame.Text:SetText(item.name)
     else
@@ -615,7 +615,7 @@ function ConsoleMenu:SetItemListFrame()
 
     frame:SetPoint("TOPLEFT", ConsoleMenuFrame, "TOPLEFT", 48, -48 * 4)
     frame:SetWidth(frameWidth)
-    frame:SetPoint("BOTTOMLEFT", ConsoleMenuFrame, "BOTTOMLEFT", 48, 48 * 4)
+    frame:SetPoint("BOTTOMLEFT", ConsoleMenuFrame, "BOTTOMLEFT", 48, 48 * 4 + 2)
     --frame:SetSize(frameWidth, itemsSectionHeight + contentPadding * 2 + titleSectionHeight + 32)
     frame:Hide()
 
@@ -625,6 +625,7 @@ function ConsoleMenu:SetItemListFrame()
         frame.Background:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\CrossBackgorundDark.png")
         frame.Background:SetDrawLayer("BACKGROUND", 0)
         frame.Background:Show()
+        frame.Background:SetAlpha(0.75)
 
     end
 
@@ -634,6 +635,7 @@ function ConsoleMenu:SetItemListFrame()
         frame.AdditionalShadow:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\CrossBackgorundDark.png")
         frame.AdditionalShadow:SetDrawLayer("BACKGROUND", 0)
         frame.AdditionalShadow:Show()
+        frame.AdditionalShadow:SetAlpha(1)
     end
 
     ReanchorItemListBackground(0)
@@ -1257,6 +1259,7 @@ function ConsoleMenu:SetItemListFrame()
             
             currencies.Background:SetPoint("TOP", currencies, "TOP", 0, itemListBackgroundVOffset * 0.8)
             currencies.Background:SetPoint("BOTTOM", currencies, "BOTTOM", 0, -itemListBackgroundVOffset * 0.8)
+            currencies.Background:SetAlpha(0.75)
             currencies.Background:Show()
         end
 
@@ -1444,6 +1447,7 @@ function ConsoleMenu:SetItemListFrame()
             ClearItemListStackSizeDataCache()
             focusedItemExtent = sectionHeight
             dataProvider:Flush()
+            currenciesData = {}
             return
         end
 
@@ -1460,6 +1464,7 @@ function ConsoleMenu:SetItemListFrame()
                 end
             end
 
+            UpdateCurrenciesFrame()
             UpdateItemsScrollBarLayout()
         end)
     end)
