@@ -10,7 +10,7 @@ local viewedItemCount = 10
 
 local sectionHeight = 80
 local sectionPadding = 10
-local unfocusedItemTextAlpha = 0.7
+local unfocusedItemTextAlpha = 0.6
 local itemsSectionHeight = sectionHeight * viewedItemCount
 
 local iconSize = sectionHeight - sectionPadding * 2
@@ -24,6 +24,10 @@ local emptyListDescriptionFontSize = 20
 local itemFontSize = 18
 local focusedItemFontSize = itemFontSize + 2
 local descriptionFontSize = 14
+local tabFontSize = 22
+
+local focusedTabIndex = 1
+local tabTitles = { "Торговля", "Ремонт", "Выкуп", "Продажа" }
 
 local currencyIconSize = 20
 local currencyIconOverlap = currencyIconSize / 4
@@ -128,6 +132,48 @@ local function UpdateItemsScrollBarLayout()
     else
         scrollBar:Hide()
     end
+end
+
+-- Обновление фреймов вкладок в зависимости от фокуса
+local function UpdateTabs()
+    for i = 1, #tabTitles do
+        local tab = _G["ItemListTab" .. i]
+        if not tab then
+            return
+        end
+        if i == focusedTabIndex then
+            tab.circle:Hide()
+            tab.text:Show()
+            local textWidth = tab.text:GetStringWidth()
+            tab:SetWidth(textWidth)
+        else
+            tab.circle:Show()
+            tab.text:Hide()
+
+            local diff = math.abs(focusedTabIndex - i)
+
+            if diff == 1 then
+                tab.circle:SetSize(sectionPadding, sectionPadding)
+                tab:SetWidth(sectionPadding)
+            else
+                local newSize = sectionPadding * ((#tabTitles - diff) / #tabTitles + 0.35)
+                tab.circle:SetSize(newSize, newSize)
+                tab:SetWidth(newSize)
+            end
+        end
+    end
+end
+
+local function SwitchTab(direction)
+    local newTabIndex = focusedTabIndex + direction
+    if newTabIndex < 1 then
+        newTabIndex = 1
+    elseif newTabIndex > #tabTitles then
+        newTabIndex = #tabTitles
+    end
+
+    focusedTabIndex = newTabIndex
+    UpdateTabs()
 end
 
 -- Функция для получения высоты элемента списка предметов
@@ -696,14 +742,14 @@ function ConsoleMenu:SetItemListFrame()
         local scrollBox = CreateFrame("Frame", "ItemListFrameScrollBox", items, "WowScrollBoxList")
         items.ScrollBox = scrollBox
         scrollBox:SetPoint("TOPLEFT", items, "TOPLEFT", 52, 0)
-        scrollBox:SetPoint("BOTTOMRIGHT", items, "BOTTOMRIGHT", 0, 0)
+        scrollBox:SetPoint("BOTTOMRIGHT", items, "BOTTOMRIGHT", 0, sectionHeight)
 
         local scrollBar = CreateFrame("EventFrame", "ItemListFrameScrollBar", items, "MinimalScrollBar")
         items.ScrollBar = scrollBar
 
         scrollBar:SetAlpha(0.4)
-        scrollBar:SetPoint("TOPLEFT", items, "TOPLEFT", 0, -24)
-        scrollBar:SetPoint("BOTTOMLEFT", items, "BOTTOMLEFT", 0, 24)
+        scrollBar:SetPoint("TOPLEFT", scrollBox, "TOPLEFT", -50, -24)
+        scrollBar:SetPoint("BOTTOMLEFT", scrollBox, "BOTTOMLEFT", 0, 24)
         scrollBar.Forward:Hide()
         scrollBar.Back:Hide()
 
@@ -1313,6 +1359,65 @@ function ConsoleMenu:SetItemListFrame()
         end
     end
 
+    if not frame.Tabs then
+        frame.Tabs = CreateFrame("Frame", "ItemListTabs", frame)
+        frame.Tabs:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 40, 0)
+        frame.Tabs:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, 0)
+        frame.Tabs:SetHeight(sectionHeight)
+
+        local previousTab = nil
+        for i, title in ipairs(tabTitles) do
+            local tab = CreateFrame("Button", "ItemListTab" .. i, ItemListTabs)
+            if i == 1 then
+                tab:SetPoint("LEFT", ItemListTabs, "LEFT", sectionPadding * 1.5, 0)
+            else
+                tab:SetPoint("LEFT", previousTab, "RIGHT", sectionPadding, 0)
+            end
+
+            local tabFont = "Fonts\\FRIZQT___CYR.TTF"
+            if not tab.text then
+                tab.text = tab:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+                tab.text:SetFont(tabFont, tabFontSize, "")
+                tab.text:SetTextColor(1.0, 0.960784, 0.772549, 0.4)
+                tab.text:SetPoint("CENTER")
+            end
+            tab.text:SetText(title)
+
+            if not tab.circle then
+                tab.circle = CreateFrame("Frame", nil, tab)
+                tab.circle:SetSize(sectionPadding, sectionPadding)
+                tab.circle:SetPoint("CENTER", tab, "CENTER", 0, 0)
+
+                tab.circle.texture = tab.circle:CreateTexture(nil, "ARTWORK")
+                tab.circle.texture:SetAllPoints(tab.circle)
+                tab.circle.texture:SetColorTexture(1.0, 0.960784, 0.772549, 0.4)
+                tab.circle.texture:SetTexCoord(0, 1, 0, 1)
+
+                tab.circle.mask = tab.circle:CreateMaskTexture()
+                tab.circle.mask:SetAllPoints(tab.circle)
+                tab.circle.mask:SetTexture(
+                    "Interface\\AddOns\\ConsoleMenu\\Assets\\MaskCircle.png",
+                    "CLAMPTOBLACK"
+                )
+
+                tab.circle.texture:AddMaskTexture(tab.circle.mask)
+            end
+
+            tab.circle:Hide()
+            tab:SetWidth(tab.text:GetStringWidth())
+            tab:SetHeight(sectionHeight)
+
+            tab:SetScript("OnClick", function()
+                focusedTabIndex = i
+                UpdateTabs()
+            end)
+
+            previousTab = tab
+        end
+
+        UpdateTabs()
+    end
+
     if not frame.FocusUpButton then
         local focusUpButton = CreateFrame("Button", "ItemListFocusUpButton", frame, "SecureActionButtonTemplate")
         frame.FocusUpButton = focusUpButton
@@ -1334,6 +1439,30 @@ function ConsoleMenu:SetItemListFrame()
         focusDownButton:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 20)
         focusDownButton:SetScript("OnClick", function()
             MoveFocus(1)
+        end)
+    end
+
+    if not frame.TabLeftButton then
+        local tabLeftButton = CreateFrame("Button", "ItemListTabLeftButton", frame, "SecureActionButtonTemplate")
+        frame.TabLeftButton = tabLeftButton
+        tabLeftButton:SetAttribute("useOnKeyDown", false)
+        tabLeftButton:RegisterForClicks("LeftButtonUp")
+        tabLeftButton:SetSize(1, 1)
+        tabLeftButton:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 100)
+        tabLeftButton:SetScript("OnClick", function()
+            SwitchTab(-1)
+        end)
+    end
+
+    if not frame.TabRightButton then
+        local tabRightButton = CreateFrame("Button", "ItemListTabRightButton", frame, "SecureActionButtonTemplate")
+        frame.TabRightButton = tabRightButton
+        tabRightButton:SetAttribute("useOnKeyDown", false)
+        tabRightButton:RegisterForClicks("LeftButtonUp")
+        tabRightButton:SetSize(1, 1)
+        tabRightButton:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 120)
+        tabRightButton:SetScript("OnClick", function()
+            SwitchTab(1)
         end)
     end
 
@@ -1406,6 +1535,8 @@ function ConsoleMenu:SetItemListFrame()
             
             SetOverrideBindingClick(self.FocusUpButton, true, "PADDUP", "ItemListFocusUpButton", "LeftButton")
             SetOverrideBindingClick(self.FocusDownButton, true, "PADDDOWN", "ItemListFocusDownButton", "LeftButton")
+            SetOverrideBindingClick(self.TabLeftButton, true, "PADDLEFT", "ItemListTabLeftButton", "LeftButton")
+            SetOverrideBindingClick(self.TabRightButton, true, "PADDRIGHT", "ItemListTabRightButton", "LeftButton")
             SetOverrideBindingClick(self.BuyButton, true, "PAD1", "ItemListBuyButton", "LeftButton")
             SetOverrideBindingClick(self.BuyStackButton, true, "PAD4", "ItemListBuyStackButton", "LeftButton")
             SetOverrideBindingClick(self.CloseButton, true, "PAD2", "ItemListCloseButton", "LeftButton")
@@ -1423,6 +1554,12 @@ function ConsoleMenu:SetItemListFrame()
             end
             if self.FocusDownButton then
                 ClearOverrideBindings(self.FocusDownButton)
+            end
+            if self.TabLeftButton then
+                ClearOverrideBindings(self.TabLeftButton)
+            end
+            if self.TabRightButton then
+                ClearOverrideBindings(self.TabRightButton)
             end
             if self.BuyButton then
                 ClearOverrideBindings(self.BuyButton)
