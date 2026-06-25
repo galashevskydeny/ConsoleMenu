@@ -27,7 +27,8 @@ local descriptionFontSize = 14
 local tabFontSize = 22
 
 local focusedTabIndex = 1
-local tabTitles = { "Торговля", "Ремонт", "Выкуп", "Продажа" }
+local tabs = {}
+local merchantTabSlotCount = 3
 
 local currencyIconSize = 20
 local currencyIconOverlap = currencyIconSize / 4
@@ -42,8 +43,8 @@ local itemListStackSizeDataCache = {}
 
 local animationDuration = 0.1
 
-local itemListBackgroundVOffset = 560
-local itemListBackgroundHOffset = 400
+local itemListBackgroundVOffset = 640
+local itemListBackgroundHOffset = 440
 
 local currenciesData = {}
 
@@ -132,48 +133,6 @@ local function UpdateItemsScrollBarLayout()
     else
         scrollBar:Hide()
     end
-end
-
--- Обновление фреймов вкладок в зависимости от фокуса
-local function UpdateTabs()
-    for i = 1, #tabTitles do
-        local tab = _G["ItemListTab" .. i]
-        if not tab then
-            return
-        end
-        if i == focusedTabIndex then
-            tab.circle:Hide()
-            tab.text:Show()
-            local textWidth = tab.text:GetStringWidth()
-            tab:SetWidth(textWidth)
-        else
-            tab.circle:Show()
-            tab.text:Hide()
-
-            local diff = math.abs(focusedTabIndex - i)
-
-            if diff == 1 then
-                tab.circle:SetSize(sectionPadding, sectionPadding)
-                tab:SetWidth(sectionPadding)
-            else
-                local newSize = sectionPadding * ((#tabTitles - diff) / #tabTitles + 0.35)
-                tab.circle:SetSize(newSize, newSize)
-                tab:SetWidth(newSize)
-            end
-        end
-    end
-end
-
-local function SwitchTab(direction)
-    local newTabIndex = focusedTabIndex + direction
-    if newTabIndex < 1 then
-        newTabIndex = 1
-    elseif newTabIndex > #tabTitles then
-        newTabIndex = #tabTitles
-    end
-
-    focusedTabIndex = newTabIndex
-    UpdateTabs()
 end
 
 -- Функция для получения высоты элемента списка предметов
@@ -316,11 +275,11 @@ local function LoadNearItemListTooltipData(element)
         return
     end
 
+    GetListItemTooltipData(element)
+
     local slot = element.slot
     local nextSlot = slot + 1
     local previousSlot = slot - 1
-
-    GetListItemTooltipData(element)
 
     if nextSlot <= GetMerchantNumItems() then
         GetListItemTooltipData(FindListItemElementBySlot(nextSlot))
@@ -336,11 +295,11 @@ local function LoadNearItemListStackSizeData(element)
         return
     end
 
+    GetListItemStackSize(element)
+
     local slot = element.slot
     local nextSlot = slot + 1
     local previousSlot = slot - 1
-
-    GetListItemStackSize(element)
 
     if nextSlot <= GetMerchantNumItems() then
         GetListItemStackSize(FindListItemElementBySlot(nextSlot))
@@ -367,6 +326,7 @@ local function UpdateMerchantActionKeys(element)
 
     if element and element.type == "merchantItem" and not element.isUnavailable then
         ConsoleMenu:AddKeysFrameItem("PAD1", "Купить предмет")
+        ConsoleMenu:AddKeysFrameItem("PAD3", "Отремонтировать снаряжение")
         if GetListItemStackSize(element) > 1 then
             ConsoleMenu:AddKeysFrameItem("PAD4", "Купить пачку предметов")
         else
@@ -444,29 +404,47 @@ end
 
 -- Купить пачку предметов
 local function SecondaryAction()
-    if not focusedSlot then
+    local tab = tabs[focusedTabIndex]
+    if not tab then
         return
     end
 
-    local focusedElement = GetFocusedElement()
-    if not focusedElement then
-        return
-    end
-
-    if focusedElement.type == "merchantItem" then
-
-        if focusedElement.isUnavailable then
+    if tab.code == "trade" then
+        if not focusedSlot then
             return
         end
-
-        local quantity = GetListItemStackSize(focusedElement)
-
-        if quantity == 1 then
+    
+        local focusedElement = GetFocusedElement()
+        if not focusedElement then
             return
         end
-
-        BuyMerchantItem(focusedSlot, quantity)
+    
+        if focusedElement.type == "merchantItem" then
+    
+            if focusedElement.isUnavailable then
+                return
+            end
+    
+            local quantity = GetListItemStackSize(focusedElement)
+    
+            if quantity == 1 then
+                return
+            end
+    
+            BuyMerchantItem(focusedSlot, quantity)
+        end
     end
+end
+
+local function TertiaryAction()
+    local tab = tabs[focusedTabIndex]
+
+    if tab.code == "trade" then
+        if CanMerchantRepair() then
+            RepairAllItems()
+        end
+    end
+
 end
 
 -- Построить элемент списка предметов
@@ -648,6 +626,147 @@ local function LoadMerchantCurrenciesData()
     end
 end
 
+local function BuildTabs()
+    tabs = {
+        { title = "Торговля", code = "trade" },
+        { title = "Выкуп", code = "buyback" },
+        { title = "Продажа", code = "sell" },
+    }
+end
+
+local function LoadTabData(tab)
+    if not tab then
+        return
+    end
+
+    if tab.code == "trade" then
+        LoadMerchantData()
+    end
+end
+
+-- Обновление фреймов вкладок в зависимости от фокуса
+local function UpdateTabs()
+    for i = 1, #tabs do
+        local tab = _G["ItemListTab" .. i]
+        if not tab then
+            return
+        end
+        if i == focusedTabIndex then
+            tab.circle:Hide()
+            tab.text:Show()
+            local textWidth = tab.text:GetStringWidth()
+            tab:SetWidth(textWidth)
+        else
+            tab.circle:Show()
+            tab.text:Hide()
+
+            local diff = math.abs(focusedTabIndex - i)
+
+            if diff == 1 then
+                tab.circle:SetSize(sectionPadding, sectionPadding)
+                tab:SetWidth(sectionPadding)
+            else
+                local newSize = sectionPadding * ((#tabs - diff) / #tabs + 0.35)
+                tab.circle:SetSize(newSize, newSize)
+                tab:SetWidth(newSize)
+            end
+        end
+    end
+end
+
+local function RefreshMerchantTabsLayout()
+    local frame = ConsoleMenuFrame and ConsoleMenuFrame.ItemListFrame
+    if not frame or not frame.Tabs then
+        return
+    end
+
+    local previousTab = nil
+    for i = 1, #tabs do
+        local tab = _G["ItemListTab" .. i]
+        local tabData = tabs[i]
+        if tab and tabData then
+            tab.text:SetText(tabData.title)
+            tab:Show()
+            tab:ClearAllPoints()
+            if i == 1 then
+                tab:SetPoint("LEFT", ItemListTabs, "LEFT", sectionPadding * 1.5, 0)
+            else
+                tab:SetPoint("LEFT", previousTab, "RIGHT", sectionPadding, 0)
+            end
+            previousTab = tab
+        end
+    end
+
+    for i = #tabs + 1, merchantTabSlotCount do
+        local tab = _G["ItemListTab" .. i]
+        if tab then
+            tab:Hide()
+        end
+    end
+
+    if focusedTabIndex > #tabs then
+        focusedTabIndex = 1
+    end
+
+    UpdateTabs()
+end
+
+local function FocusFirstListElement()
+    if not dataProvider or not dataProvider.collection then
+        focusedIndex = 1
+        focusedSlot = nil
+        return
+    end
+
+    local targetElement = nil
+    for _, element in ipairs(dataProvider.collection) do
+        if element.type ~= "separator" then
+            targetElement = element
+            break
+        end
+    end
+
+    if targetElement then
+        UpdateFocus(targetElement, true)
+        UpdateMerchantActionKeys(targetElement)
+        ConsoleMenu:UpdateKeysFrame()
+    else
+        focusedIndex = 1
+        focusedSlot = nil
+        focusedItemExtent = sectionHeight
+        UpdateMerchantActionKeys(nil)
+        ConsoleMenu:UpdateKeysFrame()
+    end
+
+    UpdateItemsScrollBarLayout()
+end
+
+local function SelectTab(index)
+    if index < 1 or index > #tabs then
+        return
+    end
+
+    focusedTabIndex = index
+    LoadTabData(tabs[index])
+    UpdateTabs()
+    FocusFirstListElement()
+end
+
+local function SwitchTab(direction)
+    if #tabs == 0 then
+        return
+    end
+
+    local newTabIndex = focusedTabIndex + direction
+    if newTabIndex < 1 then
+        newTabIndex = #tabs
+    elseif newTabIndex > #tabs then
+        newTabIndex = 1
+    end
+
+    SelectTab(newTabIndex)
+end
+
 -- Инициализация фрейма торговца
 function ConsoleMenu:SetItemListFrame()
 
@@ -671,7 +790,7 @@ function ConsoleMenu:SetItemListFrame()
         frame.Background:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\CrossBackgorundDark.png")
         frame.Background:SetDrawLayer("BACKGROUND", 0)
         frame.Background:Show()
-        frame.Background:SetAlpha(0.75)
+        frame.Background:SetAlpha(1)
 
     end
 
@@ -711,7 +830,7 @@ function ConsoleMenu:SetItemListFrame()
         description:SetNonSpaceWrap(true)
         description:SetFont("Fonts\\FRIZQT___CYR.TTF", emptyListDescriptionFontSize, "OUTLINE")
         description:SetTextColor(1.0, 0.960784, 0.772549, 0.6)
-        description:SetText("Вы можете заняться ремонтом снаряжения, продажей или выкупом предметов.")
+        description:SetText("Вы можете заняться продажей или выкупом предметов.")
     end
 
     -- if not frame.Title then
@@ -748,7 +867,7 @@ function ConsoleMenu:SetItemListFrame()
         items.ScrollBar = scrollBar
 
         scrollBar:SetAlpha(0.4)
-        scrollBar:SetPoint("TOPLEFT", scrollBox, "TOPLEFT", -50, -24)
+        scrollBar:SetPoint("TOPLEFT", scrollBox, "TOPLEFT", -52, -24)
         scrollBar:SetPoint("BOTTOMLEFT", scrollBox, "BOTTOMLEFT", 0, 24)
         scrollBar.Forward:Hide()
         scrollBar.Back:Hide()
@@ -1133,7 +1252,7 @@ function ConsoleMenu:SetItemListFrame()
 
                 local priceText = nil
                 local priceIconTextures = {}
-                if not data.isUnavailable then
+                if not data.isUnavailable and data.type == "merchantItem" then
                     local costCount = data.slot and (GetMerchantItemCostInfo(data.slot) or 0) or 0
                     if costCount > 0 and data.slot then
                         local costParts = {}
@@ -1366,7 +1485,7 @@ function ConsoleMenu:SetItemListFrame()
         frame.Tabs:SetHeight(sectionHeight)
 
         local previousTab = nil
-        for i, title in ipairs(tabTitles) do
+        for i = 1, merchantTabSlotCount do
             local tab = CreateFrame("Button", "ItemListTab" .. i, ItemListTabs)
             if i == 1 then
                 tab:SetPoint("LEFT", ItemListTabs, "LEFT", sectionPadding * 1.5, 0)
@@ -1381,7 +1500,6 @@ function ConsoleMenu:SetItemListFrame()
                 tab.text:SetTextColor(1.0, 0.960784, 0.772549, 0.4)
                 tab.text:SetPoint("CENTER")
             end
-            tab.text:SetText(title)
 
             if not tab.circle then
                 tab.circle = CreateFrame("Frame", nil, tab)
@@ -1404,18 +1522,15 @@ function ConsoleMenu:SetItemListFrame()
             end
 
             tab.circle:Hide()
-            tab:SetWidth(tab.text:GetStringWidth())
             tab:SetHeight(sectionHeight)
+            tab:Hide()
 
             tab:SetScript("OnClick", function()
-                focusedTabIndex = i
-                UpdateTabs()
+                SelectTab(i)
             end)
 
             previousTab = tab
         end
-
-        UpdateTabs()
     end
 
     if not frame.FocusUpButton then
@@ -1466,27 +1581,39 @@ function ConsoleMenu:SetItemListFrame()
         end)
     end
 
-    if not frame.BuyButton then
-        local buyButton = CreateFrame("Button", "ItemListBuyButton", frame, "SecureActionButtonTemplate")
-        frame.BuyButton = buyButton
-        buyButton:SetAttribute("useOnKeyDown", false)
-        buyButton:RegisterForClicks("LeftButtonUp")
-        buyButton:SetSize(1, 1)
-        buyButton:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 40)
-        buyButton:SetScript("OnClick", function()
+    if not frame.PrimaryButton then
+        local primaryButton = CreateFrame("Button", "ItemListPrimaryButton", frame, "SecureActionButtonTemplate")
+        frame.PrimaryButton = primaryButton
+        primaryButton:SetAttribute("useOnKeyDown", false)
+        primaryButton:RegisterForClicks("LeftButtonUp")
+        primaryButton:SetSize(1, 1)
+        primaryButton:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 40)
+        primaryButton:SetScript("OnClick", function()
             PrimaryAction()
         end)
     end
 
-    if not frame.BuyStackButton then
-        local buyStackButton = CreateFrame("Button", "ItemListBuyStackButton", frame, "SecureActionButtonTemplate")
-        frame.BuyStackButton = buyStackButton
-        buyStackButton:SetAttribute("useOnKeyDown", false)
-        buyStackButton:RegisterForClicks("LeftButtonUp")
-        buyStackButton:SetSize(1, 1)
-        buyStackButton:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 80)
-        buyStackButton:SetScript("OnClick", function()
+    if not frame.SecondaryButton then
+        local secondaryButton = CreateFrame("Button", "ItemListSecondaryButton", frame, "SecureActionButtonTemplate")
+        frame.SecondaryButton = secondaryButton
+        secondaryButton:SetAttribute("useOnKeyDown", false)
+        secondaryButton:RegisterForClicks("LeftButtonUp")
+        secondaryButton:SetSize(1, 1)
+        secondaryButton:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 80)
+        secondaryButton:SetScript("OnClick", function()
             SecondaryAction()
+        end)
+    end
+
+    if not frame.TertiaryButton then
+        local tertiaryButton = CreateFrame("Button", "ItemListTertiaryButton", frame, "SecureActionButtonTemplate")
+        frame.TertiaryButton = tertiaryButton
+        tertiaryButton:SetAttribute("useOnKeyDown", false)
+        tertiaryButton:RegisterForClicks("LeftButtonUp")
+        tertiaryButton:SetSize(1, 1)
+        tertiaryButton:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 140)
+        tertiaryButton:SetScript("OnClick", function()
+            TertiaryAction()
         end)
     end
 
@@ -1537,8 +1664,9 @@ function ConsoleMenu:SetItemListFrame()
             SetOverrideBindingClick(self.FocusDownButton, true, "PADDDOWN", "ItemListFocusDownButton", "LeftButton")
             SetOverrideBindingClick(self.TabLeftButton, true, "PADDLEFT", "ItemListTabLeftButton", "LeftButton")
             SetOverrideBindingClick(self.TabRightButton, true, "PADDRIGHT", "ItemListTabRightButton", "LeftButton")
-            SetOverrideBindingClick(self.BuyButton, true, "PAD1", "ItemListBuyButton", "LeftButton")
-            SetOverrideBindingClick(self.BuyStackButton, true, "PAD4", "ItemListBuyStackButton", "LeftButton")
+            SetOverrideBindingClick(self.PrimaryButton, true, "PAD1", "ItemListPrimaryButton", "LeftButton")
+            SetOverrideBindingClick(self.SecondaryButton, true, "PAD4", "ItemListSecondaryButton", "LeftButton")
+            SetOverrideBindingClick(self.TertiaryButton, true, "PAD3", "ItemListTertiaryButton", "LeftButton")
             SetOverrideBindingClick(self.CloseButton, true, "PAD2", "ItemListCloseButton", "LeftButton")
         end)
 
@@ -1561,11 +1689,14 @@ function ConsoleMenu:SetItemListFrame()
             if self.TabRightButton then
                 ClearOverrideBindings(self.TabRightButton)
             end
-            if self.BuyButton then
-                ClearOverrideBindings(self.BuyButton)
+            if self.PrimaryButton then
+                ClearOverrideBindings(self.PrimaryButton)
             end
-            if self.BuyStackButton then
-                ClearOverrideBindings(self.BuyStackButton)
+            if self.SecondaryButton then
+                ClearOverrideBindings(self.SecondaryButton)
+            end
+            if self.TertiaryButton then
+                ClearOverrideBindings(self.TertiaryButton)
             end
             if self.CloseButton then
                 ClearOverrideBindings(self.CloseButton)
@@ -1585,11 +1716,23 @@ function ConsoleMenu:SetItemListFrame()
             focusedItemExtent = sectionHeight
             dataProvider:Flush()
             currenciesData = {}
+            tabs = {}
+            focusedTabIndex = 1
             return
         end
 
         C_Timer.After(0, function()
-            LoadMerchantData()
+            if event == "MERCHANT_SHOW" then
+                BuildTabs()
+                focusedTabIndex = 1
+                RefreshMerchantTabsLayout()
+            end
+
+            local tab = tabs[focusedTabIndex]
+            if tab then
+                LoadTabData(tab)
+            end
+
             LoadMerchantCurrenciesData()
 
             if focusedSlot then
