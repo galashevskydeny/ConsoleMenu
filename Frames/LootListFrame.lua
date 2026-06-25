@@ -16,7 +16,7 @@ local captionFontSize = 20
 
 local padding = 20
 
-local lootListBackgroundVOffset = 280
+local lootListBackgroundVOffset = 320
 local lootListBackgroundHOffset = 720
 
 local frameHeight = titleFontSize + padding + sectionHeight * maxItemsCount + padding * (maxItemsCount - 1) + padding + captionFontSize
@@ -168,13 +168,13 @@ local function ReanchorLootListBackground(pendingItemFrame)
 
     local background = lootFrame.background
     background:ClearAllPoints()
-    background:SetPoint("TOPLEFT", lootFrame.Title, "TOPLEFT", -lootListBackgroundHOffset, lootListBackgroundVOffset)
-    background:SetPoint("TOPRIGHT", lootFrame.Title, "TOPRIGHT", lootListBackgroundHOffset / 2, lootListBackgroundVOffset)
+    background:SetPoint("TOPLEFT", lootFrame.Title, "TOPLEFT", -lootListBackgroundHOffset * 1.5, lootListBackgroundVOffset)
+    background:SetPoint("TOPRIGHT", lootFrame.Title, "TOPRIGHT", lootListBackgroundHOffset, lootListBackgroundVOffset)
 
     local totalItemsCount = #lootFrame.DisplayedItems + #lootFrame.Queue
     if totalItemsCount > maxItemsCount and lootFrame.AdditionalItemsCount then
-        background:SetPoint("BOTTOMLEFT", lootFrame.AdditionalItemsCount, "BOTTOMLEFT", -lootListBackgroundHOffset, -lootListBackgroundVOffset)
-        background:SetPoint("BOTTOMRIGHT", lootFrame.AdditionalItemsCount, "BOTTOMRIGHT", lootListBackgroundHOffset / 2, -lootListBackgroundVOffset * 2)
+        background:SetPoint("BOTTOMLEFT", lootFrame.AdditionalItemsCount, "BOTTOMLEFT", -lootListBackgroundHOffset * 1.5, -lootListBackgroundVOffset)
+        background:SetPoint("BOTTOMRIGHT", lootFrame.AdditionalItemsCount, "BOTTOMRIGHT", lootListBackgroundHOffset, -lootListBackgroundVOffset * 2)
         return
     end
 
