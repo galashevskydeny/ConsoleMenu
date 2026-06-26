@@ -394,7 +394,7 @@ function ConsoleMenu:ApplyContextUIChanges()
                 local count = C_ActionBar.GetActionDisplayCount(slot)
                 local info = C_ActionBar.GetActionCooldown(slot)
 
-                if actionType and id and info and not info.isActive then
+                if actionType and id and info and (not info.isActive or info.isOnGCD) then
                     local title = ConsoleMenu:GetSlotTitle(actionType, id)
     
                     if title and binding and isUsable and ignoredSlot then

@@ -47,6 +47,7 @@ local ignoredSlot = {
     [8] = true,
     [53] = true,
     [65] = true,
+    [10] = true,
 }
 
 local stackCountChange = {}

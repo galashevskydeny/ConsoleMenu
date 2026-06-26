@@ -651,6 +651,7 @@ function ConsoleMenu:SetBaseKeyBindings()
         PADLSTICK = "ACTIONBUTTON5",
         PADRSTICK = "ACTIONBUTTON4",
         PADFORWARD = "",
+        PADRTRIGGER = "ACTIONBUTTON10",
 
         -- Тачпад DualSense
         PADBACK = "TOGGLEWORLDMAP",
