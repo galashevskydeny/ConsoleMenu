@@ -326,7 +326,11 @@ local function UpdateMerchantActionKeys(element)
 
     if element and element.type == "merchantItem" and not element.isUnavailable then
         ConsoleMenu:AddKeysFrameItem("PAD1", "Купить предмет")
-        ConsoleMenu:AddKeysFrameItem("PAD3", "Отремонтировать снаряжение")
+        if CanMerchantRepair() then
+            ConsoleMenu:AddKeysFrameItem("PAD3", "Отремонтировать снаряжение")
+        else
+            ConsoleMenu:DeleteKeysFrameItem("PAD3")
+        end
         if GetListItemStackSize(element) > 1 then
             ConsoleMenu:AddKeysFrameItem("PAD4", "Купить пачку предметов")
         else
@@ -334,6 +338,7 @@ local function UpdateMerchantActionKeys(element)
         end
     else
         ConsoleMenu:DeleteKeysFrameItem("PAD1")
+        ConsoleMenu:DeleteKeysFrameItem("PAD3")
         ConsoleMenu:DeleteKeysFrameItem("PAD4")
     end
 
