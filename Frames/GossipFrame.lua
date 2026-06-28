@@ -372,6 +372,213 @@ local function CreateGossipScrollBox()
     local DataProvider = CreateDataProvider()
     local ScrollView = CreateScrollBoxListLinearView()
 
+    local NEED_MORE_TIME = "Мне нужно больше времени"
+
+    local function AppendRequiredCount(text, amount)
+        return string.format("Отдать %s x%s", text, amount)
+    end
+
+    local function LowerFirstLetter(text)
+        if not text or text == "" then
+            return text
+        end
+        if string.byte(text) >= 0xC0 then
+            return string.lower(string.sub(text, 1, 2)) .. string.sub(text, 3)
+        end
+        return string.lower(string.sub(text, 1, 1)) .. string.sub(text, 2)
+    end
+
+    local function GetCurrencyAmount(amount)
+        if not amount or issecretvalue(amount) then
+            return 0
+        end
+        return amount
+    end
+
+    local function GetCurrencyDisplayName(currencyID, quantity, fallbackName)
+        local containerInfo = C_CurrencyInfo.GetCurrencyContainerInfo(currencyID, quantity)
+        if containerInfo and containerInfo.name and containerInfo.name ~= "" then
+            return containerInfo.name
+        end
+        return fallbackName
+    end
+
+    local function FormatCollectMoreCurrency(currency, current)
+        local currentAmount = GetCurrencyAmount(current)
+        local requiredAmount = GetCurrencyAmount(currency.requiredAmount)
+        local remaining = math.max(requiredAmount - currentAmount, 1)
+        local currencyName = GetCurrencyDisplayName(currency.currencyID, remaining, currency.name)
+        currencyName = LowerFirstLetter(currencyName)
+
+        return string.format("Мне нужно собрать еще %d %s", remaining, currencyName)
+    end
+
+    local function InsertQuestOption(optionType, name)
+        DataProvider:Insert({ type = optionType, name = name })
+    end
+
+    local function ForEachRequiredCurrency(callback)
+        local numRequiredCurrencies = GetNumQuestCurrencies() or 0
+        for index = 1, numRequiredCurrencies do
+            local currency = C_QuestOffer.GetQuestRequiredCurrencyInfo(index)
+            if currency and callback(currency) == false then
+                return false
+            end
+        end
+        return true
+    end
+
+    local function GetRequiredCurrencies()
+        local currencies = {}
+        local numRequiredCurrencies = GetNumQuestCurrencies() or 0
+        for index = 1, numRequiredCurrencies do
+            local currency = C_QuestOffer.GetQuestRequiredCurrencyInfo(index)
+            if currency then
+                currencies[#currencies + 1] = currency
+            end
+        end
+        return currencies
+    end
+
+    local function GetRequiredMoney()
+        return GetQuestMoneyToGet() or 0
+    end
+
+    local function HasNonItemRequirements()
+        return GetRequiredMoney() > 0 or (GetNumQuestCurrencies() or 0) > 0
+    end
+
+    local function AreNonItemRequirementsMet()
+        local requiredMoney = GetRequiredMoney()
+        if requiredMoney > 0 and GetMoney() < requiredMoney then
+            return false
+        end
+
+        return ForEachRequiredCurrency(function(currency)
+            local info = C_CurrencyInfo.GetCurrencyInfo(currency.currencyID)
+            local current = GetCurrencyAmount(info and info.quantity)
+            local required = GetCurrencyAmount(currency.requiredAmount)
+            return current >= required
+        end)
+    end
+
+    local function CountReadyRequiredItems(numItems)
+        local ready = 0
+        for index = 1, numItems do
+            local _, _, count, _, _, itemID = GetQuestItemInfo("required", index)
+            if C_Item.GetItemCount(itemID) >= count then
+                ready = ready + 1
+            end
+        end
+        return ready
+    end
+
+    local function GetNonItemReadyText()
+        local requiredMoney = GetRequiredMoney()
+        local currencies = GetRequiredCurrencies()
+        local numCurrencies = #currencies
+
+        if requiredMoney > 0 and numCurrencies == 0 then
+            return AppendRequiredCount("золото", GetMoneyString(requiredMoney, true))
+        end
+        if numCurrencies == 1 and requiredMoney == 0 then
+            local currency = currencies[1]
+            return AppendRequiredCount(LowerFirstLetter(currency.name), currency.requiredAmount)
+        end
+        return "Все необходимое при мне"
+    end
+
+    local function GetUnmetNonItemMessage()
+        local requiredMoney = GetRequiredMoney()
+        local numCurrencies = GetNumQuestCurrencies() or 0
+
+        if requiredMoney > 0 and GetMoney() < requiredMoney and numCurrencies == 0 then
+            return string.format(
+                "Золото: %s/%s",
+                GetMoneyString(GetMoney(), true),
+                GetMoneyString(requiredMoney, true)
+            )
+        end
+
+        local unmetCurrency
+        ForEachRequiredCurrency(function(currency)
+            local info = C_CurrencyInfo.GetCurrencyInfo(currency.currencyID)
+            local current = GetCurrencyAmount(info and info.quantity)
+            local required = GetCurrencyAmount(currency.requiredAmount)
+            if current < required then
+                unmetCurrency = { currency = currency, current = current }
+                return false
+            end
+        end)
+
+        if unmetCurrency and requiredMoney == 0 and numCurrencies == 1 then
+            return FormatCollectMoreCurrency(unmetCurrency.currency, unmetCurrency.current)
+        end
+
+        return NEED_MORE_TIME
+    end
+
+    local function GetUnmetItemMessage(numItems)
+        if numItems == 1 then
+            local name, _, count = GetQuestItemInfo("required", 1)
+            return AppendRequiredCount(NEED_MORE_TIME .. " — " .. name, count)
+        end
+        return NEED_MORE_TIME
+    end
+
+    local function GetQuestProgressReadyText(questID, numItems, isComplete)
+        if isComplete then
+            if numItems == 1 then
+                local itemName = C_Item.GetItemInfo(GetQuestItemLink("required", 1))
+                local _, _, count = GetQuestItemInfo("required", 1)
+                return AppendRequiredCount(itemName .. " при мне.", count)
+            end
+            if numItems > 1 then
+                return "Готово!"
+            end
+            if HasNonItemRequirements() then
+                return GetNonItemReadyText()
+            end
+            return "Что дальше?"
+        end
+
+        if numItems == 1 then
+            local name, _, count = GetQuestItemInfo("required", 1)
+            return AppendRequiredCount(name .. " при мне.", count)
+        end
+        if numItems > 1 then
+            return "Все необходимое при мне"
+        end
+
+        return GetNonItemReadyText()
+    end
+
+    local function IsQuestProgressReady(questID, numItems, isComplete)
+        if isComplete then
+            return numItems > 0 or not HasNonItemRequirements() or AreNonItemRequirementsMet()
+        end
+        if numItems > 0 then
+            return CountReadyRequiredItems(numItems) == numItems
+        end
+        if HasNonItemRequirements() then
+            return AreNonItemRequirementsMet()
+        end
+        return false
+    end
+
+    local function BuildQuestProgressOptions(questID)
+        local isComplete = C_QuestLog.IsComplete(questID)
+        local numItems = GetNumQuestItems()
+
+        if IsQuestProgressReady(questID, numItems, isComplete) then
+            InsertQuestOption("progressQuest", GetQuestProgressReadyText(questID, numItems, isComplete))
+        elseif numItems > 0 then
+            InsertQuestOption("goodbye", GetUnmetItemMessage(numItems))
+        else
+            InsertQuestOption("goodbye", GetUnmetNonItemMessage())
+        end
+    end
+
         -- Обновление отображения ScrollBar
     local function UpdateScrollBarVisibility()
         local totalHeight = ScrollView:GetExtent() - 1
@@ -695,91 +902,11 @@ local function CreateGossipScrollBox()
             end
             
         elseif event == "QUEST_PROGRESS" then
-            -- Очищаем DataProvider и добавляем новые данные
             DataProvider:Flush()
 
-            local questID = GetQuestID()
-            local isComplete = C_QuestLog.IsComplete(questID)
-            local numRequiredItems = GetNumQuestItems()
+            BuildQuestProgressOptions(GetQuestID())
 
-            if isComplete then
-                if numRequiredItems == 0 then
-                    -- Добавить опцию выхода
-                    DataProvider:Insert({
-                        type = "progressQuest",
-                        name = "Что дальше?",
-                    })
-                elseif numRequiredItems == 1 then
-                    local itemLink = GetQuestItemLink("required", 1)
-                    local itemName, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = C_Item.GetItemInfo(itemLink)
-
-                    -- Добавить опцию выхода
-                    DataProvider:Insert({
-                        type = "progressQuest",
-                        name = itemName .. " при мне.",
-                    })
-                else
-                    -- Добавить опцию выхода
-                    DataProvider:Insert({
-                        type = "progressQuest",
-                        name = "Готово!",
-                    })
-                end
-            elseif numRequiredItems == 1 then
-                local name, texture, count, quality, isUsable, itemID = GetQuestItemInfo("required", 1)
-                local currentCount = C_Item.GetItemCount(itemID)
-
-                if currentCount >= count then
-                    -- Добавить опцию выхода
-                    DataProvider:Insert({
-                        type = "progressQuest",
-                        name = name .. " при мне.",
-                    })
-                else
-                    -- Добавить опцию выхода
-                    DataProvider:Insert({
-                        type = "goodbye",
-                        name = "Мне нужно больше времени",
-                    })
-                end
-            elseif numRequiredItems > 1 then
-
-                local currentItems = 0
-                
-                for i = 1, numRequiredItems do
-                    local name, texture, count, quality, isUsable, itemID = GetQuestItemInfo("required", i)
-                    local currentCount = C_Item.GetItemCount(itemID)
-                    if currentCount >= count then
-                        currentItems = currentItems + 1
-                    end
-                end
-
-                if currentItems == numRequiredItems then
-                    -- Добавить опцию выхода
-                    DataProvider:Insert({
-                        type = "progressQuest",
-                        name = "Все необходимое при мне",
-                    })
-                else
-                    -- Добавить опцию выхода
-                    DataProvider:Insert({
-                        type = "goodbye",
-                        name = "Мне нужно больше времени",
-                    })
-                end
-            else
-                -- Добавить опцию выхода
-                DataProvider:Insert({
-                    type = "goodbye",
-                    name = "Мне нужно больше времени",
-                })
-            end
-
-            -- Добавить опцию выхода
-            DataProvider:Insert({
-                type = "goodbye",
-                name = GOODBYE,
-            })
+            InsertQuestOption("goodbye", GOODBYE)
 
             local element = parentFrame.ScrollBox:GetDataProvider().collection[1]
             if element then
