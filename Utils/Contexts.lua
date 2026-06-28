@@ -152,13 +152,19 @@ local function SwitchActionBarPage()
     if ConsoleMenuFrame.PlayerContext.inCombat == true
        and ConsoleMenuFrame.PlayerContext.vehicle == false
     then
-        ChangeActionBarPage(1)
+        -- В бою
+        if C_ActionBar.GetActionBarPage() ~= 1 and C_ActionBar.GetActionBarPage() ~= 2 then
+            ChangeActionBarPage(1)
+        end
     elseif ConsoleMenuFrame.PlayerContext.inCombat == false
        and ConsoleMenuFrame.PlayerContext.mount == 0
        and ConsoleMenuFrame.PlayerContext.vehicle == false
        and (ConsoleMenuFrame.PlayerContext.softenemy.canAttack == true or ConsoleMenuFrame.PlayerContext.target.canAttack == true)
     then
-        ChangeActionBarPage(1)
+        -- Подготовка к бою
+        if C_ActionBar.GetActionBarPage() ~= 1 and C_ActionBar.GetActionBarPage() ~= 2 then
+            ChangeActionBarPage(1)
+        end
     elseif ConsoleMenuFrame.PlayerContext.mount == 1 and ConsoleMenuFrame.PlayerContext.inCombat == false then
         -- Обычное средство передвижения
         ChangeActionBarPage(4)
@@ -176,7 +182,35 @@ local function SwitchActionBarPage()
         if PlayerIsInCombat() then
             ChangeActionBarPage(1)
         else
-            ChangeActionBarPage(2)
+            ChangeActionBarPage(3)
+        end
+    end
+end
+
+local function AddCombatSlotKeysFrameItem(slot)
+    local command = ConsoleMenu:GetBindingCommandBySlotID(slot)
+    local binding = ConsoleMenu:GetCommandBinding(command)
+    local ignoredSlot = ConsoleMenu:IsSlotIgnored(slot)
+
+    if command and binding then
+        local actionType, id, subType = GetActionInfo(slot)
+        local isUsable, isLackingResources = C_ActionBar.IsUsableAction(slot)
+        local count = C_ActionBar.GetActionDisplayCount(slot)
+        local info = C_ActionBar.GetActionCooldown(slot)
+
+        if actionType and id and info and (not info.isActive or info.isOnGCD) then
+            local title = ConsoleMenu:GetSlotTitle(actionType, id)
+
+            if title and binding and isUsable and ignoredSlot then
+                if issecretvalue(count) then
+                    ConsoleMenu:AddKeysFrameItem(binding, title, count)
+                else
+                    -- Добавляем элемент, если стаков не 0 и заклинание пригодно к использованию
+                    if count ~= "0" then
+                        ConsoleMenu:AddKeysFrameItem(binding, title, count)
+                    end
+                end
+            end
         end
     end
 end
@@ -188,7 +222,7 @@ function ConsoleMenu:ApplyContextUIChanges()
     ConsoleMenu:ResetKeysItems()
 
     if context == "exploring" then
-        local page = GetActionBarPage()
+        local page = C_ActionBar.GetActionBarPage()
         local startSlot = 12 * (page - 1) + 1
         local lastSlot = startSlot + 11
 
@@ -289,7 +323,7 @@ function ConsoleMenu:ApplyContextUIChanges()
     elseif context == "mount" then
         local page = 4
 
-        if GetActionBarPage() ~= 4 then
+        if C_ActionBar.GetActionBarPage() ~= 4 then
             page = 11
         end
 
@@ -376,39 +410,14 @@ function ConsoleMenu:ApplyContextUIChanges()
         ConsoleMenu:AnimatedHide(PersonalResourceDisplayFrame)
 
     elseif context == "combat" or context == "precombat" then
-        local page = 1
-        local startSlot = 12 * (page - 1) + 1
-        local lastSlot = startSlot + 11
 
-        local positions = ConsoleMenu:GetButtonPositions()
+        -- Слоты, скрытые с панели действий, но отображаемые в KeysFrame в бою
+        combatSlots = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
+                        58
+        }
 
-        for slot = startSlot, lastSlot do
-            local command = ConsoleMenu:GetBindingCommandBySlotID(slot)
-            local binding = ConsoleMenu:GetCommandBinding(command)
-            local ignoredSlot = ConsoleMenu:IsSlotIgnored(slot)
-
-            if command and binding then
-
-                local actionType, id, subType = GetActionInfo(slot)
-                local isUsable, isLackingResources = C_ActionBar.IsUsableAction(slot)
-                local count = C_ActionBar.GetActionDisplayCount(slot)
-                local info = C_ActionBar.GetActionCooldown(slot)
-
-                if actionType and id and info and (not info.isActive or info.isOnGCD) then
-                    local title = ConsoleMenu:GetSlotTitle(actionType, id)
-    
-                    if title and binding and isUsable and ignoredSlot then
-                        if issecretvalue(count) then
-                            ConsoleMenu:AddKeysFrameItem(binding, title, count)
-                        else
-                            -- Добавляем элемент, если стаков не 0 и заклинание пригодно к использованию
-                            if count ~= "0" then
-                                ConsoleMenu:AddKeysFrameItem(binding, title, count)
-                            end
-                        end
-                    end
-                end
-            end
+        for _, slot in ipairs(combatSlots) do
+            AddCombatSlotKeysFrameItem(slot)
         end
 
         if UnitIsInteractable("softinteract") and context == "combat" then

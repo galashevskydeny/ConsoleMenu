@@ -48,6 +48,8 @@ local ignoredSlot = {
     [53] = true,
     [65] = true,
     [10] = true,
+    [20] = true,
+    [58] = true,
 }
 
 local stackCountChange = {}
@@ -331,16 +333,63 @@ local function UpdateActionButtonCooldowns()
 end
 
 -- Функция отображения и скрытия теней групп кнопок
-local function UpdateActionButtonShadows(modifierKey)
+local function IsSlotOnActiveActionBarPage(slotID)
+    if slotID < 1 or slotID > 24 then
+        return false
+    end
+    if not C_ActionBar or not C_ActionBar.GetActionBarPage then
+        return true
+    end
+
+    local page = C_ActionBar.GetActionBarPage()
+    local startSlot = 12 * (page - 1) + 1
+    return slotID >= startSlot and slotID < startSlot + 12
+end
+
+local function IsActionButtonVisible(slotID, btn, activeModifier)
+    if ignoredSlot[slotID] or not buttonPositions[btn.mainKey] then
+        return false
+    end
+
+    if slotID >= 1 and slotID <= 24 then
+        if activeModifier then
+            return false
+        end
+        return IsSlotOnActiveActionBarPage(slotID)
+    end
+
+    if activeModifier then
+        return activeModifier == btn.modifierKey
+    end
+
+    return false
+end
+
+local function GetActiveModifier()
+    if not IsModifierKeyDown() then
+        return nil
+    end
+    if IsControlKeyDown() then
+        return "CTRL"
+    end
+    if IsShiftKeyDown() then
+        return "SHIFT"
+    end
+    if IsAltKeyDown() then
+        return "ALT"
+    end
+    return nil
+end
+
+local function UpdateActionButtonShadows(activeModifier)
     local frame = ConsoleMenuFrame.ActionBarFrame
 
     local PADcount = 0
     local PADDcount = 0
 
     for slotID, btn in pairs(frame.actionButtons) do
-        local mainKey = btn.mainKey
-        local position = buttonPositions[mainKey]
-        if position and (not modifierKey or (modifierKey and modifierKey == btn.modifierKey)) and C_ActionBar.HasAction(slotID) then
+        local position = buttonPositions[btn.mainKey]
+        if position and C_ActionBar.HasAction(slotID) and IsActionButtonVisible(slotID, btn, activeModifier) then
             if position[2] == "PADCenter" then
                 PADcount = PADcount + 1
             elseif position[2] == "PADDCenter" then
@@ -383,15 +432,11 @@ local function UpdateButtonPositions(slotID)
         local position = buttonPositions[btn.mainKey]
 
         if position and not (ignoredSlot[slotID] == true) then
-            ConsoleMenu:AnimatedShow(btn)
             btn:ClearAllPoints()
             btn:SetPoint(position[1], position[2], position[3], position[4], position[5])
-        else
-            ConsoleMenu:AnimatedHide(btn)
         end
 
         UpdateActionButtonIcon(slotID)
-        UpdateActionButtonShadows()
 
         return
     end
@@ -409,43 +454,28 @@ local function UpdateButtonPositions(slotID)
 
         local position = buttonPositions[btn.mainKey]
         if position and not (ignoredSlot[slotID] == true) then
-            ConsoleMenu:AnimatedShow(btn)
             btn:ClearAllPoints()
             btn:SetPoint(position[1], position[2], position[3], position[4], position[5])
-        else
-            ConsoleMenu:AnimatedHide(btn)
         end
 
         UpdateActionButtonIcon(slotID)
     end
-
-    UpdateActionButtonShadows()
 end
 
 -- Функция обновления набора иконок в зависимости от состояния модификаторов
 local function UpdateModifierState()
     local frame = ConsoleMenuFrame.ActionBarFrame
-    local modifierKey
-
-    if not IsModifierKeyDown() then
-        modifierKey = nil
-    elseif IsControlKeyDown() then
-        modifierKey = "CTRL"
-    elseif IsShiftKeyDown() then
-        modifierKey = "SHIFT"
-    elseif IsAltKeyDown() then
-        modifierKey = "ALT"
-    end
+    local activeModifier = GetActiveModifier()
 
     for slotID, btn in pairs(frame.actionButtons) do
-        if modifierKey == btn.modifierKey then
+        if IsActionButtonVisible(slotID, btn, activeModifier) then
             ConsoleMenu:AnimatedShow(btn)
         else
             ConsoleMenu:AnimatedHide(btn)
         end
     end
 
-    UpdateActionButtonShadows(modifierKey)
+    UpdateActionButtonShadows(activeModifier)
 end
 
 local function UpdateActionButtonCount(slotID)
@@ -471,6 +501,15 @@ local function UpdateActionButtonCount(slotID)
         btn.StackCount.Text:SetText("")
         ConsoleMenu:AnimatedHide(btn.StackCount)
     end
+end
+
+local function UpdateActionBarPageVisibility()
+    for slotID = 1, 24 do
+        UpdateActionButtonTexture(slotID)
+        UpdateActionButtonCount(slotID)
+    end
+    UpdateButtonPositions()
+    UpdateModifierState()
 end
 
 -- Функция создания кнопки
@@ -677,6 +716,14 @@ function ConsoleMenu:InitializeMainActionBar()
         end
     end
 
+    for slotID = 13, 24 do
+        local btn = CreateSpellBarButtonFrame(frame, slotID)
+        if btn then
+            btn.slotID = slotID
+            frame.actionButtons[slotID] = btn
+        end
+    end
+
     for slotID = 49, 72 do
         local btn = CreateSpellBarButtonFrame(frame, slotID)
         if btn then
@@ -690,6 +737,7 @@ function ConsoleMenu:InitializeMainActionBar()
 
     frame:RegisterEvent("GAME_PAD_ACTIVE_CHANGED")
     frame:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
+    frame:RegisterEvent("ACTIONBAR_PAGE_CHANGED")
     frame:RegisterEvent("ACTIONBAR_SHOWGRID")
     frame:RegisterEvent("ACTIONBAR_HIDEGRID")
 
@@ -722,6 +770,12 @@ function ConsoleMenu:InitializeMainActionBar()
                 UpdateActionButtonCount(slotID)
                 
             end
+            for slotID = 13, 24 do
+                UpdateActionButtonTexture(slotID)
+                UpdateActionButtonGlow(slotID, nil, "PLAYER_ENTERING_WORLD")
+                UpdateActionButtonCount(slotID)
+                
+            end
             for slotID = 49, 72 do
                 UpdateActionButtonTexture(slotID)
                 UpdateActionButtonGlow(slotID, nil, "PLAYER_ENTERING_WORLD")
@@ -738,6 +792,8 @@ function ConsoleMenu:InitializeMainActionBar()
         elseif event == "ACTIONBAR_SHOWGRID" or event == "ACTIONBAR_HIDEGRID" then
             UpdateButtonPositions()
             UpdateModifierState()
+        elseif event == "ACTIONBAR_PAGE_CHANGED" then
+            RunNextFrame(UpdateActionBarPageVisibility)
         elseif event == "ACTIONBAR_SLOT_CHANGED" then
             local slotID = ...
             UpdateActionButtonTexture(slotID)
@@ -811,6 +867,10 @@ function ConsoleMenu:InitializeMainActionBar()
             end
         elseif event == "SPELL_UPDATE_CHARGES" then
             for slotID = 1, 12 do
+                UpdateActionButtonCount(slotID)
+                
+            end
+            for slotID = 13, 24 do
                 UpdateActionButtonCount(slotID)
                 
             end

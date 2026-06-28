@@ -652,6 +652,7 @@ function ConsoleMenu:SetBaseKeyBindings()
         PADRSTICK = "ACTIONBUTTON4",
         PADFORWARD = "",
         PADRTRIGGER = "ACTIONBUTTON10",
+        PADRSHOULDER = "ACTIONBUTTON11",
 
         -- Тачпад DualSense
         PADBACK = "TOGGLEWORLDMAP",
@@ -670,6 +671,8 @@ function ConsoleMenu:SetBaseKeyBindings()
         PADLSTICK = "MULTIACTIONBAR1BUTTON5",
         PADRSTICK = "MULTIACTIONBAR1BUTTON4",
         PADFORWARD = "CAMERAZOOMOUT",
+        PADRTRIGGER = "MULTIACTIONBAR1BUTTON10",
+        PADRSHOULDER = "MULTIACTIONBAR1BUTTON11",
 
         -- Тачпад DualSense
         PADBACK = "TOGGLEWORLDMAP",
@@ -688,6 +691,8 @@ function ConsoleMenu:SetBaseKeyBindings()
         PADLSTICK = "MULTIACTIONBAR2BUTTON5",
         PADRSTICK = "MULTIACTIONBAR2BUTTON4",
         PADFORWARD = "CAMERAZOOMIN",
+        PADRTRIGGER = "MULTIACTIONBAR2BUTTON10",
+        PADRSHOULDER = "MULTIACTIONBAR2BUTTON11",
 
         -- Тачпад DualSense
         PADBACK = "TOGGLEWORLDMAP",
@@ -763,7 +768,7 @@ function ConsoleMenu:GetBindingCommandBySlotID(slotID)
 
     local toggles = { GetActionBarToggles() }
 
-    if not toggles[barID] and barID == GetActionBarPage() then
+    if not toggles[barID] and barID == C_ActionBar.GetActionBarPage() then
         bindingFormat = "ACTIONBUTTON%d"
     end
 
