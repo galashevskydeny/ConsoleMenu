@@ -62,6 +62,7 @@ local slot12LabelFontSize = 16
 local slot12IconPadding = (slot12ContainerHeight - (buttonSize + 8)) / 2
 local slot12LabelGap = slot12IconPadding + 6
 local slot12LabelEdgePadding = slot12IconPadding
+local slot12LabelRightPadding = slot12IconPadding + 12
 
 local ignoredSlot = {
     [8] = true,
@@ -673,7 +674,7 @@ local function CreateSpellBarButtonFrame(parent, slotID)
     if isSlot12 then
         buttonFrame.Label = buttonFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         buttonFrame.Label:SetPoint("LEFT", background, "RIGHT", slot12LabelGap, 0)
-        buttonFrame.Label:SetPoint("RIGHT", buttonFrame, "RIGHT", -slot12LabelEdgePadding, 0)
+        buttonFrame.Label:SetPoint("RIGHT", buttonFrame, "RIGHT", -slot12LabelRightPadding, 0)
         buttonFrame.Label:SetPoint("TOP", buttonFrame, "TOP", 0, -slot12LabelEdgePadding)
         buttonFrame.Label:SetPoint("BOTTOM", buttonFrame, "BOTTOM", 0, slot12LabelEdgePadding)
         buttonFrame.Label:SetJustifyH("LEFT")
