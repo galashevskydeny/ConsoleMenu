@@ -655,8 +655,8 @@ function ConsoleMenu:SetBaseKeyBindings()
         PADRSHOULDER = "ACTIONBUTTON11",
 
         -- Тачпад DualSense
-        PADBACK = "TOGGLEWORLDMAP",
-        PAD6 = "TOGGLEWORLDMAP"
+        PADBACK = "ACTIONBUTTON12",
+        PAD6 = "ACTIONBUTTON12"
     }
     
     local shiftBindings = {
@@ -675,8 +675,8 @@ function ConsoleMenu:SetBaseKeyBindings()
         PADRSHOULDER = "MULTIACTIONBAR1BUTTON11",
 
         -- Тачпад DualSense
-        PADBACK = "TOGGLEWORLDMAP",
-        PAD6 = "TOGGLEWORLDMAP"
+        PADBACK = "MULTIACTIONBAR1BUTTON12",
+        PAD6 = "MULTIACTIONBAR1BUTTON12"
     }
     
     local ctrlBindings = {
@@ -695,8 +695,8 @@ function ConsoleMenu:SetBaseKeyBindings()
         PADRSHOULDER = "MULTIACTIONBAR2BUTTON11",
 
         -- Тачпад DualSense
-        PADBACK = "TOGGLEWORLDMAP",
-        PAD6 = "TOGGLEWORLDMAP"
+        PADBACK = "MULTIACTIONBAR2BUTTON12",
+        PAD6 = "MULTIACTIONBAR2BUTTON12"
     }
     
     -- Очистим старые биндинги
