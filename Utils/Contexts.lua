@@ -388,8 +388,8 @@ function ConsoleMenu:ApplyContextUIChanges()
         end
 
         if UnitIsInteractable("softinteract")  then
-            ConsoleMenu:DeleteKeysFrameItem("PAD1")
-            ConsoleMenu:AddKeysFrameItem("PAD1", "Взаимодействие")
+            ConsoleMenu:DeleteKeysFrameItem("PADRTRIGGER")
+            ConsoleMenu:AddKeysFrameItem("PADRTRIGGER", "Взаимодействие")
         end
 
         if page == 4 then
@@ -421,9 +421,9 @@ function ConsoleMenu:ApplyContextUIChanges()
         end
 
         if UnitIsInteractable("softinteract") and context == "combat" then
-            ConsoleMenu:AddKeysFrameItem("SHIFT-PAD1", "Взаимодействие")
+            ConsoleMenu:AddKeysFrameItem("SHIFT-PADRTRIGGER", "Взаимодействие")
         elseif UnitIsInteractable("softinteract") and context == "precombat" then
-            ConsoleMenu:AddKeysFrameItem("PAD1", "Взаимодействие")
+            ConsoleMenu:AddKeysFrameItem("PADRTRIGGER", "Взаимодействие")
         end
 
         ConsoleMenu:UpdateKeysFrame()
