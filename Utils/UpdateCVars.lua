@@ -203,35 +203,19 @@ local function ResetBaseSoftTargetSettings()
     SetCVar("SoftTargetFriendRange", GetCVarDefault("SoftTargetFriendRange"))
 end
 
--- Устанавливает значения настроект soft target в зонах святилищах
-local function UpdateZoneSoftTargetSettings()
-    ConsoleMenuDB.softTargetFriendRange = GetCVarDefault("SoftTargetFriendRange")
-    local pvpType, _, _ = C_PvP.GetZonePVPInfo()
-
-    if pvpType == "sanctuary" and ConsoleMenuDB.softTargetSanctuarySwitching == 1 then
-        SetCVar("SoftTargetEnemy", 0)
-    else
-        SetCVar("SoftTargetEnemy", 1)
-    end
-end
-
 function ConsoleMenu:UpdateCVars()
     
     -- Регистрируем события для динамического изменения SoftTarget настроек
     ConsoleMenu:RegisterEvent("PLAYER_ENTERING_WORLD", function()
         SetBaseSoftTargetSettings()
-        UpdateZoneSoftTargetSettings()
     end)
 
-    ConsoleMenu:RegisterEvent("ZONE_CHANGED_NEW_AREA", function()
-        UpdateZoneSoftTargetSettings()
-    end)
-    
+
     -- Применяем настройки GamePad при изменении состояния контроллера
     ConsoleMenu:RegisterEvent("GAME_PAD_ACTIVE_CHANGED", function()
         ApplyGamePadCVars()
+        SetBaseSoftTargetSettings()
     end)
 
-    SetBaseSoftTargetSettings()
     ApplyCVarSettings()
 end
