@@ -41,13 +41,34 @@ local buttonPositions = {
     PADDRIGHT = { "LEFT", "PADDCenter", "RIGHT", buttonHorizontalPadding, 0 },
     PADDLEFT = { "RIGHT", "PADDCenter", "LEFT", -buttonHorizontalPadding, 0 },
     PADDDOWN = { "TOP", "PADDCenter", "BOTTOM", 0, -buttonVerticalPadding },
+
+    -- Тачпад DualSense: слот 12 и эквиваленты на других страницах / модификаторах
+    PAD6 = { "BOTTOM", "ActionBarFrame", "BOTTOM", 0, 0 },
+    PADBACK = { "BOTTOM", "ActionBarFrame", "BOTTOM", 0, 0 },
 }
+
+-- Слоты ACTIONBUTTON12 / MULTIACTIONBAR*BUTTON12
+local slot12Slots = {
+    [12] = true,
+    [24] = true,
+    [60] = true,
+    [72] = true,
+}
+
+local slot12ContainerWidth = 190
+local slot12ContainerHeight = 70
+local slot12LabelFontSize = 16
+-- Отступ иконки от края фона = вертикальный зазор (фон круга 60 при высоте 70)
+local slot12IconPadding = (slot12ContainerHeight - (buttonSize + 8)) / 2
+local slot12LabelGap = slot12IconPadding + 6
+local slot12LabelEdgePadding = slot12IconPadding
 
 local ignoredSlot = {
     [8] = true,
     [53] = true,
     [65] = true,
     [10] = true,
+    [11] = true,
     [20] = true,
     [58] = true,
 }
@@ -151,6 +172,28 @@ local function UpdateActionButtonIcon(slotID)
     ConsoleMenu:AnimatedShow(btn.Icon)
 end
 
+-- Название действия для слота 12 (PAD6/PADBACK)
+local function UpdateSlot12Label(slotID)
+    if not slot12Slots[slotID] then
+        return
+    end
+
+    local frame = ConsoleMenuFrame.ActionBarFrame
+    local btn = frame and frame.actionButtons and frame.actionButtons[slotID]
+    if not btn or not btn.Label then
+        return
+    end
+
+    if not C_ActionBar.HasAction(slotID) then
+        btn.Label:SetText("")
+        return
+    end
+
+    local actionType, id = GetActionInfo(slotID)
+    local title = ConsoleMenu:GetSlotTitle(actionType, id)
+    btn.Label:SetText(title or "")
+end
+
 -- Функция обновления текстуры кнопки
 local function UpdateActionButtonTexture(slotID)
     
@@ -202,7 +245,12 @@ local function UpdateActionButtonTexture(slotID)
         if btn.Icon then
             ConsoleMenu:AnimatedHide(btn.Icon)
         end
+        if btn.Label then
+            btn.Label:SetText("")
+        end
     end
+
+    UpdateSlot12Label(slotID)
 
 end
 
@@ -259,7 +307,11 @@ local function UpdateActionButtonGlow(slotID, spellID, event)
     if not btn.Glow then
         btn.Glow = CreateFrame("PlayerModel", nil, btn)
         btn.Glow:SetSize(modelSize, modelSize)
-        btn.Glow:SetPoint("CENTER", btn, "CENTER", 0, 0)
+        if btn.texture then
+            btn.Glow:SetPoint("CENTER", btn.texture, "CENTER", 0, 0)
+        else
+            btn.Glow:SetPoint("CENTER", btn, "CENTER", 0, 0)
+        end
         btn.Glow:SetFrameStrata(btn:GetFrameStrata())
         btn.Glow:SetFrameLevel(btn:GetFrameLevel() - 1)
         btn.Glow:SetModel(5201375)
@@ -271,6 +323,9 @@ local function UpdateActionButtonGlow(slotID, spellID, event)
         btn.Glow:Show()
 
         ConsoleMenu:InitFadeAnimations(btn.Glow, animationDuration)
+    elseif btn.texture then
+        btn.Glow:ClearAllPoints()
+        btn.Glow:SetPoint("CENTER", btn.texture, "CENTER", 0, 0)
     end
 
     -- Переустанавливаем transform на каждом обновлении:
@@ -349,6 +404,17 @@ end
 local function IsActionButtonVisible(slotID, btn, activeModifier)
     if ignoredSlot[slotID] or not buttonPositions[btn.mainKey] then
         return false
+    end
+
+    -- Подсказка тачпада (слот 12): только при наличии действия и названия
+    if slot12Slots[slotID] then
+        if not C_ActionBar.HasAction(slotID) then
+            return false
+        end
+        local actionType, id = GetActionInfo(slotID)
+        if not ConsoleMenu:GetSlotTitle(actionType, id) then
+            return false
+        end
     end
 
     if slotID >= 1 and slotID <= 24 then
@@ -508,6 +574,11 @@ local function UpdateActionBarPageVisibility()
         UpdateActionButtonTexture(slotID)
         UpdateActionButtonCount(slotID)
     end
+    -- Эквиваленты слота 12 на панелях с модификаторами
+    UpdateActionButtonTexture(60)
+    UpdateActionButtonCount(60)
+    UpdateActionButtonTexture(72)
+    UpdateActionButtonCount(72)
     UpdateButtonPositions()
     UpdateModifierState()
 end
@@ -517,7 +588,13 @@ local function CreateSpellBarButtonFrame(parent, slotID)
     local buttonFrame = CreateFrame("Frame", "ActionButton" .. slotID, parent)
     parent["ActionButton" .. slotID] = buttonFrame
 
-    buttonFrame:SetSize(buttonSize, buttonSize)
+    local isSlot12 = slot12Slots[slotID]
+
+    if isSlot12 then
+        buttonFrame:SetSize(slot12ContainerWidth, slot12ContainerHeight)
+    else
+        buttonFrame:SetSize(buttonSize, buttonSize)
+    end
     ConsoleMenu:InitFadeAnimations(buttonFrame, animationDuration)
 
     local textureFileID = C_ActionBar.GetActionTexture(slotID)
@@ -526,21 +603,37 @@ local function CreateSpellBarButtonFrame(parent, slotID)
         textureFileID = nil
     end
 
+    local backgroundSize = buttonSize + 8
+
+    -- Контейнерный фон GroupIcon3 для слота 12 (тачпад)
+    if isSlot12 then
+        local groupBackground = buttonFrame:CreateTexture(nil, "BACKGROUND", nil, -1)
+        groupBackground:SetAllPoints(buttonFrame)
+        groupBackground:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\GroupIcon3.png")
+        buttonFrame.groupBackground = groupBackground
+    end
+
     -- Добавляем фон под иконку, тоже текстура (создаем первым, чтобы был ниже)
     local background = buttonFrame:CreateTexture(nil, "BACKGROUND")
-    local backgroundSize = buttonSize + 8
-    background:SetPoint("CENTER", buttonFrame, "CENTER", 0, 0)
     background:SetSize(backgroundSize, backgroundSize)
     background:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\pad-background.png")
     background:SetVertexColor(0, 0, 0, 1)
     buttonFrame.background = background
 
     local texture = buttonFrame:CreateTexture(nil, "ARTWORK")
-    texture:SetAllPoints(buttonFrame)
+    texture:SetSize(buttonSize, buttonSize)
     if textureFileID then
         texture:SetTexture(textureFileID)
         local edge = 3 / buttonSize
         texture:SetTexCoord(edge, 1 - edge, edge, 1 - edge)
+    end
+
+    if isSlot12 then
+        background:SetPoint("LEFT", buttonFrame, "LEFT", slot12IconPadding, 0)
+        texture:SetPoint("CENTER", background, "CENTER", 0, 0)
+    else
+        background:SetPoint("CENTER", buttonFrame, "CENTER", 0, 0)
+        texture:SetAllPoints(buttonFrame)
     end
     
     -- Создаём маску для текстуры
@@ -554,7 +647,7 @@ local function CreateSpellBarButtonFrame(parent, slotID)
     
     -- Создаём CooldownFrame для автоматической обработки кулдаунов
     local cooldown = CreateFrame("Cooldown", nil, buttonFrame, "CooldownFrameTemplate")
-    cooldown:SetAllPoints(buttonFrame)    
+    cooldown:SetAllPoints(texture)
     cooldown:SetDrawBling(false)
     cooldown:SetDrawSwipe(false)
     cooldown:SetDrawEdge(false)
@@ -575,6 +668,23 @@ local function CreateSpellBarButtonFrame(parent, slotID)
             UpdateActionButtonTextureDesaturation(buttonFrame, slotID)
         end)
     end)
+
+    -- Название действия справа от иконки (слот 12)
+    if isSlot12 then
+        buttonFrame.Label = buttonFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        buttonFrame.Label:SetPoint("LEFT", background, "RIGHT", slot12LabelGap, 0)
+        buttonFrame.Label:SetPoint("RIGHT", buttonFrame, "RIGHT", -slot12LabelEdgePadding, 0)
+        buttonFrame.Label:SetPoint("TOP", buttonFrame, "TOP", 0, -slot12LabelEdgePadding)
+        buttonFrame.Label:SetPoint("BOTTOM", buttonFrame, "BOTTOM", 0, slot12LabelEdgePadding)
+        buttonFrame.Label:SetJustifyH("LEFT")
+        buttonFrame.Label:SetJustifyV("MIDDLE")
+        buttonFrame.Label:SetWordWrap(true)
+        buttonFrame.Label:SetNonSpaceWrap(true)
+        buttonFrame.Label:SetMaxLines(2)
+        buttonFrame.Label:SetTextColor(1.0, 0.960784, 0.772549, 1)
+        buttonFrame.Label:SetFont("Fonts\\FRIZQT___CYR.TTF", slot12LabelFontSize, "")
+        buttonFrame.Label:SetText("")
+    end
 
     -- Счетчик стаков
     if not buttonFrame.StackCount then
