@@ -4,14 +4,14 @@ local ConsoleMenu = _G.ConsoleMenu
 local function HideFloatingText()
     SetCVar("threatShowNumeric", 0)
     SetCVar("enableFloatingCombatText", 0)
-    SetCVar("floatingCombatTextCombatDamage", 0)
+    SetCVar("floatingCombatTextCombatDamage_v2", 0)
 end
 
 -- Возврат текста боя (всплывающих цифр) к значениям по умолчанию
 local function DefaultFloatingText()
     SetCVar("threatShowNumeric", GetCVarDefault("threatShowNumeric"))
     SetCVar("enableFloatingCombatText", GetCVarDefault("enableFloatingCombatText"))
-    SetCVar("floatingCombatTextCombatDamage", GetCVarDefault("floatingCombatTextCombatDamage"))
+    SetCVar("floatingCombatTextCombatDamage_v2", GetCVarDefault("floatingCombatTextCombatDamage_v2"))
 end
 
 -- Скрывает облака с субтитрами над головой персонажей и игроков
@@ -67,6 +67,10 @@ local function HideUnitNameSettings()
     SetCVar("UnitNameGuildTitle", 0)
     SetCVar("UnitNameHostleNPC", 0)
     SetCVar("UnitNameInteractiveNPC", 0)
+
+    SetCVar("SoftTargetNameplateInteract", 1)
+    SetCVar("SoftTargetNameplateEnemy", 1)
+    SetCVar("nameplateShowFriendlyNPCs", 1)
 end
 
 -- Возвращает настройки отображения имен к значениям по умолчанию
@@ -190,6 +194,7 @@ local function SetBaseSoftTargetSettings()
 
     if ConsoleMenuDB.softTargetFriendRange == 1 then
         SetCVar("SoftTargetFriendRange", 5)
+        SetCVar("SoftTargetInteractRange", 5)
     end
 end
 
