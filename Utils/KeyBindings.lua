@@ -460,27 +460,27 @@ function ConsoleMenu:SetInteractBinding(newTarget)
 
     if newTarget and hasInteractTarget then
         if InCombatLockdown() then
-            ConsoleMenu:DeleteKeysFrameItem("PAD1", "Взаимодействие")
-            ConsoleMenu:DeleteKeysFrameItem("SHIFT-PAD1")
-            ConsoleMenu:AddKeysFrameItem("SHIFT-PAD1", "Взаимодействие")
+            ConsoleMenu:DeleteKeysFrameItem("PADRTRIGGER", "Взаимодействие")
+            ConsoleMenu:DeleteKeysFrameItem("SHIFT-PADRTRIGGER")
+            ConsoleMenu:AddKeysFrameItem("SHIFT-PADRTRIGGER", "Взаимодействие")
             ConsoleMenu:UpdateKeysFrame()
         else
-            SetOverrideBinding(self.InteractBindingFrame, true, ConsoleMenuDB.interactButton, "INTERACTTARGET")
-            ConsoleMenu:DeleteKeysFrameItem("PAD1")
-            ConsoleMenu:DeleteKeysFrameItem("SHIFT-PAD1", "Взаимодействие")
-            ConsoleMenu:AddKeysFrameItem("PAD1", "Взаимодействие")
+            SetOverrideBinding(self.InteractBindingFrame, true, "PADRTRIGGER", "INTERACTTARGET")
+            ConsoleMenu:DeleteKeysFrameItem("PADRTRIGGER")
+            ConsoleMenu:DeleteKeysFrameItem("SHIFT-PADRTRIGGER", "Взаимодействие")
+            ConsoleMenu:AddKeysFrameItem("PADRTRIGGER", "Взаимодействие")
             ConsoleMenu:UpdateKeysFrame()
         end
     else
         
         if InCombatLockdown() then
-            ConsoleMenu:DeleteKeysFrameItem("PAD1", "Взаимодействие")
-            ConsoleMenu:DeleteKeysFrameItem("SHIFT-PAD1", "Взаимодействие")
+            ConsoleMenu:DeleteKeysFrameItem("PADRTRIGGER", "Взаимодействие")
+            ConsoleMenu:DeleteKeysFrameItem("SHIFT-PADRTRIGGER", "Взаимодействие")
             ConsoleMenu:UpdateKeysFrame()
         else
             ClearOverrideBindings(self.InteractBindingFrame)
-            ConsoleMenu:DeleteKeysFrameItem("PAD1", "Взаимодействие")
-            ConsoleMenu:DeleteKeysFrameItem("SHIFT-PAD1", "Взаимодействие")
+            ConsoleMenu:DeleteKeysFrameItem("PADRTRIGGER", "Взаимодействие")
+            ConsoleMenu:DeleteKeysFrameItem("SHIFT-PADRTRIGGER", "Взаимодействие")
             ConsoleMenu:UpdateKeysFrame()
         end
     end
@@ -655,8 +655,8 @@ function ConsoleMenu:SetBaseKeyBindings()
         PADRSHOULDER = "ACTIONBUTTON11",
 
         -- Тачпад DualSense
-        PADBACK = "TOGGLEWORLDMAP",
-        PAD6 = "TOGGLEWORLDMAP"
+        PADBACK = "ACTIONBUTTON12",
+        PAD6 = "ACTIONBUTTON12"
     }
     
     local shiftBindings = {
@@ -675,8 +675,8 @@ function ConsoleMenu:SetBaseKeyBindings()
         PADRSHOULDER = "MULTIACTIONBAR1BUTTON11",
 
         -- Тачпад DualSense
-        PADBACK = "TOGGLEWORLDMAP",
-        PAD6 = "TOGGLEWORLDMAP"
+        PADBACK = "MULTIACTIONBAR1BUTTON12",
+        PAD6 = "MULTIACTIONBAR1BUTTON12"
     }
     
     local ctrlBindings = {
@@ -695,8 +695,8 @@ function ConsoleMenu:SetBaseKeyBindings()
         PADRSHOULDER = "MULTIACTIONBAR2BUTTON11",
 
         -- Тачпад DualSense
-        PADBACK = "TOGGLEWORLDMAP",
-        PAD6 = "TOGGLEWORLDMAP"
+        PADBACK = "MULTIACTIONBAR2BUTTON12",
+        PAD6 = "MULTIACTIONBAR2BUTTON12"
     }
     
     -- Очистим старые биндинги

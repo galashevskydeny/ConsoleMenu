@@ -4,14 +4,14 @@ local ConsoleMenu = _G.ConsoleMenu
 local function HideFloatingText()
     SetCVar("threatShowNumeric", 0)
     SetCVar("enableFloatingCombatText", 0)
-    SetCVar("floatingCombatTextCombatDamage", 0)
+    SetCVar("floatingCombatTextCombatDamage_v2", 0)
 end
 
 -- Возврат текста боя (всплывающих цифр) к значениям по умолчанию
 local function DefaultFloatingText()
     SetCVar("threatShowNumeric", GetCVarDefault("threatShowNumeric"))
     SetCVar("enableFloatingCombatText", GetCVarDefault("enableFloatingCombatText"))
-    SetCVar("floatingCombatTextCombatDamage", GetCVarDefault("floatingCombatTextCombatDamage"))
+    SetCVar("floatingCombatTextCombatDamage_v2", GetCVarDefault("floatingCombatTextCombatDamage_v2"))
 end
 
 -- Скрывает облака с субтитрами над головой персонажей и игроков
@@ -67,6 +67,10 @@ local function HideUnitNameSettings()
     SetCVar("UnitNameGuildTitle", 0)
     SetCVar("UnitNameHostleNPC", 0)
     SetCVar("UnitNameInteractiveNPC", 0)
+
+    SetCVar("SoftTargetNameplateInteract", 1)
+    SetCVar("SoftTargetNameplateEnemy", 1)
+    SetCVar("nameplateShowFriendlyNPCs", 1)
 end
 
 -- Возвращает настройки отображения имен к значениям по умолчанию
@@ -190,6 +194,7 @@ local function SetBaseSoftTargetSettings()
 
     if ConsoleMenuDB.softTargetFriendRange == 1 then
         SetCVar("SoftTargetFriendRange", 5)
+        SetCVar("SoftTargetInteractRange", 5)
     end
 end
 
@@ -203,35 +208,19 @@ local function ResetBaseSoftTargetSettings()
     SetCVar("SoftTargetFriendRange", GetCVarDefault("SoftTargetFriendRange"))
 end
 
--- Устанавливает значения настроект soft target в зонах святилищах
-local function UpdateZoneSoftTargetSettings()
-    ConsoleMenuDB.softTargetFriendRange = GetCVarDefault("SoftTargetFriendRange")
-    local pvpType, _, _ = C_PvP.GetZonePVPInfo()
-
-    if pvpType == "sanctuary" and ConsoleMenuDB.softTargetSanctuarySwitching == 1 then
-        SetCVar("SoftTargetEnemy", 0)
-    else
-        SetCVar("SoftTargetEnemy", 1)
-    end
-end
-
 function ConsoleMenu:UpdateCVars()
     
     -- Регистрируем события для динамического изменения SoftTarget настроек
     ConsoleMenu:RegisterEvent("PLAYER_ENTERING_WORLD", function()
         SetBaseSoftTargetSettings()
-        UpdateZoneSoftTargetSettings()
     end)
 
-    ConsoleMenu:RegisterEvent("ZONE_CHANGED_NEW_AREA", function()
-        UpdateZoneSoftTargetSettings()
-    end)
-    
+
     -- Применяем настройки GamePad при изменении состояния контроллера
     ConsoleMenu:RegisterEvent("GAME_PAD_ACTIVE_CHANGED", function()
         ApplyGamePadCVars()
+        SetBaseSoftTargetSettings()
     end)
 
-    SetBaseSoftTargetSettings()
     ApplyCVarSettings()
 end

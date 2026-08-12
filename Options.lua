@@ -74,7 +74,7 @@ local hudSettingsMisc = {
 -- Геймплей
 local hudSettingsGameplay = {
     { name = "Вид индикаторов здоровья", variable = "enemyNameplateStyle", default = 2, tooltip = "Управляет видом полосы здоровья противников (Nameplate).", options = hudUpdateDropdownOptions },
-    { name = "Плавающие цифры", variable = "floatingText", default = 3, tooltip = "Плавающие цифры урона, лечения и других эффектов (threatShowNumeric, enableFloatingCombatText, floatingCombatTextCombatDamage).", options = cvarHideDropdownOptions },
+    { name = "Плавающие цифры", variable = "floatingText", default = 3, tooltip = "Плавающие цифры урона, лечения и других эффектов (threatShowNumeric, enableFloatingCombatText, floatingCombatTextCombatDamage_v2).", options = cvarHideDropdownOptions },
     { name = "Имена персонажей и игроков", variable = "unitNames", default = 3, tooltip = "Отключает отображение имен персонажей, игроков, питомцев и других юнитов (UnitNameEnemyGuardianName и другие).", options = cvarHideDropdownOptions },
     { name = "Реплики персонажей над головой", variable = "chatBubble", default = 4, tooltip = "Отключает облака с субтитрами над головой персонажей и игроков (chatBubbles, chatBubblesParty).", options = cvarDropdownOptions },
     { name = "Подсветка квестодателя", variable = "qestCircle", default = 4, tooltip = "Выделение квестодателя при взаимодействии в геймплее (ShowQuestUnitCircles, ObjectSelectionCircle).", options = cvarDropdownOptions },
