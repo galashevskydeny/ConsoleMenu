@@ -47,16 +47,29 @@ local function UpdateKeyFrame(frame, binding, title, stackCount)
 
         if gamePadActive then
             if modifierKey == "SHIFT" then
-                modifierKey = GetCVar("GamePadEmulateShift")
+                local emulated = GetCVar("GamePadEmulateShift")
+                if emulated and emulated ~= "NONE" then
+                    modifierKey = emulated
+                end
             elseif modifierKey == "CTRL" then
-                modifierKey = GetCVar("GamePadEmulateCtrl")
+                local emulated = GetCVar("GamePadEmulateCtrl")
+                if emulated and emulated ~= "NONE" then
+                    modifierKey = emulated
+                end
             elseif modifierKey == "ALT" then
-                modifierKey = GetCVar("GamePadEmulateAlt")
+                local emulated = GetCVar("GamePadEmulateAlt")
+                if emulated and emulated ~= "NONE" then
+                    modifierKey = emulated
+                end
             end
         end
 
-        local mainTexture = ConsoleMenu.Textures[mainKey].texture
-        local modifierTexture = ConsoleMenu.Textures[modifierKey].texture
+        local mainTextureInfo = ConsoleMenu.Textures[mainKey]
+        local modifierTextureInfo = ConsoleMenu.Textures[modifierKey]
+        if not mainTextureInfo or not modifierTextureInfo then return end
+
+        local mainTexture = mainTextureInfo.texture
+        local modifierTexture = modifierTextureInfo.texture
         local background = ConsoleMenu.Backgrounds["PAIR"]
 
         frame.Icon.MainTexture:SetTexture(mainTexture)
