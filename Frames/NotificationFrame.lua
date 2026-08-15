@@ -808,7 +808,7 @@ function ConsoleMenu:SetNotificationFrame()
 
     local frame = ConsoleMenuFrame.NotificationFrame
     frame:SetSize(frameWidth, frameHeight)
-    frame:SetPoint("TOPLEFT", ConsoleMenuFrame, "TOPLEFT", 48, -48)
+    frame:SetPoint("TOPLEFT", ConsoleMenuFrame, "TOPLEFT", 72, -72)
     ConsoleMenu:InitFadeAnimations(frame, animationDuration)
     frame:Hide()
 
