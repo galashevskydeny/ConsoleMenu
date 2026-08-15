@@ -3,7 +3,8 @@ local ConsoleMenu = _G.ConsoleMenu
 local dataProvider
 
 local frameWidth = 480
-local contentPadding = 52
+local frameLeftOffset = 34
+local contentPadding = 38
 local backdropTemplateOffset = 20
 
 local viewedItemCount = 10
@@ -783,9 +784,9 @@ function ConsoleMenu:SetItemListFrame()
     local frame = ConsoleMenuFrame.ItemListFrame
     ConsoleMenu:InitFadeAnimations(frame, animationDuration)
 
-    frame:SetPoint("TOPLEFT", ConsoleMenuFrame, "TOPLEFT", 48, -48 * 4)
+    frame:SetPoint("TOPLEFT", ConsoleMenuFrame, "TOPLEFT", frameLeftOffset, -48 * 4)
     frame:SetWidth(frameWidth)
-    frame:SetPoint("BOTTOMLEFT", ConsoleMenuFrame, "BOTTOMLEFT", 48, 48 * 4 + 2)
+    frame:SetPoint("BOTTOMLEFT", ConsoleMenuFrame, "BOTTOMLEFT", frameLeftOffset, 48 * 4 + 2)
     --frame:SetSize(frameWidth, itemsSectionHeight + contentPadding * 2 + titleSectionHeight + 32)
     frame:Hide()
 
@@ -813,7 +814,7 @@ function ConsoleMenu:SetItemListFrame()
     if not frame.EmptyList then
         local emptyList = CreateFrame("Frame", "ItemListFrameEmptyList", frame)
         frame.EmptyList = emptyList
-        emptyList:SetPoint("TOPLEFT", frame, "TOPLEFT", 52, 0)
+        emptyList:SetPoint("TOPLEFT", frame, "TOPLEFT", contentPadding, 0)
         emptyList:SetPoint("TOPRIGHT", frame, "TOPRIGHT", 128, 0)
         emptyList:SetHeight(160)
 
@@ -865,14 +866,14 @@ function ConsoleMenu:SetItemListFrame()
 
         local scrollBox = CreateFrame("Frame", "ItemListFrameScrollBox", items, "WowScrollBoxList")
         items.ScrollBox = scrollBox
-        scrollBox:SetPoint("TOPLEFT", items, "TOPLEFT", 52, 0)
+        scrollBox:SetPoint("TOPLEFT", items, "TOPLEFT", contentPadding, 0)
         scrollBox:SetPoint("BOTTOMRIGHT", items, "BOTTOMRIGHT", 0, sectionHeight)
 
         local scrollBar = CreateFrame("EventFrame", "ItemListFrameScrollBar", items, "MinimalScrollBar")
         items.ScrollBar = scrollBar
 
         scrollBar:SetAlpha(0.4)
-        scrollBar:SetPoint("TOPLEFT", scrollBox, "TOPLEFT", -52, -24)
+        scrollBar:SetPoint("TOPLEFT", scrollBox, "TOPLEFT", -contentPadding, -24)
         scrollBar:SetPoint("BOTTOMLEFT", scrollBox, "BOTTOMLEFT", 0, 24)
         scrollBar.Forward:Hide()
         scrollBar.Back:Hide()
@@ -1485,7 +1486,7 @@ function ConsoleMenu:SetItemListFrame()
 
     if not frame.Tabs then
         frame.Tabs = CreateFrame("Frame", "ItemListTabs", frame)
-        frame.Tabs:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 40, 0)
+        frame.Tabs:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 26, 0)
         frame.Tabs:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, 0)
         frame.Tabs:SetHeight(sectionHeight)
 
