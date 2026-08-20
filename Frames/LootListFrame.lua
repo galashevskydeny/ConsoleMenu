@@ -15,11 +15,12 @@ local fontSize = 18
 local captionFontSize = 20
 
 local padding = 20
+local itemsPadding = padding * 1.5
 
 local lootListBackgroundVOffset = 320
 local lootListBackgroundHOffset = 720
 
-local frameHeight = titleFontSize + padding + sectionHeight * maxItemsCount + padding * (maxItemsCount - 1) + padding + captionFontSize
+local frameHeight = titleFontSize + itemsPadding + sectionHeight * maxItemsCount + padding * (maxItemsCount - 1) + itemsPadding + captionFontSize
 
 local duration = 8
 local animationDuration = 0.3
@@ -385,8 +386,8 @@ function ConsoleMenu:SetLootList()
     -- Секции предметов
     if not frame.Items then
         frame.Items = CreateFrame("Frame", "LootListFrameItems", frame)
-        frame.Items:SetPoint("TOPLEFT", frame.Title, "BOTTOMLEFT", 0, -padding)
-        frame.Items:SetPoint("BOTTOMRIGHT", frame.AdditionalItemsCount, "TOPRIGHT", 0, padding)
+        frame.Items:SetPoint("TOPLEFT", frame.Title, "BOTTOMLEFT", 0, -itemsPadding)
+        frame.Items:SetPoint("BOTTOMRIGHT", frame.AdditionalItemsCount, "TOPRIGHT", 0, itemsPadding)
 
         for i = 1, maxItemsCount do
             local item = CreateFrame("Frame", "LootListFrameItem" .. i, frame.Items)
