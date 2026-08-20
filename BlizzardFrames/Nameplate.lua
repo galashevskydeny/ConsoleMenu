@@ -16,6 +16,12 @@ local function ApplyCastBarTextureWithDelay(castBar)
         return
     end
     castBar:SetStatusBarTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\EnemyHealthBar.png")
+    if IsObjectOfType(castBar.Text, "FontString") then
+        castBar.Text:SetTextColor(npcNameColorR, npcNameColorG, npcNameColorB, npcNameColorA)
+    end
+    if IsObjectOfType(castBar.CastTargetNameText, "FontString") then
+        castBar.CastTargetNameText:SetTextColor(npcNameColorR, npcNameColorG, npcNameColorB, npcNameColorA)
+    end
 end
 
 -- Функция инициализации модуля Nameplate
@@ -60,18 +66,44 @@ function ConsoleMenu:InitializeNameplate()
         local debuffs = aurasFrame and aurasFrame.DebuffListFrame
 
         local fontName = "Fonts\\FRIZQT___CYR.TTF"
-        
-        -- Изменения текста имени
-        if IsObjectOfType(name, "FontString") then
-            name:ClearAllPoints()
-            name:SetTextColor(npcNameColorR, npcNameColorG, npcNameColorB, npcNameColorA)
-            name:SetFont(fontName, 14, "SLUG")
-            if IsObjectOfType(healthBar, "StatusBar") then
-                PixelUtil.SetPoint(name, "BOTTOM", healthBar, "TOP", 0, 8)
+        local unit = self.unit
+        local isHostile = unit and UnitCanAttack("player", unit) and not UnitIsDead(unit)
+
+        if IsObjectOfType(castBar, "StatusBar") then
+            PixelUtil.SetHeight(castBar, castBarHeight)
+            ApplyCastBarTextureWithDelay(castBar)
+            castBar:SetStatusBarColor(1.0, 0.960784, 0.772549, 1.0)
+            castBar:ClearAllPoints()
+            if IsObjectOfType(castBar.Background, "Texture") then
+                castBar.Background:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\EnemyHealthBar.png")
+                castBar.Background:SetVertexColor(0, 0, 0, 0.5)
+            end
+            PixelUtil.SetPoint(castBar, "TOPLEFT", unitFrame, "LEFT", 48, 0)
+            PixelUtil.SetPoint(castBar, "TOPRIGHT", unitFrame, "RIGHT", -48, 0)
+            if IsObjectOfType(castBar.Text, "FontString") and IsObjectOfType(castBar.Background, "Texture") then
+                castBar.Text:ClearAllPoints()
+                PixelUtil.SetPoint(castBar.Text, "TOP", castBar.Background, "BOTTOM", 0, -8)
+                castBar.Text:SetFont(fontName, 12, "SLUG")
+                castBar.Text:SetTextColor(npcNameColorR, npcNameColorG, npcNameColorB, npcNameColorA)
+            end
+            if IsObjectOfType(castBar.CastTargetNameText, "FontString") then
+                castBar.CastTargetNameText:SetTextColor(npcNameColorR, npcNameColorG, npcNameColorB, npcNameColorA)
             end
         end
 
-        if IsObjectOfType(healthBar, "StatusBar") then
+        if IsObjectOfType(container, "Frame") then
+            -- Не Hide(): якорь имени к скрытому контейнеру съезжает на self (текст по центру).
+            container:Show()
+            container:SetAlpha(isHostile and 1 or 0)
+            if isHostile and IsObjectOfType(unitFrame, "Button") then
+                PixelUtil.SetHeight(container, healthBarHeight)
+                container:ClearAllPoints()
+                PixelUtil.SetPoint(container, "BOTTOMLEFT", unitFrame, "LEFT", 36, 4)
+                PixelUtil.SetPoint(container, "BOTTOMRIGHT", unitFrame, "RIGHT", -36, 4)
+            end
+        end
+
+        if isHostile and IsObjectOfType(healthBar, "StatusBar") then
             -- Меняем вид полосы здоровья
             healthBar:SetStatusBarColor(0.188235, 0.811765, 0.556863) -- Цвет 30CF8E
             if IsObjectOfType(healthBar.barTexture, "Texture") then
@@ -92,29 +124,28 @@ function ConsoleMenu:InitializeNameplate()
                 healthBar.selectedBorder:Hide()
                 healthBar.selectedBorder:SetAlpha(0)
             end
-            if IsObjectOfType(container, "Frame") and IsObjectOfType(unitFrame, "Button") then
-                PixelUtil.SetHeight(container, healthBarHeight)
-                container:ClearAllPoints()
-                PixelUtil.SetPoint(container, "BOTTOMLEFT", unitFrame, "LEFT", 36, 4)
-                PixelUtil.SetPoint(container, "BOTTOMRIGHT", unitFrame, "RIGHT", -36, 4)
-            end
         end
 
-        if IsObjectOfType(castBar, "StatusBar") then
-            PixelUtil.SetHeight(castBar, castBarHeight)
-            ApplyCastBarTextureWithDelay(castBar)
-            castBar:SetStatusBarColor(1.0, 0.960784, 0.772549, 1.0)
-            castBar:ClearAllPoints()
-            if IsObjectOfType(castBar.Background, "Texture") then
-                castBar.Background:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\EnemyHealthBar.png")
-                castBar.Background:SetVertexColor(0, 0, 0, 0.5)
+        -- Blizzard ставит BOTTOMLEFT/BOTTOMRIGHT; ClearAllPoints часто не сбрасывает — снимаем по именам.
+        if IsObjectOfType(name, "FontString") then
+            name:SetTextColor(npcNameColorR, npcNameColorG, npcNameColorB, npcNameColorA)
+            name:SetFont(fontName, isHostile and 14 or 16, "SLUG")
+            name:SetJustifyH("CENTER")
+            if name.ClearPoint then
+                for _, point in ipairs({
+                    "TOPLEFT", "TOPRIGHT", "BOTTOMLEFT", "BOTTOMRIGHT",
+                    "LEFT", "RIGHT", "TOP", "BOTTOM", "CENTER",
+                }) do
+                    name:ClearPoint(point)
+                end
+            else
+                name:ClearAllPoints()
             end
-            PixelUtil.SetPoint(castBar, "TOPLEFT", unitFrame, "LEFT", 48, 0)
-            PixelUtil.SetPoint(castBar, "TOPRIGHT", unitFrame, "RIGHT", -48, 0)
-            if IsObjectOfType(castBar.Text, "FontString") and IsObjectOfType(castBar.Background, "Texture") then
-                castBar.Text:ClearAllPoints()
-                PixelUtil.SetPoint(castBar.Text, "TOP", castBar.Background, "BOTTOM", 0, -8)
-                castBar.Text:SetFont(fontName, 12, "SLUG")
+            name:SetWidth(0)
+            if isHostile and IsObjectOfType(healthBar, "StatusBar") then
+                PixelUtil.SetPoint(name, "BOTTOM", healthBar, "TOP", 0, 8)
+            elseif IsObjectOfType(unitFrame, "Button") then
+                PixelUtil.SetPoint(name, "CENTER", unitFrame, "CENTER", 0, -12)
             end
         end
 
@@ -171,6 +202,7 @@ function ConsoleMenu:InitializeNameplate()
         local nameText = frame and frame.name
         if IsObjectOfType(nameText, "FontString") then
             nameText:SetTextColor(npcNameColorR, npcNameColorG, npcNameColorB, npcNameColorA)
+            nameText:SetWidth(0)
         end
     end)
 
