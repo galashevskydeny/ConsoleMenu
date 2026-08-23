@@ -523,7 +523,7 @@ local function LoadMerchantData()
         local itemID = GetMerchantItemID(i)
         local isHeirloom = itemID and C_Heirloom.IsItemHeirloom(itemID)
         local isKnownHeirloom = isHeirloom and C_Heirloom.PlayerHasHeirloom(itemID)
-        local hasTransmog = C_TransmogCollection.PlayerHasTransmogByItemInfo(itemID)
+        local hasTransmog = itemID and C_TransmogCollection.PlayerHasTransmogByItemInfo(itemID)
 
         if info then
             info.itemID = itemID

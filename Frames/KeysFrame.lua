@@ -23,6 +23,34 @@ local animationDuration = 0.1
 
 local gamePadActive = false
 
+local function IsEmulatedGamePadButton(value)
+    return value and value ~= "" and string.upper(value) ~= "NONE"
+end
+
+local function ResolveModifierKey(modifierKey)
+    if not gamePadActive or not modifierKey then
+        return modifierKey
+    end
+
+    local cvarName
+    if modifierKey == "SHIFT" then
+        cvarName = "GamePadEmulateShift"
+    elseif modifierKey == "CTRL" then
+        cvarName = "GamePadEmulateCtrl"
+    elseif modifierKey == "ALT" then
+        cvarName = "GamePadEmulateAlt"
+    else
+        return modifierKey
+    end
+
+    local emulated = GetCVar(cvarName)
+    if IsEmulatedGamePadButton(emulated) and ConsoleMenu.Textures[emulated] then
+        return emulated
+    end
+
+    return modifierKey
+end
+
 -- Функция для обновления элемента списка
 local function UpdateKeyFrame(frame, binding, title, stackCount)
     if not frame then return end
@@ -43,26 +71,7 @@ local function UpdateKeyFrame(frame, binding, title, stackCount)
         frame.Icon:SetHeight(height)
 
         local mainKey = string.match(binding, ".-%-(.+)$")
-        local modifierKey = string.match(binding, "^(.+)%-[^%-]+$")
-
-        if gamePadActive then
-            if modifierKey == "SHIFT" then
-                local emulated = GetCVar("GamePadEmulateShift")
-                if emulated and emulated ~= "NONE" then
-                    modifierKey = emulated
-                end
-            elseif modifierKey == "CTRL" then
-                local emulated = GetCVar("GamePadEmulateCtrl")
-                if emulated and emulated ~= "NONE" then
-                    modifierKey = emulated
-                end
-            elseif modifierKey == "ALT" then
-                local emulated = GetCVar("GamePadEmulateAlt")
-                if emulated and emulated ~= "NONE" then
-                    modifierKey = emulated
-                end
-            end
-        end
+        local modifierKey = ResolveModifierKey(string.match(binding, "^(.+)%-[^%-]+$"))
 
         local mainTextureInfo = ConsoleMenu.Textures[mainKey]
         local modifierTextureInfo = ConsoleMenu.Textures[modifierKey]
@@ -89,8 +98,11 @@ local function UpdateKeyFrame(frame, binding, title, stackCount)
     else
         -- Кнопка без модификатора
 
-        local texture = ConsoleMenu.Textures[binding].texture
-        local background = ConsoleMenu.Textures[binding].background
+        local textureInfo = ConsoleMenu.Textures[binding]
+        if not textureInfo then return end
+
+        local texture = textureInfo.texture
+        local background = textureInfo.background
 
         frame.Icon.PlusTexture:Hide()
         frame.Icon.ModifierTexture:Hide()
