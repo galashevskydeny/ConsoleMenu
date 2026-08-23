@@ -24,7 +24,12 @@ BlizzardFrames/QuestFrame.lua
 BlizzardFrames/GossipFrame.lua
 BlizzardFrames/PVEFrame.lua
 BlizzardFrames/WorldMapFrame.lua
-BlizzardFrames/Nameplate.lua
+BlizzardFrames/Nameplates/Shared.lua
+BlizzardFrames/Nameplates/Health.lua
+BlizzardFrames/Nameplates/Cast.lua
+BlizzardFrames/Nameplates/Auras.lua
+BlizzardFrames/Nameplates/Display.lua
+BlizzardFrames/Nameplates/Manager.lua
 BlizzardFrames/ObjectiveTrackerFrame.lua
 BlizzardFrames/GameDialog.lua
 

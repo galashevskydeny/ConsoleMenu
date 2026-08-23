@@ -1,5 +1,34 @@
 local ConsoleMenu = _G.ConsoleMenu
 
+-- Защищённые CVar (SoftTargetForce, SoftTargetEnemy и т.п.) нельзя менять в бою:
+-- SetCVar() даёт ADDON_ACTION_BLOCKED. GAME_PAD_ACTIVE_CHANGED при этом часто
+-- срабатывает в бою при подключении/отключении геймпада.
+local pendingCVarApply = false
+
+local function CVarMatches(name, value)
+    local current = GetCVar(name)
+    if current == nil then
+        return false
+    end
+    if current == tostring(value) then
+        return true
+    end
+    local currentNum, desiredNum = tonumber(current), tonumber(value)
+    return currentNum ~= nil and desiredNum ~= nil and currentNum == desiredNum
+end
+
+local function SafeSetCVar(name, value)
+    if CVarMatches(name, value) then
+        return true
+    end
+    if InCombatLockdown() then
+        pendingCVarApply = true
+        return false
+    end
+    SetCVar(name, value)
+    return true
+end
+
 -- Скрывает текст боя (всплывающих цифр)
 local function HideFloatingText()
     SetCVar("threatShowNumeric", 0)
@@ -122,12 +151,12 @@ end
 
 -- Применяет настройки GamePad CVars
 local function ApplyGamePadCVars()
-    SetCVar("GamePadEnable", "1")
-    -- SetCVar("GamePadEmulateShift", "PADRSHOULDER")
-    SetCVar("GamePadEmulateCtrl", "PADLSHOULDER")
+    SafeSetCVar("GamePadEnable", "1")
+    -- SafeSetCVar("GamePadEmulateShift", "PADRSHOULDER")
+    SafeSetCVar("GamePadEmulateCtrl", "PADLSHOULDER")
 
-    SetCVar("GamePadCursorLeftClick", "PAD1")
-    SetCVar("GamePadCursorRightClick", "PAD3")
+    SafeSetCVar("GamePadCursorLeftClick", "PAD1")
+    SafeSetCVar("GamePadCursorRightClick", "PAD3")
 end
 
 -- Применяет настройки CVars на основе значений в ConsoleMenuDB
@@ -186,40 +215,60 @@ _G.ApplyGamePadCVars = ApplyGamePadCVars
 
 -- Устанавливает базовые для необходимого пользовательского опыта значения soft target
 local function SetBaseSoftTargetSettings()
-    SetCVar("SoftTargetFriend", 1)
-    SetCVar("SoftTargetNameplateEnemy", 1)
-    SetCVar("SoftTargetIconInteract", 0)
-    SetCVar("SoftTargetForce", 0)
-    SetCVar("SoftTargetEnemy", 1)
+    SafeSetCVar("SoftTargetFriend", 1)
+    SafeSetCVar("SoftTargetNameplateEnemy", 1)
+    SafeSetCVar("SoftTargetIconInteract", 0)
+    SafeSetCVar("SoftTargetForce", 0)
+    SafeSetCVar("SoftTargetEnemy", 1)
 
     if ConsoleMenuDB.softTargetFriendRange == 1 then
-        SetCVar("SoftTargetFriendRange", 5)
-        SetCVar("SoftTargetInteractRange", 5)
+        SafeSetCVar("SoftTargetFriendRange", 5)
+        SafeSetCVar("SoftTargetInteractRange", 5)
     end
 end
 
 -- Возвращает настройки soft target к значениям по умолчанию
 local function ResetBaseSoftTargetSettings()
-    SetCVar("SoftTargetFriend", GetCVarDefault("SoftTargetFriend"))
-    SetCVar("SoftTargetNameplateEnemy", GetCVarDefault("SoftTargetNameplateEnemy"))
-    SetCVar("SoftTargetIconInteract", GetCVarDefault("SoftTargetIconInteract"))
-    SetCVar("SoftTargetForce", GetCVarDefault("SoftTargetForce"))
-    SetCVar("SoftTargetEnemy", GetCVarDefault("SoftTargetEnemy"))
-    SetCVar("SoftTargetFriendRange", GetCVarDefault("SoftTargetFriendRange"))
+    SafeSetCVar("SoftTargetFriend", GetCVarDefault("SoftTargetFriend"))
+    SafeSetCVar("SoftTargetNameplateEnemy", GetCVarDefault("SoftTargetNameplateEnemy"))
+    SafeSetCVar("SoftTargetIconInteract", GetCVarDefault("SoftTargetIconInteract"))
+    SafeSetCVar("SoftTargetForce", GetCVarDefault("SoftTargetForce"))
+    SafeSetCVar("SoftTargetEnemy", GetCVarDefault("SoftTargetEnemy"))
+    SafeSetCVar("SoftTargetFriendRange", GetCVarDefault("SoftTargetFriendRange"))
+end
+
+local function ApplyGamePadAndSoftTargetCVars()
+    if InCombatLockdown() then
+        pendingCVarApply = true
+        return
+    end
+    pendingCVarApply = false
+    ApplyGamePadCVars()
+    SetBaseSoftTargetSettings()
 end
 
 function ConsoleMenu:UpdateCVars()
     
     -- Регистрируем события для динамического изменения SoftTarget настроек
     ConsoleMenu:RegisterEvent("PLAYER_ENTERING_WORLD", function()
+        if InCombatLockdown() then
+            pendingCVarApply = true
+            return
+        end
         SetBaseSoftTargetSettings()
     end)
 
 
     -- Применяем настройки GamePad при изменении состояния контроллера
     ConsoleMenu:RegisterEvent("GAME_PAD_ACTIVE_CHANGED", function()
-        ApplyGamePadCVars()
-        SetBaseSoftTargetSettings()
+        ApplyGamePadAndSoftTargetCVars()
+    end)
+
+    -- Защищённые CVar нельзя выставлять в бою — доигрываем после выхода из боя
+    ConsoleMenu:RegisterEvent("PLAYER_REGEN_ENABLED", function()
+        if pendingCVarApply then
+            ApplyGamePadAndSoftTargetCVars()
+        end
     end)
 
     ApplyCVarSettings()
