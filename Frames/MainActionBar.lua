@@ -190,8 +190,8 @@ local function UpdateSlot12Label(slotID)
         return
     end
 
-    local actionType, id = GetActionInfo(slotID)
-    local title = ConsoleMenu:GetSlotTitle(actionType, id)
+    local actionType, id, subType = GetActionInfo(slotID)
+    local title = ConsoleMenu:GetSlotTitle(actionType, id, subType, slotID)
     btn.Label:SetText(title or "")
 end
 
@@ -412,8 +412,8 @@ local function IsActionButtonVisible(slotID, btn, activeModifier)
         if not C_ActionBar.HasAction(slotID) then
             return false
         end
-        local actionType, id = GetActionInfo(slotID)
-        if not ConsoleMenu:GetSlotTitle(actionType, id) then
+        local actionType, id, subType = GetActionInfo(slotID)
+        if not ConsoleMenu:GetSlotTitle(actionType, id, subType, slotID) then
             return false
         end
     end
@@ -996,31 +996,30 @@ function ConsoleMenu:InitializeMainActionBar()
 
 end
 
-function ConsoleMenu:GetSlotTitle(actionType, id)
+function ConsoleMenu:GetSlotTitle(actionType, id, subType, slotID)
+    -- У макроса GetActionInfo кладёт в id spellID/itemID, если есть subType.
+    -- Для item-макроса id часто невалиден — имя предмета берём через GetMacroItem.
     if actionType == "macro" then
-        if C_Macro and C_Macro.GetMacroSpell then
-            local spellID = C_Macro.GetMacroSpell(id)
-            if spellID then
-                actionType = "spell"
-                id = spellID
-            end
+        if subType == "spell" then
+            actionType = "spell"
+        elseif subType == "item" then
+            local macroName = slotID and GetActionText(slotID)
+            return (macroName and GetMacroItem(macroName)) or C_Item.GetItemNameByID(id) or macroName
+        else
+            return C_Macro.GetMacroName(id)
         end
     end
-    
+
     if actionType == "spell" then
-        local spell = Spell:CreateFromSpellID(id)
-        
-        local name = spell:GetSpellName()
-        return name
+        local spellInfo = C_Spell.GetSpellInfo(id)
+        if spellInfo and spellInfo.name then
+            return spellInfo.name
+        end
+        return slotID and GetActionText(slotID)
     end
-    
+
     if actionType == "item" then
         local name = C_Item.GetItemNameByID(id)
-        return name
-    end
-    
-    if actionType == "macro" then
-        local name = C_Macro.GetMacroName(id)
         return name
     end
 

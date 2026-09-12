@@ -199,7 +199,7 @@ local function AddCombatSlotKeysFrameItem(slot)
         local info = C_ActionBar.GetActionCooldown(slot)
 
         if actionType and id and info and (not info.isActive or info.isOnGCD) then
-            local title = ConsoleMenu:GetSlotTitle(actionType, id)
+            local title = ConsoleMenu:GetSlotTitle(actionType, id, subType, slot)
 
             if title and binding and isUsable and ignoredSlot then
                 if issecretvalue(count) then
@@ -234,7 +234,7 @@ function ConsoleMenu:ApplyContextUIChanges()
             local info = C_ActionBar.GetActionCooldown(slot)
 
             if actionType and id and command and info and not info.isActive then
-                local title = ConsoleMenu:GetSlotTitle(actionType, id)
+                local title = ConsoleMenu:GetSlotTitle(actionType, id, subType, slot)
                 local binding = ConsoleMenu:GetCommandBinding(command)
 
                 if title and binding and isUsable then
@@ -370,7 +370,7 @@ function ConsoleMenu:ApplyContextUIChanges()
 
             if shouldShow then
                 if actionType and id and command and isUsable then
-                    local title = ConsoleMenu:GetSlotTitle(actionType, id)
+                    local title = ConsoleMenu:GetSlotTitle(actionType, id, subType, slot)
                     local binding = ConsoleMenu:GetCommandBinding(command)
     
                     if title and binding then
