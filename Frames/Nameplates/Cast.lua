@@ -145,17 +145,29 @@ function Nameplates.CreateCastLayers(parent)
     large.icon:SetTexCoord(edge, 1 - edge, edge, 1 - edge)
     Nameplates.ApplyCircularMask(large.icon)
 
+    large.unitName = large:CreateFontString(nil, "OVERLAY")
+    large.unitName:SetFont(Nameplates.fontName, Nameplates.enemyNameFontSize, "SLUG")
+    large.unitName:SetTextColor(
+        Nameplates.npcNameColorR,
+        Nameplates.npcNameColorG,
+        Nameplates.npcNameColorB,
+        Nameplates.npcNameColorA
+    )
+    large.unitName:SetJustifyH("LEFT")
+    large.unitName:SetWordWrap(false)
+    large.unitName:SetPoint("BOTTOMLEFT", large, "TOPLEFT", 0, Nameplates.nameSpacing)
+
     large.text = large:CreateFontString(nil, "OVERLAY")
-    large.text:SetFont(Nameplates.fontName, Nameplates.enemyNameFontSize, "SLUG")
+    large.text:SetFont(Nameplates.fontName, Nameplates.uninterruptibleCastFontSize, "SLUG")
     large.text:SetTextColor(
         Nameplates.npcNameColorR,
         Nameplates.npcNameColorG,
         Nameplates.npcNameColorB,
         Nameplates.npcNameColorA
     )
-    large.text:SetJustifyH("CENTER")
+    large.text:SetJustifyH("LEFT")
     large.text:SetWordWrap(false)
-    large.text:SetPoint("TOP", large, "BOTTOM", 0, -8)
+    large.text:SetPoint("TOPLEFT", large, "BOTTOMLEFT", 0, -Nameplates.nameSpacing)
 
     local small = CreateFrame("Frame", nil, parent)
     small:Hide()
@@ -228,6 +240,10 @@ function Nameplates.UpdateCastLayers(large, small, healthBar, nameFrame, unit)
     if displayName then
         large.text:SetText(displayName)
         small.text:SetText(displayName)
+    end
+    local nameOk, unitName = pcall(UnitName, unit)
+    if nameOk and unitName then
+        large.unitName:SetText(unitName)
     end
 
     pcall(function()

@@ -61,14 +61,16 @@ function Nameplates.CreateDisplay(parent)
 end
 
 function Nameplates.UpdateName(display)
-    local unit = display.unit
-    if not unit then
-        display.name:SetText("")
-        return
+    local name = ""
+    if display.unit then
+        local ok, unitName = pcall(UnitName, display.unit)
+        if ok and unitName then
+            name = unitName
+        end
     end
-    local ok, name = pcall(UnitName, unit)
-    if ok and name then
-        display.name:SetText(name)
+    display.name:SetText(name)
+    if display.castLarge and display.castLarge.unitName then
+        display.castLarge.unitName:SetText(name)
     end
 end
 
@@ -101,7 +103,7 @@ function Nameplates.DisplaySetUnit(display, unit)
         Nameplates.HealthBarSetUnit(display.healthBar, nil)
         Nameplates.AurasSetUnit(display.auras, nil)
         Nameplates.ClearCastLayers(display.castLarge, display.castSmall, display.healthBar, display.nameFrame)
-        display.name:SetText("")
+        Nameplates.UpdateName(display)
         display:Hide()
         return
     end
