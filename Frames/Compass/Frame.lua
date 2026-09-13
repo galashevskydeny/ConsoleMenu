@@ -202,7 +202,7 @@ function ConsoleMenu:SetCompassFrame()
     Compass:InitPixel()
     Compass.markers, Compass.bearings = {}, {}
     Compass.selectionKeys = {}
-    Compass.arrivalMarker, Compass.arrivalKey, Compass.arrivalLeaving = nil, nil, nil
+    Compass.arrivalMarkers, Compass.arrivalKeys, Compass.arrivalLeaving = {}, {}, {}
     Compass.arrivalBlend, Compass.arrivalEase, Compass.arrivalBlendPending, Compass.arrivalFanReveal = 0, 0, false, false
     Compass.viewAngle = C.VIEW_ANGLE
     Compass.range = C.RANGE_WALK
@@ -220,6 +220,7 @@ function ConsoleMenu:SetCompassFrame()
     frame:SetFrameStrata("MEDIUM")
     frame:SetFrameLevel(parent:GetFrameLevel() + 1)
     frame:SetClampedToScreen(true)
+    frame:SetClipsChildren(false)
     frame:SetPoint("TOP", parent, "TOP", 0, DefaultOffsetY())
     frame:EnableMouse(false)
     frame:Hide()

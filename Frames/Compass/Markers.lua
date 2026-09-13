@@ -12,6 +12,20 @@ local QUEST_SYMBOL_ATLASES = {
     ["UI-QuestIcon-TurnIn-Normal"] = true,
     ["Worldquest-icon"] = true,
 }
+local nearbyOrder = {}
+
+-- Скрывает подпись слота: текст живёт на полосе, а не на рамке значка.
+local function HideNearbyLabels(button)
+    if not button then
+        return
+    end
+    if button.labelShown or (button.title and button.title:IsShown()) then
+        button.title:Hide()
+        button.caption:Hide()
+    end
+    button.labelShown, button.labelName, button.labelCaption = false, nil, nil
+    button.labelX, button.labelY = nil, nil
+end
 
 -- Создаёт пул декоративных значков без мыши.
 function Compass:CreateMarkerPool()
@@ -39,6 +53,20 @@ function Compass:CreateMarkerPool()
         button.selection:SetAtlas(C.SELECTION_MARKER_ATLAS)
         button.selection:SetRotation(0)
         button.selection:Hide()
+        button:SetClipsChildren(false)
+        -- Название и тип на полосе, чтобы подпись не обрезалась рамкой значка.
+        button.title = self.frame:CreateFontString(nil, "OVERLAY")
+        button.title:SetMaxLines(2)
+        button.title:SetJustifyH("CENTER")
+        button.title:SetWordWrap(true)
+        button.title:SetNonSpaceWrap(true)
+        button.title:Hide()
+        button.caption = self.frame:CreateFontString(nil, "OVERLAY")
+        button.caption:SetMaxLines(2)
+        button.caption:SetJustifyH("CENTER")
+        button.caption:SetWordWrap(true)
+        button.caption:SetNonSpaceWrap(true)
+        button.caption:Hide()
         button:Hide()
         button.renderShown = false
         return button
@@ -55,6 +83,8 @@ function Compass:CreateMarkerPool()
         button.appearStart = nil
         button.renderX, button.renderAlpha, button.renderWaypoint, button.renderGlow, button.renderShown = nil, nil, nil, nil, false
         button.renderLeft, button.renderTop, button.smoothLeft = nil, nil, nil
+        HideNearbyLabels(button)
+        button.labelScale, button.labelWidth = nil, nil
         button.symbol:Hide()
         button.selection:Hide()
         button.trackedGlow:Hide()
@@ -86,19 +116,107 @@ local function LimitTurn(delta, halfView, minimum, maximum)
     return minimum, maximum
 end
 
+-- Сортирует близкие точки слева направо по отклонению от взгляда.
+local function NearbyDeltaBefore(a, b)
+    if a.nearbyDelta ~= b.nearbyDelta then
+        return a.nearbyDelta < b.nearbyDelta
+    end
+    return a.key < b.key
+end
+
+-- Ставит значки в ряд с постоянным шагом, начиная с левой позиции.
+local function PlaceNearbyRow(list, firstX, step)
+    for index = 1, #list do
+        list[index].nearbyX = firstX + (index - 1) * step
+    end
+end
+
+-- Собирает второстепенную подпись близкой точки.
+local function NearbyCaptionText(self, marker)
+    local typeLabel = self.L[marker.kind]
+    if typeLabel then
+        return self.L.DETAIL_F:format(typeLabel, self.L.NEARBY)
+    end
+    return self.L.NEARBY
+end
+
+-- Оформляет название и подпись на значке.
+local function StyleNearbyLabels(self, button, scale, width)
+    local C = self.Constants
+    local offset = Pixel:Multiple(C.SHADOW_OFFSET, scale)
+    button.title:SetFont(STANDARD_TEXT_FONT, C.TITLE_FONT_SIZE, "OUTLINE")
+    button.caption:SetFont(STANDARD_TEXT_FONT, C.FONT_SIZE, "OUTLINE")
+    button.title:SetShadowOffset(offset, -offset)
+    button.caption:SetShadowOffset(offset, -offset)
+    button.title:SetShadowColor(0, 0, 0, 1)
+    button.caption:SetShadowColor(0, 0, 0, 1)
+    button.title:SetWidth(width)
+    button.caption:SetWidth(width)
+    button.labelScale, button.labelWidth = scale, width
+end
+
+-- Проверяет, что на полосе те же точки «поблизости».
+local function SelectionMatchesFoci(selection, foci)
+    if #selection ~= #foci then
+        return false
+    end
+    for index = 1, #foci do
+        local key = foci[index].key
+        local found
+        for inner = 1, #selection do
+            if selection[inner].key == key then
+                found = true
+                break
+            end
+        end
+        if not found then
+            return false
+        end
+    end
+    return true
+end
+
+-- Расставляет близкие точки в ряд, деля между ними большую часть полосы.
+function Compass:LayoutNearby(facing)
+    local C = self.Constants
+    local foci = self:GetNearbyFoci()
+    local layout = self.artworkLayout
+    local scale = layout and layout.scale or 1
+    local ribbon = (layout and layout.contentWidth) or C.WIDTH
+    wipe(nearbyOrder)
+    for index = 1, #foci do
+        local marker = foci[index]
+        local delta = 0
+        if marker.bearing and facing then
+            delta = self:WrapDegrees(facing - marker.bearing)
+        end
+        marker.nearbyDelta = delta
+        nearbyOrder[index] = marker
+    end
+    table.sort(nearbyOrder, NearbyDeltaBefore)
+    local count = #nearbyOrder
+    local band = ribbon * C.NEARBY_BAND_FRACTION
+    local step = count > 0 and band / count or band
+    local gap = Pixel:Multiple(C.NEARBY_SLOT_GAP, scale)
+    self.nearbySlotWidth = math.max(0, step - gap)
+    local firstX = count > 1 and -((count - 1) * step) / 2 or 0
+    PlaceNearbyRow(nearbyOrder, firstX, step)
+end
+
 -- Сдвигает уже отобранные значки при повороте.
 local function ProjectSelection(self, facing, width)
     for _, marker in ipairs(self.selectedMarkers) do
         if not marker.bearing then
-            if marker ~= self.arrivalMarker and marker ~= self.arrivalLeaving then
+            if not self:IsNearbyFocus(marker) then
                 return false
             end
         else
             local x, alpha, delta = self:Project(marker.bearing, facing, self.viewAngle, width, Compass.Constants.EDGE_CLIP_FRACTION)
-            if not x or alpha <= 0 then
+            if x and alpha > 0 then
+                marker.projectedX, marker.projectedAlpha, marker.projectedDelta = x, alpha, delta
+            elseif not self:IsNearbyFocus(marker) then
                 return false
             end
-            marker.projectedX, marker.projectedAlpha, marker.projectedDelta = x, alpha, delta
         end
     end
     return true
@@ -108,21 +226,28 @@ end
 function Compass:SelectMarkers(facing, width, live)
     local C = self.Constants
     local selection = self.selectedMarkers
-    local focus = self.arrivalMarker or self.arrivalLeaving
+    local foci = self:GetNearbyFoci()
     local blend = self.arrivalBlend or 0
-    -- Пока точка гаснет на месте, веер значков ещё не показываем.
-    local lock = focus and ((self.arrivalMarker and blend >= 1) or (not self.arrivalMarker and blend > 0))
+    local arrived = #self.arrivalMarkers > 0
+    -- Пока близкие точки гаснут на месте, веер значков ещё не показываем.
+    local lock = #foci > 0 and ((arrived and blend >= 1) or (not arrived and blend > 0))
     if lock then
-        if live and not self.selectionDirty and #selection == 1 and selection[1] == focus then
-            focus.projectedX, focus.projectedAlpha, focus.projectedDelta = 0, 1, 0
-            return selection
+        if not (live and not self.selectionDirty and SelectionMatchesFoci(selection, foci)) then
+            wipe(selection)
+            self.markerSlotsDirty = true
+            wipe(self.selectionKeys)
+            for index = 1, #foci do
+                selection[index] = foci[index]
+                self.selectionKeys[foci[index].key] = true
+            end
         end
-        wipe(selection)
-        self.markerSlotsDirty = true
-        focus.projectedX, focus.projectedAlpha, focus.projectedDelta = 0, 1, 0
-        selection[1] = focus
-        wipe(self.selectionKeys)
-        self.selectionKeys[focus.key] = true
+        self:LayoutNearby(facing)
+        for index = 1, #selection do
+            local marker = selection[index]
+            marker.projectedX = marker.nearbyX or 0
+            marker.projectedAlpha = 1
+            marker.projectedDelta = marker.nearbyDelta or 0
+        end
         self.selectionFacing, self.selectionTurnMin, self.selectionTurnMax = facing, -C.HALF_TURN, C.HALF_TURN
         self.selectionDirty = false
         return selection
@@ -181,11 +306,16 @@ end
 -- Плавно переводит полосу в режим прибытия и обратно.
 function Compass:UpdateArrivalBlend(elapsed)
     local C = self.Constants
-    if self.arrivalMarker then
-        self.arrivalLeaving = self.arrivalMarker
+    local foci = self.arrivalMarkers
+    if #foci > 0 then
+        local leaving = self.arrivalLeaving
+        wipe(leaving)
+        for index = 1, #foci do
+            leaving[index] = foci[index]
+        end
         self.arrivalFanReveal = false
     end
-    local target = self.arrivalMarker and 1 or 0
+    local target = #foci > 0 and 1 or 0
     local blend = self.arrivalBlend or 0
     if blend ~= target then
         local duration = C.ARRIVAL_BLEND_DURATION
@@ -204,40 +334,56 @@ function Compass:UpdateArrivalBlend(elapsed)
     end
     self.arrivalBlendPending = blend ~= target
     self.arrivalEase = blend * blend * (3 - 2 * blend)
-    if not self.arrivalMarker and blend <= 0 then
-        self.arrivalLeaving = nil
+    if #foci == 0 and blend <= 0 then
+        wipe(self.arrivalLeaving)
         self.arrivalEase = 0
     end
 end
 
--- Сдвигает точку прибытия к центру и гасит остальные значки по мере анимации.
-function Compass:ApplyArrivalBlend(selection)
+-- Сдвигает близкие точки к указателю по сторонам и гасит остальные значки.
+function Compass:ApplyArrivalBlend(selection, facing)
     local ease = self.arrivalEase or 0
-    local focus = self.arrivalMarker or self.arrivalLeaving
-    if ease <= 0 or not focus then
+    local foci = self:GetNearbyFoci()
+    if ease <= 0 or #foci == 0 then
         return selection
     end
-    if not self.arrivalMarker then
-        -- Исчезновение: значок остаётся в центре и гаснет на месте.
-        focus.projectedX, focus.projectedAlpha, focus.projectedDelta = 0, ease, 0
+    self:LayoutNearby(facing)
+    if #self.arrivalMarkers == 0 then
+        -- Исчезновение: значки остаются на своих сторонах и гаснут на месте.
+        for index = 1, #foci do
+            local marker = foci[index]
+            marker.projectedX = marker.nearbyX or 0
+            marker.projectedAlpha = ease
+            marker.projectedDelta = marker.nearbyDelta or 0
+        end
         return selection
     end
-    local found
     for _, marker in ipairs(selection) do
-        if marker == focus then
-            found = true
-            marker.projectedX = (marker.projectedX or 0) * (1 - ease)
+        if self.arrivalKeys[marker.key] then
+            marker.projectedX = marker.nearbyX or 0
             marker.projectedAlpha = 1
-            marker.projectedDelta = marker.projectedDelta or 0
+            marker.projectedDelta = marker.nearbyDelta or marker.projectedDelta or 0
         else
             marker.projectedAlpha = (marker.projectedAlpha or 1) * (1 - ease)
         end
     end
-    if not found then
-        focus.projectedX, focus.projectedAlpha, focus.projectedDelta = 0, ease, 0
-        selection[#selection + 1] = focus
-        self.selectionKeys[focus.key] = true
-        self.markerSlotsDirty = true
+    for index = 1, #foci do
+        local focus = foci[index]
+        local seen
+        for _, marker in ipairs(selection) do
+            if marker.key == focus.key then
+                seen = true
+                break
+            end
+        end
+        if not seen then
+            focus.projectedX = focus.nearbyX or 0
+            focus.projectedAlpha = ease
+            focus.projectedDelta = focus.nearbyDelta or 0
+            selection[#selection + 1] = focus
+            self.selectionKeys[focus.key] = true
+            self.markerSlotsDirty = true
+        end
     end
     return selection
 end
@@ -360,6 +506,7 @@ function Compass:AssignMarkerSlots(selection, live)
             end
             slot.markerKey, slot.markerGeneration = marker.key, generation
             slot.smoothLeft, slot.appearStart = nil, nil
+            HideNearbyLabels(slot)
             byKey[marker.key], nextSlots[index] = slot, slot
             assignedNew = true
         end
@@ -367,7 +514,7 @@ function Compass:AssignMarkerSlots(selection, live)
             slot.revealAt = nil
             slot.appearStart = self.markerClock
             slot.smoothLeft = nil
-        elseif marker == self.arrivalMarker or marker == self.arrivalLeaving or (self.arrivalBlend or 0) > 0 then
+        elseif self:IsNearbyFocus(marker) or (self.arrivalBlend or 0) > 0 then
             slot.revealAt, slot.appearStart = nil, nil
         elseif self.rangeChanged and not slot.renderShown then
             slot.appearStart = self.markerClock
@@ -395,6 +542,7 @@ function Compass:AssignMarkerSlots(selection, live)
             if slot.marker then
                 slot.marker.renderShown = false
             end
+            HideNearbyLabels(slot)
             if slot.renderShown then
                 slot:Hide()
                 slot.renderShown = false
@@ -505,9 +653,8 @@ end
 -- Рисует один значок по центру высоты полосы.
 function Compass:RenderMarker(button, marker, x, alpha, markerY, outline, scale)
     local C = self.Constants
-    local focus = self.arrivalMarker or self.arrivalLeaving
     local blending = (self.arrivalBlend or 0) > 0
-    local arrived = blending and marker == focus
+    local arrived = blending and self:IsNearbyFocus(marker)
     local questSymbol = not marker.texture
         and (marker.kind == "quest" or marker.kind == "worldQuest" or QUEST_SYMBOL_ATLASES[marker.atlas] == true)
     if MarkerArtChanged(button, marker, questSymbol) then
@@ -530,6 +677,7 @@ function Compass:RenderMarker(button, marker, x, alpha, markerY, outline, scale)
             button.renderShown = false
             button.smoothLeft = nil
         end
+        HideNearbyLabels(button)
         return false
     end
     button.revealAt = nil
@@ -638,6 +786,44 @@ function Compass:RenderMarker(button, marker, x, alpha, markerY, outline, scale)
     if button.renderAlpha ~= alpha then
         button:SetAlpha(alpha)
         button.renderAlpha = alpha
+    end
+    if arrived then
+        local slotWidth = self.nearbySlotWidth
+        if not slotWidth or slotWidth <= 0 then
+            local ribbon = (self.artworkLayout and self.artworkLayout.contentWidth) or C.WIDTH
+            slotWidth = math.max(0, ribbon * C.NEARBY_BAND_FRACTION - Pixel:Multiple(C.NEARBY_SLOT_GAP, scale))
+        end
+        if button.labelScale ~= scale or button.labelWidth ~= slotWidth then
+            StyleNearbyLabels(self, button, scale, slotWidth)
+        end
+        if button.labelName ~= marker.name then
+            button.title:SetText(marker.name or "")
+            button.labelName = marker.name
+        end
+        local caption = NearbyCaptionText(self, marker)
+        if button.labelCaption ~= caption then
+            button.caption:SetText(caption)
+            button.labelCaption = caption
+        end
+        local layout = self.artworkLayout
+        local detailY = layout.headingY - Pixel:Snap(self.headingHeight, scale) - Pixel:Multiple(C.LABEL_GAP, scale)
+        if button.labelX ~= x or button.labelY ~= detailY then
+            button.title:ClearAllPoints()
+            button.title:SetPoint("TOP", self.frame, "CENTER", x, detailY)
+            button.caption:ClearAllPoints()
+            button.caption:SetPoint("TOP", button.title, "BOTTOM", 0, -Pixel:Multiple(C.LABEL_GAP, scale))
+            button.labelX, button.labelY = x, detailY
+        end
+        if not button.labelShown then
+            button.title:Show()
+            button.caption:Show()
+            button.labelShown = true
+        end
+        local color = C.LINE_COLOR
+        button.title:SetTextColor(color.r, color.g, color.b, alpha)
+        button.caption:SetTextColor(color.r, color.g, color.b, alpha * C.LABEL_CAPTION_ALPHA)
+    elseif button.labelShown then
+        HideNearbyLabels(button)
     end
     if not button.renderShown then
         button.renderShown = true

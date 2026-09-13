@@ -187,7 +187,9 @@ function Compass:ClearMarkers()
     wipe(self.markerLeftOrder)
     wipe(self.markerGroupMembers)
     self.markerRevealPending, self.markerSmoothPending = false, false
-    self.arrivalMarker, self.arrivalKey, self.arrivalLeaving = nil, nil, nil
+    wipe(self.arrivalMarkers)
+    wipe(self.arrivalKeys)
+    wipe(self.arrivalLeaving)
     self.arrivalBlend, self.arrivalEase, self.arrivalBlendPending, self.arrivalFanReveal = 0, 0, false, false
     self.selectionDirty = true
     self:HideDetail()
@@ -299,7 +301,7 @@ function Compass:Render(facing, live, elapsed)
     local nearest, nearestDelta
     local outline = Pixel:Multiple(C.MARKER_OUTLINE * 2, scale)
     local selection = self:SelectMarkers(facing, width, live)
-    self:ApplyArrivalBlend(selection)
+    self:ApplyArrivalBlend(selection, facing)
     self:LayoutMarkerGroups(selection)
     self:AssignMarkerSlots(selection, live)
     self.markerRevealPending, self.markerSmoothPending = false, false
@@ -328,11 +330,10 @@ function Compass:Render(facing, live, elapsed)
         end
     end
     local blend = self.arrivalBlend or 0
-    local arrivalFocus = self.arrivalMarker or self.arrivalLeaving
-    if arrivalFocus and blend > 0 then
+    local foci = self:GetNearbyFoci()
+    if #foci > 0 and blend > 0 then
         self:HidePeek()
-        self:ShowDetail(arrivalFocus, true)
-        SetDetailAlpha(self, self.arrivalEase or blend)
+        self:HideDetail()
     elseif self.peekAltHeld then
         SetDetailAlpha(self, 1)
         local marker, slot = self:FindPeekMarker()

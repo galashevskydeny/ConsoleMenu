@@ -81,7 +81,9 @@ function Compass:UpdateBearings(x, y)
     self.bearingPlayerX, self.bearingPlayerY = x, y
     if not x or not y then
         self.navigationTarget, self.bearingSampleX = nil, nil
-        self.arrivalMarker, self.arrivalKey, self.arrivalLeaving = nil, nil, nil
+        wipe(self.arrivalMarkers)
+        wipe(self.arrivalKeys)
+        wipe(self.arrivalLeaving)
         self.arrivalBlend, self.arrivalEase, self.arrivalBlendPending = 0, 0, false
         self.selectionDirty = true
         wipe(self.bearings)
@@ -108,8 +110,8 @@ function Compass:UpdateBearings(x, y)
         if self.navigationTarget then
             self:RefreshMarkerBearing(self.navigationTarget)
         end
-        if self.arrivalMarker then
-            self:RefreshMarkerBearing(self.arrivalMarker)
+        for _, marker in ipairs(self.arrivalMarkers) do
+            self:RefreshMarkerBearing(marker)
         end
         for _, slot in ipairs(self.markerSlots) do
             if slot.selected then
@@ -120,27 +122,73 @@ function Compass:UpdateBearings(x, y)
     self:RefreshArrival()
 end
 
--- Выбирает ближайшую точку в радиусе прибытия и удерживает её, пока игрок внутри зоны.
+-- Возвращает текущие или гаснущие точки режима «поблизости».
+function Compass:GetNearbyFoci()
+    if #self.arrivalMarkers > 0 then
+        return self.arrivalMarkers
+    end
+    return self.arrivalLeaving
+end
+
+-- Проверяет, входит ли точка в набор «поблизости».
+function Compass:IsNearbyFocus(marker)
+    if not marker then
+        return false
+    end
+    if self.arrivalKeys[marker.key] then
+        return true
+    end
+    local leaving = self.arrivalLeaving
+    for index = 1, #leaving do
+        if leaving[index].key == marker.key then
+            return true
+        end
+    end
+    return false
+end
+
+-- Собирает до трёх точек в радиусе прибытия и удерживает их, пока игрок внутри зоны.
 function Compass:RefreshArrival()
     local C = self.Constants
     local limit = C.NEARBY_YARDS_SQUARED
-    local held
-    if self.arrivalKey then
-        for _, marker in ipairs(self.markers) do
-            if marker.key == self.arrivalKey then
-                held = marker
+    local maxCount = C.NEARBY_MAX
+    local held, keys, list = self.arrivalMarkers, self.arrivalKeys, self.markers
+    local changed = false
+    local write = 1
+    for index = 1, #held do
+        local previous = held[index]
+        local live
+        for _, marker in ipairs(list) do
+            if marker.key == previous.key then
+                live = marker
                 break
             end
         end
-        if not held or not held.distanceSquared or held.distanceSquared > limit then
-            held = nil
+        if live then
+            self:RefreshMarkerBearing(live)
+        end
+        if live and live.distanceSquared and live.distanceSquared <= limit then
+            if held[write] ~= live then
+                changed = true
+            end
+            held[write] = live
+            write = write + 1
+        else
+            changed = true
         end
     end
-    if not held then
+    for index = #held, write, -1 do
+        held[index] = nil
+    end
+    wipe(keys)
+    for index = 1, #held do
+        keys[held[index].key] = true
+    end
+    while #held < maxCount do
         local best
-        for _, marker in ipairs(self.markers) do
+        for _, marker in ipairs(list) do
             local distanceSquared = marker.distanceSquared
-            if distanceSquared and distanceSquared <= limit then
+            if distanceSquared and distanceSquared <= limit and not keys[marker.key] then
                 if
                     not best
                     or distanceSquared < best.distanceSquared
@@ -150,14 +198,17 @@ function Compass:RefreshArrival()
                 end
             end
         end
-        held = best
+        if not best then
+            break
+        end
+        held[#held + 1] = best
+        keys[best.key] = true
+        changed = true
     end
-    local key = held and held.key
-    if self.arrivalMarker ~= held or self.arrivalKey ~= key then
+    if changed then
         self.selectionDirty = true
         self.renderDirty = true
     end
-    self.arrivalMarker, self.arrivalKey = held, key
 end
 
 -- Выбирает дальность по способу передвижения.
