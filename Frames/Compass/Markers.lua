@@ -838,9 +838,10 @@ function Compass:RenderMarker(button, marker, x, alpha, markerY, outline, scale)
             button.trackedGlow:SetAlpha(glowAlpha)
             button.glowAlpha = glowAlpha
         end
-        if button.glowX ~= x or button.glowY ~= self.lineY then
-            button.trackedGlow:SetPoint("BOTTOM", self.frame, "CENTER", x, self.lineY)
-            button.glowX, button.glowY = x, self.lineY
+        local glowY = self.lineY - Pixel:Multiple(C.TRACKED_GLOW_DROP, scale)
+        if button.glowX ~= x or button.glowY ~= glowY then
+            button.trackedGlow:SetPoint("BOTTOM", self.frame, "CENTER", x, glowY)
+            button.glowX, button.glowY = x, glowY
         end
     end
     if not arrived and not waypoint and marker.distance and marker.distance > self.range * (1 - C.MARKER_RANGE_FADE_FRACTION) then

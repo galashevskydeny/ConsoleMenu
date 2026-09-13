@@ -73,6 +73,7 @@ Compass.Constants = {
     TRACKED_GLOW_ATLAS = "housing-basic-panel-gradient-header-bg",
     TRACKED_GLOW_WIDTH_SCALE = 9,
     TRACKED_GLOW_HEIGHT_SCALE = 2.5,
+    TRACKED_GLOW_DROP = 2, -- На сколько пикселей опустить подсветку, чтобы её линия совпала с полосой.
     SELECTION_MARKER_SCALE = 0.78125,
     SELECTION_MARKER_ATLAS = "Waypoint-MapPin-Tracked",
     SELECTION_MARKER_SUBLEVEL = 4,
