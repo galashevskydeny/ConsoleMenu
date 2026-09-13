@@ -333,6 +333,28 @@ local function RemoveSubtitlesByPriority(priorityToRemove)
     end
 end
 
+-- Возвращает текст, который можно передать в элемент интерфейса.
+-- Скрытые клиентом значения нельзя проверять на пустоту, поэтому их возвращаем без изменений.
+local function GetSafeDisplayText(value)
+    if issecretvalue(value) then
+        return value
+    end
+    return value or ""
+end
+
+-- Обрезает название игрового мира у имени отправителя, если значение доступно аддону.
+local function GetDisplaySender(event, sender)
+    if issecretvalue(sender) or not sender then
+        return sender
+    end
+
+    if event:find("CHAT_MSG") and not event:find("_MONSTER_") then
+        return sender:match("^([^-]+)") or sender
+    end
+
+    return sender
+end
+
 -- Функция для добавления субтитров
 function ConsoleMenu:AddSubtitles(event, message, sender)
     if not ConsoleMenu or not ConsoleMenu.Subtitles then
@@ -349,10 +371,7 @@ function ConsoleMenu:AddSubtitles(event, message, sender)
 
         local emotion = (event == "CHAT_MSG_MONSTER_EMOTE" or event == "CHAT_MSG_TEXT_EMOTE")
 
-        local displaySender = sender
-        if event:find("CHAT_MSG") and not event:find("_MONSTER_") and not issecretvalue(sender) then
-            displaySender = sender:match("^([^-]+)") or sender
-        end
+        local displaySender = GetDisplaySender(event, sender)
 
         table.insert(ConsoleMenu.Subtitles, {
             text = message,
@@ -396,10 +415,7 @@ function ConsoleMenu:AddSubtitles(event, message, sender)
         end
 
         -- Убираем название игрового мира из отправителя игрока
-        -- Если event содержит CHAT_MSG и не содержит _MONSTER_, обрезаем у sender все после дефиса
-        if sender and event:find("CHAT_MSG") and not event:find("_MONSTER_") and not issecretvalue(sender) then
-            sender = sender:match("^([^-]+)") or sender
-        end
+        sender = GetDisplaySender(event, sender)
 
         if line:gsub("[<>]", "") ~= "" then
             -- Создаем таблицу субтитра
@@ -530,7 +546,7 @@ function ConsoleMenu:SubtitleFrameUpdate(subtitle)
 
         if current.emotion then
             -- Обновить текст субтитра
-            frame.Emotion:SetText(current.text or "")
+            frame.Emotion:SetText(GetSafeDisplayText(current.text))
             frame.Emotion:Show()
 
             local width = frame.Emotion:GetStringWidth()
@@ -544,15 +560,13 @@ function ConsoleMenu:SubtitleFrameUpdate(subtitle)
             frame.Subtitle:Hide()
         else
             -- Обновить имя говорящего
-            local speaker = current.sender or ""
-
-            frame.Speaker:SetText(speaker)
+            frame.Speaker:SetText(GetSafeDisplayText(current.sender))
             frame.Speaker:Show()
 
             local speakerH = frame.Speaker:GetStringHeight()
 
             -- Обновить текст субтитра
-            frame.Subtitle:SetText(current.text or "")
+            frame.Subtitle:SetText(GetSafeDisplayText(current.text))
             frame.Subtitle:Show()
 
             local subW = frame.Subtitle:GetStringWidth()
@@ -770,10 +784,9 @@ function ConsoleMenu:SetSubtitleFrame()
            event == "CHAT_MSG_TEXT_EMOTE" or
            event == "CHAT_MSG_SAY"
         then
+            -- В бою текст и имя могут быть скрыты клиентом; их всё равно нужно показать в субтитрах.
             local message, sender = ...
-            if not issecretvalue(message) and not issecretvalue(sender) then
-                ConsoleMenu:AddSubtitles(event, message, sender)
-            end
+            ConsoleMenu:AddSubtitles(event, message, sender)
         elseif event == "GOSSIP_SHOW" then
             subtitleCloseToken = subtitleCloseToken + 1
             local message = C_GossipInfo.GetText()
