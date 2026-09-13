@@ -37,6 +37,7 @@ Frames/CommonFrame.lua
 Frames/GossipFrame.lua
 Frames/FastTravelFrame.lua
 Frames/SubtitleFrame.lua
+Frames/IgnoredCurrencies.lua
 Frames/NotificationFrame.lua
 Frames/QueueStatusToastFrame.lua
 Frames/LootListFrame.lua

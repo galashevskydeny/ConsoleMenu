@@ -27,7 +27,6 @@ local buttonHorizontalPadding = buttonSize * 0.6
 local shadowSize = 320
 
 local animationDuration = 0.05
-local gamePadActive = false
 
 local buttonPositions = {
     PADRSTICK = { "TOP", "PADCenter", "BOTTOM", 0, -buttonVerticalPadding },
@@ -488,13 +487,12 @@ local function UpdateButtonPositions(slotID)
         if not btn then return end
         
         local command = ConsoleMenu:GetBindingCommandBySlotID(slotID)
-        local binding = ConsoleMenu:GetCommandBinding(command, gamePadActive)
+        local binding = ConsoleMenu:GetCommandBinding(command, ConsoleMenu:IsGamePadActive())
         btn.binding = binding
-        
-        -- Всегда записываем mainKey: если есть дефис - извлекаем, если нет - весь binding
-        local mainKey = binding and string.match(binding, ".-%-(.+)$")
-        btn.mainKey = mainKey or binding
-        btn.modifierKey = binding and string.match(binding, "^(.+)%-[^%-]+$")
+
+        local mainKey, modifierKey = ConsoleMenu:ParseBindingKey(binding)
+        btn.mainKey = mainKey
+        btn.modifierKey = modifierKey
 
         local position = buttonPositions[btn.mainKey]
 
@@ -511,13 +509,12 @@ local function UpdateButtonPositions(slotID)
     -- Обновление всех кнопок (если не передан slotID)
     for slotID, btn in pairs(frame.actionButtons) do
         local command = ConsoleMenu:GetBindingCommandBySlotID(slotID)
-        local binding = ConsoleMenu:GetCommandBinding(command, gamePadActive)
+        local binding = ConsoleMenu:GetCommandBinding(command, ConsoleMenu:IsGamePadActive())
         btn.binding = binding
-        
-        -- Всегда записываем mainKey: если есть дефис - извлекаем, если нет - весь binding
-        local mainKey = binding and string.match(binding, ".-%-(.+)$")
-        btn.mainKey = mainKey or binding
-        btn.modifierKey = binding and string.match(binding, "^(.+)%-[^%-]+$")
+
+        local mainKey, modifierKey = ConsoleMenu:ParseBindingKey(binding)
+        btn.mainKey = mainKey
+        btn.modifierKey = modifierKey
 
         local position = buttonPositions[btn.mainKey]
         if position and not (ignoredSlot[slotID] == true) then
@@ -897,7 +894,7 @@ function ConsoleMenu:InitializeMainActionBar()
             UpdateActionButtonCooldowns()
             UpdateModifierState()
         elseif event == "GAME_PAD_ACTIVE_CHANGED" then
-            gamePadActive = ...
+            ConsoleMenu:SetGamePadActive(...)
             UpdateButtonPositions()
             UpdateModifierState()
         elseif event == "ACTIONBAR_SHOWGRID" or event == "ACTIONBAR_HIDEGRID" then

@@ -775,8 +775,25 @@ function ConsoleMenu:GetBindingCommandBySlotID(slotID)
     return bindingFormat:format(buttonID)
 end
 
+-- Разбор привязки на основную клавишу и модификатор
+function ConsoleMenu:ParseBindingKey(binding)
+    if not binding then
+        return nil, nil
+    end
+
+    local mainKey = string.match(binding, "([^%-]+)$")
+    local modifierKey = string.match(binding, "^(.+)%-[^%-]+$")
+    return mainKey or binding, modifierKey
+end
+
+-- Проверяет, относится ли привязка к кнопке геймпада, в том числе с модификатором
 local function IsGamePadBindingKey(key)
-    return type(key) == "string" and string.match(key, "^PAD") ~= nil
+    if type(key) ~= "string" then
+        return false
+    end
+
+    local mainKey = ConsoleMenu:ParseBindingKey(key)
+    return type(mainKey) == "string" and string.match(mainKey, "^PAD") ~= nil
 end
 
 --  Функция получения кнопки по идентификатору бинда

@@ -21,14 +21,22 @@ local fontSize = 16
 
 local animationDuration = 0.1
 
-local gamePadActive = false
-
+-- Проверяет, задана ли кнопка геймпада для эмуляции модификатора
 local function IsEmulatedGamePadButton(value)
     return value and value ~= "" and string.upper(value) ~= "NONE"
 end
 
+-- Проверяет, есть ли пригодная текстура для клавиши
+local function HasUsableTexture(textureInfo)
+    return textureInfo and textureInfo.texture and textureInfo.texture ~= ""
+end
+
+-- Признак, что перерисовка уже отложена на следующий кадр
+local keysFrameUpdateQueued = false
+
+-- Подставляет кнопку геймпада вместо модификатора, если она задана в настройках
 local function ResolveModifierKey(modifierKey)
-    if not gamePadActive or not modifierKey then
+    if not ConsoleMenu:IsGamePadActive() or not modifierKey then
         return modifierKey
     end
 
@@ -44,21 +52,52 @@ local function ResolveModifierKey(modifierKey)
     end
 
     local emulated = GetCVar(cvarName)
-    if IsEmulatedGamePadButton(emulated) and ConsoleMenu.Textures[emulated] then
+    if IsEmulatedGamePadButton(emulated) and HasUsableTexture(ConsoleMenu.Textures[emulated]) then
         return emulated
     end
 
     return modifierKey
 end
 
--- Функция для обновления элемента списка
-local function UpdateKeyFrame(frame, binding, title, stackCount)
-    if not frame then return end
-    if not binding then return end
-    if not title then return end
+-- Проверяет, можно ли нарисовать подсказку по привязке
+local function CanShowKeyBinding(binding)
+    if not binding then
+        return false
+    end
 
-    if string.find(binding, "SHIFT") or string.find(binding, "CTRL") or string.find(binding, "ALT")then
-        -- Кнопка с модификатором
+    local mainKey, modifierKey = ConsoleMenu:ParseBindingKey(binding)
+    modifierKey = ResolveModifierKey(modifierKey)
+
+    if modifierKey then
+        return HasUsableTexture(ConsoleMenu.Textures[mainKey]) and HasUsableTexture(ConsoleMenu.Textures[modifierKey])
+    end
+
+    return HasUsableTexture(ConsoleMenu.Textures[mainKey])
+end
+
+-- Возвращает контейнер списка подсказок, если он уже создан
+local function GetKeysFrame()
+    local keysFrame = ConsoleMenuFrame and ConsoleMenuFrame.KeysFrame
+    if keysFrame and keysFrame.Items then
+        return keysFrame
+    end
+end
+
+-- Обновляет внешний вид строки подсказки
+local function UpdateKeyFrame(frame, binding, title, stackCount)
+    if not frame then return false end
+    if not binding then return false end
+    if not title then return false end
+
+    local mainKey, modifierKey = ConsoleMenu:ParseBindingKey(binding)
+    modifierKey = ResolveModifierKey(modifierKey)
+
+    if modifierKey then
+        local mainTextureInfo = ConsoleMenu.Textures[mainKey]
+        local modifierTextureInfo = ConsoleMenu.Textures[modifierKey]
+        if not HasUsableTexture(mainTextureInfo) or not HasUsableTexture(modifierTextureInfo) then
+            return false
+        end
 
         frame.Icon.PlusTexture:Show()
         frame.Icon.ModifierTexture:Show()
@@ -70,20 +109,9 @@ local function UpdateKeyFrame(frame, binding, title, stackCount)
         frame.Icon:SetWidth(width)
         frame.Icon:SetHeight(height)
 
-        local mainKey = string.match(binding, ".-%-(.+)$")
-        local modifierKey = ResolveModifierKey(string.match(binding, "^(.+)%-[^%-]+$"))
-
-        local mainTextureInfo = ConsoleMenu.Textures[mainKey]
-        local modifierTextureInfo = ConsoleMenu.Textures[modifierKey]
-        if not mainTextureInfo or not modifierTextureInfo then return end
-
-        local mainTexture = mainTextureInfo.texture
-        local modifierTexture = modifierTextureInfo.texture
-        local background = ConsoleMenu.Backgrounds["PAIR"]
-
-        frame.Icon.MainTexture:SetTexture(mainTexture)
-        frame.Icon.ModifierTexture:SetTexture(modifierTexture)
-        frame.Icon.Background:SetTexture(background)
+        frame.Icon.MainTexture:SetTexture(mainTextureInfo.texture)
+        frame.Icon.ModifierTexture:SetTexture(modifierTextureInfo.texture)
+        frame.Icon.Background:SetTexture(ConsoleMenu.Backgrounds["PAIR"])
 
         frame.Icon.MainTexture:ClearAllPoints()
         frame.Icon.MainTexture:SetPoint("RIGHT", frame.Icon, "RIGHT", -iconInnerPadding, 0)
@@ -94,15 +122,11 @@ local function UpdateKeyFrame(frame, binding, title, stackCount)
 
         frame.Icon:ClearAllPoints()
         frame.Icon:SetPoint("RIGHT", frame, "RIGHT", iconInnerPadding, 0)
-
     else
-        -- Кнопка без модификатора
-
-        local textureInfo = ConsoleMenu.Textures[binding]
-        if not textureInfo then return end
-
-        local texture = textureInfo.texture
-        local background = textureInfo.background
+        local textureInfo = ConsoleMenu.Textures[mainKey]
+        if not HasUsableTexture(textureInfo) then
+            return false
+        end
 
         frame.Icon.PlusTexture:Hide()
         frame.Icon.ModifierTexture:Hide()
@@ -110,9 +134,9 @@ local function UpdateKeyFrame(frame, binding, title, stackCount)
         frame:SetHeight(sectionHeight)
         frame.Icon:SetSize(iconSize, iconSize)
 
-        frame.Icon.Background:SetTexture(background)
+        frame.Icon.Background:SetTexture(textureInfo.background)
+        frame.Icon.MainTexture:SetTexture(textureInfo.texture)
 
-        frame.Icon.MainTexture:SetTexture(texture)
         frame.Icon.MainTexture:ClearAllPoints()
         frame.Icon.MainTexture:SetAllPoints()
 
@@ -121,103 +145,127 @@ local function UpdateKeyFrame(frame, binding, title, stackCount)
 
         frame.Icon:ClearAllPoints()
         frame.Icon:SetPoint("RIGHT", frame, "RIGHT", 0, 0)
-
     end
 
     frame.Icon.StackCount.Text:SetText(stackCount)
     frame.Text:SetText(title)
 
+    -- Секретное значение не должно менять видимость счётчика
     if issecretvalue(stackCount) then
-        frame.Icon.StackCount:Show()
+        return true
+    end
+
+    -- Скрываем счётчик при пустом значении, нуле и единице
+    if not stackCount or stackCount == "" or stackCount == "0" or stackCount == 0 or stackCount == "1" or stackCount == 1 then
+        frame.Icon.StackCount:Hide()
     else
-        -- Удаляем элемент, если стаков 0 и заклинание не пригодно к использованию
-        if stackCount == "" or not stackCount or stackCount == "1" then
-            frame.Icon.StackCount:Hide()
-        else
-            frame.Icon.StackCount:Show()
-        end
+        frame.Icon.StackCount:Show()
     end
+
+    return true
 end
 
--- Функция для сброса элементов списка
+-- Сбрасывает содержимое списка подсказок
 function ConsoleMenu:ResetKeysItems()
-    if ConsoleMenuFrame.KeysFrame then
-    ConsoleMenuFrame.KeysFrame.Items = {}
+    local keysFrame = GetKeysFrame()
+    if keysFrame then
+        keysFrame.Items = {}
     end
 end
 
--- Функция для обновления списка
+-- Обновляет видимость и содержимое строк списка
 function ConsoleMenu:UpdateKeysFrame()
-    C_Timer.After(0.05, function()
+    if keysFrameUpdateQueued then
+        return
+    end
+
+    keysFrameUpdateQueued = true
+    RunNextFrame(function()
+        keysFrameUpdateQueued = false
+
+        local keysFrame = GetKeysFrame()
+        if not keysFrame then
+            return
+        end
+
+        -- Убираем строки без текстуры и сдвигаем остальные к началу
+        local compactedItems = {}
+        for i = 1, maxItemsCount do
+            local item = keysFrame.Items[i]
+            if item and item.binding and item.title and CanShowKeyBinding(item.binding) then
+                table.insert(compactedItems, item)
+            end
+        end
+
+        for i = 1, maxItemsCount do
+            keysFrame.Items[i] = compactedItems[i]
+        end
+
         local activeItems = 0
 
         for i = 1, maxItemsCount do
-            local frame = ConsoleMenuFrame.KeysFrame["Item" .. i]
-            local item = ConsoleMenuFrame.KeysFrame.Items[i]
-            
-            if not item then
+            local frame = keysFrame["Item" .. i]
+            local item = keysFrame.Items[i]
+
+            if not item or not frame then
                 ConsoleMenu:AnimatedHide(frame)
             else
-                UpdateKeyFrame(frame, item.binding, item.title, item.stackCount)
-                ConsoleMenu:AnimatedShow(frame)
-                activeItems = activeItems + 1
+                if UpdateKeyFrame(frame, item.binding, item.title, item.stackCount) then
+                    ConsoleMenu:AnimatedShow(frame)
+                    activeItems = activeItems + 1
+                else
+                    ConsoleMenu:AnimatedHide(frame)
+                end
             end
         end
 
         if activeItems > 0 then
-            ConsoleMenu:AnimatedShow(ConsoleMenuFrame.KeysFrame.Background)
+            ConsoleMenu:AnimatedShow(keysFrame.Background)
         else
-            ConsoleMenu:AnimatedHide(ConsoleMenuFrame.KeysFrame.Background)
+            ConsoleMenu:AnimatedHide(keysFrame.Background)
         end
     end)
 end
 
--- Функция для удаления элемента из списка
+-- Удаляет подсказку и уплотняет оставшиеся строки
 function ConsoleMenu:DeleteKeysFrameItem(binding, title)
     if not binding then return end
 
-    -- Обходим Items и удаляем элемент, равный переданному
-    for k, v in pairs(ConsoleMenuFrame.KeysFrame.Items) do
-        if v.binding == binding and not title then
-            ConsoleMenuFrame.KeysFrame.Items[k] = nil
-            break
-        elseif v.binding == binding and title then
-            if v.binding == binding and v.title == title then
-                ConsoleMenuFrame.KeysFrame.Items[k] = nil
-                break
+    local keysFrame = GetKeysFrame()
+    if not keysFrame then
+        return
+    end
+
+    local newItems = {}
+    for i = 1, maxItemsCount do
+        local item = keysFrame.Items[i]
+        if item then
+            local shouldDelete = item.binding == binding and (not title or item.title == title)
+            if not shouldDelete then
+                table.insert(newItems, item)
             end
         end
     end
 
-    -- Сдвигаем оставшиеся элементы к началу, чтобы между ними не было пустых слотов
-    local newItems = {}
     for i = 1, maxItemsCount do
-        local item = ConsoleMenuFrame.KeysFrame.Items[i]
-        if item ~= nil then
-            table.insert(newItems, item)
-        end
+        keysFrame.Items[i] = newItems[i]
     end
-
-    -- Заполняем Items по порядку подряд без пропусков
-    for i = 1, maxItemsCount do
-        if newItems[i] then
-            ConsoleMenuFrame.KeysFrame.Items[i] = newItems[i]
-        else
-            ConsoleMenuFrame.KeysFrame.Items[i] = nil
-        end
-    end
-
 end
 
--- Функция для добавления элемента в список
+-- Добавляет подсказку или обновляет число зарядов у уже существующей
 function ConsoleMenu:AddKeysFrameItem(binding, title, stackCount)
     if not binding then return end
     if not title then return end
 
-    -- Проверяем, существует ли уже элемент с таким binding
+    local keysFrame = GetKeysFrame()
+    if not keysFrame then
+        return
+    end
+
     for i = 1, maxItemsCount do
-        local existingItem = ConsoleMenuFrame.KeysFrame.Items[i]
+        local existingItem = keysFrame.Items[i]
         if existingItem and existingItem.binding == binding and existingItem.title == title then
+            existingItem.stackCount = stackCount
             return
         end
     end
@@ -228,26 +276,33 @@ function ConsoleMenu:AddKeysFrameItem(binding, title, stackCount)
         stackCount = stackCount,
     }
 
-    local inserted = false
     for i = 1, maxItemsCount do
-        if not ConsoleMenuFrame.KeysFrame.Items[i] then
-            ConsoleMenuFrame.KeysFrame.Items[i] = item
-            inserted = true
-            break
+        if not keysFrame.Items[i] then
+            keysFrame.Items[i] = item
+            return
         end
     end
 
-    if not inserted and binding == "PAD1" and not ConsoleMenu:CheckKeysFrameItem("PAD1") then
-        ConsoleMenu:ResetKeysItems()
-        ConsoleMenuFrame.KeysFrame.Items[1] = item
+    -- Для подтверждения на первой кнопке вытесняем последнюю подсказку
+    if binding == "PAD1" and not ConsoleMenu:CheckKeysFrameItem("PAD1") then
+        for i = maxItemsCount, 2, -1 do
+            keysFrame.Items[i] = keysFrame.Items[i - 1]
+        end
+        keysFrame.Items[1] = item
     end
 end
 
+-- Проверяет, есть ли в списке подсказка с указанной клавишей
 function ConsoleMenu:CheckKeysFrameItem(binding)
     if not binding then return end
 
+    local keysFrame = GetKeysFrame()
+    if not keysFrame then
+        return false
+    end
+
     for i = 1, maxItemsCount do
-        local item = ConsoleMenuFrame.KeysFrame.Items[i]
+        local item = keysFrame.Items[i]
         if item and item.binding == binding then
             return true
         end
@@ -256,9 +311,9 @@ function ConsoleMenu:CheckKeysFrameItem(binding)
     return false
 end
 
--- Функция для инициализации LootList
+-- Создаёт список подсказок клавиш
 function ConsoleMenu:SetKeysFrame()
-    
+
     if not ConsoleMenuFrame.KeysFrame then
         local frame = CreateFrame("Frame", "KeysFrame", ConsoleMenuFrame)
         ConsoleMenuFrame.KeysFrame = frame
@@ -268,36 +323,40 @@ function ConsoleMenu:SetKeysFrame()
     frame:SetSize(frameWidth, frameHeight)
     frame:SetPoint("BOTTOMRIGHT", ConsoleMenuFrame, "BOTTOMRIGHT", -48, 48)
 
-    frame.Background = frame:CreateTexture(nil, "BACKGROUND")
-    frame.Background:SetWidth(800)
-    frame.Background:SetHeight(320)
-    frame.Background:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", 400, -64)
-    frame.Background:SetAtlas("MapCornerShadow-Right")
-    frame.Background:SetAlpha(0.85)
-    frame.Background:Hide()
+    if not frame.Background then
+        frame.Background = frame:CreateTexture(nil, "BACKGROUND")
+        frame.Background:SetWidth(800)
+        frame.Background:SetHeight(320)
+        frame.Background:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", 400, -64)
+        frame.Background:SetAtlas("MapCornerShadow-Right")
+        frame.Background:SetAlpha(0.85)
+        frame.Background:Hide()
 
-    ConsoleMenu:InitFadeAnimations(frame.Background, animationDuration)
+        ConsoleMenu:InitFadeAnimations(frame.Background, animationDuration)
+    end
 
-    if not ConsoleMenuFrame.KeysFrame.Items then
-        ConsoleMenuFrame.KeysFrame.Items = {}
+    if not frame.Items then
+        frame.Items = {}
     end
 
     for i = 1, maxItemsCount do
-        local item = CreateFrame("Frame", "KeysFrameItem" .. i, frame)
-        frame["Item" .. i] = item
+        local item = frame["Item" .. i]
+        if not item then
+            item = CreateFrame("Frame", "KeysFrameItem" .. i, frame)
+            frame["Item" .. i] = item
 
-        item:SetWidth(frameWidth)
-        item:SetHeight(sectionHeight)
+            item:SetWidth(frameWidth)
+            item:SetHeight(sectionHeight)
+            item:Hide()
 
-        item:Hide()
+            if i == 1 then
+                item:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, 0)
+            else
+                item:SetPoint("BOTTOMRIGHT", frame["Item" .. (i - 1)], "TOPRIGHT", 0, padding)
+            end
 
-        if i == 1 then
-            item:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, 0)
-        else
-            item:SetPoint("BOTTOMRIGHT", frame["Item" .. (i-1)], "TOPRIGHT", 0, padding)
+            ConsoleMenu:InitFadeAnimations(item, animationDuration)
         end
-
-        ConsoleMenu:InitFadeAnimations(item, animationDuration)
 
         -- Иконка
         if not item.Icon then
@@ -346,7 +405,7 @@ function ConsoleMenu:SetKeysFrame()
                 item.Icon.ModifierTexture:Hide()
             end
 
-            -- Счетчик стаков
+            -- Счётчик зарядов
             if not item.Icon.StackCount then
                 item.Icon.StackCount = CreateFrame("Frame", "KeysFrameItemStackCount" .. i, item.Icon)
                 item.Icon.StackCount:SetSize(stackCountSize, stackCountSize)
@@ -354,7 +413,7 @@ function ConsoleMenu:SetKeysFrame()
 
                 item.Icon.StackCount:Hide()
 
-                -- Фон счетчика
+                -- Фон счётчика
                 if not item.Icon.StackCount.Background then
                     item.Icon.StackCount.Background = item.Icon.StackCount:CreateTexture(nil, "ARTWORK")
                     item.Icon.StackCount.Background:SetAllPoints()
@@ -364,7 +423,7 @@ function ConsoleMenu:SetKeysFrame()
                     item.Icon.StackCount.Background:SetTexture(texture)
                 end
 
-                -- Тень счетчика
+                -- Тень счётчика
                 if not item.Icon.StackCount.Shadow then
                     item.Icon.StackCount.Shadow = item.Icon.StackCount:CreateTexture(nil, "BACKGROUND")
                     item.Icon.StackCount.Shadow:SetPoint("TOPLEFT", item.Icon.StackCount.Background, "TOPLEFT", -stackCountShadowOffsef, stackCountShadowOffsef)
@@ -374,27 +433,26 @@ function ConsoleMenu:SetKeysFrame()
                     item.Icon.StackCount.Shadow:SetTexture(texture)
                 end
 
-                -- Текст счетчика
+                -- Текст счётчика
                 if not item.Icon.StackCount.Text then
                     item.Icon.StackCount.Text = item.Icon.StackCount:CreateFontString(nil, "OVERLAY", "GameFontNormal")
                     item.Icon.StackCount.Text:SetAllPoints()
                     item.Icon.StackCount.Text:SetJustifyH("CENTER")
                     item.Icon.StackCount.Text:SetTextColor(1.0, 0.960784, 0.772549, 1)
-                    item.Icon.StackCount.Text:SetText("2")
+                    item.Icon.StackCount.Text:SetFont("Fonts\\FRIZQT___CYR.TTF", fontSize, "")
+                    item.Icon.StackCount.Text:SetText("")
                 end
             end
-        
         end
 
-        -- Текст
+        -- Подпись действия
         if not item.Text then
             item.Text = item:CreateFontString(nil, "OVERLAY", "GameFontNormal")
             item.Text:SetPoint("RIGHT", item.Icon, "LEFT", -padding, 0)
             item.Text:SetFont("Fonts\\FRIZQT___CYR.TTF", fontSize, "")
             item.Text:SetTextColor(1.0, 0.960784, 0.772549, 1)
-            item.Text:SetText("Взаимодействие")
+            item.Text:SetText("")
         end
-
     end
 
     -- Регистрация события изменения режима геймпада
@@ -402,7 +460,8 @@ function ConsoleMenu:SetKeysFrame()
 
     local function OnKeysFrameEvent(self, event, ...)
         if event == "GAME_PAD_ACTIVE_CHANGED" then
-            gamePadActive = ...
+            ConsoleMenu:SetGamePadActive(...)
+            ConsoleMenu:UpdateKeysFrame()
         end
     end
 

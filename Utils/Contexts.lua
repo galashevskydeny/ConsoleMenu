@@ -189,7 +189,7 @@ end
 
 local function AddCombatSlotKeysFrameItem(slot)
     local command = ConsoleMenu:GetBindingCommandBySlotID(slot)
-    local binding = ConsoleMenu:GetCommandBinding(command)
+    local binding = ConsoleMenu:GetCommandBinding(command, ConsoleMenu:IsGamePadActive())
     local ignoredSlot = ConsoleMenu:IsSlotIgnored(slot)
 
     if command and binding then
@@ -235,7 +235,7 @@ function ConsoleMenu:ApplyContextUIChanges()
 
             if actionType and id and command and info and not info.isActive then
                 local title = ConsoleMenu:GetSlotTitle(actionType, id, subType, slot)
-                local binding = ConsoleMenu:GetCommandBinding(command)
+                local binding = ConsoleMenu:GetCommandBinding(command, ConsoleMenu:IsGamePadActive())
 
                 if title and binding and isUsable then
                     if issecretvalue(count) then
@@ -371,8 +371,8 @@ function ConsoleMenu:ApplyContextUIChanges()
             if shouldShow then
                 if actionType and id and command and isUsable then
                     local title = ConsoleMenu:GetSlotTitle(actionType, id, subType, slot)
-                    local binding = ConsoleMenu:GetCommandBinding(command)
-    
+                    local binding = ConsoleMenu:GetCommandBinding(command, ConsoleMenu:IsGamePadActive())
+
                     if title and binding then
                         if issecretvalue(count) then
                             ConsoleMenu:AddKeysFrameItem(binding, title, count)
@@ -570,7 +570,9 @@ function ConsoleMenu:InitializeContexts()
 
     frame:SetScript("OnEvent", function(self, event, ...)
 
-        if event == "PLAYER_ENTERING_WORLD" then
+        if event == "GAME_PAD_ACTIVE_CHANGED" then
+            ConsoleMenu:SetGamePadActive(...)
+        elseif event == "PLAYER_ENTERING_WORLD" then
             UpdatePlayerAlive()
             UpdatePlayerInCombat()
             UpdatePlayerSoftEnemy()
