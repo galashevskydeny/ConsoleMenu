@@ -114,6 +114,39 @@ function Compass:UpdateBearings(x, y)
     end
 end
 
+-- Выбирает дальность по способу передвижения.
+function Compass:GetTravelRange()
+    local C = self.Constants
+    local mounted = Compass.Readable(IsMounted()) == true
+    local flying = Compass.Readable(IsFlying()) == true
+    local canGlide
+    if C_PlayerInfo and C_PlayerInfo.GetGlidingInfo then
+        _, canGlide = C_PlayerInfo.GetGlidingInfo()
+        canGlide = Compass.Readable(canGlide) == true
+    end
+    if flying or (mounted and canGlide) then
+        return C.RANGE_FLYING
+    end
+    if mounted then
+        return C.RANGE_MOUNT
+    end
+    return C.RANGE_WALK
+end
+
+-- Подставляет дальность пешком, на наземном или летающем средстве передвижения.
+function Compass:RefreshRange()
+    local range = self:GetTravelRange()
+    if self.range == range then
+        return
+    end
+    self.range = range
+    self.rangeSquared = range * range
+    self.bearingsDirty = true
+    self.selectionDirty = true
+    self.renderDirty = true
+    self.rangeChanged = true
+end
+
 -- Считывает положение и обновляет азимуты.
 function Compass:RefreshBearings()
     local x, y

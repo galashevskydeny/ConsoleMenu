@@ -154,6 +154,7 @@ function Compass:OnUpdate(elapsed)
     then
         self:DiscoverMarkers()
     end
+    self:RefreshRange()
     self:RefreshBearings()
     local facing = self:GetFacing()
     local geometryReady = self:LayoutArtwork()
@@ -205,13 +206,14 @@ function ConsoleMenu:SetCompassFrame()
     Compass.markers, Compass.bearings = {}, {}
     Compass.selectionKeys = {}
     Compass.viewAngle = C.VIEW_ANGLE
-    Compass.range = C.RANGE
+    Compass.range = C.RANGE_WALK
     Compass.iconSize = C.ICON_SIZE
     Compass.hiddenByContext = false
     Compass.hiddenByProgress = ConsoleMenuFrame.StatusTrackingFrame
         and ConsoleMenuFrame.StatusTrackingFrame:IsShown()
         or false
     Compass:InitializeDiscovery()
+    Compass:RefreshRange()
 
     local parent = ConsoleMenuFrame
     local frame = CreateFrame("Frame", "CompassFrame", parent)

@@ -52,6 +52,7 @@ function Compass:CreateMarkerPool()
         button.sourceTexture, button.texLeft, button.texRight, button.texTop, button.texBottom = nil, nil, nil, nil, nil
         button.colorR, button.colorG, button.colorB = nil, nil, nil
         button.markerKey, button.revealAt, button.selected = nil, nil, false
+        button.appearStart = nil
         button.renderX, button.renderAlpha, button.renderWaypoint, button.renderShown = nil, nil, nil, false
         button.renderLeft, button.renderTop, button.smoothLeft = nil, nil, nil
         button.symbol:Hide()
@@ -261,6 +262,7 @@ function Compass:AssignMarkerSlots(selection, live)
     local freeIndex = 1
     for index, marker in ipairs(selection) do
         local slot = nextSlots[index]
+        local assignedNew = false
         if not slot then
             while slots[freeIndex] and slots[freeIndex].markerGeneration == generation do
                 freeIndex = freeIndex + 1
@@ -271,16 +273,21 @@ function Compass:AssignMarkerSlots(selection, live)
                 byKey[slot.markerKey] = nil
             end
             slot.markerKey, slot.markerGeneration = marker.key, generation
-            slot.smoothLeft = nil
+            slot.smoothLeft, slot.appearStart = nil, nil
             byKey[marker.key], nextSlots[index] = slot, slot
+            assignedNew = true
         end
-        if not live or marker.navigation or marker.priority <= C.TRACKED_QUEST_PRIORITY then
+        if self.rangeChanged and not slot.renderShown then
+            slot.appearStart = self.markerClock
             slot.revealAt = nil
-        elseif not slot.selected or not slot.marker or slot.marker.key ~= marker.key then
+        elseif not live or marker.navigation or marker.priority <= C.TRACKED_QUEST_PRIORITY then
+            slot.revealAt = nil
+        elseif assignedNew or not slot.selected or not slot.marker or slot.marker.key ~= marker.key then
             slot.revealAt = self.markerClock + C.MARKER_REVEAL_DELAY
         end
         slot.selected = true
     end
+    self.rangeChanged = false
     for _, slot in ipairs(slots) do
         if slot.markerGeneration ~= generation then
             slot.selected, slot.revealAt = false, nil
@@ -291,7 +298,7 @@ function Compass:AssignMarkerSlots(selection, live)
                 slot:Hide()
                 slot.renderShown = false
             end
-            slot.smoothLeft = nil
+            slot.smoothLeft, slot.appearStart = nil, nil
             nextSlots[#nextSlots + 1] = slot
         end
     end
@@ -495,6 +502,17 @@ function Compass:RenderMarker(button, marker, x, alpha, markerY, outline, scale)
         alpha = alpha * progress * progress * (3 - 2 * progress)
     end
     alpha = alpha * (marker.sourceAlpha or 1)
+    if button.appearStart then
+        local duration = C.MARKER_APPEAR_DURATION
+        local progress = duration > 0 and (self.markerClock - button.appearStart) / duration or 1
+        if progress < 1 then
+            progress = math.max(0, progress)
+            alpha = alpha * progress * progress * (3 - 2 * progress)
+            self.markerRevealPending = true
+        else
+            button.appearStart = nil
+        end
+    end
     if button.renderAlpha ~= alpha then
         button:SetAlpha(alpha)
         button.renderAlpha = alpha
