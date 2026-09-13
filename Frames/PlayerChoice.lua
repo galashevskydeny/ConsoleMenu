@@ -266,7 +266,7 @@ function ConsoleMenu:SetPlayerChoice()
         end)
 
         listFrame:HookScript("OnShow", function()
-            ConsoleMenu:AddWindow("playerchoice")
+            ConsoleMenu:AddWindow(Enum.PlayerInteractionType.PlayerChoice)
             ConsoleMenu:ApplyContextUIChanges()
 
             SetOverrideBindingClick(listFrame, true, "PADDUP", "PlayerChoiceFocusUpButton", "LeftButton")
@@ -276,7 +276,7 @@ function ConsoleMenu:SetPlayerChoice()
         end)
 
         listFrame:HookScript("OnHide", function()
-            ConsoleMenu:RemoveWindow("playerchoice")
+            ConsoleMenu:RemoveWindow(Enum.PlayerInteractionType.PlayerChoice)
             ConsoleMenu:ApplyContextUIChanges()
 
             if InCombatLockdown() then return end

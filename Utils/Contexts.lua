@@ -1,262 +1,631 @@
 -- Contexts.lua
+-- Определение режима персонажа и перестроение подсказок под текущую ситуацию.
 
 local ConsoleMenu = _G.ConsoleMenu
-local gliding = false
 
--- Список заклинаний, которые требуют находится в воздухе для использования
+-- Заклинания полёта на драконе, которые доступны только в воздухе.
 local spellsNeedGliding = {
     [372608] = true,
     [361584] = true,
     [403092] = true,
 }
 
--- Набор функций для обновления контекста
+-- Слоты, скрытые на панели действий и показываемые в подсказках в бою.
+local combatSlots = { 8, 10, 11, 58 }
+
+-- Окна, которые учитываются как открытый интерфейс, но не переключают общий режим.
+local windowsIgnoredByContext = {
+    chat = true,
+}
+
+-- Типы взаимодействия, для которых есть собственные подсказки.
+local handledInteractionTypes = nil
+
+-- Планирование на драконе по данным игры.
+local isGliding = false
+
+-- Последнее известное состояние обычного полёта.
+local lastKnownFlying = nil
+
+-- Повторяющийся таймер проверки обычного полёта.
+local flyingTicker = nil
+
+-- Возвращает таблицу признаков персонажа или пустое значение.
+local function GetPlayerContextData()
+    return ConsoleMenuFrame and ConsoleMenuFrame.PlayerContext
+end
+
+-- Заполняет перечень обрабатываемых типов взаимодействия.
+local function EnsureHandledInteractionTypes()
+    if handledInteractionTypes or not Enum or not Enum.PlayerInteractionType then
+        return
+    end
+
+    handledInteractionTypes = {
+        [Enum.PlayerInteractionType.Gossip] = true,
+        [Enum.PlayerInteractionType.QuestGiver] = true,
+        [Enum.PlayerInteractionType.Merchant] = true,
+        [Enum.PlayerInteractionType.PlayerChoice] = true,
+    }
+end
+
+-- Возвращает истину, если шкала событий схватки сейчас показана.
+local function IsEncounterTimelineShown()
+    return EncounterTimeline and EncounterTimeline:IsShown()
+end
+
+-- Останавливает таймер проверки обычного полёта.
+local function StopFlyingTicker()
+    if flyingTicker then
+        flyingTicker:Cancel()
+        flyingTicker = nil
+    end
+end
+
+-- Запускает таймер проверки обычного полёта, если он ещё не запущен.
+local function StartFlyingTicker()
+    if flyingTicker then
+        return
+    end
+
+    lastKnownFlying = IsFlying()
+    flyingTicker = C_Timer.NewTicker(1, function()
+        local contextData = GetPlayerContextData()
+        if not contextData or contextData.mount ~= 1 then
+            StopFlyingTicker()
+            return
+        end
+
+        local flying = IsFlying()
+        if flying == lastKnownFlying then
+            return
+        end
+
+        lastKnownFlying = flying
+        ConsoleMenu:ApplyContextUIChanges()
+    end)
+end
+
+-- Обновляет признак жизни с учётом призрака.
 local function UpdatePlayerAlive()
-    ConsoleMenuFrame.PlayerContext.alive = not UnitIsDead("player") or true
+    local contextData = GetPlayerContextData()
+    if not contextData then
+        return
+    end
+
+    contextData.alive = not UnitIsDeadOrGhost("player")
 end
 
+-- Обновляет признак боя.
 local function UpdatePlayerInCombat()
-    ConsoleMenuFrame.PlayerContext.inCombat = UnitAffectingCombat("player") or false
+    local contextData = GetPlayerContextData()
+    if not contextData then
+        return
+    end
+
+    contextData.inCombat = UnitAffectingCombat("player") and true or false
 end
 
+-- Обновляет тип средства передвижения и состояние планирования.
 local function UpdatePlayerMount()
-    local _, canGlide, _ = C_PlayerInfo.GetGlidingInfo()
+    local contextData = GetPlayerContextData()
+    if not contextData then
+        return
+    end
+
+    local currentlyGliding, canGlide = C_PlayerInfo.GetGlidingInfo()
+    isGliding = currentlyGliding and true or false
+
     if IsMounted() and canGlide then
-        ConsoleMenuFrame.PlayerContext.mount = 2
-    elseif IsMounted() and not canGlide then
-        ConsoleMenuFrame.PlayerContext.mount = 1
+        contextData.mount = 2
+    elseif IsMounted() then
+        contextData.mount = 1
     else
-        ConsoleMenuFrame.PlayerContext.mount = 0
-    end 
+        contextData.mount = 0
+    end
 end
 
+-- Обновляет признак транспорта и полёта на такси.
 local function UpdatePlayerVehicle()
-    ConsoleMenuFrame.PlayerContext.vehicle = UnitInVehicle('player') or UnitOnTaxi('player')
+    local contextData = GetPlayerContextData()
+    if not contextData then
+        return
+    end
+
+    contextData.vehicle = (UnitInVehicle("player") or UnitOnTaxi("player")) and true or false
 end
 
+-- Собирает признаки выбранной цели заново.
 local function UpdatePlayerTarget()
+    local contextData = GetPlayerContextData()
+    if not contextData then
+        return
+    end
+
     if not UnitExists("target") or UnitIsDead("target") then
-        ConsoleMenuFrame.PlayerContext.target = {}
-    elseif UnitCanAttack("player", "target") then
-        ConsoleMenuFrame.PlayerContext.target.isPlayer = UnitIsPlayer("target")
-        ConsoleMenuFrame.PlayerContext.target.canAttack = true
-        ConsoleMenuFrame.PlayerContext.target.isEnemy = UnitIsEnemy("player", "target")
-        ConsoleMenuFrame.PlayerContext.target.isFriend = UnitIsFriend("player", "target")
-        ConsoleMenuFrame.PlayerContext.target.canAssist = UnitCanAssist("player", "target")
+        contextData.target = {}
+        return
     end
+
+    contextData.target = {
+        isPlayer = UnitIsPlayer("target"),
+        canAttack = UnitCanAttack("player", "target") and true or false,
+        isEnemy = UnitIsEnemy("player", "target") and true or false,
+        isFriend = UnitIsFriend("player", "target") and true or false,
+        canAssist = UnitCanAssist("player", "target") and true or false,
+    }
 end
 
+-- Собирает признаки мягкого врага заново.
 local function UpdatePlayerSoftEnemy()
+    local contextData = GetPlayerContextData()
+    if not contextData then
+        return
+    end
+
     if not UnitExists("softenemy") then
-        ConsoleMenuFrame.PlayerContext.softenemy = {}
-    elseif UnitCanAttack("player", "softenemy") then
-        ConsoleMenuFrame.PlayerContext.softenemy.isPlayer = UnitIsPlayer("softenemy")
-        ConsoleMenuFrame.PlayerContext.softenemy.canAttack = UnitCanAttack("player", "softenemy")
+        contextData.softenemy = {}
+        return
     end
+
+    contextData.softenemy = {
+        isPlayer = UnitIsPlayer("softenemy"),
+        canAttack = UnitCanAttack("player", "softenemy") and true or false,
+    }
 end
 
+-- Собирает признаки мягкого союзника заново.
 local function UpdatePlayerSoftFriend()
+    local contextData = GetPlayerContextData()
+    if not contextData then
+        return
+    end
+
     if not UnitExists("softfriend") then
-        ConsoleMenuFrame.PlayerContext.softfriend = {}
-    elseif UnitCanAssist("player", "softfriend") then
-        ConsoleMenuFrame.PlayerContext.softfriend.isPlayer = UnitIsPlayer("softfriend")
-        ConsoleMenuFrame.PlayerContext.softfriend.canAssist = UnitCanAssist("player", "softfriend")
+        contextData.softfriend = {}
+        return
     end
+
+    contextData.softfriend = {
+        isPlayer = UnitIsPlayer("softfriend"),
+        canAssist = UnitCanAssist("player", "softfriend") and true or false,
+    }
 end
 
+-- Обновляет признаки нахождения в доме и на участке.
 local function UpdatePlayerIsInsideHouseOrPlot()
-    ConsoleMenuFrame.PlayerContext.housing.IsInsidePlot = C_Housing.IsInsidePlot()
-    ConsoleMenuFrame.PlayerContext.housing.IsInsideHouse = C_Housing.IsInsideHouse()
-    ConsoleMenuFrame.PlayerContext.housing.currentEditMode = C_HouseEditor.GetActiveHouseEditorMode()
-end
-
--- Работа с хэш-таблицей для отслеживания открытых окон
-function ConsoleMenu:AddWindow(type)
-    if not ConsoleMenuFrame.PlayerContext or not ConsoleMenuFrame.PlayerContext.window then
-        return
-    end
-    
-    ConsoleMenuFrame.PlayerContext.window[type] = true
-    
-    for i, window in pairs(ConsoleMenuFrame.PlayerContext.window) do
-        if i ~= type then
-            ConsoleMenuFrame.PlayerContext.window[i] = nil
-        end
-    end
-end
-
-function ConsoleMenu:RemoveWindow(type)
-    if not ConsoleMenuFrame.PlayerContext or not ConsoleMenuFrame.PlayerContext.window then
+    local contextData = GetPlayerContextData()
+    if not contextData or not contextData.housing then
         return
     end
 
-    if type == 0 then
-        for type, window in pairs(ConsoleMenuFrame.PlayerContext.window) do
-            ConsoleMenuFrame.PlayerContext.window[type] = nil
-        end
-    else
-        ConsoleMenuFrame.PlayerContext.window[type] = nil
+    if not C_Housing or not C_HouseEditor then
+        contextData.housing.IsInsidePlot = false
+        contextData.housing.IsInsideHouse = false
+        contextData.housing.currentEditMode = nil
+        return
     end
 
+    contextData.housing.IsInsidePlot = C_Housing.IsInsidePlot()
+    contextData.housing.IsInsideHouse = C_Housing.IsInsideHouse()
+    contextData.housing.currentEditMode = C_HouseEditor.GetActiveHouseEditorMode()
 end
 
-function ConsoleMenu:HasWindows()
-    if not ConsoleMenuFrame.PlayerContext or not ConsoleMenuFrame.PlayerContext.window then
+-- Возвращает истину, если персонаж сейчас в воздухе для текущего средства.
+local function IsPlayerAirborne()
+    local contextData = GetPlayerContextData()
+    if contextData and contextData.mount == 2 then
+        return isGliding
+    end
+
+    return IsFlying() and true or false
+end
+
+-- Возвращает истину, если слот панели заполнен действием.
+local function SlotHasAction(slot)
+    return C_ActionBar.HasAction(slot)
+end
+
+-- Возвращает истину, если слот на собственной перезарядке, а не на общем кулдауне.
+local function IsSlotOnCooldown(slot)
+    local info = C_ActionBar.GetActionCooldown(slot)
+    if not info or issecretvalue(info) then
         return false
     end
-    for _ in pairs(ConsoleMenuFrame.PlayerContext.window) do
-        return true
+
+    local duration = info.duration
+    local isEnabled = info.isEnabled
+    if issecretvalue(duration) or issecretvalue(isEnabled) then
+        return false
     end
+
+    if not isEnabled or duration <= 0 then
+        return false
+    end
+
+    if info.isOnGCD and not issecretvalue(info.isOnGCD) then
+        return false
+    end
+
+    return true
+end
+
+-- Добавляет подсказку, если число зарядов скрыто или не равно нулю.
+local function AddKeysItemIfCountAllows(binding, title, count)
+    if not title or not binding then
+        return
+    end
+
+    if issecretvalue(count) then
+        ConsoleMenu:AddKeysFrameItem(binding, title, count)
+        return
+    end
+
+    if count ~= "0" then
+        ConsoleMenu:AddKeysFrameItem(binding, title, count)
+    end
+end
+
+-- Меняет страницу панели действий, если текущая страница другая.
+local function SetActionBarPageIfNeeded(page)
+    if C_ActionBar.GetActionBarPage() ~= page then
+        C_ActionBar.SetActionBarPage(page)
+    end
+end
+
+-- Запоминает открытое окно, не затирая остальные.
+function ConsoleMenu:AddWindow(windowType)
+    local contextData = GetPlayerContextData()
+    if not contextData or not contextData.window then
+        return
+    end
+
+    contextData.window[windowType] = true
+end
+
+-- Снимает отметку окна. Нуль очищает весь перечень.
+function ConsoleMenu:RemoveWindow(windowType)
+    local contextData = GetPlayerContextData()
+    if not contextData or not contextData.window then
+        return
+    end
+
+    if windowType == 0 then
+        for key in pairs(contextData.window) do
+            contextData.window[key] = nil
+        end
+        return
+    end
+
+    contextData.window[windowType] = nil
+end
+
+-- Возвращает истину, если открыто окно, влияющее на общий режим.
+function ConsoleMenu:HasWindows()
+    local contextData = GetPlayerContextData()
+    if not contextData or not contextData.window then
+        return false
+    end
+
+    for windowType in pairs(contextData.window) do
+        if not windowsIgnoredByContext[windowType] then
+            return true
+        end
+    end
+
     return false
 end
 
--- Функция получения контекста
+-- Возвращает имя текущего режима персонажа.
 function ConsoleMenu:GetPlayerContext()
-
-    local context = "exploring"
-
-    if self:HasWindows() then
-        context = "window"
-    elseif ConsoleMenuFrame.PlayerContext.alive == false then
-        context = "soul"
-    elseif ConsoleMenuFrame.PlayerContext.inCombat == true
-       and ConsoleMenuFrame.PlayerContext.mount == 0
-       and ConsoleMenuFrame.PlayerContext.vehicle == false
-    then
-        context = "combat"
-    elseif ConsoleMenuFrame.PlayerContext.inCombat == false
-       and ConsoleMenuFrame.PlayerContext.mount == 0
-       and ConsoleMenuFrame.PlayerContext.vehicle == false
-       and (ConsoleMenuFrame.PlayerContext.softenemy.canAttack == true or ConsoleMenuFrame.PlayerContext.target.canAttack == true)
-    then
-        context = "precombat"
-    elseif ConsoleMenuFrame.PlayerContext.mount == 1 or ConsoleMenuFrame.PlayerContext.mount == 2 then
-        context = "mount"
-    elseif ConsoleMenuFrame.PlayerContext.housing.IsInsidePlot or ConsoleMenuFrame.PlayerContext.housing.IsInsideHouse then
-        context = "housing"
+    local contextData = GetPlayerContextData()
+    if not contextData then
+        return "exploring"
     end
 
-    return context
+    local target = contextData.target or {}
+    local softenemy = contextData.softenemy or {}
+    local housing = contextData.housing or {}
+
+    if self:HasWindows() then
+        return "window"
+    end
+
+    if contextData.alive == false then
+        return "soul"
+    end
+
+    if contextData.inCombat == true
+        and contextData.mount == 0
+        and contextData.vehicle == false
+    then
+        return "combat"
+    end
+
+    if contextData.inCombat == false
+        and contextData.mount == 0
+        and contextData.vehicle == false
+        and (softenemy.canAttack == true or target.canAttack == true)
+    then
+        return "precombat"
+    end
+
+    if contextData.mount == 1 or contextData.mount == 2 then
+        return "mount"
+    end
+
+    if housing.IsInsidePlot or housing.IsInsideHouse then
+        return "housing"
+    end
+
+    return "exploring"
 end
 
--- Функция переключения страниц панели действий
+-- Переключает страницу панели действий под текущий режим.
 local function SwitchActionBarPage()
     if ConsoleMenuDB and ConsoleMenuDB.actionBarPageSwitching == 2 then
         return
     end
-    
+
     if InCombatLockdown and InCombatLockdown() then
         return
     end
 
-    if ConsoleMenuFrame.PlayerContext.inCombat == true
-       and ConsoleMenuFrame.PlayerContext.vehicle == false
-    then
-        -- В бою
-        if C_ActionBar.GetActionBarPage() ~= 1 and C_ActionBar.GetActionBarPage() ~= 2 then
-            ChangeActionBarPage(1)
+    local contextData = GetPlayerContextData()
+    if not contextData then
+        return
+    end
+
+    local target = contextData.target or {}
+    local softenemy = contextData.softenemy or {}
+    local softfriend = contextData.softfriend or {}
+
+    if contextData.inCombat == true and contextData.vehicle == false then
+        local currentPage = C_ActionBar.GetActionBarPage()
+        if currentPage ~= 1 and currentPage ~= 2 then
+            SetActionBarPageIfNeeded(1)
         end
-    elseif ConsoleMenuFrame.PlayerContext.inCombat == false
-       and ConsoleMenuFrame.PlayerContext.mount == 0
-       and ConsoleMenuFrame.PlayerContext.vehicle == false
-       and (ConsoleMenuFrame.PlayerContext.softenemy.canAttack == true or ConsoleMenuFrame.PlayerContext.target.canAttack == true)
+    elseif contextData.inCombat == false
+        and contextData.mount == 0
+        and contextData.vehicle == false
+        and (softenemy.canAttack == true or target.canAttack == true)
     then
-        -- Подготовка к бою
-        if C_ActionBar.GetActionBarPage() ~= 1 and C_ActionBar.GetActionBarPage() ~= 2 then
-            ChangeActionBarPage(1)
+        local currentPage = C_ActionBar.GetActionBarPage()
+        if currentPage ~= 1 and currentPage ~= 2 then
+            SetActionBarPageIfNeeded(1)
         end
-    elseif ConsoleMenuFrame.PlayerContext.mount == 1 and ConsoleMenuFrame.PlayerContext.inCombat == false then
-        -- Обычное средство передвижения
-        ChangeActionBarPage(4)
-    elseif ConsoleMenuFrame.PlayerContext.mount == 2 then
-        -- Полет на драконе
-        ChangeActionBarPage(1)
-    elseif ConsoleMenuFrame.PlayerContext.inCombat == false
-        and ConsoleMenuFrame.PlayerContext.vehicle == false
-        and (ConsoleMenuFrame.PlayerContext.softfriend.isPlayer == true or ConsoleMenuFrame.PlayerContext.target.isFriend == true)
+    elseif contextData.mount == 1 and contextData.inCombat == false then
+        SetActionBarPageIfNeeded(4)
+    elseif contextData.mount == 2 then
+        SetActionBarPageIfNeeded(1)
+    elseif contextData.inCombat == false
+        and contextData.vehicle == false
+        and (softfriend.isPlayer == true or target.isFriend == true)
     then
-        -- Друг в фокусе
-        ChangeActionBarPage(3)
+        SetActionBarPageIfNeeded(3)
     else
-        -- Исследование
         if PlayerIsInCombat() then
-            ChangeActionBarPage(1)
+            SetActionBarPageIfNeeded(1)
         else
-            ChangeActionBarPage(3)
+            SetActionBarPageIfNeeded(3)
         end
     end
 end
 
+-- Добавляет подсказку по скрытому боевому слоту.
 local function AddCombatSlotKeysFrameItem(slot)
+    if not SlotHasAction(slot) then
+        return
+    end
+
     local command = ConsoleMenu:GetBindingCommandBySlotID(slot)
     local binding = ConsoleMenu:GetCommandBinding(command, ConsoleMenu:IsGamePadActive())
     local ignoredSlot = ConsoleMenu:IsSlotIgnored(slot)
 
-    if command and binding then
-        local actionType, id, subType = GetActionInfo(slot)
-        local isUsable, isLackingResources = C_ActionBar.IsUsableAction(slot)
-        local count = C_ActionBar.GetActionDisplayCount(slot)
-        local info = C_ActionBar.GetActionCooldown(slot)
+    if not command or not binding or not ignoredSlot then
+        return
+    end
 
-        if actionType and id and info and (not info.isActive or info.isOnGCD) then
-            local title = ConsoleMenu:GetSlotTitle(actionType, id, subType, slot)
+    if IsSlotOnCooldown(slot) then
+        return
+    end
 
-            if title and binding and isUsable and ignoredSlot then
-                if issecretvalue(count) then
-                    ConsoleMenu:AddKeysFrameItem(binding, title, count)
-                else
-                    -- Добавляем элемент, если стаков не 0 и заклинание пригодно к использованию
-                    if count ~= "0" then
-                        ConsoleMenu:AddKeysFrameItem(binding, title, count)
-                    end
-                end
-            end
-        end
+    local actionType, id, subType = GetActionInfo(slot)
+    if not actionType or not id then
+        return
+    end
+
+    local isUsable = C_ActionBar.IsUsableAction(slot)
+    local count = C_ActionBar.GetActionDisplayCount(slot)
+    local title = ConsoleMenu:GetSlotTitle(actionType, id, subType, slot)
+
+    if title and isUsable then
+        AddKeysItemIfCountAllows(binding, title, count)
     end
 end
 
+-- Показывает подсказки страницы исследования.
+local function ApplyExploringKeys()
+    local page = C_ActionBar.GetActionBarPage()
+    local startSlot = 12 * (page - 1) + 1
+    local lastSlot = startSlot + 11
+
+    for slot = startSlot, lastSlot do
+        if SlotHasAction(slot) and not IsSlotOnCooldown(slot) then
+            local actionType, id, subType = GetActionInfo(slot)
+            local command = ConsoleMenu:GetBindingCommandBySlotID(slot)
+            local isUsable = C_ActionBar.IsUsableAction(slot)
+            local count = C_ActionBar.GetActionDisplayCount(slot)
+
+            if actionType and id and command and isUsable then
+                local title = ConsoleMenu:GetSlotTitle(actionType, id, subType, slot)
+                local binding = ConsoleMenu:GetCommandBinding(command, ConsoleMenu:IsGamePadActive())
+                AddKeysItemIfCountAllows(binding, title, count)
+            end
+        end
+    end
+
+    if UnitExists("softinteract") then
+        ConsoleMenu:SetInteractBinding("softinteract")
+    end
+end
+
+-- Показывает подсказки открытого окна интерфейса.
+local function ApplyWindowKeys(contextData)
+    local window = contextData.window
+    local interactionType = Enum and Enum.PlayerInteractionType
+
+    if interactionType and (window[interactionType.Gossip] or window[interactionType.QuestGiver]) then
+        ConsoleMenu:AddKeysFrameItem("PAD2", "Выйти")
+        ConsoleMenu:AddKeysFrameItem("PAD1", "Выбрать")
+
+        if ConsoleMenu:CanRepeatCurrentSubtitles() then
+            ConsoleMenu:AddKeysFrameItem("PAD3", "Повторить")
+        end
+        if ConsoleMenu:CanSkipCurrentSubtitle() then
+            ConsoleMenu:AddKeysFrameItem("PAD4", "Пропустить")
+        end
+
+        ConsoleMenu:HideChatFrame()
+    elseif interactionType and window[interactionType.Merchant] then
+        C_Timer.After(0.1, function()
+            local current = GetPlayerContextData()
+            if current and current.window and interactionType and current.window[interactionType.Merchant] then
+                ConsoleMenu:ShowItemListFrame()
+            end
+        end)
+
+        ConsoleMenu:AddKeysFrameItem("PAD2", "Выйти")
+
+        ConsoleMenu:PlayFadeOut(ObjectiveTrackerFrame)
+        ConsoleMenu:AnimatedHide(Minimap)
+        if ConsoleMenu.Compass then
+            ConsoleMenu.Compass:SetContextHidden(true)
+        end
+    elseif window["fasttravel"] then
+        ConsoleMenu:AddKeysFrameItem("PAD2", "Выйти")
+        ConsoleMenu:AddKeysFrameItem("PAD1", "Выбрать")
+        ConsoleMenu:AddKeysFrameItem("PADDLEFTRIGHT", "Переключение вкладок")
+
+        ConsoleMenu:HideChatFrame()
+    elseif (interactionType and window[interactionType.PlayerChoice]) or window["playerchoice"] then
+        ConsoleMenu:AddKeysFrameItem("PAD2", "Выйти")
+        ConsoleMenu:AddKeysFrameItem("PAD1", "Выбрать")
+
+        ConsoleMenu:HideChatFrame()
+    elseif window["panel"] then
+        ConsoleMenu:AddKeysFrameItem("PAD2", "Выйти")
+        ConsoleMenu:AddKeysFrameItem("PAD1", "Выбрать")
+        ConsoleMenu:AddKeysFrameItem("PADDLEFTRIGHT", "Переключение вкладок")
+
+        ConsoleMenu:HideChatFrame()
+    elseif window["staticpopup"] then
+        ConsoleMenu:AddKeysFrameItem("PAD2", "Выйти")
+        ConsoleMenu:AddKeysFrameItem("PAD1", "Выбрать")
+    end
+end
+
+-- Показывает подсказки средств передвижения.
+local function ApplyMountKeys(contextData)
+    local page = 4
+    if C_ActionBar.GetActionBarPage() ~= 4 then
+        page = 11
+    end
+
+    local airborne = IsPlayerAirborne()
+    local startSlot = 12 * (page - 1) + 1
+    local lastSlot = startSlot + 11
+
+    for slot = startSlot, lastSlot do
+        if SlotHasAction(slot) then
+            local actionType, id, subType = GetActionInfo(slot)
+            local command = ConsoleMenu:GetBindingCommandBySlotID(slot)
+            local isUsable = C_ActionBar.IsUsableAction(slot)
+            local count = C_ActionBar.GetActionDisplayCount(slot)
+            local spellId = C_ActionBar.GetSpell(slot)
+
+            if spellId == 372610 then
+                command = "JUMP"
+            end
+
+            local shouldShow = false
+            if IsSlotOnCooldown(slot) then
+                shouldShow = false
+            elseif spellId == 0 then
+                shouldShow = not airborne
+            elseif spellsNeedGliding[spellId] then
+                shouldShow = airborne == true
+            else
+                shouldShow = true
+            end
+
+            if shouldShow and actionType and id and command and isUsable then
+                local title = ConsoleMenu:GetSlotTitle(actionType, id, subType, slot)
+                local binding = ConsoleMenu:GetCommandBinding(command, ConsoleMenu:IsGamePadActive())
+                AddKeysItemIfCountAllows(binding, title, count)
+            end
+        end
+    end
+
+    if UnitIsInteractable("softinteract") then
+        ConsoleMenu:DeleteKeysFrameItem("PADRTRIGGER")
+        ConsoleMenu:AddKeysFrameItem("PADRTRIGGER", "Взаимодействие")
+    end
+
+    if contextData.mount == 1 then
+        StartFlyingTicker()
+    else
+        StopFlyingTicker()
+    end
+end
+
+-- Показывает подсказки боя и подготовки к бою.
+local function ApplyCombatKeys(context)
+    for _, slot in ipairs(combatSlots) do
+        AddCombatSlotKeysFrameItem(slot)
+    end
+
+    if UnitIsInteractable("softinteract") and context == "combat" then
+        ConsoleMenu:AddKeysFrameItem("SHIFT-PADRTRIGGER", "Взаимодействие")
+    elseif UnitIsInteractable("softinteract") and context == "precombat" then
+        ConsoleMenu:AddKeysFrameItem("PADRTRIGGER", "Взаимодействие")
+    end
+end
+
+-- Показывает подсказки жилья.
+local function ApplyHousingKeys(contextData)
+    local noneMode = Enum and Enum.HouseEditorMode and Enum.HouseEditorMode.None
+    if contextData.housing.currentEditMode == noneMode or contextData.housing.currentEditMode == 0 then
+        if contextData.housing.IsInsideHouse then
+            ConsoleMenu:AddKeysFrameItem("PAD2", "Выйти из дома")
+        end
+
+        ConsoleMenu:AddKeysFrameItem("PAD3", "Редактирование")
+    end
+end
+
+-- Перестраивает подсказки и видимость панелей под текущий режим.
 function ConsoleMenu:ApplyContextUIChanges()
+    local contextData = GetPlayerContextData()
+    if not contextData then
+        return
+    end
 
     local context = ConsoleMenu:GetPlayerContext()
+
+    if context == "mount" and contextData.mount == 1 then
+        StartFlyingTicker()
+    else
+        StopFlyingTicker()
+    end
 
     ConsoleMenu:ResetKeysItems()
 
     if context == "exploring" then
-        local page = C_ActionBar.GetActionBarPage()
-        local startSlot = 12 * (page - 1) + 1
-        local lastSlot = startSlot + 11
-
-        for slot = startSlot, lastSlot do
-            local actionType, id, subType = GetActionInfo(slot)
-            local command = ConsoleMenu:GetBindingCommandBySlotID(slot)
-            local isUsable, isLackingResources = C_ActionBar.IsUsableAction(slot)
-            local count = C_ActionBar.GetActionDisplayCount(slot)
-            local info = C_ActionBar.GetActionCooldown(slot)
-
-            if actionType and id and command and info and not info.isActive then
-                local title = ConsoleMenu:GetSlotTitle(actionType, id, subType, slot)
-                local binding = ConsoleMenu:GetCommandBinding(command, ConsoleMenu:IsGamePadActive())
-
-                if title and binding and isUsable then
-                    if issecretvalue(count) then
-                        ConsoleMenu:AddKeysFrameItem(binding, title, count)
-                    else
-                        -- Добавляем элемент, если стаков не 0 и заклинание пригодно к использованию
-                        if count ~= "0" then
-                            ConsoleMenu:AddKeysFrameItem(binding, title, count)
-                        end
-                    end
-                end
-            end
-        end
-
-        if UnitExists("softinteract") then
-            ConsoleMenu:SetInteractBinding("softinteract")
-        end
-
+        ApplyExploringKeys()
         ConsoleMenu:UpdateKeysFrame()
 
-        if context == ConsoleMenuFrame.PlayerContext.lastContext then
+        if context == contextData.lastContext then
             return
         end
 
@@ -266,141 +635,25 @@ function ConsoleMenu:ApplyContextUIChanges()
         ConsoleMenu:AnimatedHide(PersonalResourceDisplayFrame)
         ConsoleMenu:PlayFadeIn(ObjectiveTrackerFrame)
         ConsoleMenu:AnimatedShow(Minimap)
-
-    elseif context == "window" then
-
-        if ConsoleMenuFrame.PlayerContext.window[3] or ConsoleMenuFrame.PlayerContext.window[4] then
-            ConsoleMenu:AddKeysFrameItem("PAD2", "Выйти")
-            ConsoleMenu:AddKeysFrameItem("PAD1", "Выбрать")
-
-            if ConsoleMenuFrame.SubtitleFrame.CurrentSubtitle and ConsoleMenuFrame.SubtitleFrame.CurrentSubtitle.lastLine == false then
-                ConsoleMenu:AddKeysFrameItem("PAD4", "Пропустить")
-            end
-
-            ConsoleMenu:HideChatFrame()
-        elseif ConsoleMenuFrame.PlayerContext.window[5] then
-            C_Timer.After(0.1, function()
-                if ConsoleMenuFrame.PlayerContext.window[5] then
-                    ConsoleMenu:ShowItemListFrame()
-                end
-            end)
-
-            ConsoleMenu:AddKeysFrameItem("PAD2", "Выйти")
-
-            ConsoleMenu:PlayFadeOut(ObjectiveTrackerFrame)
-            ConsoleMenu:AnimatedHide(Minimap)
-
-        elseif ConsoleMenuFrame.PlayerContext.window["fasttravel"] then
-            ConsoleMenu:AddKeysFrameItem("PAD2", "Выйти")
-            ConsoleMenu:AddKeysFrameItem("PAD1", "Выбрать")
-            ConsoleMenu:AddKeysFrameItem("PADDLEFTRIGHT", "Переключение вкладок")
-
-            ConsoleMenu:HideChatFrame()
-
-        elseif ConsoleMenuFrame.PlayerContext.window["playerchoice"] then
-            ConsoleMenu:AddKeysFrameItem("PAD2", "Выйти")
-            ConsoleMenu:AddKeysFrameItem("PAD1", "Выбрать")
-            
-            ConsoleMenu:HideChatFrame()
-        elseif ConsoleMenuFrame.PlayerContext.window["panel"] then
-            ConsoleMenu:AddKeysFrameItem("PAD2", "Выйти")
-            ConsoleMenu:AddKeysFrameItem("PAD1", "Выбрать")
-            ConsoleMenu:AddKeysFrameItem("PADDLEFTRIGHT", "Переключение вкладок")
-
-            ConsoleMenu:HideChatFrame()
+        if ConsoleMenu.Compass then
+            ConsoleMenu.Compass:SetContextHidden(false)
         end
-
+    elseif context == "window" then
+        ApplyWindowKeys(contextData)
         ConsoleMenu:UpdateKeysFrame()
 
-        if context == ConsoleMenuFrame.PlayerContext.lastContext then
+        if context == contextData.lastContext then
             return
         end
 
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.CombatFrame)
         ConsoleMenu:AnimatedHide(PersonalResourceDisplayFrame)
-
     elseif context == "mount" then
-        local page = 4
-
-        if C_ActionBar.GetActionBarPage() ~= 4 then
-            page = 11
-        end
-
-        if page == 4 then
-            gliding = IsFlying()
-        end
-
-        local startSlot = 12 * (page - 1) + 1
-        local lastSlot = startSlot + 11
-
-        for slot = startSlot, lastSlot do
-            local actionType, id, subType = GetActionInfo(slot)
-            local command = ConsoleMenu:GetBindingCommandBySlotID(slot)
-
-            local isUsable, isLackingResources = C_ActionBar.IsUsableAction(slot)
-            local count = C_ActionBar.GetActionDisplayCount(slot)
-            local spellId = C_ActionBar.GetSpell(slot)
-            local cooldownInfo = C_ActionBar.GetActionCooldown(slot)
-
-            -- Подмена привязки взлета вверх на прыжок 
-            if spellId == 372610 then command = "JUMP" end
-
-            -- Проверяем кулдаун из cooldownInfo
-            local isOnCooldown = false
-            if cooldownInfo and cooldownInfo.isActive then
-                isOnCooldown = cooldownInfo.isActive
-            end
-
-            -- Проверяем, нужно ли показывать заклинание
-            local shouldShow = false
-            if isOnCooldown then
-                -- Заклинание на кулдауне - не показываем
-                shouldShow = false
-            elseif spellId == 0 then
-                -- Не заклинание (макрос или пустой слот)
-                shouldShow = not gliding
-            elseif spellsNeedGliding[spellId] then
-                -- Заклинание требует планирования - показываем только если планируем
-                shouldShow = (gliding == true)
-            else
-                -- Обычное заклинание - показываем всегда
-                shouldShow = true
-            end
-
-            if shouldShow then
-                if actionType and id and command and isUsable then
-                    local title = ConsoleMenu:GetSlotTitle(actionType, id, subType, slot)
-                    local binding = ConsoleMenu:GetCommandBinding(command, ConsoleMenu:IsGamePadActive())
-
-                    if title and binding then
-                        if issecretvalue(count) then
-                            ConsoleMenu:AddKeysFrameItem(binding, title, count)
-                        else
-                            -- Добавляем элемент, если стаков не 0 и заклинание пригодно к использованию
-                            if count ~= "0" then
-                                ConsoleMenu:AddKeysFrameItem(binding, title, count)
-                            end
-                        end
-                    end
-                end
-            end
-        end
-
-        if UnitIsInteractable("softinteract")  then
-            ConsoleMenu:DeleteKeysFrameItem("PADRTRIGGER")
-            ConsoleMenu:AddKeysFrameItem("PADRTRIGGER", "Взаимодействие")
-        end
-
-        if page == 4 then
-            C_Timer.After(1, function()
-                ConsoleMenu:ApplyContextUIChanges()
-            end)
-        end
-
+        ApplyMountKeys(contextData)
         ConsoleMenu:UpdateKeysFrame()
 
-        if context == ConsoleMenuFrame.PlayerContext.lastContext then
+        if context == contextData.lastContext then
             return
         end
 
@@ -408,61 +661,37 @@ function ConsoleMenu:ApplyContextUIChanges()
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.CombatFrame)
         ConsoleMenu:AnimatedHide(PersonalResourceDisplayFrame)
-
     elseif context == "combat" or context == "precombat" then
-
-        -- Слоты, скрытые с панели действий, но отображаемые в KeysFrame в бою
-        combatSlots = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
-                        58
-        }
-
-        for _, slot in ipairs(combatSlots) do
-            AddCombatSlotKeysFrameItem(slot)
-        end
-
-        if UnitIsInteractable("softinteract") and context == "combat" then
-            ConsoleMenu:AddKeysFrameItem("SHIFT-PADRTRIGGER", "Взаимодействие")
-        elseif UnitIsInteractable("softinteract") and context == "precombat" then
-            ConsoleMenu:AddKeysFrameItem("PADRTRIGGER", "Взаимодействие")
-        end
-
+        ApplyCombatKeys(context)
         ConsoleMenu:UpdateKeysFrame()
         ConsoleMenu:AnimatedShow(PersonalResourceDisplayFrame)
 
-        if context == ConsoleMenuFrame.PlayerContext.lastContext then
+        if context == contextData.lastContext then
             return
         end
 
-        if EncounterTimeline:IsShown() then
+        if IsEncounterTimelineShown() then
             ConsoleMenu:PlayFadeOut(ObjectiveTrackerFrame)
             ConsoleMenu:AnimatedHide(Minimap)
+            if ConsoleMenu.Compass then
+                ConsoleMenu.Compass:SetContextHidden(true)
+            end
         else
             ConsoleMenu:PlayFadeIn(ObjectiveTrackerFrame)
             ConsoleMenu:AnimatedShow(Minimap)
+            if ConsoleMenu.Compass then
+                ConsoleMenu.Compass:SetContextHidden(false)
+            end
         end
-        
-        ConsoleMenu:HideItemListFrame()
 
-        
+        ConsoleMenu:HideItemListFrame()
         ConsoleMenu:AnimatedShow(ConsoleMenuFrame.ActionBarFrame)
         ConsoleMenu:AnimatedShow(ConsoleMenuFrame.CombatFrame)
-
     elseif context == "housing" then
-
-        if ConsoleMenuFrame.PlayerContext.housing.currentEditMode == 0 then
-            if ConsoleMenuFrame.PlayerContext.housing.IsInsideHouse then
-                ConsoleMenu:AddKeysFrameItem("PAD2", "Выйти из дома")
-            end
-
-            ConsoleMenu:AddKeysFrameItem("PAD3", "Редактирование")
-        else
-            if ConsoleMenuFrame.PlayerContext.housing.IsInsideHouse then
-            end
-        end
-
+        ApplyHousingKeys(contextData)
         ConsoleMenu:UpdateKeysFrame()
 
-        if context == ConsoleMenuFrame.PlayerContext.lastContext then
+        if context == contextData.lastContext then
             return
         end
 
@@ -472,52 +701,88 @@ function ConsoleMenu:ApplyContextUIChanges()
         ConsoleMenu:AnimatedHide(PersonalResourceDisplayFrame)
         ConsoleMenu:PlayFadeOut(ObjectiveTrackerFrame)
         ConsoleMenu:AnimatedHide(Minimap)
-            
+        if ConsoleMenu.Compass then
+            ConsoleMenu.Compass:SetContextHidden(true)
+        end
+    elseif context == "soul" then
+        ConsoleMenu:UpdateKeysFrame()
+
+        if context == contextData.lastContext then
+            return
+        end
+
+        ConsoleMenu:HideItemListFrame()
+        ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
+        ConsoleMenu:AnimatedHide(ConsoleMenuFrame.CombatFrame)
+        ConsoleMenu:AnimatedHide(PersonalResourceDisplayFrame)
+        ConsoleMenu:PlayFadeOut(ObjectiveTrackerFrame)
+        ConsoleMenu:AnimatedShow(Minimap)
+        if ConsoleMenu.Compass then
+            ConsoleMenu.Compass:SetContextHidden(true)
+        end
     end
 
-    ConsoleMenuFrame.PlayerContext.lastContext = context
+    contextData.lastContext = context
 end
 
--- Функция инициализации контекстов
-function ConsoleMenu:InitializeContexts()
+-- Обновляет подсказки без смены страницы панели.
+local function RefreshUI()
+    ConsoleMenu:ApplyContextUIChanges()
+end
 
+-- Обновляет подсказки и страницу панели действий.
+local function RefreshUIAndActionBar()
+    ConsoleMenu:ApplyContextUIChanges()
+    SwitchActionBarPage()
+end
+
+-- Обновляет признаки при входе в мир.
+local function HandlePlayerEnteringWorld()
+    UpdatePlayerAlive()
+    UpdatePlayerInCombat()
+    UpdatePlayerSoftEnemy()
+    UpdatePlayerSoftFriend()
+    UpdatePlayerTarget()
+    UpdatePlayerIsInsideHouseOrPlot()
+    RefreshUI()
+
+    C_Timer.After(0.5, function()
+        UpdatePlayerMount()
+        UpdatePlayerVehicle()
+        RefreshUIAndActionBar()
+    end)
+end
+
+-- Регистрирует события и создаёт таблицу признаков персонажа.
+function ConsoleMenu:InitializeContexts()
     local frame = ConsoleMenuFrame
+    EnsureHandledInteractionTypes()
 
     frame:RegisterEvent("GAME_PAD_ACTIVE_CHANGED")
     frame:RegisterEvent("PLAYER_ENTERING_WORLD")
     frame:RegisterEvent("ACTIONBAR_PAGE_CHANGED")
 
-    -- Отслеживание целей и soft-target
     frame:RegisterEvent("PLAYER_SOFT_ENEMY_CHANGED")
     frame:RegisterEvent("PLAYER_SOFT_FRIEND_CHANGED")
+    frame:RegisterEvent("PLAYER_SOFT_INTERACT_CHANGED")
     frame:RegisterEvent("PLAYER_TARGET_CHANGED")
 
-    -- Отслеживание входа/выхода из боя
     frame:RegisterEvent("PLAYER_REGEN_DISABLED")
     frame:RegisterEvent("PLAYER_REGEN_ENABLED")
 
-    -- Для отслеживания средств передвижения
     frame:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED")
-    frame:RegisterEvent("UNIT_POWER_BAR_SHOW")
-    frame:RegisterEvent("UNIT_POWER_BAR_HIDE")
-
-    -- Для отслеживания полетов
     frame:RegisterEvent("PLAYER_IS_GLIDING_CHANGED")
 
-    --  Для отслеживания транспорта
     frame:RegisterEvent("PLAYER_LOSES_VEHICLE_DATA")
     frame:RegisterEvent("PLAYER_GAINS_VEHICLE_DATA")
 
-    -- Отслеживание смерти и воскрешения
     frame:RegisterEvent("PLAYER_DEAD")
     frame:RegisterEvent("PLAYER_ALIVE")
     frame:RegisterEvent("PLAYER_UNGHOST")
 
-    -- Отслеживание открытия/закрытия окна интерфейса
     frame:RegisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_HIDE")
     frame:RegisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_SHOW")
 
-    -- Отслеживание изменения пригодности к использованию и количества зарядов заклинаний
     frame:RegisterEvent("ACTIONBAR_UPDATE_USABLE")
     frame:RegisterEvent("SPELL_UPDATE_CHARGES")
     frame:RegisterEvent("ACTIONBAR_UPDATE_COOLDOWN")
@@ -525,7 +790,6 @@ function ConsoleMenu:InitializeContexts()
     frame:RegisterEvent("ACTIONBAR_UPDATE_STATE")
     frame:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
 
-    -- Отслеживание пребывания в доме
     frame:RegisterEvent("HOUSE_EDITOR_MODE_CHANGED")
     frame:RegisterEvent("HOUSING_BASIC_MODE_SELECTED_TARGET_CHANGED")
     frame:RegisterEvent("HOUSING_DECOR_PRECISION_SUBMODE_CHANGED")
@@ -536,89 +800,141 @@ function ConsoleMenu:InitializeContexts()
     frame:RegisterEvent("HOUSE_PLOT_ENTERED")
     frame:RegisterEvent("HOUSE_PLOT_EXITED")
 
-    -- Отслеживание открытия диалогов
     frame:RegisterEvent("SPELL_CONFIRMATION_PROMPT")
     frame:RegisterEvent("SPELL_CONFIRMATION_TIMEOUT")
+    frame:RegisterEvent("ENCOUNTER_TIMELINE_STATE_UPDATED")
 
     ConsoleMenuFrame.PlayerContext = {
-        -- Жив ли персонаж
+        -- Жив ли персонаж, включая состояние призрака.
         alive = nil,
 
-        -- Режим боя
+        -- Находится ли персонаж в бою.
         inCombat = nil,
 
-        -- Средство передвижения: 0 = не на средстве передвижения, 1 = обычное средство, 2 = полет на драконе
+        -- Средство передвижения: 0 — нет, 1 — обычное, 2 — полёт на драконе.
         mount = nil,
 
-        -- Транспорт:
+        -- Находится ли персонаж в транспорте или на такси.
         vehicle = nil,
 
-        -- Враг и союзник
-        enemy = {},
-        friend = {},
+        -- Признаки выбранной цели.
         target = {},
 
-        -- Наличие окна интерфейса (хеш-таблица для быстрого доступа)
+        -- Признаки мягкого врага.
+        softenemy = {},
+
+        -- Признаки мягкого союзника.
+        softfriend = {},
+
+        -- Открытые окна интерфейса.
         window = {},
 
-        -- Последний контекст
+        -- Последний выбранный режим.
         lastContext = nil,
 
-        -- Находится ли в доме
+        -- Признаки дома и участка.
         housing = {},
     }
 
-    frame:SetScript("OnEvent", function(self, event, ...)
+    if hooksecurefunc then
+        hooksecurefunc("StaticPopup_OnHide", function()
+            local contextData = GetPlayerContextData()
+            if contextData and contextData.window and contextData.window["staticpopup"] then
+                ConsoleMenu:RemoveWindow("staticpopup")
+                RefreshUI()
+            end
+        end)
+    end
+
+    frame:SetScript("OnEvent", function(_, event, ...)
+        EnsureHandledInteractionTypes()
 
         if event == "GAME_PAD_ACTIVE_CHANGED" then
             ConsoleMenu:SetGamePadActive(...)
+            RefreshUI()
         elseif event == "PLAYER_ENTERING_WORLD" then
-            UpdatePlayerAlive()
-            UpdatePlayerInCombat()
+            HandlePlayerEnteringWorld()
+        elseif event == "PLAYER_SOFT_ENEMY_CHANGED" then
             UpdatePlayerSoftEnemy()
+            RefreshUIAndActionBar()
+        elseif event == "PLAYER_SOFT_FRIEND_CHANGED" then
             UpdatePlayerSoftFriend()
+            RefreshUIAndActionBar()
+        elseif event == "PLAYER_SOFT_INTERACT_CHANGED" then
+            RefreshUI()
+        elseif event == "PLAYER_TARGET_CHANGED" then
             UpdatePlayerTarget()
-
+            RefreshUIAndActionBar()
+        elseif event == "PLAYER_REGEN_DISABLED" or event == "PLAYER_REGEN_ENABLED" then
+            UpdatePlayerInCombat()
+            RefreshUIAndActionBar()
+        elseif event == "PLAYER_MOUNT_DISPLAY_CHANGED" then
+            UpdatePlayerMount()
+            UpdatePlayerVehicle()
+            RefreshUI()
             C_Timer.After(0.5, function()
                 UpdatePlayerMount()
                 UpdatePlayerVehicle()
-                SwitchActionBarPage()
-            end)
-        elseif event == "PLAYER_SOFT_ENEMY_CHANGED" then
-            UpdatePlayerSoftEnemy()
-        elseif event == "PLAYER_SOFT_FRIEND_CHANGED" then
-            UpdatePlayerSoftFriend()
-        elseif event == "PLAYER_TARGET_CHANGED" then
-            UpdatePlayerTarget()
-        elseif event == "PLAYER_REGEN_DISABLED" or event == "PLAYER_REGEN_ENABLED" then
-            UpdatePlayerInCombat()
-        elseif event == "UNIT_POWER_BAR_SHOW" or event == "UNIT_POWER_BAR_HIDE" or event == "PLAYER_MOUNT_DISPLAY_CHANGED" then
-            UpdatePlayerMount()
-            C_Timer.After(0.5, function()
-                UpdatePlayerMount()
-                SwitchActionBarPage()
+                RefreshUIAndActionBar()
             end)
         elseif event == "PLAYER_IS_GLIDING_CHANGED" then
-            gliding = ...
+            isGliding = ... and true or false
+            RefreshUI()
         elseif event == "PLAYER_LOSES_VEHICLE_DATA" or event == "PLAYER_GAINS_VEHICLE_DATA" then
-            UpdatePlayerVehicle()
+            local unitTarget = ...
+            if unitTarget == "player" then
+                UpdatePlayerVehicle()
+                RefreshUIAndActionBar()
+            end
         elseif event == "PLAYER_DEAD" or event == "PLAYER_ALIVE" or event == "PLAYER_UNGHOST" then
             UpdatePlayerAlive()
+            RefreshUIAndActionBar()
         elseif event == "PLAYER_INTERACTION_MANAGER_FRAME_SHOW" then
-            ConsoleMenu:AddWindow(...)
+            local interactionType = ...
+            if handledInteractionTypes and handledInteractionTypes[interactionType] then
+                ConsoleMenu:AddWindow(interactionType)
+                RefreshUI()
+            end
         elseif event == "PLAYER_INTERACTION_MANAGER_FRAME_HIDE" then
-            ConsoleMenu:RemoveWindow(...)
-        elseif event == "HOUSE_EDITOR_MODE_CHANGED" or event == "HOUSING_BASIC_MODE_SELECTED_TARGET_CHANGED" or event == "HOUSING_DECOR_PRECISION_SUBMODE_CHANGED" or event == "HOUSING_EXPERT_MODE_SELECTED_TARGET_CHANGED" or event == "HOUSE_EDITOR_AVAILABILITY_CHANGED" or event == "HOUSE_INFO_UPDATED" or event == "CURRENT_HOUSE_INFO_RECIEVED" or event == "HOUSE_PLOT_ENTERED" or event == "HOUSE_PLOT_EXITED" then
+            local interactionType = ...
+            if handledInteractionTypes and handledInteractionTypes[interactionType] then
+                ConsoleMenu:RemoveWindow(interactionType)
+                RefreshUI()
+            end
+        elseif event == "HOUSE_EDITOR_MODE_CHANGED"
+            or event == "HOUSING_BASIC_MODE_SELECTED_TARGET_CHANGED"
+            or event == "HOUSING_DECOR_PRECISION_SUBMODE_CHANGED"
+            or event == "HOUSING_EXPERT_MODE_SELECTED_TARGET_CHANGED"
+            or event == "HOUSE_EDITOR_AVAILABILITY_CHANGED"
+            or event == "HOUSE_INFO_UPDATED"
+            or event == "CURRENT_HOUSE_INFO_RECIEVED"
+            or event == "HOUSE_PLOT_ENTERED"
+            or event == "HOUSE_PLOT_EXITED"
+        then
             UpdatePlayerIsInsideHouseOrPlot()
+            RefreshUIAndActionBar()
         elseif event == "SPELL_CONFIRMATION_PROMPT" then
             ConsoleMenu:AddWindow("staticpopup")
+            RefreshUI()
         elseif event == "SPELL_CONFIRMATION_TIMEOUT" then
             ConsoleMenu:RemoveWindow("staticpopup")
+            RefreshUI()
+        elseif event == "ACTIONBAR_PAGE_CHANGED" then
+            RefreshUI()
+        elseif event == "ACTIONBAR_UPDATE_USABLE"
+            or event == "SPELL_UPDATE_CHARGES"
+            or event == "ACTIONBAR_UPDATE_COOLDOWN"
+            or event == "SPELL_UPDATE_COOLDOWN"
+            or event == "ACTIONBAR_UPDATE_STATE"
+            or event == "ACTIONBAR_SLOT_CHANGED"
+        then
+            RefreshUI()
+        elseif event == "ENCOUNTER_TIMELINE_STATE_UPDATED" then
+            local contextData = GetPlayerContextData()
+            if contextData then
+                contextData.lastContext = nil
+            end
+            RefreshUI()
         end
-
-        ConsoleMenu:ApplyContextUIChanges()  
-
-        SwitchActionBarPage()
     end)
-    
 end

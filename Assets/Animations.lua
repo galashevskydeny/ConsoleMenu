@@ -30,21 +30,19 @@ end
 function ConsoleMenu:AnimatedShow(frame)
     if not frame or not frame.fadeIn or not frame.fadeOut then return end
 
-    -- Если фрейм уже показан, ничего не делаем
-    if frame:IsShown() then return end
-    
-    -- Останавливаем все текущие анимации
-    frame.fadeIn:Stop()
+    -- Останавливаем исчезновение, чтобы оно не скрыло окно после отмены
     frame.fadeOut:Stop()
-    
-    -- Удаляем предыдущий скрипт OnFinished, если он был установлен
     frame.fadeOut:SetScript("OnFinished", nil)
-    
-    -- Показываем фрейм и устанавливаем начальную альфу для анимации
+
+    if frame:IsShown() then
+        frame.fadeIn:Stop()
+        frame:SetAlpha(1)
+        return
+    end
+
+    frame.fadeIn:Stop()
     frame:Show()
     frame:SetAlpha(0)
-    
-    -- Запускаем анимацию появления
     frame.fadeIn:Play()
 end
 

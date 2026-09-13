@@ -1,0 +1,95 @@
+-- Constants.lua
+-- Постоянные размеры и правила полосы навигации.
+
+local ConsoleMenu = _G.ConsoleMenu
+
+-- Состояние и функции полосы навигации.
+local Compass = {}
+ConsoleMenu.Compass = Compass
+
+-- Числа внешнего вида и работы полосы.
+Compass.Constants = {
+    WIDTH = 640,
+    HEIGHT = 18, -- Высота совпадает с полосой опыта.
+    DEFAULT_Y = -48, -- Верх совпадает с полосой опыта.
+    MACBOOK_OFFSET = 16,
+    FONT_SIZE = 14,
+    ICON_SIZE = 30,
+    RANGE = 750,
+    VIEW_ANGLE = 90,
+    METERS_PER_YARD = 0.9144,
+    LINE_THICKNESS = 3,
+    LINE_ALPHA = 0.6,
+    LINE_FADE_FRACTION = 0.18,
+    LINE_COLOR = { r = 1.0, g = 0.960784, b = 0.772549 },
+    POINTER_HEIGHT = 6,
+    POINTER_GAP = 2,
+    POINTER_ALPHA = 0.4,
+    HEADING_GAP = 12,
+    HEADING_ALPHA = 1,
+    MINOR_TICK_ALPHA = 0.1,
+    DISCOVERY_INTERVAL = 2,
+    DISCOVERY_BUDGET_MS = 0.75,
+    DISCOVERY_STEPS = 32,
+    DISCOVERY_MIN_INTERVAL = 0.2,
+    SORT_INTERVAL = 0.1,
+    BEARING_REFRESH_INTERVAL = 0.05,
+    BEARING_RESET_DISTANCE = 64,
+    POSITION_SYNC_INTERVAL = 1,
+    TICK_STEP = 15,
+    CARDINAL_STEP = 90,
+    FULL_TURN = 360,
+    HALF_TURN = 180,
+    MAX_MARKERS = 24,
+    MARKER_BASE_LEVEL = 1,
+    EDGE_INSET = 12,
+    EDGE_FADE_FRACTION = 0.25,
+    EDGE_CLIP_FRACTION = 0.18,
+    MARKER_RETAINED_DISTANCE_SQUARED = 0.64,
+    MARKER_REVEAL_DELAY = 0.08,
+    MARKER_RANGE_FADE_FRACTION = 0.05,
+    MARKER_RANGE_FADE_YARDS = 100,
+    MARKER_OUTLINE = 1,
+    MARKER_OUTLINE_ALPHA = 0.9,
+    MARKER_ICON_SUBLEVEL = 2,
+    MARKER_SYMBOL_SUBLEVEL = 3,
+    MARKER_SHADOW_SUBLEVEL = 1,
+    BASIC_CHEST_ATLAS = "vignetteloot",
+    BASIC_CHEST_SCALE = 0.75,
+    TRACKED_GLOW_ATLAS = "housing-basic-panel-gradient-header-bg",
+    TRACKED_GLOW_WIDTH_SCALE = 6,
+    TRACKED_GLOW_HEIGHT_SCALE = 2.5,
+    SELECTION_MARKER_SCALE = 0.78125,
+    SELECTION_MARKER_ATLAS = "Waypoint-MapPin-Tracked",
+    SELECTION_MARKER_SUBLEVEL = 4,
+    TICK_WIDTH = 1,
+    TICK_HEIGHT = 2,
+    LABEL_GAP = 4,
+    LABEL_CAPTION_ALPHA = 0.6,
+    LINE_Y_FRACTION = -0.22,
+    DETAIL_ANGLE = 12,
+    WAYPOINT_PRIORITY = 1,
+    TRACKED_QUEST_PRIORITY = 2,
+    VIGNETTE_PRIORITY = 3,
+    QUEST_PRIORITY = 4,
+    WORLD_QUEST_PRIORITY = 5,
+    POI_PRIORITY = 6,
+    FALLBACK_ATLAS = "Waypoint-MapPin-Untracked",
+    SHADOW_OFFSET = 1,
+    WAYPOINT_MATCH_EPSILON = 0.00001,
+    PEEK_DESTINATION_EPSILON = 0.00001,
+}
+
+-- Поля оформления значка, которые переносятся с исходной точки на путевую.
+Compass.Constants.MARKER_ART_FIELDS = {
+    "texture",
+    "texLeft",
+    "texRight",
+    "texTop",
+    "texBottom",
+    "colorR",
+    "colorG",
+    "colorB",
+    "sourceAlpha",
+    "sizeScale",
+}

@@ -13,6 +13,23 @@ local duration = 5
 local animationDuration = 0.3
 local delay = 0.5
 
+-- Смещает полосу вниз при включённом вырезе экрана.
+local function TopOffset()
+    local offset = -48
+    if ConsoleMenuDB and ConsoleMenuDB.enableMacBook == 1 then
+        offset = offset - macbookNotchOffset
+    end
+    return offset
+end
+
+-- Прячет или возвращает полосу навигации на время индикатора опыта.
+local function SetCompassProgressHidden(hidden)
+    local compass = ConsoleMenu.Compass
+    if compass and compass.SetProgressHidden then
+        compass:SetProgressHidden(hidden)
+    end
+end
+
 local notificationUpdateTimer = nil
 
 -- Функция для получения уведомления с наивысшим приоритетом
@@ -78,11 +95,16 @@ local function StatusTrackingFrameUpdate()
         ConsoleMenuFrame.StatusTrackingFrame.StatusBar:SetValue(value)
 
         ConsoleMenu:AnimatedShow(ConsoleMenuFrame.StatusTrackingFrame)
+        SetCompassProgressHidden(true)
 
         notificationUpdateTimer = C_Timer.NewTimer(duration, function()
             notificationUpdateTimer = nil
             -- Скрываем текущее уведомление с анимацией
             ConsoleMenu:AnimatedHide(ConsoleMenuFrame.StatusTrackingFrame)
+            local notifications = ConsoleMenuFrame.StatusTrackingFrame.Notifications
+            if not notifications or #notifications == 0 then
+                SetCompassProgressHidden(false)
+            end
             -- Ждем окончания анимации исчезновения перед проверкой следующего уведомления
             C_Timer.After(animationDuration + delay, function()
                 -- После отображения проверяем, есть ли еще уведомления в очереди
@@ -92,6 +114,7 @@ local function StatusTrackingFrameUpdate()
 
     else
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.StatusTrackingFrame)
+        SetCompassProgressHidden(false)
     end
 end
 
@@ -142,7 +165,7 @@ function ConsoleMenu:SetStatusTrackingFrame()
 
     local frame = ConsoleMenuFrame.StatusTrackingFrame
     frame:SetSize(frameWidth, frameHeight)
-    frame:SetPoint("TOP", ConsoleMenuFrame, "TOP", 0, -(48 + macbookNotchOffset))
+    frame:SetPoint("TOP", ConsoleMenuFrame, "TOP", 0, TopOffset())
     frame:Hide()
     ConsoleMenu:InitFadeAnimations(frame, animationDuration)
 
