@@ -86,21 +86,12 @@ function Compass:RefreshVisibility()
         return
     end
     if self.frame then
-        if self.frame.fadeOut then
-            self.frame.fadeOut:Stop()
-            self.frame.fadeOut:SetScript("OnFinished", nil)
-        end
-        if self.frame:IsShown() then
-            if self.frame.fadeIn then
-                self.frame.fadeIn:Stop()
-            end
-            self.frame:SetAlpha(1)
-        else
-            ConsoleMenu:AnimatedShow(self.frame)
-        end
+        ConsoleMenu:AnimatedShow(self.frame)
         self.discoveryDirty = true
         self.sortElapsed = 0
         self.renderDirty = true
+        -- Значки проявятся вместе с полосой или отдельно, если сбор точек задержится.
+        self.markerFadeIn = true
         if not self.updating then
             self.events:SetScript("OnUpdate", function(_, elapsed)
                 self:OnUpdate(elapsed)
@@ -212,7 +203,7 @@ function ConsoleMenu:SetCompassFrame()
     Compass.markers, Compass.bearings = {}, {}
     Compass.selectionKeys = {}
     Compass.arrivalMarker, Compass.arrivalKey, Compass.arrivalLeaving = nil, nil, nil
-    Compass.arrivalBlend, Compass.arrivalEase, Compass.arrivalBlendPending = 0, 0, false
+    Compass.arrivalBlend, Compass.arrivalEase, Compass.arrivalBlendPending, Compass.arrivalFanReveal = 0, 0, false, false
     Compass.viewAngle = C.VIEW_ANGLE
     Compass.range = C.RANGE_WALK
     Compass.iconSize = C.ICON_SIZE

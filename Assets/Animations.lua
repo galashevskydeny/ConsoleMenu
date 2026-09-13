@@ -1,5 +1,21 @@
 local ConsoleMenu = _G.ConsoleMenu
 
+-- Возвращает текущую прозрачность с учётом идущего проявления или исчезновения.
+local function GetFadeAlpha(frame)
+    local group
+    if frame.fadeOut and frame.fadeOut:IsPlaying() then
+        group = frame.fadeOut
+    elseif frame.fadeIn and frame.fadeIn:IsPlaying() then
+        group = frame.fadeIn
+    end
+    if group and group.alpha then
+        local anim = group.alpha
+        local progress = anim.GetSmoothProgress and anim:GetSmoothProgress() or group:GetProgress() or 0
+        return anim:GetFromAlpha() + (anim:GetToAlpha() - anim:GetFromAlpha()) * progress
+    end
+    return frame:GetAlpha() or 1
+end
+
 function ConsoleMenu:InitFadeAnimations(frame, duration)
     -- Создаем группу анимаций для фрейма, если еще не создана
     if not frame.fadeIn then
@@ -30,45 +46,56 @@ end
 function ConsoleMenu:AnimatedShow(frame)
     if not frame or not frame.fadeIn or not frame.fadeOut then return end
 
-    -- Останавливаем исчезновение, чтобы оно не скрыло окно после отмены
+    -- Запоминаем прозрачность до остановки, иначе сброс анимации вспыхивает на полной яркости.
+    local current = GetFadeAlpha(frame)
+    local shown = frame:IsShown()
+
     frame.fadeOut:Stop()
     frame.fadeOut:SetScript("OnFinished", nil)
+    frame.fadeIn:Stop()
 
-    if frame:IsShown() then
-        frame.fadeIn:Stop()
+    local fadeIn = frame.fadeIn
+    if not shown then
+        current = 0
+        frame:Show()
+    end
+    if current >= 1 then
+        fadeIn.alpha:SetFromAlpha(0)
+        fadeIn.alpha:SetToAlpha(1)
         frame:SetAlpha(1)
         return
     end
 
-    frame.fadeIn:Stop()
-    frame:Show()
-    frame:SetAlpha(0)
-    frame.fadeIn:Play()
+    frame:SetAlpha(current)
+    fadeIn.alpha:SetFromAlpha(current)
+    fadeIn.alpha:SetToAlpha(1)
+    fadeIn:Play()
 end
 
 function ConsoleMenu:AnimatedHide(frame)
     if not frame or not frame.fadeIn or not frame.fadeOut then return end
-    
-    -- Если фрейм уже скрыт, ничего не делаем
     if not frame:IsShown() then return end
-    
-    -- Останавливаем все текущие анимации
+
+    local current = GetFadeAlpha(frame)
     frame.fadeIn:Stop()
     frame.fadeOut:Stop()
-    
-    -- Удаляем предыдущий скрипт OnFinished, если он был установлен
     frame.fadeOut:SetScript("OnFinished", nil)
-    
-    -- Устанавливаем альфу в 1 для начала анимации исчезновения
-    frame:SetAlpha(1)
-    
-    -- Устанавливаем скрипт для скрытия фрейма после окончания анимации
+
+    if current <= 0 then
+        frame:SetAlpha(0)
+        frame:Hide()
+        return
+    end
+
+    frame:SetAlpha(current)
+    frame.fadeOut.alpha:SetFromAlpha(current)
+    frame.fadeOut.alpha:SetToAlpha(0)
     frame.fadeOut:SetScript("OnFinished", function()
         frame:Hide()
         frame.fadeOut:SetScript("OnFinished", nil)
+        frame.fadeOut.alpha:SetFromAlpha(1)
+        frame.fadeOut.alpha:SetToAlpha(0)
     end)
-    
-    -- Запускаем анимацию исчезновения
     frame.fadeOut:Play()
 end
 

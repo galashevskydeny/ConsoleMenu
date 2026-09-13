@@ -160,7 +160,7 @@ function Compass:StyleView()
         b = C.LINE_COLOR.b,
         a = C.LABEL_CAPTION_ALPHA,
     }
-    StyleText(self.detailTitle, fontSize, C.LINE_COLOR)
+    StyleText(self.detailTitle, C.TITLE_FONT_SIZE, C.LINE_COLOR)
     StyleText(self.detailCaption, fontSize, captionColor)
     self:StylePeek(fontSize, true)
     for _, texture in ipairs(self.artwork) do
@@ -187,7 +187,7 @@ function Compass:ClearMarkers()
     wipe(self.markerGroupMembers)
     self.markerRevealPending, self.markerSmoothPending = false, false
     self.arrivalMarker, self.arrivalKey, self.arrivalLeaving = nil, nil, nil
-    self.arrivalBlend, self.arrivalEase, self.arrivalBlendPending = 0, 0, false
+    self.arrivalBlend, self.arrivalEase, self.arrivalBlendPending, self.arrivalFanReveal = 0, 0, false, false
     self.selectionDirty = true
     self:HideDetail()
     self.renderDirty = true
@@ -253,6 +253,8 @@ function Compass:HideDetail()
         self.detailCaption:Hide()
         self.detailShown = false
     end
+    self.detailTitle:SetAlpha(1)
+    self.detailCaption:SetAlpha(1)
     self.detailName, self.detailDistance, self.detailKind, self.detailNearby = nil, nil, nil, nil
 end
 
@@ -326,11 +328,16 @@ function Compass:Render(facing, live, elapsed)
         end
     end
     local blend = self.arrivalBlend or 0
-    local arrivalCaption = (self.arrivalMarker or self.arrivalLeaving) and blend >= 0.5
-    if arrivalCaption then
+    local arrivalFocus = self.arrivalMarker or self.arrivalLeaving
+    if arrivalFocus and blend > 0 then
         self:HidePeek()
-        self:ShowDetail(self.arrivalMarker or self.arrivalLeaving, true)
+        self:ShowDetail(arrivalFocus, true)
+        local ease = self.arrivalEase or blend
+        self.detailTitle:SetAlpha(ease)
+        self.detailCaption:SetAlpha(ease)
     elseif self.peekAltHeld then
+        self.detailTitle:SetAlpha(1)
+        self.detailCaption:SetAlpha(1)
         local marker, slot = self:FindPeekMarker()
         if marker then
             self:ShowPeek(marker, slot)
@@ -343,6 +350,8 @@ function Compass:Render(facing, live, elapsed)
             self:HideDetail()
         end
     else
+        self.detailTitle:SetAlpha(1)
+        self.detailCaption:SetAlpha(1)
         self:HidePeek()
         if nearest then
             self:ShowDetail(nearest)

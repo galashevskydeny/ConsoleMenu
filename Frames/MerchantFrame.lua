@@ -5,19 +5,12 @@ local dataProvider
 local frameWidth = 480
 local frameLeftOffset = 34
 local contentPadding = 38
-local backdropTemplateOffset = 20
-
-local viewedItemCount = 10
 
 local sectionHeight = 80
 local sectionPadding = 10
 local unfocusedItemTextAlpha = 0.6
-local itemsSectionHeight = sectionHeight * viewedItemCount
 
 local iconSize = sectionHeight - sectionPadding * 2
-
-local titleFontSize = 24
-local titleSectionHeight = titleFontSize
 
 local emptyListFontSize = 32
 local emptyListDescriptionFontSize = 20
@@ -27,9 +20,12 @@ local focusedItemFontSize = itemFontSize + 2
 local descriptionFontSize = 14
 local tabFontSize = 22
 
+-- Максимум дополнительных цен у одного товара в эталоне клиента.
+local maxItemCost = 3
+
 local focusedTabIndex = 1
 local tabs = {}
-local merchantTabSlotCount = 3
+local merchantTabSlotCount = 2
 
 local currencyIconSize = 20
 local currencyIconOverlap = currencyIconSize / 4
@@ -37,10 +33,21 @@ local currencyIconDualHeight = currencyIconSize * 2 - currencyIconOverlap
 
 local focusedIndex = 1
 local focusedSlot = nil
-local focusedItemExtent = sectionHeigh
+local focusedItemType = nil
+local lastFocusedSlot = nil
+local lastFocusedType = nil
+local focusedItemExtent = sectionHeight
 
+-- Запас подсказок и пределов пачки: ключ — тип пункта и номер.
 local itemListTooltipDataCache = {}
+local itemListTooltipInstanceMap = {}
 local itemListStackSizeDataCache = {}
+
+local merchantRefreshQueued = false
+local merchantRefreshRebuildTabs = false
+local pendingOverrideBindings = false
+local pendingClearOverrideBindings = false
+local moneyEventsRegistered = false
 
 local animationDuration = 0.1
 
@@ -136,22 +143,61 @@ local function UpdateItemsScrollBarLayout()
     end
 end
 
--- Функция для получения высоты элемента списка предметов
+-- Высота строки списка: выделенный товар может быть выше остальных.
+local function IsListItemType(itemType)
+    return itemType == "merchantItem" or itemType == "buybackItem"
+end
+
 local function GetItemListElementExtent(elementData)
     if elementData
-        and elementData.type == "merchantItem"
+        and IsListItemType(elementData.type)
         and focusedSlot
+        and focusedItemType
         and elementData.slot == focusedSlot
+        and elementData.type == focusedItemType
     then
-        return math.max(sectionHeight, focusedItemExtent)
+        return math.max(sectionHeight, focusedItemExtent or sectionHeight)
     end
 
     return sectionHeight
 end
 
--- Функция для обновления фокуса на элементе списка предметов
+-- Ключ запаса сведений по типу пункта и номеру.
+local function GetCacheKey(itemType, slot)
+    if not itemType or not slot then
+        return nil
+    end
+    return itemType .. ":" .. tostring(slot)
+end
+
+-- Сбросить запас подсказок.
+local function ClearItemListTooltipDataCache()
+    wipe(itemListTooltipDataCache)
+    wipe(itemListTooltipInstanceMap)
+end
+
+-- Сбросить запас пределов пачки.
+local function ClearItemListStackSizeDataCache()
+    wipe(itemListStackSizeDataCache)
+end
+
+-- Полный сброс выбора и запасов при закрытии торговца.
+local function ResetMerchantSelection()
+    focusedIndex = 1
+    focusedSlot = nil
+    focusedItemType = nil
+    lastFocusedSlot = nil
+    lastFocusedType = nil
+    focusedItemExtent = sectionHeight
+    ClearItemListTooltipDataCache()
+    ClearItemListStackSizeDataCache()
+end
+
+-- Обновить фокус на пункте списка.
 local function UpdateFocus(element, changeFocus)
-    if not element then return end
+    if not element then
+        return
+    end
 
     local frame = ConsoleMenuFrame and ConsoleMenuFrame.ItemListFrame
     if not frame or not frame.Items or not frame.Items.ScrollBox then
@@ -162,14 +208,20 @@ local function UpdateFocus(element, changeFocus)
     local layoutChanged = false
 
     focusedIndex = scrollBox:FindElementDataIndex(element)
-    if not focusedIndex then return end
+    if not focusedIndex then
+        return
+    end
 
-    local nextSlot = (element.type == "merchantItem") and element.slot or nil
-    local slotChanged = nextSlot ~= focusedSlot
+    local nextSlot = IsListItemType(element.type) and element.slot or nil
+    local nextType = IsListItemType(element.type) and element.type or nil
+    local slotChanged = nextSlot ~= focusedSlot or nextType ~= focusedItemType
     if slotChanged then
         focusedItemExtent = sectionHeight
     end
     focusedSlot = nextSlot
+    focusedItemType = nextType
+    lastFocusedSlot = nextSlot
+    lastFocusedType = nextType
 
     if changeFocus then
         scrollBox:ScrollToElementDataIndex(focusedIndex)
@@ -185,19 +237,16 @@ local function UpdateFocus(element, changeFocus)
         return elementData == element
     end)
 
-    if focusedFrame and focusedFrame.SetFocused and changeFocus then
+    if focusedFrame and focusedFrame.SetFocused then
         layoutChanged = focusedFrame:SetFocused(true) or layoutChanged
     end
 
     if layoutChanged or slotChanged then
         UpdateItemsScrollBarLayout()
     end
-
-    if changeFocus then
-        scrollBox:ScrollToElementDataIndex(focusedIndex)
-    end
 end
 
+-- Текущий пункт по индексу фокуса.
 local function GetFocusedElement()
     if not dataProvider or not dataProvider.collection then
         return nil
@@ -205,129 +254,264 @@ local function GetFocusedElement()
     return dataProvider.collection[focusedIndex]
 end
 
+-- Перерисовать выделенную строку после догрузки подсказки.
+local function RefreshFocusedItemFrame()
+    local element = GetFocusedElement()
+    if not element then
+        return
+    end
+    UpdateFocus(element, false)
+end
+
+-- Сколько предметов можно купить за одну операцию, с учётом золота и дополнительной цены.
+local function GetAffordablePurchaseCount(slot, maxStack)
+    if not slot or not maxStack or maxStack <= 1 then
+        return 1
+    end
+
+    local canAfford = maxStack
+    local info = C_MerchantFrame.GetItemInfo(slot)
+    if info and info.price and info.price > 0 and info.stackCount and info.stackCount > 0 then
+        canAfford = math.floor(GetMoney() / (info.price / info.stackCount))
+    end
+
+    if info and info.hasExtendedCost then
+        local itemCount = GetMerchantItemCostInfo(slot) or 0
+        for costIndex = 1, maxItemCost do
+            if costIndex > itemCount then
+                break
+            end
+            local _, itemValue, itemLink, currencyName = GetMerchantItemCostItem(slot, costIndex)
+            if itemLink and not currencyName and itemValue and itemValue > 0 and info.stackCount and info.stackCount > 0 then
+                local myCount = C_Item.GetItemCount(itemLink, false, false, true)
+                canAfford = math.min(canAfford, math.floor(myCount / (itemValue / info.stackCount)))
+            end
+        end
+    end
+
+    if canAfford < 1 then
+        return 1
+    end
+
+    return math.min(maxStack, canAfford)
+end
+
+-- Предел пачки у торговца. Неготовое значение не запоминается.
 local function GetListItemStackSize(element)
     if not element or not element.slot then
         return 1
     end
 
-    local slot = element.slot
-    local cachedStackSize = itemListStackSizeDataCache[slot]
-    if cachedStackSize then
-        return cachedStackSize
+    if element.type ~= "merchantItem" then
+        return 1
     end
 
-    local quantity = 1
-    local itemID
-    
-    if element.type == "merchantItem" then
-        itemID = element.itemID or GetMerchantItemID(slot)
-        if itemID then
-            local stackSize = C_Item.GetItemMaxStackSizeByID(itemID)
-            if stackSize and stackSize > 0 then
-                quantity = stackSize
-            end
+    local cacheKey = GetCacheKey(element.type, element.slot)
+    local cachedMaxStack = cacheKey and itemListStackSizeDataCache[cacheKey]
+    local maxStack = cachedMaxStack
+
+    if not maxStack then
+        maxStack = GetMerchantItemMaxStack(element.slot)
+        if not maxStack or maxStack < 1 then
+            return 1
+        end
+        if cacheKey then
+            itemListStackSizeDataCache[cacheKey] = maxStack
         end
     end
 
-    itemListStackSizeDataCache[slot] = quantity
-    return quantity
+    if maxStack <= 1 then
+        return 1
+    end
+
+    return GetAffordablePurchaseCount(element.slot, maxStack)
 end
 
-local function GetListItemTooltipData(element)
-    if not element or not element.slot then
+-- Запросить подсказку товара или выкупа. Неполный снимок можно показать, но не запирать.
+local function GetListItemTooltipData(element, forceRefresh)
+    if not element or not element.slot or not IsListItemType(element.type) then
         return nil
     end
 
-    local slot = element.slot
-    local cachedTooltipData = itemListTooltipDataCache[slot]
-    if cachedTooltipData then
-        return cachedTooltipData
+    local cacheKey = GetCacheKey(element.type, element.slot)
+    if not forceRefresh and cacheKey then
+        local cached = itemListTooltipDataCache[cacheKey]
+        if cached then
+            return cached.tooltipData
+        end
     end
 
+    local tooltipData
     if element.type == "merchantItem" then
-        local tooltipData = C_TooltipInfo.GetMerchantItem(slot)
-        itemListTooltipDataCache[slot] = tooltipData
-        return tooltipData
+        tooltipData = C_TooltipInfo.GetMerchantItem(element.slot)
+    elseif element.type == "buybackItem" then
+        tooltipData = C_TooltipInfo.GetBuybackItem(element.slot)
     end
 
-    return nil
+    if cacheKey then
+        local previous = itemListTooltipDataCache[cacheKey]
+        if previous and previous.instanceID then
+            itemListTooltipInstanceMap[previous.instanceID] = nil
+        end
+
+        local instanceID = tooltipData and tooltipData.dataInstanceID or nil
+        local lines = tooltipData and tooltipData.lines
+        local isComplete = lines and #lines > 1
+
+        if tooltipData then
+            itemListTooltipDataCache[cacheKey] = {
+                tooltipData = tooltipData,
+                instanceID = instanceID,
+                isComplete = isComplete,
+            }
+            if instanceID then
+                itemListTooltipInstanceMap[instanceID] = cacheKey
+            end
+        elseif forceRefresh then
+            itemListTooltipDataCache[cacheKey] = nil
+        end
+    end
+
+    return tooltipData
 end
 
-local function FindListItemElementBySlot(slot)
-    if not dataProvider or not slot then
+-- Найти пункт списка по типу и номеру. Без заглушки: только реальные строки.
+local function FindListItemElementBySlot(slot, itemType)
+    if not dataProvider or not dataProvider.collection or not slot then
         return nil
     end
 
     for _, element in ipairs(dataProvider.collection) do
         if element.type ~= "separator" and element.slot == slot then
-            return element
+            if not itemType or element.type == itemType then
+                return element
+            end
         end
     end
 
-    -- Заглушка
-    return {
-        type = "merchantItem",
-        slot = slot,
-    }
+    return nil
 end
 
+-- Соседи в списке относительно выбранного пункта, минуя разделители.
+local function GetNeighborElements(element)
+    local neighbors = {}
+    if not dataProvider or not dataProvider.collection or not element then
+        return neighbors
+    end
+
+    local index = nil
+    for i, candidate in ipairs(dataProvider.collection) do
+        if candidate == element then
+            index = i
+            break
+        end
+    end
+    if not index then
+        return neighbors
+    end
+
+    local function FindNeighbor(startIndex, step)
+        local i = startIndex
+        while dataProvider.collection[i] do
+            local neighbor = dataProvider.collection[i]
+            if IsListItemType(neighbor.type) then
+                return neighbor
+            end
+            i = i + step
+        end
+        return nil
+    end
+
+    local previousElement = FindNeighbor(index - 1, -1)
+    local nextElement = FindNeighbor(index + 1, 1)
+    if previousElement then
+        table.insert(neighbors, previousElement)
+    end
+    if nextElement then
+        table.insert(neighbors, nextElement)
+    end
+
+    return neighbors
+end
+
+-- Подгрузить подсказки выбранного пункта и соседей.
 local function LoadNearItemListTooltipData(element)
-    if not element or not element.slot then
+    if not element or not IsListItemType(element.type) then
         return
     end
 
     GetListItemTooltipData(element)
 
-    local slot = element.slot
-    local nextSlot = slot + 1
-    local previousSlot = slot - 1
-
-    if nextSlot <= GetMerchantNumItems() then
-        GetListItemTooltipData(FindListItemElementBySlot(nextSlot))
-    end
-
-    if previousSlot >= 1 then
-        GetListItemTooltipData(FindListItemElementBySlot(previousSlot))
+    for _, neighbor in ipairs(GetNeighborElements(element)) do
+        GetListItemTooltipData(neighbor)
     end
 end
 
+-- Подгрузить пределы пачки выбранного пункта и соседей.
 local function LoadNearItemListStackSizeData(element)
-    if not element or not element.slot then
+    if not element or element.type ~= "merchantItem" then
         return
     end
 
     GetListItemStackSize(element)
 
-    local slot = element.slot
-    local nextSlot = slot + 1
-    local previousSlot = slot - 1
-
-    if nextSlot <= GetMerchantNumItems() then
-        GetListItemStackSize(FindListItemElementBySlot(nextSlot))
-    end
-
-    if previousSlot >= 1 then
-        GetListItemStackSize(FindListItemElementBySlot(previousSlot))
+    for _, neighbor in ipairs(GetNeighborElements(element)) do
+        if neighbor.type == "merchantItem" then
+            GetListItemStackSize(neighbor)
+        end
     end
 end
 
-local function ClearItemListTooltipDataCache()
-    for slot in pairs(itemListTooltipDataCache) do
-        itemListTooltipDataCache[slot] = nil
+-- Догрузка строк подсказки с сервера: сопоставить экземпляр и перерисовать.
+local function OnTooltipDataUpdate(dataInstanceID)
+    if dataInstanceID then
+        local cacheKey = itemListTooltipInstanceMap[dataInstanceID]
+        if not cacheKey then
+            return
+        end
+        itemListTooltipInstanceMap[dataInstanceID] = nil
+        itemListTooltipDataCache[cacheKey] = nil
+    else
+        local element = GetFocusedElement()
+        if element and IsListItemType(element.type) then
+            local cacheKey = GetCacheKey(element.type, element.slot)
+            local cached = cacheKey and itemListTooltipDataCache[cacheKey]
+            if cached then
+                if cached.instanceID then
+                    itemListTooltipInstanceMap[cached.instanceID] = nil
+                end
+                itemListTooltipDataCache[cacheKey] = nil
+            end
+            for _, neighbor in ipairs(GetNeighborElements(element)) do
+                local neighborKey = GetCacheKey(neighbor.type, neighbor.slot)
+                local neighborCached = neighborKey and itemListTooltipDataCache[neighborKey]
+                if neighborCached then
+                    if neighborCached.instanceID then
+                        itemListTooltipInstanceMap[neighborCached.instanceID] = nil
+                    end
+                    itemListTooltipDataCache[neighborKey] = nil
+                end
+            end
+        end
     end
+
+    local element = GetFocusedElement()
+    if not element or not IsListItemType(element.type) then
+        return
+    end
+
+    LoadNearItemListTooltipData(element)
+    RefreshFocusedItemFrame()
 end
 
-local function ClearItemListStackSizeDataCache()
-    for slot in pairs(itemListStackSizeDataCache) do
-        itemListStackSizeDataCache[slot] = nil
-    end
-end
-
+-- Подсказки кнопок для выбранного пункта и текущей вкладки.
 local function UpdateMerchantActionKeys(element)
+    local tab = tabs[focusedTabIndex]
+    local canRepair = tab and tab.code == "trade" and CanMerchantRepair()
 
     if element and element.type == "merchantItem" and not element.isUnavailable then
         ConsoleMenu:AddKeysFrameItem("PAD1", "Купить предмет")
-        if CanMerchantRepair() then
+        if canRepair then
             ConsoleMenu:AddKeysFrameItem("PAD3", "Отремонтировать снаряжение")
         else
             ConsoleMenu:DeleteKeysFrameItem("PAD3")
@@ -337,14 +521,22 @@ local function UpdateMerchantActionKeys(element)
         else
             ConsoleMenu:DeleteKeysFrameItem("PAD4")
         end
-    else
-        ConsoleMenu:DeleteKeysFrameItem("PAD1")
+    elseif element and element.type == "buybackItem" then
+        ConsoleMenu:AddKeysFrameItem("PAD1", "Выкупить предмет")
         ConsoleMenu:DeleteKeysFrameItem("PAD3")
         ConsoleMenu:DeleteKeysFrameItem("PAD4")
+    else
+        ConsoleMenu:DeleteKeysFrameItem("PAD1")
+        if canRepair then
+            ConsoleMenu:AddKeysFrameItem("PAD3", "Отремонтировать снаряжение")
+        else
+            ConsoleMenu:DeleteKeysFrameItem("PAD3")
+        end
+        ConsoleMenu:DeleteKeysFrameItem("PAD4")
     end
-
 end
 
+-- Сместить фокус на следующий или предыдущий пункт, минуя разделители.
 local function MoveFocus(delta)
     if not dataProvider then
         return
@@ -382,20 +574,20 @@ local function MoveFocus(delta)
     -- Если все элементы оказались разделителями, фокус не меняем.
 end
 
+-- Обновить подсказки кнопок торговца из текущего фокуса.
 function ConsoleMenu:UpdateItemListFrameKeysFrame()
-    local candidate = dataProvider.collection[focusedIndex]
-    UpdateMerchantActionKeys(candidate)
-end
-
---  Купить предмет
-local function PrimaryAction()
-    if not focusedSlot then
+    if not dataProvider or not dataProvider.collection then
+        UpdateMerchantActionKeys(nil)
         return
     end
 
-    local focusedElement = GetFocusedElement()
+    UpdateMerchantActionKeys(GetFocusedElement())
+end
 
-    if not focusedElement then
+-- Купить товар или выкупить предмет.
+local function PrimaryAction()
+    local focusedElement = GetFocusedElement()
+    if not focusedElement or not focusedSlot then
         return
     end
 
@@ -403,57 +595,49 @@ local function PrimaryAction()
         if focusedElement.isUnavailable then
             return
         end
-
         BuyMerchantItem(focusedSlot)
+    elseif focusedElement.type == "buybackItem" then
+        BuybackItem(focusedSlot)
     end
 end
 
--- Купить пачку предметов
+-- Купить пачку товаров у торговца.
 local function SecondaryAction()
     local tab = tabs[focusedTabIndex]
-    if not tab then
+    if not tab or tab.code ~= "trade" then
         return
     end
 
-    if tab.code == "trade" then
-        if not focusedSlot then
-            return
-        end
-    
-        local focusedElement = GetFocusedElement()
-        if not focusedElement then
-            return
-        end
-    
-        if focusedElement.type == "merchantItem" then
-    
-            if focusedElement.isUnavailable then
-                return
-            end
-    
-            local quantity = GetListItemStackSize(focusedElement)
-    
-            if quantity == 1 then
-                return
-            end
-    
-            BuyMerchantItem(focusedSlot, quantity)
-        end
+    local focusedElement = GetFocusedElement()
+    if not focusedElement or not focusedSlot then
+        return
     end
+
+    if focusedElement.type ~= "merchantItem" or focusedElement.isUnavailable then
+        return
+    end
+
+    local quantity = GetListItemStackSize(focusedElement)
+    if quantity <= 1 then
+        return
+    end
+
+    BuyMerchantItem(focusedSlot, quantity)
 end
 
+-- Отремонтировать всё снаряжение.
 local function TertiaryAction()
     local tab = tabs[focusedTabIndex]
-
-    if tab.code == "trade" then
-        if CanMerchantRepair() then
-            RepairAllItems()
-        end
+    if not tab or tab.code ~= "trade" then
+        return
     end
 
+    if CanMerchantRepair() then
+        RepairAllItems()
+    end
 end
 
--- Построить элемент списка предметов
+-- Построить элемент списка товаров.
 local function BuildMerchantItemElement(item, isUnavailable)
     return {
         type = "merchantItem",
@@ -474,49 +658,108 @@ local function BuildMerchantItemElement(item, isUnavailable)
     }
 end
 
--- Загрузить данные торговца
-local function LoadMerchantData()
-    -- Очистка данных
+-- Построить элемент списка выкупа.
+local function BuildBuybackItemElement(item)
+    return {
+        type = "buybackItem",
+        isUnavailable = false,
+        slot = item.slot,
+        itemID = item.itemID,
+        name = item.name,
+        texture = item.texture,
+        price = item.price or 0,
+        stackCount = item.stackCount,
+        numAvailable = item.numAvailable,
+        isUsable = item.isUsable,
+    }
+end
 
-    -- Очистить кэш tooltip данных
-    ClearItemListTooltipDataCache()
-
-    -- Очистить кэш размера пачек предметов
-    ClearItemListStackSizeDataCache()
-
-    -- Очистить скролл бокса
-    dataProvider:Flush()
-    
-    -- Загрузка данных
-    -- Загрузить tooltip данные для первых предметов / предметов в окрестности предмета в фокусе
-    if focusedSlot then
-        LoadNearItemListTooltipData(FindListItemElementBySlot(focusedSlot))
-        LoadNearItemListStackSizeData(FindListItemElementBySlot(focusedSlot))
-    else
-        LoadNearItemListTooltipData(FindListItemElementBySlot(1))
-        LoadNearItemListStackSizeData(FindListItemElementBySlot(1))
+-- Текст пустого списка и подпись под ним.
+local function SetEmptyListContent(title, description)
+    local emptyList = ConsoleMenuFrame and ConsoleMenuFrame.ItemListFrame and ConsoleMenuFrame.ItemListFrame.EmptyList
+    if not emptyList then
+        return
     end
 
-    -- Загрузка данных о продавце
-    local text = UnitName("NPC") .. " не может предложить товары на продажу"
-    ConsoleMenuFrame.ItemListFrame.EmptyList.Text:SetText(text)
+    if emptyList.Text then
+        emptyList.Text:SetText(title or "")
+    end
+    if emptyList.Description then
+        emptyList.Description:SetText(description or "")
+    end
+end
 
-    -- Загрузка данных предметов
+-- Показать или скрыть пустой список.
+local function SetEmptyListShown(isShown)
+    local emptyList = ConsoleMenuFrame and ConsoleMenuFrame.ItemListFrame and ConsoleMenuFrame.ItemListFrame.EmptyList
+    if not emptyList then
+        return
+    end
+
+    if isShown then
+        emptyList:Show()
+    else
+        emptyList:Hide()
+    end
+end
+
+-- После заполнения списка подгрузить подсказки вокруг фокуса или первого пункта.
+local function PreloadNearFocusedOrFirst()
+    if not dataProvider or not dataProvider.collection then
+        return
+    end
+
+    local target = nil
+    if focusedSlot and focusedItemType then
+        target = FindListItemElementBySlot(focusedSlot, focusedItemType)
+    end
+    if not target then
+        for _, element in ipairs(dataProvider.collection) do
+            if IsListItemType(element.type) then
+                target = element
+                break
+            end
+        end
+    end
+
+    if not target then
+        return
+    end
+
+    LoadNearItemListTooltipData(target)
+    if target.type == "merchantItem" then
+        LoadNearItemListStackSizeData(target)
+    end
+end
+
+-- Загрузить товары торговца.
+local function LoadMerchantData()
+    if not dataProvider then
+        return
+    end
+
+    ClearItemListTooltipDataCache()
+    ClearItemListStackSizeDataCache()
+    dataProvider:Flush()
+
+    local merchantName = UnitName("npc") or UnitName("NPC") or "Торговец"
+    SetEmptyListContent(
+        merchantName .. " не может предложить товары на продажу",
+        "Вы можете заняться продажей или выкупом предметов."
+    )
+
+    local count = GetMerchantNumItems() or 0
+    if count == 0 then
+        SetEmptyListShown(true)
+        ReanchorItemListBackground(count)
+        return
+    end
+
+    SetEmptyListShown(false)
+    ReanchorItemListBackground(count)
 
     local availableItems = {}
     local unavailableItems = {}
-
-    local count = GetMerchantNumItems()
-
-    if count == 0 then
-        ConsoleMenuFrame.ItemListFrame.EmptyList:Show()
-        ReanchorItemListBackground(count)
-        return
-    else
-        ConsoleMenuFrame.ItemListFrame.EmptyList:Hide()
-    end
-
-    ReanchorItemListBackground(count)
 
     for i = 1, count do
         local info = C_MerchantFrame.GetItemInfo(i)
@@ -536,12 +779,10 @@ local function LoadMerchantData()
         end
     end
 
-    -- Добавление доступных предметов
     for _, item in ipairs(availableItems) do
         dataProvider:Insert(BuildMerchantItemElement(item, false))
     end
 
-    -- Добавление секции недоступных предметов
     if #unavailableItems > 0 then
         dataProvider:Insert({
             type = "separator",
@@ -552,8 +793,56 @@ local function LoadMerchantData()
             dataProvider:Insert(BuildMerchantItemElement(item, true))
         end
     end
+
+    PreloadNearFocusedOrFirst()
 end
 
+-- Загрузить предметы выкупа.
+local function LoadBuybackData()
+    if not dataProvider then
+        return
+    end
+
+    ClearItemListTooltipDataCache()
+    ClearItemListStackSizeDataCache()
+    dataProvider:Flush()
+
+    SetEmptyListContent(
+        "Нет предметов для выкупа",
+        "Продайте предмет торговцу, чтобы выкупить его позже."
+    )
+
+    local count = GetNumBuybackItems() or 0
+    if count == 0 then
+        SetEmptyListShown(true)
+        ReanchorItemListBackground(count)
+        return
+    end
+
+    SetEmptyListShown(false)
+    ReanchorItemListBackground(count)
+
+    for i = 1, count do
+        local name, texture, price, quantity, numAvailable, isUsable = GetBuybackItemInfo(i)
+        if name then
+            local itemID = C_MerchantFrame.GetBuybackItemID and C_MerchantFrame.GetBuybackItemID(i) or nil
+            dataProvider:Insert(BuildBuybackItemElement({
+                slot = i,
+                itemID = itemID,
+                name = name,
+                texture = texture,
+                price = price or 0,
+                stackCount = quantity,
+                numAvailable = numAvailable,
+                isUsable = isUsable,
+            }))
+        end
+    end
+
+    PreloadNearFocusedOrFirst()
+end
+
+-- Обновить одну строку блока валют.
 local function UpdateCurrencyItemFrame(frame, item)
     if not frame then
         return
@@ -586,6 +875,7 @@ local function UpdateCurrencyItemFrame(frame, item)
 
 end
 
+-- Обновить блок валют справа.
 local function UpdateCurrenciesFrame()
     local itemListFrame = ConsoleMenuFrame and ConsoleMenuFrame.ItemListFrame
     if not itemListFrame or not itemListFrame.Currencies or not currenciesData then
@@ -599,6 +889,7 @@ local function UpdateCurrenciesFrame()
     end
 end
 
+-- Считать золото и валюты текущего торговца.
 local function LoadMerchantCurrenciesData()
     currenciesData = {}
 
@@ -609,7 +900,14 @@ local function LoadMerchantCurrenciesData()
         separator = ""
     })
 
-    local merchantCurrencyIDs = C_MerchantFrame.GetMerchantCurrencies()
+    local merchantCurrencyIDs = nil
+    if C_MerchantFrame.GetMerchantCurrencies then
+        merchantCurrencyIDs = C_MerchantFrame.GetMerchantCurrencies()
+    end
+    if not merchantCurrencyIDs and GetMerchantCurrencies then
+        merchantCurrencyIDs = { GetMerchantCurrencies() }
+    end
+
     if merchantCurrencyIDs then
         for i = 1, #merchantCurrencyIDs do
             if #currenciesData >= currenciesMaxItems then
@@ -632,14 +930,15 @@ local function LoadMerchantCurrenciesData()
     end
 end
 
+-- Вкладки торговли и выкупа. Продажу не показываем: в эталоне её нет.
 local function BuildTabs()
     tabs = {
         { title = "Торговля", code = "trade" },
         { title = "Выкуп", code = "buyback" },
-        { title = "Продажа", code = "sell" },
     }
 end
 
+-- Загрузить содержимое выбранной вкладки.
 local function LoadTabData(tab)
     if not tab then
         return
@@ -647,6 +946,8 @@ local function LoadTabData(tab)
 
     if tab.code == "trade" then
         LoadMerchantData()
+    elseif tab.code == "buyback" then
+        LoadBuybackData()
     end
 end
 
@@ -717,28 +1018,38 @@ local function RefreshMerchantTabsLayout()
     UpdateTabs()
 end
 
+-- Поставить фокус на первый товар или предмет выкупа.
 local function FocusFirstListElement()
     if not dataProvider or not dataProvider.collection then
         focusedIndex = 1
         focusedSlot = nil
+        focusedItemType = nil
+        focusedItemExtent = sectionHeight
+        UpdateMerchantActionKeys(nil)
+        ConsoleMenu:UpdateKeysFrame()
         return
     end
 
     local targetElement = nil
     for _, element in ipairs(dataProvider.collection) do
-        if element.type ~= "separator" then
+        if IsListItemType(element.type) then
             targetElement = element
             break
         end
     end
 
     if targetElement then
+        LoadNearItemListTooltipData(targetElement)
+        if targetElement.type == "merchantItem" then
+            LoadNearItemListStackSizeData(targetElement)
+        end
         UpdateFocus(targetElement, true)
         UpdateMerchantActionKeys(targetElement)
         ConsoleMenu:UpdateKeysFrame()
     else
         focusedIndex = 1
         focusedSlot = nil
+        focusedItemType = nil
         focusedItemExtent = sectionHeight
         UpdateMerchantActionKeys(nil)
         ConsoleMenu:UpdateKeysFrame()
@@ -747,6 +1058,31 @@ local function FocusFirstListElement()
     UpdateItemsScrollBarLayout()
 end
 
+-- Восстановить фокус по сохранённому номеру или взять первый пункт.
+local function RestoreOrFocusFirstListElement()
+    local restored = nil
+    if focusedSlot and focusedItemType then
+        restored = FindListItemElementBySlot(focusedSlot, focusedItemType)
+    elseif lastFocusedSlot and lastFocusedType then
+        restored = FindListItemElementBySlot(lastFocusedSlot, lastFocusedType)
+    end
+
+    if restored then
+        LoadNearItemListTooltipData(restored)
+        if restored.type == "merchantItem" then
+            LoadNearItemListStackSizeData(restored)
+        end
+        UpdateFocus(restored, true)
+        UpdateMerchantActionKeys(restored)
+        ConsoleMenu:UpdateKeysFrame()
+        UpdateItemsScrollBarLayout()
+        return
+    end
+
+    FocusFirstListElement()
+end
+
+-- Выбрать вкладку по номеру.
 local function SelectTab(index)
     if index < 1 or index > #tabs then
         return
@@ -758,6 +1094,7 @@ local function SelectTab(index)
     FocusFirstListElement()
 end
 
+-- Переключить вкладку влево или вправо.
 local function SwitchTab(direction)
     if #tabs == 0 then
         return
@@ -773,8 +1110,127 @@ local function SwitchTab(direction)
     SelectTab(newTabIndex)
 end
 
+-- Одна отложенная пересборка списка по событиям торговца.
+local function ScheduleMerchantRefresh(rebuildTabs)
+    merchantRefreshRebuildTabs = merchantRefreshRebuildTabs or rebuildTabs
+    if merchantRefreshQueued then
+        return
+    end
+
+    merchantRefreshQueued = true
+    C_Timer.After(0, function()
+        merchantRefreshQueued = false
+        local needTabs = merchantRefreshRebuildTabs
+        merchantRefreshRebuildTabs = false
+
+        local frame = ConsoleMenuFrame and ConsoleMenuFrame.ItemListFrame
+        if not frame then
+            return
+        end
+
+        if needTabs then
+            BuildTabs()
+            focusedTabIndex = 1
+            RefreshMerchantTabsLayout()
+        end
+
+        local tab = tabs[focusedTabIndex]
+        if tab then
+            LoadTabData(tab)
+        end
+
+        LoadMerchantCurrenciesData()
+        UpdateCurrenciesFrame()
+        RestoreOrFocusFirstListElement()
+        UpdateItemsScrollBarLayout()
+    end)
+end
+
+-- Переназначение кнопок контроллера.
+local function ApplyItemListOverrideBindings(frame)
+    if not frame then
+        return
+    end
+
+    if InCombatLockdown() then
+        pendingOverrideBindings = true
+        return
+    end
+
+    pendingOverrideBindings = false
+    pendingClearOverrideBindings = false
+
+    SetOverrideBindingClick(frame.FocusUpButton, true, "PADDUP", "ItemListFocusUpButton", "LeftButton")
+    SetOverrideBindingClick(frame.FocusDownButton, true, "PADDDOWN", "ItemListFocusDownButton", "LeftButton")
+    SetOverrideBindingClick(frame.TabLeftButton, true, "PADDLEFT", "ItemListTabLeftButton", "LeftButton")
+    SetOverrideBindingClick(frame.TabRightButton, true, "PADDRIGHT", "ItemListTabRightButton", "LeftButton")
+    SetOverrideBindingClick(frame.PrimaryButton, true, "PAD1", "ItemListPrimaryButton", "LeftButton")
+    SetOverrideBindingClick(frame.SecondaryButton, true, "PAD4", "ItemListSecondaryButton", "LeftButton")
+    SetOverrideBindingClick(frame.TertiaryButton, true, "PAD3", "ItemListTertiaryButton", "LeftButton")
+    SetOverrideBindingClick(frame.CloseButton, true, "PAD2", "ItemListCloseButton", "LeftButton")
+end
+
+-- Снять переназначение кнопок контроллера.
+local function ClearItemListOverrideBindings(frame)
+    if not frame then
+        return
+    end
+
+    if InCombatLockdown() then
+        pendingClearOverrideBindings = true
+        return
+    end
+
+    pendingClearOverrideBindings = false
+    pendingOverrideBindings = false
+
+    ClearOverrideBindings(frame)
+    local buttons = {
+        frame.FocusUpButton,
+        frame.FocusDownButton,
+        frame.TabLeftButton,
+        frame.TabRightButton,
+        frame.PrimaryButton,
+        frame.SecondaryButton,
+        frame.TertiaryButton,
+        frame.CloseButton,
+    }
+    for _, button in ipairs(buttons) do
+        if button then
+            ClearOverrideBindings(button)
+        end
+    end
+end
+
+-- Подписка на золото и валюты, пока окно открыто.
+local function SetMerchantMoneyEventsRegistered(frame, isRegistered)
+    if not frame then
+        return
+    end
+
+    if isRegistered then
+        if moneyEventsRegistered then
+            return
+        end
+        frame:RegisterEvent("PLAYER_MONEY")
+        frame:RegisterEvent("CURRENCY_DISPLAY_UPDATE")
+        moneyEventsRegistered = true
+    else
+        if not moneyEventsRegistered then
+            return
+        end
+        frame:UnregisterEvent("PLAYER_MONEY")
+        frame:UnregisterEvent("CURRENCY_DISPLAY_UPDATE")
+        moneyEventsRegistered = false
+    end
+end
+
 -- Инициализация фрейма торговца
 function ConsoleMenu:SetItemListFrame()
+
+    if ConsoleMenuFrame.ItemListFrame and ConsoleMenuFrame.ItemListFrame.IsMerchantFrameInitialized then
+        return
+    end
 
     if not ConsoleMenuFrame.ItemListFrame then
         local frame = CreateFrame("Frame", "ItemListFrame", ConsoleMenuFrame)
@@ -787,7 +1243,6 @@ function ConsoleMenu:SetItemListFrame()
     frame:SetPoint("TOPLEFT", ConsoleMenuFrame, "TOPLEFT", frameLeftOffset, -48 * 4)
     frame:SetWidth(frameWidth)
     frame:SetPoint("BOTTOMLEFT", ConsoleMenuFrame, "BOTTOMLEFT", frameLeftOffset, 48 * 4 + 2)
-    --frame:SetSize(frameWidth, itemsSectionHeight + contentPadding * 2 + titleSectionHeight + 32)
     frame:Hide()
 
     if not frame.Background then
@@ -839,30 +1294,10 @@ function ConsoleMenu:SetItemListFrame()
         description:SetText("Вы можете заняться продажей или выкупом предметов.")
     end
 
-    -- if not frame.Title then
-    --     local title = CreateFrame("Frame", "ItemListFrameTitle", frame)
-    --     frame.Title = title
-    --     title:SetPoint("TOPLEFT", frame, "TOPLEFT", contentPadding, -contentPadding)
-    --     title:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -contentPadding, -contentPadding)
-    --     title:SetHeight(titleSectionHeight)
-
-    --     if not frame.Title.Text then
-    --         local text = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    --         frame.Title.Text = text
-    --         text:SetPoint("TOPLEFT", frame.Title, "TOPLEFT", 0, 0)
-    --         text:SetPoint("TOPRIGHT", frame.Title, "TOPRIGHT", 0, 0)
-    --         text:SetJustifyH("LEFT")
-    --         text:SetFont("Fonts\\FRIZQT___CYR.TTF", titleFontSize, "")
-    --         text:SetTextColor(1.0, 0.82, 0, 1)
-    --         text:SetText("Продавец")
-    --     end
-    -- end
-
     if not frame.Items then
         local items = CreateFrame("Frame", "ItemListFrameItems", frame)
         frame.Items = items
         items:SetAllPoints(frame)
-        --items:SetHeight(itemsSectionHeight)
 
         local scrollBox = CreateFrame("Frame", "ItemListFrameScrollBox", items, "WowScrollBoxList")
         items.ScrollBox = scrollBox
@@ -997,13 +1432,10 @@ function ConsoleMenu:SetItemListFrame()
                 end
 
                 if #visibleLineHeights > 0 then
-                    -- Первая строка lines привязана к title с отступом -sectionPadding.
+                    -- Первая строка описания привязана к названию с отступом.
                     totalHeight = totalHeight + sectionPadding
-                    for i, lineHeight in ipairs(visibleLineHeights) do
+                    for _, lineHeight in ipairs(visibleLineHeights) do
                         totalHeight = totalHeight + lineHeight
-                        if i < #visibleLineHeights then
-                            totalHeight = totalHeight
-                        end
                     end
                 end
 
@@ -1081,7 +1513,7 @@ function ConsoleMenu:SetItemListFrame()
 
             frame.text.title:SetText(data.name or "")
 
-            if data.type == "merchantItem" then
+            if data.type == "merchantItem" or data.type == "buybackItem" then
                 frame.text:ClearAllPoints()
                 frame.text:SetPoint("LEFT", frame.icon, "RIGHT", sectionPadding * 2, -2)
                 frame.text:SetPoint("RIGHT", frame, "RIGHT", -sectionPadding * 4, -2)
@@ -1160,7 +1592,7 @@ function ConsoleMenu:SetItemListFrame()
                     frame.text:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -sectionPadding * 4, -sectionPadding)
                 end
 
-                if not isFocused or data.type ~= "merchantItem" or not data.slot then
+                if not isFocused or not IsListItemType(data.type) or not data.slot then
                     local wasExpanded = frame:GetHeight() > sectionHeight
                     frame:SetHeight(sectionHeight)
                     frame.text.title:SetFont("Fonts\\FRIZQT___CYR.TTF", itemFontSize, "OUTLINE")
@@ -1258,8 +1690,11 @@ function ConsoleMenu:SetItemListFrame()
 
                 local priceText = nil
                 local priceIconTextures = {}
-                if not data.isUnavailable and data.type == "merchantItem" then
-                    local costCount = data.slot and (GetMerchantItemCostInfo(data.slot) or 0) or 0
+                if not data.isUnavailable and IsListItemType(data.type) then
+                    local costCount = 0
+                    if data.type == "merchantItem" and data.slot then
+                        costCount = GetMerchantItemCostInfo(data.slot) or 0
+                    end
                     if costCount > 0 and data.slot then
                         local costParts = {}
 
@@ -1389,8 +1824,9 @@ function ConsoleMenu:SetItemListFrame()
                 return previousExtent ~= newExtent
             end
 
-            local isCurrentFocused = data.type == "merchantItem"
+            local isCurrentFocused = IsListItemType(data.type)
                 and focusedSlot ~= nil
+                and focusedItemType == data.type
                 and data.slot == focusedSlot
             frame:SetFocused(isCurrentFocused)
 
@@ -1408,7 +1844,7 @@ function ConsoleMenu:SetItemListFrame()
         else
             scrollView:SetElementExtent(sectionHeight)
         end
-        scrollView:SetElementInitializer("Button", Initializer, "SecureActionButtonTemplate")
+        scrollView:SetElementInitializer("Button", Initializer)
     
         ScrollUtil.InitScrollBoxListWithScrollBar(scrollBox, scrollBar, scrollView)
         scrollBox:SetDataProvider(dataProvider)
@@ -1639,121 +2075,76 @@ function ConsoleMenu:SetItemListFrame()
         frame.FocusBindingHooksSet = true
 
         frame:HookScript("OnShow", function(self)
-
-            local targetElement = nil
-            if lastFocusedSlot then
-                for _, element in ipairs(dataProvider.collection) do
-                    if element.type == "merchantItem" and element.slot == lastFocusedSlot then
-                        targetElement = element
-                        break
-                    end
-                end
-            end
-
-            if not targetElement then
-                for _, element in ipairs(dataProvider.collection) do
-                    if element.type == "merchantItem" then
-                        targetElement = element
-                        break
-                    end
-                end
-            end
-
-            if targetElement then
-                UpdateFocus(targetElement, true)
-            else
-                focusedIndex = 1
-                focusedSlot = nil
-            end
-            
-            SetOverrideBindingClick(self.FocusUpButton, true, "PADDUP", "ItemListFocusUpButton", "LeftButton")
-            SetOverrideBindingClick(self.FocusDownButton, true, "PADDDOWN", "ItemListFocusDownButton", "LeftButton")
-            SetOverrideBindingClick(self.TabLeftButton, true, "PADDLEFT", "ItemListTabLeftButton", "LeftButton")
-            SetOverrideBindingClick(self.TabRightButton, true, "PADDRIGHT", "ItemListTabRightButton", "LeftButton")
-            SetOverrideBindingClick(self.PrimaryButton, true, "PAD1", "ItemListPrimaryButton", "LeftButton")
-            SetOverrideBindingClick(self.SecondaryButton, true, "PAD4", "ItemListSecondaryButton", "LeftButton")
-            SetOverrideBindingClick(self.TertiaryButton, true, "PAD3", "ItemListTertiaryButton", "LeftButton")
-            SetOverrideBindingClick(self.CloseButton, true, "PAD2", "ItemListCloseButton", "LeftButton")
+            SetMerchantMoneyEventsRegistered(self, true)
+            RestoreOrFocusFirstListElement()
+            ApplyItemListOverrideBindings(self)
         end)
 
         frame:HookScript("OnHide", function(self)
-            if InCombatLockdown() then return end
-
+            lastFocusedSlot = focusedSlot
+            lastFocusedType = focusedItemType
             focusedSlot = nil
+            focusedItemType = nil
             focusedItemExtent = sectionHeight
-
-            ClearOverrideBindings(self)
-            if self.FocusUpButton then
-                ClearOverrideBindings(self.FocusUpButton)
-            end
-            if self.FocusDownButton then
-                ClearOverrideBindings(self.FocusDownButton)
-            end
-            if self.TabLeftButton then
-                ClearOverrideBindings(self.TabLeftButton)
-            end
-            if self.TabRightButton then
-                ClearOverrideBindings(self.TabRightButton)
-            end
-            if self.PrimaryButton then
-                ClearOverrideBindings(self.PrimaryButton)
-            end
-            if self.SecondaryButton then
-                ClearOverrideBindings(self.SecondaryButton)
-            end
-            if self.TertiaryButton then
-                ClearOverrideBindings(self.TertiaryButton)
-            end
-            if self.CloseButton then
-                ClearOverrideBindings(self.CloseButton)
-            end
+            SetMerchantMoneyEventsRegistered(self, false)
+            ClearItemListOverrideBindings(self)
         end)
     end
 
     frame:RegisterEvent("MERCHANT_SHOW")
     frame:RegisterEvent("MERCHANT_UPDATE")
     frame:RegisterEvent("MERCHANT_CLOSED")
+    frame:RegisterEvent("TOOLTIP_DATA_UPDATE")
+    frame:RegisterEvent("PLAYER_REGEN_ENABLED")
 
     frame:SetScript("OnEvent", function(self, event, ...)
-
         if event == "MERCHANT_CLOSED" then
-            ClearItemListTooltipDataCache()
-            ClearItemListStackSizeDataCache()
-            focusedItemExtent = sectionHeight
-            dataProvider:Flush()
+            ResetMerchantSelection()
+            if dataProvider then
+                dataProvider:Flush()
+            end
             currenciesData = {}
             tabs = {}
             focusedTabIndex = 1
+            SetMerchantMoneyEventsRegistered(self, false)
             return
         end
 
-        C_Timer.After(0, function()
-            if event == "MERCHANT_SHOW" then
-                BuildTabs()
-                focusedTabIndex = 1
-                RefreshMerchantTabsLayout()
-            end
+        if event == "TOOLTIP_DATA_UPDATE" then
+            local dataInstanceID = ...
+            OnTooltipDataUpdate(dataInstanceID)
+            return
+        end
 
-            local tab = tabs[focusedTabIndex]
-            if tab then
-                LoadTabData(tab)
+        if event == "PLAYER_REGEN_ENABLED" then
+            if pendingClearOverrideBindings and not self:IsShown() then
+                ClearItemListOverrideBindings(self)
+            elseif pendingOverrideBindings and self:IsShown() then
+                ApplyItemListOverrideBindings(self)
             end
+            return
+        end
 
+        if event == "PLAYER_MONEY" or event == "CURRENCY_DISPLAY_UPDATE" then
             LoadMerchantCurrenciesData()
-
-            if focusedSlot then
-                for _, element in ipairs(dataProvider.collection) do
-                    if element.type == "merchantItem" and element.slot == focusedSlot then
-                        UpdateFocus(element, true)
-                        break
-                    end
-                end
-            end
-
             UpdateCurrenciesFrame()
-            UpdateItemsScrollBarLayout()
-        end)
+            UpdateMerchantActionKeys(GetFocusedElement())
+            ConsoleMenu:UpdateKeysFrame()
+            return
+        end
+
+        if event == "MERCHANT_SHOW" then
+            ResetMerchantSelection()
+            ScheduleMerchantRefresh(true)
+            return
+        end
+
+        if event == "MERCHANT_UPDATE" then
+            ScheduleMerchantRefresh(false)
+        end
     end)
+
+    frame.IsMerchantFrameInitialized = true
 end
 
 -- Показать фрейм торговца

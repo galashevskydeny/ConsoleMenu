@@ -108,19 +108,21 @@ end
 function Compass:SelectMarkers(facing, width, live)
     local C = self.Constants
     local selection = self.selectedMarkers
-    local arrival = self.arrivalMarker
-    -- После завершения анимации на полосе остаётся только точка прибытия.
-    if arrival and (self.arrivalBlend or 0) >= 1 then
-        if live and not self.selectionDirty and #selection == 1 and selection[1] == arrival then
-            arrival.projectedX, arrival.projectedAlpha, arrival.projectedDelta = 0, 1, 0
+    local focus = self.arrivalMarker or self.arrivalLeaving
+    local blend = self.arrivalBlend or 0
+    -- Пока точка гаснет на месте, веер значков ещё не показываем.
+    local lock = focus and ((self.arrivalMarker and blend >= 1) or (not self.arrivalMarker and blend > 0))
+    if lock then
+        if live and not self.selectionDirty and #selection == 1 and selection[1] == focus then
+            focus.projectedX, focus.projectedAlpha, focus.projectedDelta = 0, 1, 0
             return selection
         end
         wipe(selection)
         self.markerSlotsDirty = true
-        arrival.projectedX, arrival.projectedAlpha, arrival.projectedDelta = 0, 1, 0
-        selection[1] = arrival
+        focus.projectedX, focus.projectedAlpha, focus.projectedDelta = 0, 1, 0
+        selection[1] = focus
         wipe(self.selectionKeys)
-        self.selectionKeys[arrival.key] = true
+        self.selectionKeys[focus.key] = true
         self.selectionFacing, self.selectionTurnMin, self.selectionTurnMax = facing, -C.HALF_TURN, C.HALF_TURN
         self.selectionDirty = false
         return selection
@@ -181,23 +183,28 @@ function Compass:UpdateArrivalBlend(elapsed)
     local C = self.Constants
     if self.arrivalMarker then
         self.arrivalLeaving = self.arrivalMarker
+        self.arrivalFanReveal = false
     end
     local target = self.arrivalMarker and 1 or 0
     local blend = self.arrivalBlend or 0
     if blend ~= target then
         local duration = C.ARRIVAL_BLEND_DURATION
         local step = duration > 0 and math.max(0, elapsed or 0) / duration or 1
+        local fadingOut = target == 0 and blend > 0
         if blend < target then
             blend = math.min(target, blend + step)
         else
             blend = math.max(target, blend - step)
+        end
+        if fadingOut and blend <= 0 then
+            self.arrivalFanReveal = true
         end
         self.arrivalBlend = blend
         self.renderDirty = true
     end
     self.arrivalBlendPending = blend ~= target
     self.arrivalEase = blend * blend * (3 - 2 * blend)
-    if blend <= 0 and not self.arrivalMarker then
+    if not self.arrivalMarker and blend <= 0 then
         self.arrivalLeaving = nil
         self.arrivalEase = 0
     end
@@ -206,11 +213,13 @@ end
 -- Сдвигает точку прибытия к центру и гасит остальные значки по мере анимации.
 function Compass:ApplyArrivalBlend(selection)
     local ease = self.arrivalEase or 0
-    if ease <= 0 then
+    local focus = self.arrivalMarker or self.arrivalLeaving
+    if ease <= 0 or not focus then
         return selection
     end
-    local focus = self.arrivalMarker or self.arrivalLeaving
-    if not focus then
+    if not self.arrivalMarker then
+        -- Исчезновение: значок остаётся в центре и гаснет на месте.
+        focus.projectedX, focus.projectedAlpha, focus.projectedDelta = 0, ease, 0
         return selection
     end
     local found
@@ -354,10 +363,20 @@ function Compass:AssignMarkerSlots(selection, live)
             byKey[marker.key], nextSlots[index] = slot, slot
             assignedNew = true
         end
-        if marker == self.arrivalMarker or marker == self.arrivalLeaving or (self.arrivalBlend or 0) > 0 then
+        if self.arrivalFanReveal then
+            slot.revealAt = nil
+            slot.appearStart = self.markerClock
+            slot.smoothLeft = nil
+        elseif marker == self.arrivalMarker or marker == self.arrivalLeaving or (self.arrivalBlend or 0) > 0 then
             slot.revealAt, slot.appearStart = nil, nil
         elseif self.rangeChanged and not slot.renderShown then
             slot.appearStart = self.markerClock
+            slot.revealAt = nil
+        elseif self.markerFadeIn and not slot.renderShown then
+            -- Пока сама полоса проявляется, значки идут с ней; иначе проявляем отдельно.
+            if not (self.frame.fadeIn and self.frame.fadeIn:IsPlaying()) then
+                slot.appearStart = self.markerClock
+            end
             slot.revealAt = nil
         elseif not live or marker.navigation or marker.priority <= C.TRACKED_QUEST_PRIORITY then
             slot.revealAt = nil
@@ -366,7 +385,10 @@ function Compass:AssignMarkerSlots(selection, live)
         end
         slot.selected = true
     end
-    self.rangeChanged = false
+    self.rangeChanged, self.arrivalFanReveal = false, false
+    if self.markerFadeIn and #selection > 0 then
+        self.markerFadeIn = false
+    end
     for _, slot in ipairs(slots) do
         if slot.markerGeneration ~= generation then
             slot.selected, slot.revealAt = false, nil

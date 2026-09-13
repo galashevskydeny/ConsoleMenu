@@ -496,6 +496,8 @@ local function ApplyWindowKeys(contextData)
         end)
 
         ConsoleMenu:AddKeysFrameItem("PAD2", "Выйти")
+        ConsoleMenu:AddKeysFrameItem("PADDLEFTRIGHT", "Переключение вкладок")
+        ConsoleMenu:UpdateItemListFrameKeysFrame()
 
         ConsoleMenu:PlayFadeOut(ObjectiveTrackerFrame)
         ConsoleMenu:AnimatedHide(Minimap)
@@ -673,15 +675,12 @@ function ConsoleMenu:ApplyContextUIChanges()
         if IsEncounterTimelineShown() then
             ConsoleMenu:PlayFadeOut(ObjectiveTrackerFrame)
             ConsoleMenu:AnimatedHide(Minimap)
-            if ConsoleMenu.Compass then
-                ConsoleMenu.Compass:SetContextHidden(true)
-            end
         else
             ConsoleMenu:PlayFadeIn(ObjectiveTrackerFrame)
             ConsoleMenu:AnimatedShow(Minimap)
-            if ConsoleMenu.Compass then
-                ConsoleMenu.Compass:SetContextHidden(false)
-            end
+        end
+        if ConsoleMenu.Compass then
+            ConsoleMenu.Compass:SetContextHidden(context == "combat" or IsEncounterTimelineShown())
         end
 
         ConsoleMenu:HideItemListFrame()
