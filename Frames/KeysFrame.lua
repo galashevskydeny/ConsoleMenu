@@ -17,6 +17,9 @@ local stackCountShadowOffsef = 12
 
 local padding = 12
 
+-- Размер пятна тени
+local backgroundSize = 1000
+
 local fontSize = 16
 
 local animationDuration = 0.1
@@ -322,18 +325,22 @@ function ConsoleMenu:SetKeysFrame()
     local frame = ConsoleMenuFrame.KeysFrame
     frame:SetSize(frameWidth, frameHeight)
     frame:SetPoint("BOTTOMRIGHT", ConsoleMenuFrame, "BOTTOMRIGHT", -48, 48)
+    frame:SetClipsChildren(false)
 
+    -- Тень вешается на полноэкранный кадр, иначе список подсказок обрезает пятно
     if not frame.Background then
-        frame.Background = frame:CreateTexture(nil, "BACKGROUND")
-        frame.Background:SetWidth(800)
-        frame.Background:SetHeight(320)
-        frame.Background:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", 400, -64)
-        frame.Background:SetAtlas("MapCornerShadow-Right")
-        frame.Background:SetAlpha(0.85)
+        frame.Background = ConsoleMenuFrame:CreateTexture(nil, "BACKGROUND")
+        frame.Background:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\CrossBackgorund.png")
+        frame.Background:SetDrawLayer("BACKGROUND", 0)
         frame.Background:Hide()
 
         ConsoleMenu:InitFadeAnimations(frame.Background, animationDuration)
     end
+
+    -- Центр пятна совпадает с нижним правым углом экрана
+    frame.Background:ClearAllPoints()
+    frame.Background:SetSize(backgroundSize, backgroundSize)
+    frame.Background:SetPoint("CENTER", UIParent, "BOTTOMRIGHT", 0, 0)
 
     if not frame.Items then
         frame.Items = {}
