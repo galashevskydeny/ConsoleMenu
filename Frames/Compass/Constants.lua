@@ -6,8 +6,8 @@ local ConsoleMenu = _G.ConsoleMenu
 -- Состояние и функции полосы навигации.
 local Compass = {}
 ConsoleMenu.Compass = Compass
--- Набор точек «поблизости» и список гаснущих после выхода из радиуса.
-Compass.arrivalMarkers, Compass.arrivalKeys, Compass.arrivalLeaving = {}, {}, {}
+-- Набор точек «поблизости», гаснущие после выхода и слоты, которые ещё доигрывают уход.
+Compass.arrivalMarkers, Compass.arrivalKeys, Compass.arrivalLeaving, Compass.nearbyFading = {}, {}, {}, {}
 
 -- Числа внешнего вида и работы полосы.
 Compass.Constants = {
@@ -23,10 +23,11 @@ Compass.Constants = {
     RANGE_FLYING = 875,
     VIEW_ANGLE = 90,
     METERS_PER_YARD = 0.9144,
-    NEARBY_METERS = 25,
+    NEARBY_METERS = 20,
     NEARBY_MAX = 3, -- Сколько точек держать в режиме «поблизости».
     NEARBY_SLOT_GAP = 8, -- Зазор между подписями соседних слотов.
     NEARBY_BAND_FRACTION = 0.8, -- Доля длины полосы, которую делят слоты.
+    NEARBY_MOTION_DURATION = 0.15, -- Появление, уход и сдвиг слотов.
     LINE_THICKNESS = 3,
     LINE_ALPHA = 0.6,
     LINE_FADE_FRACTION = 0.18,
@@ -57,7 +58,7 @@ Compass.Constants = {
     MARKER_RETAINED_DISTANCE_SQUARED = 0.64,
     MARKER_REVEAL_DELAY = 0.08,
     MARKER_APPEAR_DURATION = 0.2,
-    ARRIVAL_BLEND_DURATION = 0.2,
+    ARRIVAL_BLEND_DURATION = 0.15,
     MARKER_SMOOTH_TIME = 0.05,
     MARKER_SMOOTH_SNAP = 80,
     MARKER_RANGE_FADE_FRACTION = 0.05,

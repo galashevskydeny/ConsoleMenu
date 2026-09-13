@@ -156,6 +156,7 @@ function Compass:OnUpdate(elapsed)
             or self.markerRevealPending
             or self.markerSmoothPending
             or self.arrivalBlendPending
+            or self.nearbyMotionPending
             or self.renderFacing ~= facing
         )
     then
@@ -202,7 +203,7 @@ function ConsoleMenu:SetCompassFrame()
     Compass:InitPixel()
     Compass.markers, Compass.bearings = {}, {}
     Compass.selectionKeys = {}
-    Compass.arrivalMarkers, Compass.arrivalKeys, Compass.arrivalLeaving = {}, {}, {}
+    Compass.arrivalMarkers, Compass.arrivalKeys, Compass.arrivalLeaving, Compass.nearbyFading = {}, {}, {}, {}
     Compass.arrivalBlend, Compass.arrivalEase, Compass.arrivalBlendPending, Compass.arrivalFanReveal = 0, 0, false, false
     Compass.viewAngle = C.VIEW_ANGLE
     Compass.range = C.RANGE_WALK

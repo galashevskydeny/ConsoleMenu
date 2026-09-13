@@ -190,6 +190,8 @@ function Compass:ClearMarkers()
     wipe(self.arrivalMarkers)
     wipe(self.arrivalKeys)
     wipe(self.arrivalLeaving)
+    wipe(self.nearbyFading)
+    self.nearbyDisplayWidth, self.nearbySlotWidth = nil, nil
     self.arrivalBlend, self.arrivalEase, self.arrivalBlendPending, self.arrivalFanReveal = 0, 0, false, false
     self.selectionDirty = true
     self:HideDetail()
@@ -295,6 +297,7 @@ function Compass:Render(facing, live, elapsed)
     end
     self.markerSmoothElapsed = elapsed or 0
     self:UpdateArrivalBlend(self.markerSmoothElapsed)
+    self:UpdateNearbyMotion(self.markerSmoothElapsed)
     local layout = self.artworkLayout
     local scale, width = layout.scale, layout.contentWidth
     self:RenderHeadings(facing)

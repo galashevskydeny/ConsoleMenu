@@ -84,6 +84,8 @@ function Compass:UpdateBearings(x, y)
         wipe(self.arrivalMarkers)
         wipe(self.arrivalKeys)
         wipe(self.arrivalLeaving)
+        wipe(self.nearbyFading)
+        self.nearbyDisplayWidth, self.nearbySlotWidth = nil, nil
         self.arrivalBlend, self.arrivalEase, self.arrivalBlendPending = 0, 0, false
         self.selectionDirty = true
         wipe(self.bearings)
@@ -144,7 +146,43 @@ function Compass:IsNearbyFocus(marker)
             return true
         end
     end
+    local fading = self.nearbyFading
+    for index = 1, #fading do
+        if fading[index].key == marker.key then
+            return true
+        end
+    end
     return false
+end
+
+-- Оставляет ушедшую точку на месте, пока она не догаснет.
+function Compass:QueueNearbyFade(marker)
+    if not marker then
+        return
+    end
+    local fading = self.nearbyFading
+    for index = 1, #fading do
+        if fading[index].key == marker.key then
+            return
+        end
+    end
+    marker.nearbyHoldX = marker.nearbyX or marker.projectedX or 0
+    marker.nearbyFade = marker.nearbyFade or 1
+    fading[#fading + 1] = marker
+    self.nearbyMotionPending = true
+    self.selectionDirty = true
+    self.renderDirty = true
+end
+
+-- Убирает точку из догасающих, если она снова в наборе.
+local function CancelNearbyFade(self, marker)
+    local fading = self.nearbyFading
+    for index = #fading, 1, -1 do
+        if fading[index].key == marker.key then
+            table.remove(fading, index)
+        end
+    end
+    marker.nearbyFade, marker.nearbyHoldX = nil, nil
 end
 
 -- Собирает до трёх точек в радиусе прибытия и удерживает их, пока игрок внутри зоны.
@@ -154,6 +192,7 @@ function Compass:RefreshArrival()
     local maxCount = C.NEARBY_MAX
     local held, keys, list = self.arrivalMarkers, self.arrivalKeys, self.markers
     local changed = false
+    local dropped
     local write = 1
     for index = 1, #held do
         local previous = held[index]
@@ -175,6 +214,8 @@ function Compass:RefreshArrival()
             write = write + 1
         else
             changed = true
+            dropped = dropped or {}
+            dropped[#dropped + 1] = previous
         end
     end
     for index = #held, write, -1 do
@@ -201,9 +242,18 @@ function Compass:RefreshArrival()
         if not best then
             break
         end
+        local slot = self.markerSlotsByKey and self.markerSlotsByKey[best.key]
+        best.nearbyAppear = (slot and slot.renderShown) and 1 or 0
+        CancelNearbyFade(self, best)
         held[#held + 1] = best
         keys[best.key] = true
         changed = true
+    end
+    -- Последняя точка гаснет вместе с режимом, остальные — на своём месте.
+    if #held > 0 and dropped then
+        for index = 1, #dropped do
+            self:QueueNearbyFade(dropped[index])
+        end
     end
     if changed then
         self.selectionDirty = true
