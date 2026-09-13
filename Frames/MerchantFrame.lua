@@ -19,13 +19,14 @@ local itemFontSize = 18
 local focusedItemFontSize = itemFontSize + 2
 local descriptionFontSize = 14
 local tabFontSize = 22
+local maxTooltipDescriptionLines = 20
 
 -- Максимум дополнительных цен у одного товара в эталоне клиента.
 local maxItemCost = 3
 
 local focusedTabIndex = 1
 local tabs = {}
-local merchantTabSlotCount = 2
+local merchantTabSlotCount = 3
 
 local currencyIconSize = 20
 local currencyIconOverlap = currencyIconSize / 4
@@ -33,9 +34,12 @@ local currencyIconDualHeight = currencyIconSize * 2 - currencyIconOverlap
 
 local focusedIndex = 1
 local focusedSlot = nil
+local focusedBag = nil
 local focusedItemType = nil
 local lastFocusedSlot = nil
+local lastFocusedBag = nil
 local lastFocusedType = nil
+local lastFocusedIndex = 1
 local focusedItemExtent = sectionHeight
 
 -- Запас подсказок и пределов пачки: ключ — тип пункта и номер.
@@ -45,6 +49,7 @@ local itemListStackSizeDataCache = {}
 
 local merchantRefreshQueued = false
 local merchantRefreshRebuildTabs = false
+local tooltipRefreshQueued = false
 local pendingOverrideBindings = false
 local pendingClearOverrideBindings = false
 local moneyEventsRegistered = false
@@ -143,31 +148,51 @@ local function UpdateItemsScrollBarLayout()
     end
 end
 
--- Высота строки списка: выделенный товар может быть выше остальных.
+-- Товар, выкуп или предмет из сумки — обычная строка списка, не разделитель.
 local function IsListItemType(itemType)
-    return itemType == "merchantItem" or itemType == "buybackItem"
+    return itemType == "merchantItem" or itemType == "buybackItem" or itemType == "bagItem"
 end
 
+-- Совпадает ли пункт с текущим фокусом, учитывая сумку для продажи.
+local function IsFocusedListElement(elementData)
+    if not elementData or not IsListItemType(elementData.type) then
+        return false
+    end
+    if not focusedSlot or focusedItemType ~= elementData.type then
+        return false
+    end
+    if elementData.type == "bagItem" then
+        return elementData.slot == focusedSlot and elementData.bag == focusedBag
+    end
+    return elementData.slot == focusedSlot
+end
+
+-- Высота строки списка: выделенный товар может быть выше остальных.
 local function GetItemListElementExtent(elementData)
-    if elementData
-        and IsListItemType(elementData.type)
-        and focusedSlot
-        and focusedItemType
-        and elementData.slot == focusedSlot
-        and elementData.type == focusedItemType
-    then
+    if IsFocusedListElement(elementData) then
         return math.max(sectionHeight, focusedItemExtent or sectionHeight)
     end
 
     return sectionHeight
 end
 
--- Ключ запаса сведений по типу пункта и номеру.
-local function GetCacheKey(itemType, slot)
+-- Ключ запаса сведений по типу пункта, сумке и номеру ячейки.
+local function GetCacheKey(itemType, slot, bag)
     if not itemType or not slot then
         return nil
     end
+    if bag ~= nil then
+        return itemType .. ":" .. tostring(bag) .. ":" .. tostring(slot)
+    end
     return itemType .. ":" .. tostring(slot)
+end
+
+-- Ключ запаса по данным пункта списка.
+local function GetElementCacheKey(element)
+    if not element then
+        return nil
+    end
+    return GetCacheKey(element.type, element.slot, element.bag)
 end
 
 -- Сбросить запас подсказок.
@@ -185,9 +210,12 @@ end
 local function ResetMerchantSelection()
     focusedIndex = 1
     focusedSlot = nil
+    focusedBag = nil
     focusedItemType = nil
     lastFocusedSlot = nil
+    lastFocusedBag = nil
     lastFocusedType = nil
+    lastFocusedIndex = 1
     focusedItemExtent = sectionHeight
     ClearItemListTooltipDataCache()
     ClearItemListStackSizeDataCache()
@@ -206,6 +234,7 @@ local function UpdateFocus(element, changeFocus)
 
     local scrollBox = frame.Items.ScrollBox
     local layoutChanged = false
+    local previousExtent = focusedItemExtent
 
     focusedIndex = scrollBox:FindElementDataIndex(element)
     if not focusedIndex then
@@ -214,14 +243,18 @@ local function UpdateFocus(element, changeFocus)
 
     local nextSlot = IsListItemType(element.type) and element.slot or nil
     local nextType = IsListItemType(element.type) and element.type or nil
-    local slotChanged = nextSlot ~= focusedSlot or nextType ~= focusedItemType
+    local nextBag = element.type == "bagItem" and element.bag or nil
+    local slotChanged = nextSlot ~= focusedSlot or nextType ~= focusedItemType or nextBag ~= focusedBag
     if slotChanged then
         focusedItemExtent = sectionHeight
     end
     focusedSlot = nextSlot
+    focusedBag = nextBag
     focusedItemType = nextType
     lastFocusedSlot = nextSlot
+    lastFocusedBag = nextBag
     lastFocusedType = nextType
+    lastFocusedIndex = focusedIndex
 
     if changeFocus then
         scrollBox:ScrollToElementDataIndex(focusedIndex)
@@ -241,7 +274,7 @@ local function UpdateFocus(element, changeFocus)
         layoutChanged = focusedFrame:SetFocused(true) or layoutChanged
     end
 
-    if layoutChanged or slotChanged then
+    if layoutChanged or focusedItemExtent ~= previousExtent then
         UpdateItemsScrollBarLayout()
     end
 end
@@ -306,7 +339,7 @@ local function GetListItemStackSize(element)
         return 1
     end
 
-    local cacheKey = GetCacheKey(element.type, element.slot)
+    local cacheKey = GetElementCacheKey(element)
     local cachedMaxStack = cacheKey and itemListStackSizeDataCache[cacheKey]
     local maxStack = cachedMaxStack
 
@@ -327,13 +360,13 @@ local function GetListItemStackSize(element)
     return GetAffordablePurchaseCount(element.slot, maxStack)
 end
 
--- Запросить подсказку товара или выкупа. Неполный снимок можно показать, но не запирать.
+-- Запросить подсказку товара, выкупа или предмета из сумки. Неполный снимок можно показать, но не запирать.
 local function GetListItemTooltipData(element, forceRefresh)
     if not element or not element.slot or not IsListItemType(element.type) then
         return nil
     end
 
-    local cacheKey = GetCacheKey(element.type, element.slot)
+    local cacheKey = GetElementCacheKey(element)
     if not forceRefresh and cacheKey then
         local cached = itemListTooltipDataCache[cacheKey]
         if cached then
@@ -346,6 +379,8 @@ local function GetListItemTooltipData(element, forceRefresh)
         tooltipData = C_TooltipInfo.GetMerchantItem(element.slot)
     elseif element.type == "buybackItem" then
         tooltipData = C_TooltipInfo.GetBuybackItem(element.slot)
+    elseif element.type == "bagItem" and element.bag ~= nil then
+        tooltipData = C_TooltipInfo.GetBagItem(element.bag, element.slot)
     end
 
     if cacheKey then
@@ -375,8 +410,8 @@ local function GetListItemTooltipData(element, forceRefresh)
     return tooltipData
 end
 
--- Найти пункт списка по типу и номеру. Без заглушки: только реальные строки.
-local function FindListItemElementBySlot(slot, itemType)
+-- Найти пункт списка по типу, ячейке и сумке. Без заглушки: только реальные строки.
+local function FindListItemElementBySlot(slot, itemType, bag)
     if not dataProvider or not dataProvider.collection or not slot then
         return nil
     end
@@ -384,8 +419,49 @@ local function FindListItemElementBySlot(slot, itemType)
     for _, element in ipairs(dataProvider.collection) do
         if element.type ~= "separator" and element.slot == slot then
             if not itemType or element.type == itemType then
-                return element
+                if itemType == "bagItem" then
+                    if element.bag == bag then
+                        return element
+                    end
+                else
+                    return element
+                end
             end
+        end
+    end
+
+    return nil
+end
+
+-- Найти ближайший предмет списка начиная с сохранённого номера строки.
+local function FindNearestListItemElement(startIndex)
+    if not dataProvider or not dataProvider.collection then
+        return nil
+    end
+
+    local size = #dataProvider.collection
+    if size == 0 then
+        return nil
+    end
+
+    local fromIndex = startIndex or 1
+    if fromIndex < 1 then
+        fromIndex = 1
+    elseif fromIndex > size then
+        fromIndex = size
+    end
+
+    for i = fromIndex, size do
+        local element = dataProvider.collection[i]
+        if element and IsListItemType(element.type) then
+            return element
+        end
+    end
+
+    for i = fromIndex - 1, 1, -1 do
+        local element = dataProvider.collection[i]
+        if element and IsListItemType(element.type) then
+            return element
         end
     end
 
@@ -474,7 +550,7 @@ local function OnTooltipDataUpdate(dataInstanceID)
     else
         local element = GetFocusedElement()
         if element and IsListItemType(element.type) then
-            local cacheKey = GetCacheKey(element.type, element.slot)
+            local cacheKey = GetElementCacheKey(element)
             local cached = cacheKey and itemListTooltipDataCache[cacheKey]
             if cached then
                 if cached.instanceID then
@@ -483,7 +559,7 @@ local function OnTooltipDataUpdate(dataInstanceID)
                 itemListTooltipDataCache[cacheKey] = nil
             end
             for _, neighbor in ipairs(GetNeighborElements(element)) do
-                local neighborKey = GetCacheKey(neighbor.type, neighbor.slot)
+                local neighborKey = GetElementCacheKey(neighbor)
                 local neighborCached = neighborKey and itemListTooltipDataCache[neighborKey]
                 if neighborCached then
                     if neighborCached.instanceID then
@@ -500,8 +576,21 @@ local function OnTooltipDataUpdate(dataInstanceID)
         return
     end
 
-    LoadNearItemListTooltipData(element)
-    RefreshFocusedItemFrame()
+    if tooltipRefreshQueued then
+        return
+    end
+
+    tooltipRefreshQueued = true
+    C_Timer.After(0, function()
+        tooltipRefreshQueued = false
+        local focusedElement = GetFocusedElement()
+        if not focusedElement or not IsListItemType(focusedElement.type) then
+            return
+        end
+
+        LoadNearItemListTooltipData(focusedElement)
+        RefreshFocusedItemFrame()
+    end)
 end
 
 -- Нужно ли чинить снаряжение у этого торговца.
@@ -518,10 +607,23 @@ local function NeedsEquipmentRepair()
     return repairCost and repairCost > 0
 end
 
+-- Можно ли продать весь хлам у этого торговца.
+local function CanSellAllJunk()
+    if not C_MerchantFrame.IsSellAllJunkEnabled or not C_MerchantFrame.GetNumJunkItems then
+        return false
+    end
+    if not C_MerchantFrame.IsSellAllJunkEnabled() then
+        return false
+    end
+    local numJunkItems = C_MerchantFrame.GetNumJunkItems()
+    return numJunkItems and numJunkItems > 0
+end
+
 -- Подсказки кнопок для выбранного пункта и текущей вкладки.
 local function UpdateMerchantActionKeys(element)
     local tab = tabs[focusedTabIndex]
     local canRepair = tab and tab.code == "trade" and NeedsEquipmentRepair()
+    local canSellAllJunk = tab and tab.code == "sell" and CanSellAllJunk()
 
     if element and element.type == "merchantItem" and not element.isUnavailable then
         ConsoleMenu:AddKeysFrameItem("PAD1", "Купить предмет")
@@ -539,6 +641,14 @@ local function UpdateMerchantActionKeys(element)
         ConsoleMenu:AddKeysFrameItem("PAD1", "Выкупить предмет")
         ConsoleMenu:DeleteKeysFrameItem("PAD3")
         ConsoleMenu:DeleteKeysFrameItem("PAD4")
+    elseif element and element.type == "bagItem" then
+        ConsoleMenu:AddKeysFrameItem("PAD1", "Продать предмет")
+        ConsoleMenu:DeleteKeysFrameItem("PAD3")
+        if canSellAllJunk then
+            ConsoleMenu:AddKeysFrameItem("PAD4", "Продать весь хлам")
+        else
+            ConsoleMenu:DeleteKeysFrameItem("PAD4")
+        end
     else
         ConsoleMenu:DeleteKeysFrameItem("PAD1")
         if canRepair then
@@ -546,7 +656,11 @@ local function UpdateMerchantActionKeys(element)
         else
             ConsoleMenu:DeleteKeysFrameItem("PAD3")
         end
-        ConsoleMenu:DeleteKeysFrameItem("PAD4")
+        if canSellAllJunk then
+            ConsoleMenu:AddKeysFrameItem("PAD4", "Продать весь хлам")
+        else
+            ConsoleMenu:DeleteKeysFrameItem("PAD4")
+        end
     end
 end
 
@@ -598,7 +712,7 @@ function ConsoleMenu:UpdateItemListFrameKeysFrame()
     UpdateMerchantActionKeys(GetFocusedElement())
 end
 
--- Купить товар или выкупить предмет.
+-- Купить товар, выкупить предмет или продать содержимое ячейки сумки.
 local function PrimaryAction()
     local focusedElement = GetFocusedElement()
     if not focusedElement or not focusedSlot then
@@ -612,12 +726,21 @@ local function PrimaryAction()
         BuyMerchantItem(focusedSlot)
     elseif focusedElement.type == "buybackItem" then
         BuybackItem(focusedSlot)
+    elseif focusedElement.type == "bagItem" and focusedElement.bag ~= nil then
+        C_Container.UseContainerItem(focusedElement.bag, focusedSlot)
     end
 end
 
--- Купить пачку товаров у торговца.
+-- Купить пачку товаров или продать весь хлам.
 local function SecondaryAction()
     local tab = tabs[focusedTabIndex]
+    if tab and tab.code == "sell" then
+        if CanSellAllJunk() then
+            C_MerchantFrame.SellAllJunkItems()
+        end
+        return
+    end
+
     if not tab or tab.code ~= "trade" then
         return
     end
@@ -686,6 +809,37 @@ local function BuildBuybackItemElement(item)
         numAvailable = item.numAvailable,
         isUsable = item.isUsable,
     }
+end
+
+-- Построить элемент списка продажи из сумки.
+local function BuildBagItemElement(item)
+    return {
+        type = "bagItem",
+        isUnavailable = false,
+        bag = item.bag,
+        slot = item.slot,
+        itemID = item.itemID,
+        name = item.name,
+        texture = item.texture,
+        price = item.price or 0,
+        stackCount = item.stackCount,
+        quality = item.quality,
+        classID = item.classID,
+    }
+end
+
+-- Диапазон сумок персонажа: рюкзак, обычные сумки и сумка реагентов.
+local function GetCharacterBagIndexRange()
+    local firstBag = (Enum and Enum.BagIndex and Enum.BagIndex.Backpack) or 0
+    local numBagSlots = (Constants and Constants.InventoryConstants and Constants.InventoryConstants.NumBagSlots) or NUM_BAG_SLOTS or 4
+    local numReagentBagSlots = (Constants and Constants.InventoryConstants and Constants.InventoryConstants.NumReagentBagSlots) or NUM_REAGENTBAG_SLOTS or 1
+    return firstBag, firstBag + numBagSlots + numReagentBagSlots
+end
+
+-- Серый предмет считается хламом для продажи торговцу.
+local function IsJunkQuality(quality)
+    local poorQuality = (Enum and Enum.ItemQuality and Enum.ItemQuality.Poor) or 0
+    return quality == poorQuality
 end
 
 -- Текст пустого списка и подпись под ним.
@@ -856,6 +1010,108 @@ local function LoadBuybackData()
     PreloadNearFocusedOrFirst()
 end
 
+-- Загрузить продаваемые предметы из сумок персонажа.
+local function LoadSellData()
+    if not dataProvider then
+        return
+    end
+
+    ClearItemListTooltipDataCache()
+    ClearItemListStackSizeDataCache()
+    dataProvider:Flush()
+
+    SetEmptyListContent(
+        "Нет предметов для продажи",
+        "В сумках нет вещей, которые этот торговец купит."
+    )
+
+    local junkItems = {}
+    local classGroups = {}
+    local classOrder = {}
+
+    local firstBag, lastBag = GetCharacterBagIndexRange()
+    for bag = firstBag, lastBag do
+        local numSlots = C_Container.GetContainerNumSlots(bag) or 0
+        for slot = 1, numSlots do
+            local info = C_Container.GetContainerItemInfo(bag, slot)
+            if info and info.itemID and not info.hasNoValue and not info.isLocked then
+                local isBattlePayItem = C_Container.IsBattlePayItem and C_Container.IsBattlePayItem(bag, slot)
+                if not isBattlePayItem then
+                    local _, _, _, _, _, instantClassID = C_Item.GetItemInfoInstant(info.itemID)
+                    local itemName, _, _, _, _, _, _, _, _, _, sellPrice, infoClassID = C_Item.GetItemInfo(info.itemID)
+                    local classID = infoClassID or instantClassID
+                    local stackCount = info.stackCount or 1
+                    local totalPrice = 0
+                    if sellPrice and sellPrice > 0 then
+                        totalPrice = sellPrice * stackCount
+                    end
+
+                    local item = {
+                        bag = bag,
+                        slot = slot,
+                        itemID = info.itemID,
+                        name = info.itemName or itemName or "",
+                        texture = info.iconFileID,
+                        price = totalPrice,
+                        stackCount = stackCount,
+                        quality = info.quality,
+                        classID = classID,
+                    }
+
+                    if IsJunkQuality(info.quality) then
+                        table.insert(junkItems, item)
+                    elseif classID then
+                        if not classGroups[classID] then
+                            classGroups[classID] = {}
+                            table.insert(classOrder, classID)
+                        end
+                        table.insert(classGroups[classID], item)
+                    end
+                end
+            end
+        end
+    end
+
+    table.sort(classOrder)
+
+    -- Добавить разделитель категории и предметы группы в список.
+    local function InsertSellGroup(title, items)
+        if not items or #items == 0 then
+            return
+        end
+
+        dataProvider:Insert({
+            type = "separator",
+            name = title,
+        })
+
+        for _, item in ipairs(items) do
+            dataProvider:Insert(BuildBagItemElement(item))
+        end
+    end
+
+    InsertSellGroup("Хлам", junkItems)
+    for _, classID in ipairs(classOrder) do
+        local className = C_Item.GetItemClassInfo(classID)
+        InsertSellGroup(className ~= "" and className or "Разное", classGroups[classID])
+    end
+
+    local count = #junkItems
+    for _, classID in ipairs(classOrder) do
+        count = count + #classGroups[classID]
+    end
+
+    if count == 0 then
+        SetEmptyListShown(true)
+        ReanchorItemListBackground(count)
+        return
+    end
+
+    SetEmptyListShown(false)
+    ReanchorItemListBackground(count)
+    PreloadNearFocusedOrFirst()
+end
+
 -- Обновить одну строку блока валют.
 local function UpdateCurrencyItemFrame(frame, item)
     if not frame then
@@ -944,10 +1200,11 @@ local function LoadMerchantCurrenciesData()
     end
 end
 
--- Вкладки торговли и выкупа. Продажу не показываем: в эталоне её нет.
+-- Вкладки торговли, продажи и выкупа.
 local function BuildTabs()
     tabs = {
         { title = "Торговля", code = "trade" },
+        { title = "Продажа", code = "sell" },
         { title = "Выкуп", code = "buyback" },
     }
 end
@@ -960,6 +1217,8 @@ local function LoadTabData(tab)
 
     if tab.code == "trade" then
         LoadMerchantData()
+    elseif tab.code == "sell" then
+        LoadSellData()
     elseif tab.code == "buyback" then
         LoadBuybackData()
     end
@@ -1032,11 +1291,12 @@ local function RefreshMerchantTabsLayout()
     UpdateTabs()
 end
 
--- Поставить фокус на первый товар или предмет выкупа.
+-- Поставить фокус на первый товар, предмет выкупа или предмет из сумки.
 local function FocusFirstListElement()
     if not dataProvider or not dataProvider.collection then
         focusedIndex = 1
         focusedSlot = nil
+        focusedBag = nil
         focusedItemType = nil
         focusedItemExtent = sectionHeight
         UpdateMerchantActionKeys(nil)
@@ -1063,6 +1323,7 @@ local function FocusFirstListElement()
     else
         focusedIndex = 1
         focusedSlot = nil
+        focusedBag = nil
         focusedItemType = nil
         focusedItemExtent = sectionHeight
         UpdateMerchantActionKeys(nil)
@@ -1072,13 +1333,17 @@ local function FocusFirstListElement()
     UpdateItemsScrollBarLayout()
 end
 
--- Восстановить фокус по сохранённому номеру или взять первый пункт.
+-- Восстановить фокус по сохранённой ячейке или взять соседний пункт.
 local function RestoreOrFocusFirstListElement()
     local restored = nil
     if focusedSlot and focusedItemType then
-        restored = FindListItemElementBySlot(focusedSlot, focusedItemType)
+        restored = FindListItemElementBySlot(focusedSlot, focusedItemType, focusedBag)
     elseif lastFocusedSlot and lastFocusedType then
-        restored = FindListItemElementBySlot(lastFocusedSlot, lastFocusedType)
+        restored = FindListItemElementBySlot(lastFocusedSlot, lastFocusedType, lastFocusedBag)
+    end
+
+    if not restored then
+        restored = FindNearestListItemElement(lastFocusedIndex or focusedIndex)
     end
 
     if restored then
@@ -1216,7 +1481,7 @@ local function ClearItemListOverrideBindings(frame)
     end
 end
 
--- Подписка на золото и валюты, пока окно открыто.
+-- Подписка на золото, валюты и обновление сумок, пока окно открыто.
 local function SetMerchantMoneyEventsRegistered(frame, isRegistered)
     if not frame then
         return
@@ -1229,6 +1494,7 @@ local function SetMerchantMoneyEventsRegistered(frame, isRegistered)
         frame:RegisterEvent("PLAYER_MONEY")
         frame:RegisterEvent("CURRENCY_DISPLAY_UPDATE")
         frame:RegisterEvent("UPDATE_INVENTORY_DURABILITY")
+        frame:RegisterEvent("BAG_UPDATE_DELAYED")
         moneyEventsRegistered = true
     else
         if not moneyEventsRegistered then
@@ -1237,7 +1503,619 @@ local function SetMerchantMoneyEventsRegistered(frame, isRegistered)
         frame:UnregisterEvent("PLAYER_MONEY")
         frame:UnregisterEvent("CURRENCY_DISPLAY_UPDATE")
         frame:UnregisterEvent("UPDATE_INVENTORY_DURABILITY")
+        frame:UnregisterEvent("BAG_UPDATE_DELAYED")
         moneyEventsRegistered = false
+    end
+end
+
+-- Окрасить фрагмент текста подсказки.
+local function ColorizeTooltipText(text, color)
+    if not text or not color then
+        return text
+    end
+
+    local r = math.floor((color.r or 0.9) * 255 + 0.5)
+    local g = math.floor((color.g or 0.9) * 255 + 0.5)
+    local b = math.floor((color.b or 0.9) * 255 + 0.5)
+    return string.format("|cff%02x%02x%02x%s|r", r, g, b, text)
+end
+
+-- Собрать короткое описание из подсказки, без цены продажи.
+local function BuildTooltipDescriptionText(tooltipData)
+    local tooltipLines = tooltipData and tooltipData.lines
+    if not tooltipLines then
+        return nil
+    end
+
+    local sellPriceLineType = Enum and Enum.TooltipDataLineType and Enum.TooltipDataLineType.SellPrice
+    local parts = {}
+    local added = 0
+
+    for tooltipLineIndex = 2, #tooltipLines do
+        if added >= maxTooltipDescriptionLines then
+            break
+        end
+
+        local tooltipLine = tooltipLines[tooltipLineIndex]
+        if tooltipLine and not (sellPriceLineType and tooltipLine.type == sellPriceLineType) then
+            local leftText = tooltipLine.leftText
+            local containsAngleBrackets = leftText and leftText:find("<", 1, true) and leftText:find(">", 1, true)
+            if leftText and leftText ~= "" and not containsAngleBrackets then
+                local displayText = ColorizeTooltipText(leftText, tooltipLine.leftColor) or leftText
+                local rightText = tooltipLine.rightText
+                if rightText and rightText ~= "" then
+                    displayText = displayText .. ", " .. (ColorizeTooltipText(rightText, tooltipLine.rightColor) or rightText)
+                end
+                table.insert(parts, displayText)
+                added = added + 1
+            end
+        end
+    end
+
+    if #parts == 0 then
+        return nil
+    end
+
+    return table.concat(parts, "\n")
+end
+
+-- Создать круглую текстуру значка валюты.
+local function CreateCurrencyIconTexture(parent, drawLayer, subLevel)
+    local texture = parent:CreateTexture(nil, drawLayer, nil, subLevel)
+    local mask = parent:CreateMaskTexture()
+    mask:SetAllPoints(texture)
+    mask:SetTexture(
+        "Interface\\AddOns\\ConsoleMenu\\Assets\\MaskCircle.png",
+        "CLAMPTOBLACK"
+    )
+    texture:AddMaskTexture(mask)
+    return texture, mask
+end
+
+-- Обычное расположение значка и текста в строке списка.
+local function ApplyDefaultItemLayout(frame)
+    frame.icon:ClearAllPoints()
+    frame.icon:SetPoint("LEFT", frame, "LEFT", 0, 0)
+    frame.text:ClearAllPoints()
+    frame.text:SetPoint("LEFT", frame.icon, "RIGHT", sectionPadding * 2, -2)
+    frame.text:SetPoint("RIGHT", frame, "RIGHT", -sectionPadding * 4, -2)
+end
+
+-- Расположение текста разделителя без значка.
+local function ApplySeparatorLayout(frame)
+    frame.text:ClearAllPoints()
+    frame.text:SetPoint("LEFT", frame, "LEFT", 0, -2)
+    frame.text:SetPoint("RIGHT", frame, "RIGHT", -sectionPadding * 4, -2)
+end
+
+-- Расположение выделенной строки с развёрнутым описанием.
+local function ApplyExpandedItemLayout(frame)
+    frame.icon:ClearAllPoints()
+    frame.icon:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -sectionPadding)
+    frame.text:ClearAllPoints()
+    frame.text:SetPoint("TOPLEFT", frame.icon, "TOPRIGHT", sectionPadding * 2, 0)
+    frame.text:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -sectionPadding * 4, -sectionPadding)
+end
+
+-- Высота блока цены с учётом значков валют.
+local function UpdatePriceFrameHeight(frame)
+    local textHeight = frame.text.price.text:GetStringHeight()
+    if textHeight <= 0 then
+        textHeight = itemFontSize
+    end
+
+    local iconHeight = 0
+    if frame.text.price.icon:IsShown() then
+        iconHeight = currencyIconSize
+        if frame.text.price.icon.texture2:IsShown() then
+            iconHeight = currencyIconDualHeight
+        end
+    end
+
+    frame.text.price:SetHeight(math.max(textHeight, iconHeight))
+end
+
+-- Высота текста строки: название, одно описание и цена.
+local function UpdateItemListTextHeight(frame)
+    local titleHeight = frame.text.title:GetStringHeight()
+    if titleHeight <= 0 then
+        titleHeight = itemFontSize
+    end
+
+    local totalHeight = titleHeight
+    local hasDescription = frame.text.description and frame.text.description:IsShown()
+    local descriptionHeight = 0
+
+    if hasDescription then
+        descriptionHeight = frame.text.description:GetStringHeight()
+        if descriptionHeight <= 0 then
+            descriptionHeight = descriptionFontSize
+        end
+        totalHeight = totalHeight + sectionPadding + descriptionHeight
+    end
+
+    if frame.text.price and frame.text.price:IsShown() then
+        local priceHeight = frame.text.price.text:GetStringHeight()
+        if priceHeight <= 0 then
+            priceHeight = itemFontSize
+        end
+        local priceIconHeight = currencyIconSize
+        if frame.text.price.icon.texture2:IsShown() then
+            priceIconHeight = currencyIconDualHeight
+        end
+        priceHeight = math.max(priceHeight, priceIconHeight)
+        local priceTopGap = sectionPadding
+        if descriptionHeight > descriptionFontSize * 1.5 then
+            priceTopGap = sectionPadding * 2
+        end
+        totalHeight = totalHeight + priceTopGap + priceHeight
+    end
+
+    frame.text.height = totalHeight
+    frame.text:SetHeight(totalHeight)
+end
+
+-- Скрыть описание и цену выделенной строки.
+local function CollapseItemListElementText(frame)
+    if frame.text.description then
+        frame.text.description:SetText("")
+        frame.text.description:Hide()
+    end
+    if frame.text.lines then
+        for _, lineText in ipairs(frame.text.lines) do
+            lineText:Hide()
+            lineText:SetText("")
+        end
+    end
+    frame.text.price.text:SetText("")
+    frame.text.price:Hide()
+    frame.text.price.icon.texture:SetTexture(nil)
+    frame.text.price.icon.texture2:SetTexture(nil)
+    frame.text.price.icon.texture2:Hide()
+    frame.text.price.icon:SetSize(currencyIconSize, currencyIconSize)
+    frame.text.price.icon:Hide()
+    frame.text.price:SetHeight(0)
+end
+
+-- Показать или скрыть подробности выбранной строки.
+local function SetItemListElementFocused(frame, isFocused)
+    local data = frame.listData
+    if not data then
+        return false
+    end
+
+    if not isFocused or not IsListItemType(data.type) or not data.slot then
+        local wasExpanded = frame:GetHeight() > sectionHeight
+        if not wasExpanded and frame.text.description and not frame.text.description:IsShown() then
+            frame.text.title:SetFont("Fonts\\FRIZQT___CYR.TTF", itemFontSize, "OUTLINE")
+            frame.text.title:SetText(data.name or "")
+            if data.type == "separator" then
+                frame.text:SetAlpha(1)
+            else
+                frame.text:SetAlpha(unfocusedItemTextAlpha)
+            end
+            return false
+        end
+
+        frame:SetHeight(sectionHeight)
+        frame.text.title:SetFont("Fonts\\FRIZQT___CYR.TTF", itemFontSize, "OUTLINE")
+        frame.text.title:SetText(data.name or "")
+        if data.type == "separator" then
+            frame.text:SetAlpha(1)
+            ApplySeparatorLayout(frame)
+        else
+            frame.text:SetAlpha(unfocusedItemTextAlpha)
+            ApplyDefaultItemLayout(frame)
+        end
+        CollapseItemListElementText(frame)
+        UpdateItemListTextHeight(frame)
+        return wasExpanded
+    end
+
+    frame.text.title:SetFont("Fonts\\FRIZQT___CYR.TTF", focusedItemFontSize, "OUTLINE")
+    if data.stackCount and data.stackCount > 1 then
+        frame.text.title:SetText(string.format("%s x%d", data.name, data.stackCount))
+    else
+        frame.text.title:SetText(data.name or "")
+    end
+    frame.text:SetAlpha(1)
+
+    local tooltipData = GetListItemTooltipData(data)
+    local descriptionText = BuildTooltipDescriptionText(tooltipData)
+    if descriptionText then
+        local descriptionWidth = math.max(80, frameWidth - contentPadding - iconSize - sectionPadding * 6)
+        frame.text.description:ClearAllPoints()
+        frame.text.description:SetPoint("TOPLEFT", frame.text.title, "BOTTOMLEFT", 0, -sectionPadding)
+        frame.text.description:SetPoint("TOPRIGHT", frame.text.title, "BOTTOMRIGHT", 0, -sectionPadding)
+        frame.text.description:SetWidth(descriptionWidth)
+        frame.text.description:SetText(descriptionText)
+        frame.text.description:Show()
+    else
+        frame.text.description:SetText("")
+        frame.text.description:Hide()
+    end
+
+    local priceText = nil
+    local priceIconTextures = {}
+    if not data.isUnavailable and IsListItemType(data.type) then
+        local costCount = 0
+        if data.type == "merchantItem" and data.slot then
+            costCount = GetMerchantItemCostInfo(data.slot) or 0
+        end
+        if costCount > 0 and data.slot then
+            local costParts = {}
+
+            for costIndex = 1, costCount do
+                local costTexture, costValue, costLink, currencyName = GetMerchantItemCostItem(data.slot, costIndex)
+                if costValue and costValue > 0 then
+                    local costName = currencyName
+                    if not costName and costLink then
+                        local itemName = C_Item.GetItemInfo(costLink)
+                        costName = itemName or costLink
+                    end
+
+                    table.insert(costParts, {
+                        name = (costName and costName ~= "") and costName or "Валюта",
+                        value = costValue,
+                        texture = costTexture,
+                    })
+
+                    if costTexture and costTexture ~= 0 and #priceIconTextures < 2 then
+                        table.insert(priceIconTextures, costTexture)
+                    end
+                end
+            end
+
+            local formattedCostParts = {}
+            for _, costPart in ipairs(costParts) do
+                table.insert(formattedCostParts, string.format("%s x%d", costPart.name, costPart.value))
+            end
+
+            if data.price and data.price > 0 then
+                table.insert(formattedCostParts, GetMoneyString(data.price, true))
+            end
+
+            if #formattedCostParts > 0 then
+                priceText = table.concat(formattedCostParts, ", ")
+            end
+        elseif data.price and data.price > 0 then
+            priceText = GetMoneyString(data.price, true)
+        end
+    end
+
+    frame.text.price:ClearAllPoints()
+    frame.text.price.icon:ClearAllPoints()
+    frame.text.price.text:ClearAllPoints()
+
+    if frame.text.description:IsShown() then
+        local descriptionHeight = frame.text.description:GetStringHeight()
+        local priceTopGap = sectionPadding
+        if descriptionHeight > descriptionFontSize * 1.5 then
+            priceTopGap = sectionPadding * 2
+        end
+        frame.text.price:SetPoint("TOPLEFT", frame.text.description, "BOTTOMLEFT", 0, -priceTopGap)
+    else
+        frame.text.price:SetPoint("TOPLEFT", frame.text.title, "BOTTOMLEFT", 0, -sectionPadding)
+    end
+    frame.text.price:SetPoint("TOPRIGHT", frame.text, "TOPRIGHT", 0, 0)
+
+    if priceText then
+        if #priceIconTextures > 0 then
+            local priceIcon = frame.text.price.icon
+            local iconOffset = currencyIconSize - currencyIconOverlap
+
+            priceIcon.texture:ClearAllPoints()
+            priceIcon.texture2:ClearAllPoints()
+
+            if #priceIconTextures >= 2 then
+                priceIcon:SetSize(currencyIconSize, currencyIconDualHeight)
+                priceIcon.texture:SetPoint("TOPLEFT", priceIcon, "TOPLEFT", 0, 0)
+                priceIcon.texture:SetPoint("BOTTOMRIGHT", priceIcon, "TOPLEFT", currencyIconSize, -currencyIconSize)
+                priceIcon.texture:SetTexture(priceIconTextures[1])
+
+                priceIcon.texture2:SetTexture(priceIconTextures[2])
+                priceIcon.texture2:SetPoint("TOPLEFT", priceIcon, "TOPLEFT", 0, -iconOffset)
+                priceIcon.texture2:SetPoint(
+                    "BOTTOMRIGHT",
+                    priceIcon,
+                    "TOPLEFT",
+                    currencyIconSize,
+                    -(currencyIconSize + iconOffset)
+                )
+                priceIcon.texture2:Show()
+            else
+                priceIcon:SetSize(currencyIconSize, currencyIconSize)
+                priceIcon.texture:SetAllPoints()
+                priceIcon.texture:SetTexture(priceIconTextures[1])
+                priceIcon.texture2:SetTexture(nil)
+                priceIcon.texture2:Hide()
+            end
+
+            priceIcon:SetPoint("LEFT", frame.text.price, "LEFT", 0, 0)
+            priceIcon:Show()
+            frame.text.price.text:SetPoint("LEFT", priceIcon, "RIGHT", sectionPadding, 0)
+            frame.text.price.text:SetPoint("RIGHT", frame.text.price, "RIGHT", 0, 0)
+        else
+            frame.text.price.icon.texture:SetTexture(nil)
+            frame.text.price.icon.texture2:SetTexture(nil)
+            frame.text.price.icon.texture2:Hide()
+            frame.text.price.icon:SetSize(currencyIconSize, currencyIconSize)
+            frame.text.price.icon:Hide()
+            frame.text.price.text:SetPoint("TOPLEFT", frame.text.price, "TOPLEFT", 0, 0)
+            frame.text.price.text:SetPoint("TOPRIGHT", frame.text.price, "TOPRIGHT", 0, 0)
+        end
+        frame.text.price.text:SetText(priceText)
+        UpdatePriceFrameHeight(frame)
+        frame.text.price:Show()
+    else
+        frame.text.price.icon.texture:SetTexture(nil)
+        frame.text.price.icon.texture2:SetTexture(nil)
+        frame.text.price.icon.texture2:Hide()
+        frame.text.price.icon:SetSize(currencyIconSize, currencyIconSize)
+        frame.text.price.icon:Hide()
+        frame.text.price.text:SetText("")
+        frame.text.price:Hide()
+        frame.text.price:SetHeight(0)
+    end
+
+    UpdateItemListTextHeight(frame)
+
+    local newExtent = math.max(sectionHeight, (frame.text.height or sectionHeight) + sectionPadding * 2)
+    frame:SetHeight(newExtent)
+    if newExtent > sectionHeight then
+        ApplyExpandedItemLayout(frame)
+    else
+        ApplyDefaultItemLayout(frame)
+    end
+    local previousExtent = focusedItemExtent
+    focusedItemExtent = newExtent
+    return previousExtent ~= newExtent
+end
+
+-- Отрисовать строку товара, выкупа или предмета из сумки.
+local function InitializeItemListElement(frame, data)
+    if not frame then return end
+
+    -- Иконка
+    if not frame.icon then
+        frame.icon = CreateFrame("Frame", nil, frame)
+        frame.icon:SetSize(iconSize, iconSize)
+        frame.icon:SetPoint("LEFT", 0, 0)
+    end
+
+
+    if not frame.icon.texture then
+        frame.icon.texture = frame.icon:CreateTexture(nil, "ARTWORK")
+        frame.icon.texture:SetPoint("TOPLEFT", frame.icon, "TOPLEFT", 2, -2)
+        frame.icon.texture:SetPoint("BOTTOMRIGHT", frame.icon, "BOTTOMRIGHT", -2, 2)
+    end
+
+    if not frame.icon.mask then
+        frame.icon.mask = frame.icon:CreateMaskTexture()
+        frame.icon.mask:SetAllPoints(frame.icon)
+        frame.icon.mask:SetTexture(
+            "Interface\\AddOns\\ConsoleMenu\\Assets\\Mask.png",
+            "CLAMPTOBLACK"
+        )
+        frame.icon.texture:AddMaskTexture(frame.icon.mask)
+    end
+
+    if not frame.icon.border then
+        frame.icon.border = frame.icon:CreateTexture(nil, "OVERLAY")
+        frame.icon.border:SetAtlas("plunderstorm-actionbar-slot-border")
+        frame.icon.border:SetPoint("TOPLEFT", frame.icon.texture, "TOPLEFT", -11, 11)
+        frame.icon.border:SetPoint("BOTTOMRIGHT", frame.icon.texture, "BOTTOMRIGHT", 11, -11)
+    end
+
+    if not frame.icon.overlay then
+        frame.icon.overlay = frame.icon:CreateTexture(nil, "OVERLAY", nil, 1)
+        frame.icon.overlay:SetAllPoints(frame.icon.texture)
+    end
+
+    -- Текст
+    if not frame.text then
+        frame.text = CreateFrame("Frame", nil, frame)
+        frame.text:SetPoint("LEFT", frame.icon, "RIGHT", sectionPadding * 2, 0)
+        frame.text:SetHeight(sectionHeight)
+
+        frame.text.title = frame.text:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        frame.text.title:SetPoint("TOPLEFT", frame.text, "TOPLEFT", 0, 0)
+        frame.text.title:SetPoint("TOPRIGHT", frame.text, "TOPRIGHT", 0, 0)
+        frame.text.title:SetJustifyH("LEFT")
+        frame.text.title:SetFont("Fonts\\FRIZQT___CYR.TTF", itemFontSize, "OUTLINE")
+
+        frame.text.price = CreateFrame("Frame", nil, frame.text)
+        frame.text.price:Hide()
+
+        frame.text.price.text = frame.text.price:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        frame.text.price.text:SetJustifyH("LEFT")
+        frame.text.price.text:SetFont("Fonts\\FRIZQT___CYR.TTF", itemFontSize, "OUTLINE")
+        frame.text.price.text:SetTextColor(1, 0.976, 0.855, 1)
+
+        frame.text.price.icon = CreateFrame("Frame", nil, frame.text.price)
+        frame.text.price.icon:SetSize(currencyIconSize, currencyIconSize)
+
+        frame.text.price.icon.texture, frame.text.price.icon.mask = CreateCurrencyIconTexture(
+            frame.text.price.icon,
+            "ARTWORK",
+            0
+        )
+        frame.text.price.icon.texture:SetAllPoints()
+
+        frame.text.price.icon.texture2, frame.text.price.icon.mask2 = CreateCurrencyIconTexture(
+            frame.text.price.icon,
+            "ARTWORK",
+            1
+        )
+        frame.text.price.icon.texture2:Hide()
+        frame.text.price.icon:Hide()
+
+        frame.text.description = frame.text:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        frame.text.description:SetJustifyH("LEFT")
+        frame.text.description:SetJustifyV("TOP")
+        frame.text.description:SetNonSpaceWrap(true)
+        frame.text.description:SetWordWrap(true)
+        frame.text.description:SetFont("Fonts\\FRIZQT___CYR.TTF", descriptionFontSize, "")
+        frame.text.description:Hide()
+    end
+
+    if not frame.text.description then
+        frame.text.description = frame.text:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        frame.text.description:SetJustifyH("LEFT")
+        frame.text.description:SetJustifyV("TOP")
+        frame.text.description:SetNonSpaceWrap(true)
+        frame.text.description:SetWordWrap(true)
+        frame.text.description:SetFont("Fonts\\FRIZQT___CYR.TTF", descriptionFontSize, "")
+        frame.text.description:Hide()
+    end
+
+    -- Жесткий reset визуального состояния обязателен:
+    -- ScrollBox переиспользует один и тот же frame для разных данных.
+    frame.text.title:SetText("")
+    frame.text:Show()
+    frame.text:SetAlpha(1)
+    frame.text.title:SetAlpha(1)
+    frame.text.title:SetTextColor(1, 0.976, 0.855, 1)
+    frame.icon:Show()
+    frame.icon.texture:SetTexture(nil)
+    frame.icon.texture:SetDesaturated(false)
+    frame.icon.texture:Hide()
+    frame.icon.border:Hide()
+    frame.icon.overlay:Hide()
+    CollapseItemListElementText(frame)
+
+    if not data then
+        frame.listData = nil
+        frame:SetHeight(sectionHeight)
+        frame.text:Hide()
+        return
+    end
+
+    frame.listData = data
+    frame.text.title:SetText(data.name or "")
+
+    if data.type == "merchantItem" or data.type == "buybackItem" or data.type == "bagItem" then
+        ApplyDefaultItemLayout(frame)
+        frame.text.title:SetTextColor(1, 0.976, 0.855, 1)
+
+        frame.icon.texture:SetTexture(data.texture)
+        frame.icon.texture:SetDesaturated(data.isUnavailable or false)
+        frame.icon.texture:Show()
+        frame.icon.border:Show()
+
+        if data.itemID and C_AzeriteEmpoweredItem.IsAzeriteEmpoweredItemByID(data.itemID) then
+            frame.icon.overlay:SetAtlas("AzeriteIconFrame")
+            frame.icon.overlay:Show()
+        elseif data.itemID and C_Item.IsCorruptedItem(data.itemID) then
+            frame.icon.overlay:SetAtlas("Nzoth-inventory-icon")
+            frame.icon.overlay:Show()
+        elseif data.itemID and C_Item.IsCosmeticItem(data.itemID) then
+            frame.icon.overlay:SetAtlas("CosmeticIconFrame")
+            frame.icon.overlay:Show()
+        elseif data.itemID and C_Soulbinds.IsItemConduitByItemInfo(data.itemID) then
+            frame.icon.overlay:SetAtlas("ConduitIconFrame")
+            frame.icon.overlay:Show()
+        elseif data.itemID and (C_Item.IsCurioItem(data.itemID) or C_Item.IsRelicItem(data.itemID)) then
+            frame.icon.overlay:SetAtlas("delves-curios-icon-border")
+            frame.icon.overlay:Show()
+        else
+            frame.icon.overlay:Hide()
+        end
+    elseif data.type == "separator" then
+        ApplySeparatorLayout(frame)
+        frame.text.title:SetTextColor(1.0, 0.960784, 0.772549, 0.6)
+        frame.icon:Hide()
+    else
+        -- Неизвестный тип: оставляем безопасный базовый текстовый стиль.
+        ApplyDefaultItemLayout(frame)
+        frame.text.title:SetTextColor(1, 0.976, 0.855, 1)
+    end
+
+    frame.SetFocused = SetItemListElementFocused
+    frame:SetFocused(IsFocusedListElement(data))
+
+end
+
+-- Подписки при показе окна торговца.
+local function OnItemListFrameShow(self)
+    SetMerchantMoneyEventsRegistered(self, true)
+    RestoreOrFocusFirstListElement()
+    ApplyItemListOverrideBindings(self)
+end
+
+-- Сброс фокуса и привязок при скрытии окна торговца.
+local function OnItemListFrameHide(self)
+    lastFocusedSlot = focusedSlot
+    lastFocusedBag = focusedBag
+    lastFocusedType = focusedItemType
+    lastFocusedIndex = focusedIndex
+    focusedSlot = nil
+    focusedBag = nil
+    focusedItemType = nil
+    focusedItemExtent = sectionHeight
+    SetMerchantMoneyEventsRegistered(self, false)
+    ClearItemListOverrideBindings(self)
+end
+
+-- Обработка событий окна торговца.
+local function OnItemListFrameEvent(self, event, ...)
+    if event == "MERCHANT_CLOSED" then
+        ResetMerchantSelection()
+        if dataProvider then
+            dataProvider:Flush()
+        end
+        currenciesData = {}
+        tabs = {}
+        focusedTabIndex = 1
+        SetMerchantMoneyEventsRegistered(self, false)
+        return
+    end
+
+    if event == "TOOLTIP_DATA_UPDATE" then
+        local dataInstanceID = ...
+        OnTooltipDataUpdate(dataInstanceID)
+        return
+    end
+
+    if event == "PLAYER_REGEN_ENABLED" then
+        if pendingClearOverrideBindings and not self:IsShown() then
+            ClearItemListOverrideBindings(self)
+        elseif pendingOverrideBindings and self:IsShown() then
+            ApplyItemListOverrideBindings(self)
+        end
+        return
+    end
+
+    if event == "PLAYER_MONEY" or event == "CURRENCY_DISPLAY_UPDATE" then
+        LoadMerchantCurrenciesData()
+        UpdateCurrenciesFrame()
+        UpdateMerchantActionKeys(GetFocusedElement())
+        ConsoleMenu:UpdateKeysFrame()
+        return
+    end
+
+    if event == "UPDATE_INVENTORY_DURABILITY" then
+        UpdateMerchantActionKeys(GetFocusedElement())
+        ConsoleMenu:UpdateKeysFrame()
+        return
+    end
+
+    if event == "MERCHANT_SHOW" then
+        ResetMerchantSelection()
+        ScheduleMerchantRefresh(true)
+        return
+    end
+
+    if event == "BAG_UPDATE_DELAYED" then
+        local tab = tabs[focusedTabIndex]
+        if tab and tab.code == "sell" then
+            ScheduleMerchantRefresh(false)
+        end
+        return
+    end
+
+    if event == "MERCHANT_UPDATE" then
+        ScheduleMerchantRefresh(false)
     end
 end
 
@@ -1333,521 +2211,6 @@ function ConsoleMenu:SetItemListFrame()
         items.ScrollView = scrollView
         dataProvider = CreateDataProvider()
 
-        -- Инициализатор для элемента списка
-        local function Initializer(frame, data)
-            if not frame then return end
-
-            -- Иконка
-            if not frame.icon then
-                frame.icon = CreateFrame("Frame", nil, frame)
-                frame.icon:SetSize(iconSize, iconSize)
-                frame.icon:SetPoint("LEFT", 0, 0)
-            end
-
-
-            if not frame.icon.texture then
-                frame.icon.texture = frame.icon:CreateTexture(nil, "ARTWORK")
-                frame.icon.texture:SetPoint("TOPLEFT", frame.icon, "TOPLEFT", 2, -2)
-                frame.icon.texture:SetPoint("BOTTOMRIGHT", frame.icon, "BOTTOMRIGHT", -2, 2)
-            end
-
-            if not frame.icon.mask then
-                frame.icon.mask = frame.icon:CreateMaskTexture()
-                frame.icon.mask:SetAllPoints(frame.icon)
-                frame.icon.mask:SetTexture(
-                    "Interface\\AddOns\\ConsoleMenu\\Assets\\Mask.png",
-                    "CLAMPTOBLACK"
-                )
-                frame.icon.texture:AddMaskTexture(frame.icon.mask)
-            end
-
-            if not frame.icon.border then
-                frame.icon.border = frame.icon:CreateTexture(nil, "OVERLAY")
-                frame.icon.border:SetAtlas("plunderstorm-actionbar-slot-border")
-                frame.icon.border:SetPoint("TOPLEFT", frame.icon.texture, "TOPLEFT", -11, 11)
-                frame.icon.border:SetPoint("BOTTOMRIGHT", frame.icon.texture, "BOTTOMRIGHT", 11, -11)
-            end
-
-            if not frame.icon.overlay then
-                frame.icon.overlay = frame.icon:CreateTexture(nil, "OVERLAY", nil, 1)
-                frame.icon.overlay:SetAllPoints(frame.icon.texture)
-            end
-
-            -- Текст
-            if not frame.text then
-                frame.text = CreateFrame("Frame", nil, frame)
-                frame.text:SetPoint("LEFT", frame.icon, "RIGHT", sectionPadding * 2, 0)
-                frame.text:SetHeight(sectionHeight)
-
-                frame.text.title = frame.text:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-                frame.text.title:SetPoint("TOPLEFT", frame.text, "TOPLEFT", 0, 0)
-                frame.text.title:SetPoint("TOPRIGHT", frame.text, "TOPRIGHT", 0, 0)
-                frame.text.title:SetJustifyH("LEFT")
-                frame.text.title:SetFont("Fonts\\FRIZQT___CYR.TTF", itemFontSize, "OUTLINE")
-
-                frame.text.price = CreateFrame("Frame", nil, frame.text)
-                frame.text.price:Hide()
-
-                frame.text.price.text = frame.text.price:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-                frame.text.price.text:SetJustifyH("LEFT")
-                frame.text.price.text:SetFont("Fonts\\FRIZQT___CYR.TTF", itemFontSize, "OUTLINE")
-                frame.text.price.text:SetTextColor(1, 0.976, 0.855, 1)
-
-                frame.text.price.icon = CreateFrame("Frame", nil, frame.text.price)
-                frame.text.price.icon:SetSize(currencyIconSize, currencyIconSize)
-
-                local function CreateCurrencyIconTexture(parent, drawLayer, subLevel)
-                    local texture = parent:CreateTexture(nil, drawLayer, nil, subLevel)
-                    local mask = parent:CreateMaskTexture()
-                    mask:SetAllPoints(texture)
-                    mask:SetTexture(
-                        "Interface\\AddOns\\ConsoleMenu\\Assets\\MaskCircle.png",
-                        "CLAMPTOBLACK"
-                    )
-                    texture:AddMaskTexture(mask)
-                    return texture, mask
-                end
-
-                frame.text.price.icon.texture, frame.text.price.icon.mask = CreateCurrencyIconTexture(
-                    frame.text.price.icon,
-                    "ARTWORK",
-                    0
-                )
-                frame.text.price.icon.texture:SetAllPoints()
-
-                frame.text.price.icon.texture2, frame.text.price.icon.mask2 = CreateCurrencyIconTexture(
-                    frame.text.price.icon,
-                    "ARTWORK",
-                    1
-                )
-                frame.text.price.icon.texture2:Hide()
-                frame.text.price.icon:Hide()
-            end
-
-            if not frame.text.lines then
-                frame.text.lines = {}
-            end
-
-            local function UpdateTextHeight()
-                local titleHeight = frame.text.title:GetStringHeight()
-                if titleHeight <= 0 then
-                    titleHeight = itemFontSize
-                end
-
-                local totalHeight = titleHeight
-
-                local visibleLineHeights = {}
-                for _, lineText in ipairs(frame.text.lines) do
-                    if lineText:IsShown() then
-                        local lineHeight = lineText:GetStringHeight()
-                        if lineHeight <= 0 then
-                            lineHeight = descriptionFontSize
-                        end
-                        table.insert(visibleLineHeights, lineHeight)
-                    end
-                end
-
-                if #visibleLineHeights > 0 then
-                    -- Первая строка описания привязана к названию с отступом.
-                    totalHeight = totalHeight + sectionPadding
-                    for _, lineHeight in ipairs(visibleLineHeights) do
-                        totalHeight = totalHeight + lineHeight
-                    end
-                end
-
-                if frame.text.price and frame.text.price:IsShown() then
-                    local priceHeight = frame.text.price.text:GetStringHeight()
-                    if priceHeight <= 0 then
-                        priceHeight = itemFontSize
-                    end
-                    local priceIconHeight = currencyIconSize
-                    if frame.text.price.icon.texture2:IsShown() then
-                        priceIconHeight = currencyIconDualHeight
-                    end
-                    priceHeight = math.max(priceHeight, priceIconHeight)
-                    local descriptionLineCount = #visibleLineHeights
-                    local priceTopGap = sectionPadding
-                    if descriptionLineCount > 1 then
-                        priceTopGap = sectionPadding * 2
-                    end
-                    totalHeight = totalHeight + priceTopGap + priceHeight
-                end
-
-                frame.text.height = totalHeight
-                frame.text:SetHeight(totalHeight)
-            end
-
-            local function UpdatePriceFrameHeight()
-                local textHeight = frame.text.price.text:GetStringHeight()
-                if textHeight <= 0 then
-                    textHeight = itemFontSize
-                end
-
-                local iconHeight = 0
-                if frame.text.price.icon:IsShown() then
-                    iconHeight = currencyIconSize
-                    if frame.text.price.icon.texture2:IsShown() then
-                        iconHeight = currencyIconDualHeight
-                    end
-                end
-
-                frame.text.price:SetHeight(math.max(textHeight, iconHeight))
-            end
-
-            -- Жесткий reset визуального состояния обязателен:
-            -- ScrollBox переиспользует один и тот же frame для разных данных.
-            frame.text.title:SetText("")
-            frame.text:Show()
-            frame.text:SetAlpha(1)
-            frame.text.title:SetAlpha(1)
-            frame.text.title:SetTextColor(1, 0.976, 0.855, 1)
-            frame.icon:Show()
-            frame.icon.texture:SetTexture(nil)
-            frame.icon.texture:SetDesaturated(false)
-            frame.icon.texture:Hide()
-            frame.icon.border:Hide()
-            frame.icon.overlay:Hide()
-            frame.text.price.text:SetText("")
-            frame.text.price:Hide()
-            frame.text.price.icon.texture:SetTexture(nil)
-            frame.text.price.icon.texture2:SetTexture(nil)
-            frame.text.price.icon.texture2:Hide()
-            frame.text.price.icon:SetSize(currencyIconSize, currencyIconSize)
-            frame.text.price.icon:Hide()
-            frame.text.price:SetHeight(0)
-            for _, lineText in ipairs(frame.text.lines) do
-                lineText:Hide()
-                lineText:SetText("")
-            end
-            UpdateTextHeight()
-
-            if not data then
-                frame:SetHeight(sectionHeight)
-                frame.text:Hide()
-                return
-            end
-
-            frame.text.title:SetText(data.name or "")
-
-            if data.type == "merchantItem" or data.type == "buybackItem" then
-                frame.text:ClearAllPoints()
-                frame.text:SetPoint("LEFT", frame.icon, "RIGHT", sectionPadding * 2, -2)
-                frame.text:SetPoint("RIGHT", frame, "RIGHT", -sectionPadding * 4, -2)
-                frame.text.title:SetTextColor(1, 0.976, 0.855, 1)
-
-                frame.icon.texture:SetTexture(data.texture)
-                frame.icon.texture:SetDesaturated(data.isUnavailable or false)
-                frame.icon.texture:Show()
-                frame.icon.border:Show()
-
-                if data.itemID and C_AzeriteEmpoweredItem.IsAzeriteEmpoweredItemByID(data.itemID) then
-                    frame.icon.overlay:SetAtlas("AzeriteIconFrame")
-                    frame.icon.overlay:Show()
-                elseif data.itemID and C_Item.IsCorruptedItem(data.itemID) then
-                    frame.icon.overlay:SetAtlas("Nzoth-inventory-icon")
-                    frame.icon.overlay:Show()
-                elseif data.itemID and C_Item.IsCosmeticItem(data.itemID) then
-                    frame.icon.overlay:SetAtlas("CosmeticIconFrame")
-                    frame.icon.overlay:Show()
-                elseif data.itemID and C_Soulbinds.IsItemConduitByItemInfo(data.itemID) then
-                    frame.icon.overlay:SetAtlas("ConduitIconFrame")
-                    frame.icon.overlay:Show()
-                elseif data.itemID and (C_Item.IsCurioItem(data.itemID) or C_Item.IsRelicItem(data.itemID)) then
-                    frame.icon.overlay:SetAtlas("delves-curios-icon-border")
-                    frame.icon.overlay:Show()
-                else
-                    frame.icon.overlay:Hide()
-                end
-            elseif data.type == "separator" then
-                frame.text:ClearAllPoints()
-                frame.text:SetPoint("LEFT", frame, "LEFT", 0, -2)
-                frame.text:SetPoint("RIGHT", frame, "RIGHT", -sectionPadding * 4, -2)
-                frame.text.title:SetTextColor(1.0, 0.960784, 0.772549, 0.6)
-                frame.icon:Hide()
-            else
-                -- Неизвестный тип: оставляем безопасный базовый текстовый стиль.
-                frame.text:ClearAllPoints()
-                frame.text:SetPoint("LEFT", frame.icon, "RIGHT", sectionPadding * 2, -2)
-                frame.text:SetPoint("RIGHT", frame, "RIGHT", -sectionPadding * 4, -2)
-                frame.text.title:SetTextColor(1, 0.976, 0.855, 1)
-            end
-
-            function frame:SetFocused(isFocused)
-
-                local function SetDefaultTitleText()
-                    frame.text.title:SetText(data.name or "")
-                end
-
-                local function SetFocusedTitleText()
-                    if data.stackCount and data.stackCount > 1 then
-                        frame.text.title:SetText(string.format("%s x%d", data.name, data.stackCount))
-                    else
-                        frame.text.title:SetText(data.name or "")
-                    end
-                end
-
-                local function ApplyDefaultItemLayout()
-                    frame.icon:ClearAllPoints()
-                    frame.icon:SetPoint("LEFT", frame, "LEFT", 0, 0)
-                    frame.text:ClearAllPoints()
-                    frame.text:SetPoint("LEFT", frame.icon, "RIGHT", sectionPadding * 2, -2)
-                    frame.text:SetPoint("RIGHT", frame, "RIGHT", -sectionPadding * 4, -2)
-                end
-
-                local function ApplySeparatorLayout()
-                    frame.text:ClearAllPoints()
-                    frame.text:SetPoint("LEFT", frame, "LEFT", 0, -2)
-                    frame.text:SetPoint("RIGHT", frame, "RIGHT", -sectionPadding * 4, -2)
-                end
-
-                local function ApplyExpandedItemLayout()
-                    frame.icon:ClearAllPoints()
-                    frame.icon:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -sectionPadding)
-                    frame.text:ClearAllPoints()
-                    frame.text:SetPoint("TOPLEFT", frame.icon, "TOPRIGHT", sectionPadding * 2, 0)
-                    frame.text:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -sectionPadding * 4, -sectionPadding)
-                end
-
-                if not isFocused or not IsListItemType(data.type) or not data.slot then
-                    local wasExpanded = frame:GetHeight() > sectionHeight
-                    frame:SetHeight(sectionHeight)
-                    frame.text.title:SetFont("Fonts\\FRIZQT___CYR.TTF", itemFontSize, "OUTLINE")
-                    SetDefaultTitleText()
-                    if data.type == "separator" then
-                        frame.text:SetAlpha(1)
-                        ApplySeparatorLayout()
-                    else
-                        frame.text:SetAlpha(unfocusedItemTextAlpha)
-                        ApplyDefaultItemLayout()
-                    end
-                    for _, lineText in ipairs(frame.text.lines) do
-                        lineText:Hide()
-                        lineText:SetText("")
-                    end
-                    frame.text.price.text:SetText("")
-                    frame.text.price:Hide()
-                    frame.text.price.icon.texture:SetTexture(nil)
-                    frame.text.price.icon.texture2:SetTexture(nil)
-                    frame.text.price.icon.texture2:Hide()
-                    frame.text.price.icon:SetSize(currencyIconSize, currencyIconSize)
-                    frame.text.price.icon:Hide()
-                    frame.text.price:SetHeight(0)
-                    UpdateTextHeight()
-                    return wasExpanded
-                end
-                
-                frame.text.title:SetFont("Fonts\\FRIZQT___CYR.TTF", focusedItemFontSize, "OUTLINE")
-
-                local tooltipData = GetListItemTooltipData(data)
-
-                frame.text:SetAlpha(1)
-                SetFocusedTitleText()
-                local tooltipLines = (tooltipData and tooltipData.lines) or {}
-                local lineIndex = 1
-                for tooltipLineIndex = 2, #tooltipLines do
-                    local tooltipLine = tooltipLines[tooltipLineIndex]
-                    local leftText = tooltipLine and tooltipLine.leftText
-                    local containsAngleBrackets = leftText and leftText:find("<", 1, true) and leftText:find(">", 1, true)
-                    if leftText and leftText ~= "" and not containsAngleBrackets then
-                        local lineText = frame.text.lines[lineIndex]
-                        if not lineText then
-                            lineText = frame.text:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-                            frame.text.lines[lineIndex] = lineText
-                            lineText:SetJustifyH("LEFT")
-                            lineText:SetFont("Fonts\\FRIZQT___CYR.TTF", descriptionFontSize, "")
-                        end
-
-                        lineText:ClearAllPoints()
-                        if lineIndex == 1 then
-                            lineText:SetPoint("TOPLEFT", frame.text.title, "BOTTOMLEFT", 0, -sectionPadding)
-                            lineText:SetPoint("TOPRIGHT", frame.text.title, "BOTTOMRIGHT", 0, -sectionPadding)
-                        else
-                            lineText:SetPoint("TOPLEFT", frame.text.lines[lineIndex - 1], "BOTTOMLEFT", 0, -1)
-                            lineText:SetPoint("TOPRIGHT", frame.text.lines[lineIndex - 1], "BOTTOMRIGHT", 0, -1)
-                        end
-
-                        local rightText = tooltipLine.rightText
-                        local displayText = leftText
-                        if rightText and rightText ~= "" then
-                            local formattedRightText = rightText
-                            local rightColor = tooltipLine.rightColor
-                            if rightColor then
-                                formattedRightText = CreateColor(
-                                    rightColor.r or 0.9,
-                                    rightColor.g or 0.9,
-                                    rightColor.b or 0.9,
-                                    rightColor.a or 0.95
-                                ):WrapTextInColorCode(rightText)
-                            end
-                            displayText = leftText .. ", " .. formattedRightText
-                        end
-
-                        lineText:SetText(displayText)
-                        local leftColor = tooltipLine.leftColor
-                        if leftColor then
-                            lineText:SetTextColor(
-                                leftColor.r or 0.9,
-                                leftColor.g or 0.9,
-                                leftColor.b or 0.9,
-                                leftColor.a or 0.95
-                            )
-                        else
-                            lineText:SetTextColor(0.9, 0.9, 0.9, 0.95)
-                        end
-                        lineText:Show()
-                        lineIndex = lineIndex + 1
-                    end
-                end
-
-                for i = lineIndex, #frame.text.lines do
-                    frame.text.lines[i]:Hide()
-                    frame.text.lines[i]:SetText("")
-                end
-
-                local priceText = nil
-                local priceIconTextures = {}
-                if not data.isUnavailable and IsListItemType(data.type) then
-                    local costCount = 0
-                    if data.type == "merchantItem" and data.slot then
-                        costCount = GetMerchantItemCostInfo(data.slot) or 0
-                    end
-                    if costCount > 0 and data.slot then
-                        local costParts = {}
-
-                        for costIndex = 1, costCount do
-                            local costTexture, costValue, costLink, currencyName = GetMerchantItemCostItem(data.slot, costIndex)
-                            if costValue and costValue > 0 then
-                                local costName = currencyName
-                                if not costName and costLink then
-                                    local itemName = C_Item.GetItemInfo(costLink)
-                                    costName = itemName or costLink
-                                end
-
-                                table.insert(costParts, {
-                                    name = (costName and costName ~= "") and costName or "Валюта",
-                                    value = costValue,
-                                    texture = costTexture,
-                                })
-
-                                if costTexture and costTexture ~= 0 and #priceIconTextures < 2 then
-                                    table.insert(priceIconTextures, costTexture)
-                                end
-                            end
-                        end
-
-                        local formattedCostParts = {}
-                        for _, costPart in ipairs(costParts) do
-                            table.insert(formattedCostParts, string.format("%s x%d", costPart.name, costPart.value))
-                        end
-
-                        if data.price and data.price > 0 then
-                            table.insert(formattedCostParts, GetMoneyString(data.price, true))
-                        end
-
-                        if #formattedCostParts > 0 then
-                            priceText = table.concat(formattedCostParts, ", ")
-                        end
-                    elseif data.price and data.price > 0 then
-                        priceText = GetMoneyString(data.price, true)
-                    end
-                end
-
-                frame.text.price:ClearAllPoints()
-                frame.text.price.icon:ClearAllPoints()
-                frame.text.price.text:ClearAllPoints()
-
-                local descriptionLineCount = lineIndex - 1
-                if descriptionLineCount > 1 then
-                    frame.text.price:SetPoint("TOPLEFT", frame.text.lines[lineIndex - 1], "BOTTOMLEFT", 0, -sectionPadding * 2)
-                elseif descriptionLineCount == 1 then
-                    frame.text.price:SetPoint("TOPLEFT", frame.text.lines[lineIndex - 1], "BOTTOMLEFT", 0, -sectionPadding)
-                else
-                    frame.text.price:SetPoint("TOPLEFT", frame.text.title, "BOTTOMLEFT", 0, -sectionPadding)
-                end
-
-                frame.text.price:SetPoint("TOPRIGHT", frame.text, "TOPRIGHT", 0, 0)
-
-                if priceText then
-                    if #priceIconTextures > 0 then
-                        local priceIcon = frame.text.price.icon
-                        local iconOffset = currencyIconSize - currencyIconOverlap
-
-                        priceIcon.texture:ClearAllPoints()
-                        priceIcon.texture2:ClearAllPoints()
-
-                        if #priceIconTextures >= 2 then
-                            priceIcon:SetSize(currencyIconSize, currencyIconDualHeight)
-                            priceIcon.texture:SetPoint("TOPLEFT", priceIcon, "TOPLEFT", 0, 0)
-                            priceIcon.texture:SetPoint("BOTTOMRIGHT", priceIcon, "TOPLEFT", currencyIconSize, -currencyIconSize)
-                            priceIcon.texture:SetTexture(priceIconTextures[1])
-
-                            priceIcon.texture2:SetTexture(priceIconTextures[2])
-                            priceIcon.texture2:SetPoint("TOPLEFT", priceIcon, "TOPLEFT", 0, -iconOffset)
-                            priceIcon.texture2:SetPoint(
-                                "BOTTOMRIGHT",
-                                priceIcon,
-                                "TOPLEFT",
-                                currencyIconSize,
-                                -(currencyIconSize + iconOffset)
-                            )
-                            priceIcon.texture2:Show()
-                        else
-                            priceIcon:SetSize(currencyIconSize, currencyIconSize)
-                            priceIcon.texture:SetAllPoints()
-                            priceIcon.texture:SetTexture(priceIconTextures[1])
-                            priceIcon.texture2:SetTexture(nil)
-                            priceIcon.texture2:Hide()
-                        end
-
-                        priceIcon:SetPoint("LEFT", frame.text.price, "LEFT", 0, 0)
-                        priceIcon:Show()
-                        frame.text.price.text:SetPoint("LEFT", priceIcon, "RIGHT", sectionPadding, 0)
-                        frame.text.price.text:SetPoint("RIGHT", frame.text.price, "RIGHT", 0, 0)
-                    else
-                        frame.text.price.icon.texture:SetTexture(nil)
-                        frame.text.price.icon.texture2:SetTexture(nil)
-                        frame.text.price.icon.texture2:Hide()
-                        frame.text.price.icon:SetSize(currencyIconSize, currencyIconSize)
-                        frame.text.price.icon:Hide()
-                        frame.text.price.text:SetPoint("TOPLEFT", frame.text.price, "TOPLEFT", 0, 0)
-                        frame.text.price.text:SetPoint("TOPRIGHT", frame.text.price, "TOPRIGHT", 0, 0)
-                    end
-                    frame.text.price.text:SetText(priceText)
-                    UpdatePriceFrameHeight()
-                    frame.text.price:Show()
-                else
-                    frame.text.price.icon.texture:SetTexture(nil)
-                    frame.text.price.icon.texture2:SetTexture(nil)
-                    frame.text.price.icon.texture2:Hide()
-                    frame.text.price.icon:SetSize(currencyIconSize, currencyIconSize)
-                    frame.text.price.icon:Hide()
-                    frame.text.price.text:SetText("")
-                    frame.text.price:Hide()
-                    frame.text.price:SetHeight(0)
-                end
-
-                UpdateTextHeight()
-
-                local newExtent = math.max(sectionHeight, (frame.text.height or sectionHeight) + sectionPadding * 2)
-                frame:SetHeight(newExtent)
-                if newExtent > sectionHeight then
-                    ApplyExpandedItemLayout()
-                else
-                    ApplyDefaultItemLayout()
-                end
-                local previousExtent = focusedItemExtent
-                focusedItemExtent = newExtent
-                return previousExtent ~= newExtent
-            end
-
-            local isCurrentFocused = IsListItemType(data.type)
-                and focusedSlot ~= nil
-                and focusedItemType == data.type
-                and data.slot == focusedSlot
-            frame:SetFocused(isCurrentFocused)
-
-        end
-
         if scrollView.SetElementExtentCalculator then
             scrollView:SetElementExtentCalculator(function(index, elementData)
                 local data = elementData
@@ -1860,7 +2223,7 @@ function ConsoleMenu:SetItemListFrame()
         else
             scrollView:SetElementExtent(sectionHeight)
         end
-        scrollView:SetElementInitializer("Button", Initializer)
+        scrollView:SetElementInitializer("Button", InitializeItemListElement)
     
         ScrollUtil.InitScrollBoxListWithScrollBar(scrollBox, scrollBar, scrollView)
         scrollBox:SetDataProvider(dataProvider)
@@ -2090,21 +2453,8 @@ function ConsoleMenu:SetItemListFrame()
     if not frame.FocusBindingHooksSet then
         frame.FocusBindingHooksSet = true
 
-        frame:HookScript("OnShow", function(self)
-            SetMerchantMoneyEventsRegistered(self, true)
-            RestoreOrFocusFirstListElement()
-            ApplyItemListOverrideBindings(self)
-        end)
-
-        frame:HookScript("OnHide", function(self)
-            lastFocusedSlot = focusedSlot
-            lastFocusedType = focusedItemType
-            focusedSlot = nil
-            focusedItemType = nil
-            focusedItemExtent = sectionHeight
-            SetMerchantMoneyEventsRegistered(self, false)
-            ClearItemListOverrideBindings(self)
-        end)
+        frame:HookScript("OnShow", OnItemListFrameShow)
+        frame:HookScript("OnHide", OnItemListFrameHide)
     end
 
     frame:RegisterEvent("MERCHANT_SHOW")
@@ -2113,58 +2463,7 @@ function ConsoleMenu:SetItemListFrame()
     frame:RegisterEvent("TOOLTIP_DATA_UPDATE")
     frame:RegisterEvent("PLAYER_REGEN_ENABLED")
 
-    frame:SetScript("OnEvent", function(self, event, ...)
-        if event == "MERCHANT_CLOSED" then
-            ResetMerchantSelection()
-            if dataProvider then
-                dataProvider:Flush()
-            end
-            currenciesData = {}
-            tabs = {}
-            focusedTabIndex = 1
-            SetMerchantMoneyEventsRegistered(self, false)
-            return
-        end
-
-        if event == "TOOLTIP_DATA_UPDATE" then
-            local dataInstanceID = ...
-            OnTooltipDataUpdate(dataInstanceID)
-            return
-        end
-
-        if event == "PLAYER_REGEN_ENABLED" then
-            if pendingClearOverrideBindings and not self:IsShown() then
-                ClearItemListOverrideBindings(self)
-            elseif pendingOverrideBindings and self:IsShown() then
-                ApplyItemListOverrideBindings(self)
-            end
-            return
-        end
-
-        if event == "PLAYER_MONEY" or event == "CURRENCY_DISPLAY_UPDATE" then
-            LoadMerchantCurrenciesData()
-            UpdateCurrenciesFrame()
-            UpdateMerchantActionKeys(GetFocusedElement())
-            ConsoleMenu:UpdateKeysFrame()
-            return
-        end
-
-        if event == "UPDATE_INVENTORY_DURABILITY" then
-            UpdateMerchantActionKeys(GetFocusedElement())
-            ConsoleMenu:UpdateKeysFrame()
-            return
-        end
-
-        if event == "MERCHANT_SHOW" then
-            ResetMerchantSelection()
-            ScheduleMerchantRefresh(true)
-            return
-        end
-
-        if event == "MERCHANT_UPDATE" then
-            ScheduleMerchantRefresh(false)
-        end
-    end)
+    frame:SetScript("OnEvent", OnItemListFrameEvent)
 
     frame.IsMerchantFrameInitialized = true
 end
