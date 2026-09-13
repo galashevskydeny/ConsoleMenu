@@ -159,9 +159,9 @@ function Compass:OnUpdate(elapsed)
     local geometryReady = self:LayoutArtwork()
     if
         geometryReady
-        and (self.renderDirty or self.markerRevealPending or self.renderFacing ~= facing)
+        and (self.renderDirty or self.markerRevealPending or self.markerSmoothPending or self.renderFacing ~= facing)
     then
-        self:Render(facing, true)
+        self:Render(facing, true, elapsed)
     end
 end
 

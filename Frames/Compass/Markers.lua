@@ -39,10 +39,6 @@ function Compass:CreateMarkerPool()
         button.selection:SetAtlas(C.SELECTION_MARKER_ATLAS)
         button.selection:SetRotation(0)
         button.selection:Hide()
-        for _, texture in ipairs({ button.icon, button.shadow, button.symbol, button.selection }) do
-            texture:SetSnapToPixelGrid(true)
-            texture:SetTexelSnappingBias(0)
-        end
         button:Hide()
         button.renderShown = false
         return button
@@ -57,7 +53,7 @@ function Compass:CreateMarkerPool()
         button.colorR, button.colorG, button.colorB = nil, nil, nil
         button.markerKey, button.revealAt, button.selected = nil, nil, false
         button.renderX, button.renderAlpha, button.renderWaypoint, button.renderShown = nil, nil, nil, false
-        button.renderLeft, button.renderTop = nil, nil
+        button.renderLeft, button.renderTop, button.smoothLeft = nil, nil, nil
         button.symbol:Hide()
         button.selection:Hide()
         button.trackedGlow:Hide()
@@ -217,7 +213,7 @@ function Compass:LayoutMarkerGroups(selection)
         -- Размер не зависит от дальности, только от типа точки.
         marker.projectedIconSize = Pixel:Snap(self.iconSize * (marker.sizeScale or 1), scale)
         marker.projectedHitSize = marker.projectedIconSize + outline
-        local left = Pixel:Snap(centerX + marker.projectedX - marker.projectedHitSize / 2, scale)
+        local left = centerX + marker.projectedX - marker.projectedHitSize / 2
         marker.projectedLeft = left
         marker.projectedLeftPx = Pixel:ToCount(left, scale)
         marker.projectedRightPx = marker.projectedLeftPx + Pixel:ToCount(marker.projectedHitSize, scale)
@@ -275,6 +271,7 @@ function Compass:AssignMarkerSlots(selection, live)
                 byKey[slot.markerKey] = nil
             end
             slot.markerKey, slot.markerGeneration = marker.key, generation
+            slot.smoothLeft = nil
             byKey[marker.key], nextSlots[index] = slot, slot
         end
         if not live or marker.navigation or marker.priority <= C.TRACKED_QUEST_PRIORITY then
@@ -294,6 +291,7 @@ function Compass:AssignMarkerSlots(selection, live)
                 slot:Hide()
                 slot.renderShown = false
             end
+            slot.smoothLeft = nil
             nextSlots[#nextSlots + 1] = slot
         end
     end
@@ -365,7 +363,35 @@ function Compass:BindMarker(button, marker)
     if button.marker and button.marker ~= marker then
         button.marker.renderShown = false
     end
+    if button.marker ~= marker then
+        button.smoothLeft = nil
+    end
     button.marker = marker
+end
+
+-- Сдвигает видимую горизонталь к расчётной без скачков.
+local function SmoothMarkerLeft(self, button, targetLeft, scale)
+    local C = self.Constants
+    local current = button.smoothLeft
+    if not current or math.abs(targetLeft - current) >= C.MARKER_SMOOTH_SNAP then
+        button.smoothLeft = targetLeft
+        return targetLeft
+    end
+    local elapsed = self.markerSmoothElapsed or 0
+    local tau = C.MARKER_SMOOTH_TIME
+    local factor = 1
+    if tau > 0 and elapsed > 0 then
+        factor = 1 - math.exp(-elapsed / tau)
+    end
+    local left = current + (targetLeft - current) * factor
+    local settle = Pixel:Multiple(1, scale) * 0.25
+    if math.abs(targetLeft - left) > settle then
+        self.markerSmoothPending = true
+        button.smoothLeft = left
+        return left
+    end
+    button.smoothLeft = targetLeft
+    return targetLeft
 end
 
 -- Рисует один значок по центру высоты полосы.
@@ -387,6 +413,7 @@ function Compass:RenderMarker(button, marker, x, alpha, markerY, outline, scale)
         if button.renderShown then
             button:Hide()
             button.renderShown = false
+            button.smoothLeft = nil
         end
         return false
     end
@@ -444,7 +471,7 @@ function Compass:RenderMarker(button, marker, x, alpha, markerY, outline, scale)
         button.layoutScale, button.layoutAtlas = scale, marker.atlas
     end
     local centerX, centerY = self.artworkLayout.centerX, self.artworkLayout.centerY
-    local left = marker.projectedLeft - centerX
+    local left = SmoothMarkerLeft(self, button, marker.projectedLeft - centerX, scale)
     local top = Pixel:Snap(centerY + markerY + hitSize / 2, scale) - centerY
     if button.renderLeft ~= left or button.renderTop ~= top then
         button:SetPoint("TOPLEFT", self.frame, "CENTER", left, top)

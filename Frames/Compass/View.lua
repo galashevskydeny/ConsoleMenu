@@ -185,7 +185,7 @@ function Compass:ClearMarkers()
     wipe(self.markerGroups)
     wipe(self.markerLeftOrder)
     wipe(self.markerGroupMembers)
-    self.markerRevealPending = false
+    self.markerRevealPending, self.markerSmoothPending = false, false
     self.selectionDirty = true
     self:HideDetail()
     self.renderDirty = true
@@ -277,11 +277,12 @@ function Compass:ShowDetail(marker)
 end
 
 -- Рисует полосу: стороны света, значки и подпись выбранной точки.
-function Compass:Render(facing, live)
+function Compass:Render(facing, live, elapsed)
     local C = self.Constants
     if not live and not self:LayoutArtwork() then
         return
     end
+    self.markerSmoothElapsed = elapsed or 0
     local layout = self.artworkLayout
     local scale, width = layout.scale, layout.contentWidth
     self:RenderHeadings(facing)
@@ -290,7 +291,7 @@ function Compass:Render(facing, live)
     local selection = self:SelectMarkers(facing, width, live)
     self:LayoutMarkerGroups(selection)
     self:AssignMarkerSlots(selection, live)
-    self.markerRevealPending = false
+    self.markerRevealPending, self.markerSmoothPending = false, false
     for index, marker in ipairs(selection) do
         local slot = self.markerSlots[index]
         marker.renderShown = self:RenderMarker(
