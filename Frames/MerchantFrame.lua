@@ -504,10 +504,24 @@ local function OnTooltipDataUpdate(dataInstanceID)
     RefreshFocusedItemFrame()
 end
 
+-- Нужно ли чинить снаряжение у этого торговца.
+local function NeedsEquipmentRepair()
+    if not CanMerchantRepair() then
+        return false
+    end
+
+    local repairCost, canRepair = GetRepairAllCost()
+    if canRepair then
+        return true
+    end
+
+    return repairCost and repairCost > 0
+end
+
 -- Подсказки кнопок для выбранного пункта и текущей вкладки.
 local function UpdateMerchantActionKeys(element)
     local tab = tabs[focusedTabIndex]
-    local canRepair = tab and tab.code == "trade" and CanMerchantRepair()
+    local canRepair = tab and tab.code == "trade" and NeedsEquipmentRepair()
 
     if element and element.type == "merchantItem" and not element.isUnavailable then
         ConsoleMenu:AddKeysFrameItem("PAD1", "Купить предмет")
@@ -632,7 +646,7 @@ local function TertiaryAction()
         return
     end
 
-    if CanMerchantRepair() then
+    if NeedsEquipmentRepair() then
         RepairAllItems()
     end
 end
@@ -1214,6 +1228,7 @@ local function SetMerchantMoneyEventsRegistered(frame, isRegistered)
         end
         frame:RegisterEvent("PLAYER_MONEY")
         frame:RegisterEvent("CURRENCY_DISPLAY_UPDATE")
+        frame:RegisterEvent("UPDATE_INVENTORY_DURABILITY")
         moneyEventsRegistered = true
     else
         if not moneyEventsRegistered then
@@ -1221,6 +1236,7 @@ local function SetMerchantMoneyEventsRegistered(frame, isRegistered)
         end
         frame:UnregisterEvent("PLAYER_MONEY")
         frame:UnregisterEvent("CURRENCY_DISPLAY_UPDATE")
+        frame:UnregisterEvent("UPDATE_INVENTORY_DURABILITY")
         moneyEventsRegistered = false
     end
 end
@@ -2128,6 +2144,12 @@ function ConsoleMenu:SetItemListFrame()
         if event == "PLAYER_MONEY" or event == "CURRENCY_DISPLAY_UPDATE" then
             LoadMerchantCurrenciesData()
             UpdateCurrenciesFrame()
+            UpdateMerchantActionKeys(GetFocusedElement())
+            ConsoleMenu:UpdateKeysFrame()
+            return
+        end
+
+        if event == "UPDATE_INVENTORY_DURABILITY" then
             UpdateMerchantActionKeys(GetFocusedElement())
             ConsoleMenu:UpdateKeysFrame()
             return
