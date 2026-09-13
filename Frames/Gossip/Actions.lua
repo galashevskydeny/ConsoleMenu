@@ -44,3 +44,26 @@ function Gossip.SelectOption(data)
         CloseQuest()
     end
 end
+
+-- Выбор пункта полёта, если карта сама не открылась.
+function Gossip.SelectTaxiIfNeeded()
+    if Gossip.IsTaxiMapOpen() then
+        return
+    end
+
+    local options = C_GossipInfo.GetOptions()
+    if not options then
+        return
+    end
+
+    for _, option in pairs(options) do
+        if type(option) == "table" and Gossip.IsTaxiOption(option) then
+            if option.gossipOptionID ~= nil then
+                C_GossipInfo.SelectOption(option.gossipOptionID)
+            elseif option.orderIndex ~= nil then
+                C_GossipInfo.SelectOptionByIndex(option.orderIndex)
+            end
+            return
+        end
+    end
+end

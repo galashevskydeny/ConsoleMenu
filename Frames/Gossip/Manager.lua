@@ -43,6 +43,7 @@ function ConsoleMenu:SetCustomGossipFrame()
     frame:RegisterEvent("QUEST_FINISHED")
     frame:RegisterEvent("GOSSIP_CLOSED")
     frame:RegisterEvent("TAXIMAP_OPENED")
+    frame:RegisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_SHOW")
     frame:RegisterEvent("PLAYER_REGEN_DISABLED")
     frame:RegisterEvent("PLAYER_REGEN_ENABLED")
 
@@ -64,6 +65,23 @@ function ConsoleMenu:SetCustomGossipFrame()
         ConsoleMenu:ApplyContextUIChanges()
     end
 
+    -- Скрытие окна без анимации, чтобы карта полётов не вспыхивала меню.
+    local function HideGossipWindowNow()
+        hideRequestToken = hideRequestToken + 1
+        if frame.fadeIn then
+            frame.fadeIn:Stop()
+        end
+        if frame.fadeOut then
+            frame.fadeOut:Stop()
+            frame.fadeOut:SetScript("OnFinished", nil)
+        end
+        frame:Hide()
+        frame:SetAlpha(1)
+        ConsoleMenu:RemoveWindow(Enum.PlayerInteractionType.Gossip)
+        ConsoleMenu:RemoveWindow(Enum.PlayerInteractionType.QuestGiver)
+        ConsoleMenu:ApplyContextUIChanges()
+    end
+
     frame:SetScript("OnEvent", function(self, event, ...)
         if event == "GAME_PAD_ACTIVE_CHANGED" then
             Gossip.gamePadActive = ...
@@ -71,15 +89,29 @@ function ConsoleMenu:SetCustomGossipFrame()
                 ConsoleMenu:SetGamePadActive(...)
             end
         elseif event == "GOSSIP_SHOW" then
-            -- У распорядителя полётов карта открывается сразу, отдельное меню не нужно.
-            if Gossip.IsTaxiConversation() then
+            hideRequestToken = hideRequestToken + 1
+            local currentToken = hideRequestToken
+            -- Клиент уже обработал разговор. Если окно не открыли — пункт выбран самими.
+            if Gossip.ShouldSuppressDialogue() then
+                Gossip.SelectTaxiIfNeeded()
                 return
             end
-            ShowGossipWindow(Enum.PlayerInteractionType.Gossip)
+            -- Карта полётов открывается чуть позже события разговора; не показываем меню заранее.
+            C_Timer.After(Gossip.taxiConfirmDelay, function()
+                if currentToken ~= hideRequestToken then
+                    return
+                end
+                if Gossip.ShouldSuppressDialogue() then
+                    return
+                end
+                ShowGossipWindow(Enum.PlayerInteractionType.Gossip)
+            end)
         elseif event == "TAXIMAP_OPENED" then
-            hideRequestToken = hideRequestToken + 1
-            if frame:IsShown() then
-                HideGossipWindow()
+            HideGossipWindowNow()
+        elseif event == "PLAYER_INTERACTION_MANAGER_FRAME_SHOW" then
+            local interactionType = ...
+            if interactionType and interactionType == Gossip.GetTaxiInteractionType() then
+                HideGossipWindowNow()
             end
         elseif event == "QUEST_GREETING" then
             ShowGossipWindow(Enum.PlayerInteractionType.QuestGiver)
@@ -99,6 +131,8 @@ function ConsoleMenu:SetCustomGossipFrame()
         elseif event == "GOSSIP_CLOSED" or event == "QUEST_FINISHED" then
             local interactionIsContinuing = ...
             if event == "GOSSIP_CLOSED" and interactionIsContinuing then
+                -- Разговор сменяется картой полётов или заданием: отменяем отложенный показ.
+                hideRequestToken = hideRequestToken + 1
                 return
             end
 

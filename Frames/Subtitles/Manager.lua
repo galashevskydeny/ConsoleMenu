@@ -24,9 +24,29 @@ local function OnSubtitleEvent(_, event, ...)
         ConsoleMenu:AddSubtitles(event, message, sender)
     elseif event == "GOSSIP_SHOW" then
         Subtitle.closeToken = Subtitle.closeToken + 1
-        local message = C_GossipInfo.GetText()
-        local sender = UnitName("npc")
-        ConsoleMenu:AddSubtitles(event, message, sender)
+        local currentToken = Subtitle.closeToken
+        if ConsoleMenu.Gossip and ConsoleMenu.Gossip.ShouldSuppressDialogue and ConsoleMenu.Gossip.ShouldSuppressDialogue() then
+            return
+        end
+        local delay = ConsoleMenu.Gossip and ConsoleMenu.Gossip.taxiConfirmDelay or 0.08
+        C_Timer.After(delay, function()
+            if currentToken ~= Subtitle.closeToken then
+                return
+            end
+            if ConsoleMenu.Gossip and ConsoleMenu.Gossip.ShouldSuppressDialogue and ConsoleMenu.Gossip.ShouldSuppressDialogue() then
+                return
+            end
+            local message = C_GossipInfo.GetText()
+            local sender = UnitName("npc")
+            ConsoleMenu:AddSubtitles(event, message, sender)
+            ConsoleMenu:SubtitleFrameUpdate()
+        end)
+        return
+    elseif event == "TAXIMAP_OPENED" then
+        Subtitle.closeToken = Subtitle.closeToken + 1
+        Subtitle.RemoveByPriority(1)
+        ConsoleMenu:SubtitleFrameUpdate()
+        return
     elseif event == "QUEST_DETAIL" then
         Subtitle.closeToken = Subtitle.closeToken + 1
         local message = GetQuestText()
@@ -121,6 +141,7 @@ function ConsoleMenu:SetSubtitleFrame()
     frame:RegisterEvent("GOSSIP_CLOSED")
     frame:RegisterEvent("QUEST_FINISHED")
     frame:RegisterEvent("GOSSIP_CONFIRM")
+    frame:RegisterEvent("TAXIMAP_OPENED")
 
     frame:SetScript("OnEvent", OnSubtitleEvent)
 end

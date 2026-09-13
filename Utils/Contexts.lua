@@ -890,9 +890,18 @@ function ConsoleMenu:InitializeContexts()
             UpdatePlayerAlive()
             RefreshUIAndActionBar()
         elseif event == "PLAYER_INTERACTION_MANAGER_FRAME_SHOW" then
-            local interactionType = ...
-            if handledInteractionTypes and handledInteractionTypes[interactionType] then
-                ConsoleMenu:AddWindow(interactionType)
+            local shownType = ...
+            local types = Enum and Enum.PlayerInteractionType
+            local taxiType = types and (types.TaxiNode or types.Taxi)
+            if taxiType and shownType == taxiType then
+                if types.Gossip then
+                    ConsoleMenu:RemoveWindow(types.Gossip)
+                end
+                RefreshUI()
+                return
+            end
+            if handledInteractionTypes and handledInteractionTypes[shownType] then
+                ConsoleMenu:AddWindow(shownType)
                 RefreshUI()
             end
         elseif event == "PLAYER_INTERACTION_MANAGER_FRAME_HIDE" then

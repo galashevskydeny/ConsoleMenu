@@ -87,24 +87,80 @@ function Gossip.GetQuestLineForComplete(questID)
     return questLineInfo, questIDs
 end
 
--- Разговор только про полёт: нет заданий и нет других пунктов.
-function Gossip.IsTaxiConversation()
-    local quests = Gossip.GetGossipQuests()
-    if quests and #quests > 0 then
+-- Признак открытой карты полётов.
+function Gossip.IsTaxiMapOpen()
+    if TaxiFrame and TaxiFrame:IsShown() then
+        return true
+    end
+    if FlightMapFrame and FlightMapFrame:IsShown() then
+        return true
+    end
+    local taxiType = Gossip.GetTaxiInteractionType()
+    if taxiType and C_PlayerInteractionManager and C_PlayerInteractionManager.IsInteractingWithNpcOfType then
+        return C_PlayerInteractionManager.IsInteractingWithNpcOfType(taxiType)
+    end
+    return false
+end
+
+-- Признак пункта полёта в разговоре.
+function Gossip.IsTaxiOption(option)
+    if not option then
         return false
     end
 
-    local options = C_GossipInfo.GetOptions() or {}
-    if #options == 0 then
+    local taxiIcon = Gossip.taxiGossipIcon
+    local fileIcon = GetFileIDFromPath and GetFileIDFromPath("Interface/GossipFrame/TaxiGossipIcon")
+    if option.icon == taxiIcon or option.overrideIconID == taxiIcon then
+        return true
+    end
+    if fileIcon and (option.icon == fileIcon or option.overrideIconID == fileIcon) then
+        return true
+    end
+    return false
+end
+
+-- Есть ли среди пунктов разговора полёт.
+function Gossip.HasTaxiOption()
+    local options = C_GossipInfo.GetOptions()
+    if not options then
         return false
     end
-
-    for _, option in ipairs(options) do
-        local icon = option.overrideIconID or option.icon
-        if icon ~= Gossip.taxiGossipIcon then
-            return false
+    for _, option in pairs(options) do
+        if type(option) == "table" and Gossip.IsTaxiOption(option) then
+            return true
         end
     end
+    return false
+end
 
-    return true
+-- Разговор с распорядителем полётов: карту покажет клиент, своё меню не нужно.
+function Gossip.ShouldSkipForTaxi()
+    if Gossip.IsTaxiMapOpen() then
+        return true
+    end
+
+    local numActive = C_GossipInfo.GetNumActiveQuests and C_GossipInfo.GetNumActiveQuests() or 0
+    local numAvailable = C_GossipInfo.GetNumAvailableQuests and C_GossipInfo.GetNumAvailableQuests() or 0
+    if numActive > 0 or numAvailable > 0 then
+        return false
+    end
+
+    if Gossip.HasTaxiOption() then
+        return true
+    end
+
+    return false
+end
+
+-- Клиент сам выбрал пункт и не открыл стандартное окно разговора.
+function Gossip.DidClientSkipGossipFrame()
+    return GossipFrame and not GossipFrame:IsShown()
+end
+
+-- Диалог сейчас не нужно показывать: полёт или клиент уже пропустил окно.
+function Gossip.ShouldSuppressDialogue()
+    if Gossip.ShouldSkipForTaxi() then
+        return true
+    end
+    return Gossip.DidClientSkipGossipFrame()
 end
