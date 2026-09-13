@@ -15,6 +15,12 @@ local function StyleText(region, fontSize, color)
     region:SetTextColor(color.r, color.g, color.b, color.a or 1)
 end
 
+-- Задаёт прозрачность названия и второстепенной подписи.
+local function SetDetailAlpha(self, ease)
+    self.detailTitle:SetAlpha(ease)
+    self.detailCaption:SetAlpha(ease * self.Constants.LABEL_CAPTION_ALPHA)
+end
+
 -- Создаёт линию, указатель, деления и подписи сторон света.
 function Compass:CreateView()
     local C = self.Constants
@@ -154,14 +160,9 @@ function Compass:StyleView()
             tick.labelAlpha = nil
         end
     end
-    local captionColor = {
-        r = C.LINE_COLOR.r,
-        g = C.LINE_COLOR.g,
-        b = C.LINE_COLOR.b,
-        a = C.LABEL_CAPTION_ALPHA,
-    }
     StyleText(self.detailTitle, C.TITLE_FONT_SIZE, C.LINE_COLOR)
-    StyleText(self.detailCaption, fontSize, captionColor)
+    StyleText(self.detailCaption, fontSize, C.LINE_COLOR)
+    SetDetailAlpha(self, 1)
     self:StylePeek(fontSize, true)
     for _, texture in ipairs(self.artwork) do
         texture:SetAlpha(1)
@@ -253,8 +254,7 @@ function Compass:HideDetail()
         self.detailCaption:Hide()
         self.detailShown = false
     end
-    self.detailTitle:SetAlpha(1)
-    self.detailCaption:SetAlpha(1)
+    SetDetailAlpha(self, 1)
     self.detailName, self.detailDistance, self.detailKind, self.detailNearby = nil, nil, nil, nil
 end
 
@@ -332,12 +332,9 @@ function Compass:Render(facing, live, elapsed)
     if arrivalFocus and blend > 0 then
         self:HidePeek()
         self:ShowDetail(arrivalFocus, true)
-        local ease = self.arrivalEase or blend
-        self.detailTitle:SetAlpha(ease)
-        self.detailCaption:SetAlpha(ease)
+        SetDetailAlpha(self, self.arrivalEase or blend)
     elseif self.peekAltHeld then
-        self.detailTitle:SetAlpha(1)
-        self.detailCaption:SetAlpha(1)
+        SetDetailAlpha(self, 1)
         local marker, slot = self:FindPeekMarker()
         if marker then
             self:ShowPeek(marker, slot)
@@ -350,8 +347,7 @@ function Compass:Render(facing, live, elapsed)
             self:HideDetail()
         end
     else
-        self.detailTitle:SetAlpha(1)
-        self.detailCaption:SetAlpha(1)
+        SetDetailAlpha(self, 1)
         self:HidePeek()
         if nearest then
             self:ShowDetail(nearest)
