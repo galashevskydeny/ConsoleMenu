@@ -14,8 +14,6 @@ Gossip.iconSize = Gossip.sectionHeight - Gossip.sectionPadding * 2
 Gossip.itemFontSize = 20
 Gossip.animationDuration = 0.1
 Gossip.questFinishedHideDelay = Gossip.animationDuration + 0.25
--- Пауза, за которую клиент успевает открыть карту полётов вместо меню.
-Gossip.taxiConfirmDelay = 0.12
 Gossip.fontName = "Fonts\\FRIZQT___CYR.TTF"
 Gossip.needMoreTime = "Мне нужно больше времени"
 -- Значок пункта полёта у распорядителя.
@@ -28,6 +26,17 @@ Gossip.savedSoftTargetFriend = nil
 Gossip.softTargetStored = false
 Gossip.gamePadActive = false
 Gossip.parentFrame = nil
+
+-- Возвращает значение, если клиент его не скрывает.
+function Gossip.Readable(value)
+    if value == nil then
+        return nil
+    end
+    if issecretvalue and issecretvalue(value) then
+        return nil
+    end
+    return value
+end
 
 -- Тип взаимодействия с точкой полёта в клиенте.
 function Gossip.GetTaxiInteractionType()

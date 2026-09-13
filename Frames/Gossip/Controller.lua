@@ -25,6 +25,9 @@ function Gossip.EnableController()
             elseif button == "PAD2" then
                 C_GossipInfo.CloseGossip()
                 CloseQuest()
+                if Gossip.HideWindowNow then
+                    Gossip.HideWindowNow()
+                end
             elseif button == "PAD3" then
                 ConsoleMenu:RepeatCurrentSubtitles()
             elseif button == "PAD4" then

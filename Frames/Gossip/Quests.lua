@@ -151,16 +151,3 @@ function Gossip.ShouldSkipForTaxi()
 
     return false
 end
-
--- Клиент сам выбрал пункт и не открыл стандартное окно разговора.
-function Gossip.DidClientSkipGossipFrame()
-    return GossipFrame and not GossipFrame:IsShown()
-end
-
--- Диалог сейчас не нужно показывать: полёт или клиент уже пропустил окно.
-function Gossip.ShouldSuppressDialogue()
-    if Gossip.ShouldSkipForTaxi() then
-        return true
-    end
-    return Gossip.DidClientSkipGossipFrame()
-end

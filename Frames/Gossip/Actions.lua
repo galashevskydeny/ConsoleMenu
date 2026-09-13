@@ -3,6 +3,19 @@
 local ConsoleMenu = _G.ConsoleMenu
 local Gossip = ConsoleMenu.Gossip
 
+-- Выполняет пункт разговора по идентификатору или по порядковому номеру.
+local function SelectGossipChoice(optionID, orderIndex)
+    optionID = Gossip.Readable(optionID)
+    orderIndex = Gossip.Readable(orderIndex)
+    if optionID then
+        C_GossipInfo.SelectOption(optionID)
+        return
+    end
+    if orderIndex ~= nil then
+        C_GossipInfo.SelectOptionByIndex(orderIndex)
+    end
+end
+
 -- Выполнение выбранного пункта по его данным.
 function Gossip.SelectOption(data)
     if not data then
@@ -10,11 +23,7 @@ function Gossip.SelectOption(data)
     end
 
     if data.type == "gossip" then
-        if data.gossipOptionID ~= nil then
-            C_GossipInfo.SelectOption(data.gossipOptionID)
-        elseif data.orderIndex ~= nil then
-            C_GossipInfo.SelectOptionByIndex(data.orderIndex)
-        end
+        SelectGossipChoice(data.gossipOptionID, data.orderIndex)
     elseif data.type == "gossipQuest" and not data.inProgress then
         C_GossipInfo.SelectAvailableQuest(data.questID)
     elseif data.type == "gossipQuest" and data.inProgress then
@@ -26,6 +35,9 @@ function Gossip.SelectOption(data)
     elseif data.type == "goodbye" then
         C_GossipInfo.CloseGossip()
         CloseQuest()
+        if Gossip.HideWindowNow then
+            Gossip.HideWindowNow()
+        end
     elseif data.type == "acceptQuest" then
         AcceptQuest()
     elseif data.type == "progressQuest" then
@@ -58,11 +70,7 @@ function Gossip.SelectTaxiIfNeeded()
 
     for _, option in pairs(options) do
         if type(option) == "table" and Gossip.IsTaxiOption(option) then
-            if option.gossipOptionID ~= nil then
-                C_GossipInfo.SelectOption(option.gossipOptionID)
-            elseif option.orderIndex ~= nil then
-                C_GossipInfo.SelectOptionByIndex(option.orderIndex)
-            end
+            SelectGossipChoice(option.gossipOptionID, option.orderIndex)
             return
         end
     end

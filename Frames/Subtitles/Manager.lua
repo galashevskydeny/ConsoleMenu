@@ -23,25 +23,13 @@ local function OnSubtitleEvent(_, event, ...)
         local message, sender = ...
         ConsoleMenu:AddSubtitles(event, message, sender)
     elseif event == "GOSSIP_SHOW" then
-        Subtitle.closeToken = Subtitle.closeToken + 1
-        local currentToken = Subtitle.closeToken
-        if ConsoleMenu.Gossip and ConsoleMenu.Gossip.ShouldSuppressDialogue and ConsoleMenu.Gossip.ShouldSuppressDialogue() then
+        if ConsoleMenu.Gossip and ConsoleMenu.Gossip.ShouldSkipForTaxi and ConsoleMenu.Gossip.ShouldSkipForTaxi() then
             return
         end
-        local delay = ConsoleMenu.Gossip and ConsoleMenu.Gossip.taxiConfirmDelay or 0.08
-        C_Timer.After(delay, function()
-            if currentToken ~= Subtitle.closeToken then
-                return
-            end
-            if ConsoleMenu.Gossip and ConsoleMenu.Gossip.ShouldSuppressDialogue and ConsoleMenu.Gossip.ShouldSuppressDialogue() then
-                return
-            end
-            local message = C_GossipInfo.GetText()
-            local sender = UnitName("npc")
-            ConsoleMenu:AddSubtitles(event, message, sender)
-            ConsoleMenu:SubtitleFrameUpdate()
-        end)
-        return
+        Subtitle.closeToken = Subtitle.closeToken + 1
+        local message = C_GossipInfo.GetText()
+        local sender = UnitName("npc")
+        ConsoleMenu:AddSubtitles(event, message, sender)
     elseif event == "TAXIMAP_OPENED" then
         Subtitle.closeToken = Subtitle.closeToken + 1
         Subtitle.RemoveByPriority(1)
