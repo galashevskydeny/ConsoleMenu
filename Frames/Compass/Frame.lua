@@ -160,7 +160,13 @@ function Compass:OnUpdate(elapsed)
     local geometryReady = self:LayoutArtwork()
     if
         geometryReady
-        and (self.renderDirty or self.markerRevealPending or self.markerSmoothPending or self.renderFacing ~= facing)
+        and (
+            self.renderDirty
+            or self.markerRevealPending
+            or self.markerSmoothPending
+            or self.arrivalBlendPending
+            or self.renderFacing ~= facing
+        )
     then
         self:Render(facing, true, elapsed)
     end
@@ -205,6 +211,8 @@ function ConsoleMenu:SetCompassFrame()
     Compass:InitPixel()
     Compass.markers, Compass.bearings = {}, {}
     Compass.selectionKeys = {}
+    Compass.arrivalMarker, Compass.arrivalKey, Compass.arrivalLeaving = nil, nil, nil
+    Compass.arrivalBlend, Compass.arrivalEase, Compass.arrivalBlendPending = 0, 0, false
     Compass.viewAngle = C.VIEW_ANGLE
     Compass.range = C.RANGE_WALK
     Compass.iconSize = C.ICON_SIZE

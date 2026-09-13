@@ -20,6 +20,7 @@ Compass.Constants = {
     RANGE_FLYING = 875,
     VIEW_ANGLE = 90,
     METERS_PER_YARD = 0.9144,
+    NEARBY_METERS = 25,
     LINE_THICKNESS = 3,
     LINE_ALPHA = 0.6,
     LINE_FADE_FRACTION = 0.18,
@@ -50,6 +51,7 @@ Compass.Constants = {
     MARKER_RETAINED_DISTANCE_SQUARED = 0.64,
     MARKER_REVEAL_DELAY = 0.08,
     MARKER_APPEAR_DURATION = 0.2,
+    ARRIVAL_BLEND_DURATION = 0.2,
     MARKER_SMOOTH_TIME = 0.05,
     MARKER_SMOOTH_SNAP = 80,
     MARKER_RANGE_FADE_FRACTION = 0.05,
@@ -62,7 +64,7 @@ Compass.Constants = {
     BASIC_CHEST_ATLAS = "vignetteloot",
     BASIC_CHEST_SCALE = 0.75,
     TRACKED_GLOW_ATLAS = "housing-basic-panel-gradient-header-bg",
-    TRACKED_GLOW_WIDTH_SCALE = 6,
+    TRACKED_GLOW_WIDTH_SCALE = 9,
     TRACKED_GLOW_HEIGHT_SCALE = 2.5,
     SELECTION_MARKER_SCALE = 0.78125,
     SELECTION_MARKER_ATLAS = "Waypoint-MapPin-Tracked",
@@ -98,3 +100,10 @@ Compass.Constants.MARKER_ART_FIELDS = {
     "sourceAlpha",
     "sizeScale",
 }
+
+-- Квадрат дальности прибытия в ярдах, чтобы не извлекать корень на каждом кадре.
+do
+    local C = Compass.Constants
+    local yards = C.NEARBY_METERS / C.METERS_PER_YARD
+    C.NEARBY_YARDS_SQUARED = yards * yards
+end

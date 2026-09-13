@@ -186,6 +186,8 @@ function Compass:ClearMarkers()
     wipe(self.markerLeftOrder)
     wipe(self.markerGroupMembers)
     self.markerRevealPending, self.markerSmoothPending = false, false
+    self.arrivalMarker, self.arrivalKey, self.arrivalLeaving = nil, nil, nil
+    self.arrivalBlend, self.arrivalEase, self.arrivalBlendPending = 0, 0, false
     self.selectionDirty = true
     self:HideDetail()
     self.renderDirty = true
@@ -251,23 +253,28 @@ function Compass:HideDetail()
         self.detailCaption:Hide()
         self.detailShown = false
     end
-    self.detailName, self.detailDistance, self.detailKind = nil, nil, nil
+    self.detailName, self.detailDistance, self.detailKind, self.detailNearby = nil, nil, nil, nil
 end
 
--- Показывает название, расстояние и тип точки под полосой.
-function Compass:ShowDetail(marker)
-    local distance = self:DisplayDistance(marker.distance)
+-- Показывает название, расстояние или отметку прибытия под полосой.
+function Compass:ShowDetail(marker, nearby)
+    local distance = nearby and -1 or self:DisplayDistance(marker.distance)
     local kind = marker.kind
-    if self.detailName ~= marker.name or self.detailDistance ~= distance or self.detailKind ~= kind then
+    if
+        self.detailName ~= marker.name
+        or self.detailDistance ~= distance
+        or self.detailKind ~= kind
+        or self.detailNearby ~= nearby
+    then
         self.detailTitle:SetText(marker.name)
         local typeLabel = self.L[kind]
-        local meters = self:FormatDistance(marker.distance)
+        local second = nearby and self.L.NEARBY or self:FormatDistance(marker.distance)
         if typeLabel then
-            self.detailCaption:SetText(self.L.DETAIL_F:format(typeLabel, meters))
+            self.detailCaption:SetText(self.L.DETAIL_F:format(typeLabel, second))
         else
-            self.detailCaption:SetText(meters)
+            self.detailCaption:SetText(second)
         end
-        self.detailName, self.detailDistance, self.detailKind = marker.name, distance, kind
+        self.detailName, self.detailDistance, self.detailKind, self.detailNearby = marker.name, distance, kind, nearby
     end
     if not self.detailShown then
         self.detailTitle:Show()
@@ -283,12 +290,14 @@ function Compass:Render(facing, live, elapsed)
         return
     end
     self.markerSmoothElapsed = elapsed or 0
+    self:UpdateArrivalBlend(self.markerSmoothElapsed)
     local layout = self.artworkLayout
     local scale, width = layout.scale, layout.contentWidth
     self:RenderHeadings(facing)
     local nearest, nearestDelta
     local outline = Pixel:Multiple(C.MARKER_OUTLINE * 2, scale)
     local selection = self:SelectMarkers(facing, width, live)
+    self:ApplyArrivalBlend(selection)
     self:LayoutMarkerGroups(selection)
     self:AssignMarkerSlots(selection, live)
     self.markerRevealPending, self.markerSmoothPending = false, false
@@ -303,7 +312,7 @@ function Compass:Render(facing, live, elapsed)
             outline,
             scale
         )
-        local absoluteDelta = math.abs(marker.projectedDelta)
+        local absoluteDelta = math.abs(marker.projectedDelta or 0)
         if
             marker.renderShown
             and absoluteDelta <= C.DETAIL_ANGLE
@@ -316,20 +325,30 @@ function Compass:Render(facing, live, elapsed)
             nearest, nearestDelta = marker, absoluteDelta
         end
     end
-    if self.peekAltHeld then
+    local blend = self.arrivalBlend or 0
+    local arrivalCaption = (self.arrivalMarker or self.arrivalLeaving) and blend >= 0.5
+    if arrivalCaption then
+        self:HidePeek()
+        self:ShowDetail(self.arrivalMarker or self.arrivalLeaving, true)
+    elseif self.peekAltHeld then
         local marker, slot = self:FindPeekMarker()
         if marker then
             self:ShowPeek(marker, slot)
         else
             self:HidePeek()
         end
+        if nearest then
+            self:ShowDetail(nearest)
+        else
+            self:HideDetail()
+        end
     else
         self:HidePeek()
-    end
-    if nearest and not self.peekAltHeld then
-        self:ShowDetail(nearest)
-    else
-        self:HideDetail()
+        if nearest then
+            self:ShowDetail(nearest)
+        else
+            self:HideDetail()
+        end
     end
     self.renderDirty, self.renderFacing = false, facing
 end

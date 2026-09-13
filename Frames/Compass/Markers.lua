@@ -53,7 +53,7 @@ function Compass:CreateMarkerPool()
         button.colorR, button.colorG, button.colorB = nil, nil, nil
         button.markerKey, button.revealAt, button.selected = nil, nil, false
         button.appearStart = nil
-        button.renderX, button.renderAlpha, button.renderWaypoint, button.renderShown = nil, nil, nil, false
+        button.renderX, button.renderAlpha, button.renderWaypoint, button.renderGlow, button.renderShown = nil, nil, nil, nil, false
         button.renderLeft, button.renderTop, button.smoothLeft = nil, nil, nil
         button.symbol:Hide()
         button.selection:Hide()
@@ -90,13 +90,16 @@ end
 local function ProjectSelection(self, facing, width)
     for _, marker in ipairs(self.selectedMarkers) do
         if not marker.bearing then
-            return false
+            if marker ~= self.arrivalMarker and marker ~= self.arrivalLeaving then
+                return false
+            end
+        else
+            local x, alpha, delta = self:Project(marker.bearing, facing, self.viewAngle, width, Compass.Constants.EDGE_CLIP_FRACTION)
+            if not x or alpha <= 0 then
+                return false
+            end
+            marker.projectedX, marker.projectedAlpha, marker.projectedDelta = x, alpha, delta
         end
-        local x, alpha, delta = self:Project(marker.bearing, facing, self.viewAngle, width, Compass.Constants.EDGE_CLIP_FRACTION)
-        if not x or alpha <= 0 then
-            return false
-        end
-        marker.projectedX, marker.projectedAlpha, marker.projectedDelta = x, alpha, delta
     end
     return true
 end
@@ -105,6 +108,23 @@ end
 function Compass:SelectMarkers(facing, width, live)
     local C = self.Constants
     local selection = self.selectedMarkers
+    local arrival = self.arrivalMarker
+    -- После завершения анимации на полосе остаётся только точка прибытия.
+    if arrival and (self.arrivalBlend or 0) >= 1 then
+        if live and not self.selectionDirty and #selection == 1 and selection[1] == arrival then
+            arrival.projectedX, arrival.projectedAlpha, arrival.projectedDelta = 0, 1, 0
+            return selection
+        end
+        wipe(selection)
+        self.markerSlotsDirty = true
+        arrival.projectedX, arrival.projectedAlpha, arrival.projectedDelta = 0, 1, 0
+        selection[1] = arrival
+        wipe(self.selectionKeys)
+        self.selectionKeys[arrival.key] = true
+        self.selectionFacing, self.selectionTurnMin, self.selectionTurnMax = facing, -C.HALF_TURN, C.HALF_TURN
+        self.selectionDirty = false
+        return selection
+    end
     if not facing then
         wipe(selection)
         wipe(self.selectionKeys)
@@ -153,6 +173,63 @@ function Compass:SelectMarkers(facing, width, live)
     end
     self.selectionFacing, self.selectionTurnMin, self.selectionTurnMax = facing, turnMin, turnMax
     self.selectionDirty = false
+    return selection
+end
+
+-- Плавно переводит полосу в режим прибытия и обратно.
+function Compass:UpdateArrivalBlend(elapsed)
+    local C = self.Constants
+    if self.arrivalMarker then
+        self.arrivalLeaving = self.arrivalMarker
+    end
+    local target = self.arrivalMarker and 1 or 0
+    local blend = self.arrivalBlend or 0
+    if blend ~= target then
+        local duration = C.ARRIVAL_BLEND_DURATION
+        local step = duration > 0 and math.max(0, elapsed or 0) / duration or 1
+        if blend < target then
+            blend = math.min(target, blend + step)
+        else
+            blend = math.max(target, blend - step)
+        end
+        self.arrivalBlend = blend
+        self.renderDirty = true
+    end
+    self.arrivalBlendPending = blend ~= target
+    self.arrivalEase = blend * blend * (3 - 2 * blend)
+    if blend <= 0 and not self.arrivalMarker then
+        self.arrivalLeaving = nil
+        self.arrivalEase = 0
+    end
+end
+
+-- Сдвигает точку прибытия к центру и гасит остальные значки по мере анимации.
+function Compass:ApplyArrivalBlend(selection)
+    local ease = self.arrivalEase or 0
+    if ease <= 0 then
+        return selection
+    end
+    local focus = self.arrivalMarker or self.arrivalLeaving
+    if not focus then
+        return selection
+    end
+    local found
+    for _, marker in ipairs(selection) do
+        if marker == focus then
+            found = true
+            marker.projectedX = (marker.projectedX or 0) * (1 - ease)
+            marker.projectedAlpha = 1
+            marker.projectedDelta = marker.projectedDelta or 0
+        else
+            marker.projectedAlpha = (marker.projectedAlpha or 1) * (1 - ease)
+        end
+    end
+    if not found then
+        focus.projectedX, focus.projectedAlpha, focus.projectedDelta = 0, ease, 0
+        selection[#selection + 1] = focus
+        self.selectionKeys[focus.key] = true
+        self.markerSlotsDirty = true
+    end
     return selection
 end
 
@@ -277,7 +354,9 @@ function Compass:AssignMarkerSlots(selection, live)
             byKey[marker.key], nextSlots[index] = slot, slot
             assignedNew = true
         end
-        if self.rangeChanged and not slot.renderShown then
+        if marker == self.arrivalMarker or marker == self.arrivalLeaving or (self.arrivalBlend or 0) > 0 then
+            slot.revealAt, slot.appearStart = nil, nil
+        elseif self.rangeChanged and not slot.renderShown then
             slot.appearStart = self.markerClock
             slot.revealAt = nil
         elseif not live or marker.navigation or marker.priority <= C.TRACKED_QUEST_PRIORITY then
@@ -404,6 +483,9 @@ end
 -- Рисует один значок по центру высоты полосы.
 function Compass:RenderMarker(button, marker, x, alpha, markerY, outline, scale)
     local C = self.Constants
+    local focus = self.arrivalMarker or self.arrivalLeaving
+    local blending = (self.arrivalBlend or 0) > 0
+    local arrived = blending and marker == focus
     local questSymbol = not marker.texture
         and (marker.kind == "quest" or marker.kind == "worldQuest" or QUEST_SYMBOL_ATLASES[marker.atlas] == true)
     if MarkerArtChanged(button, marker, questSymbol) then
@@ -411,6 +493,10 @@ function Compass:RenderMarker(button, marker, x, alpha, markerY, outline, scale)
     end
     if button.marker ~= marker then
         self:BindMarker(button, marker)
+    end
+    if arrived then
+        button.revealAt = nil
+        button.appearStart = nil
     end
     if marker.overlapGroup and #marker.overlapGroup.markers > 1 then
         button.revealAt = nil
@@ -478,7 +564,13 @@ function Compass:RenderMarker(button, marker, x, alpha, markerY, outline, scale)
         button.layoutScale, button.layoutAtlas = scale, marker.atlas
     end
     local centerX, centerY = self.artworkLayout.centerX, self.artworkLayout.centerY
-    local left = SmoothMarkerLeft(self, button, marker.projectedLeft - centerX, scale)
+    local left
+    if arrived then
+        left = marker.projectedLeft - centerX
+        button.smoothLeft = left
+    else
+        left = SmoothMarkerLeft(self, button, marker.projectedLeft - centerX, scale)
+    end
     local top = Pixel:Snap(centerY + markerY + hitSize / 2, scale) - centerY
     if button.renderLeft ~= left or button.renderTop ~= top then
         button:SetPoint("TOPLEFT", self.frame, "CENTER", left, top)
@@ -487,22 +579,30 @@ function Compass:RenderMarker(button, marker, x, alpha, markerY, outline, scale)
     button.renderX, button.renderY = left + hitSize / 2, top - hitSize / 2
     x = button.renderX
     local waypoint = marker.navigation == true
-    if button.renderWaypoint ~= waypoint then
+    local glow = waypoint or arrived
+    if button.renderWaypoint ~= waypoint or button.renderGlow ~= glow then
         button.selection:SetShown(waypoint)
-        button.trackedGlow:SetShown(waypoint)
-        button.renderWaypoint = waypoint
+        button.trackedGlow:SetShown(glow)
+        button.renderWaypoint, button.renderGlow = waypoint, glow
     end
-    if waypoint and (button.glowX ~= x or button.glowY ~= self.lineY) then
-        button.trackedGlow:SetPoint("BOTTOM", self.frame, "CENTER", x, self.lineY)
-        button.glowX, button.glowY = x, self.lineY
+    if glow then
+        local glowAlpha = waypoint and 1 or (self.arrivalEase or 0)
+        if button.glowAlpha ~= glowAlpha then
+            button.trackedGlow:SetAlpha(glowAlpha)
+            button.glowAlpha = glowAlpha
+        end
+        if button.glowX ~= x or button.glowY ~= self.lineY then
+            button.trackedGlow:SetPoint("BOTTOM", self.frame, "CENTER", x, self.lineY)
+            button.glowX, button.glowY = x, self.lineY
+        end
     end
-    if not waypoint and marker.distance > self.range * (1 - C.MARKER_RANGE_FADE_FRACTION) then
+    if not arrived and not waypoint and marker.distance and marker.distance > self.range * (1 - C.MARKER_RANGE_FADE_FRACTION) then
         local fadeWidth = math.min(self.range * C.MARKER_RANGE_FADE_FRACTION, C.MARKER_RANGE_FADE_YARDS)
         local progress = math.max(0, math.min(1, (self.range - marker.distance) / fadeWidth))
         alpha = alpha * progress * progress * (3 - 2 * progress)
     end
     alpha = alpha * (marker.sourceAlpha or 1)
-    if button.appearStart then
+    if not arrived and button.appearStart then
         local duration = C.MARKER_APPEAR_DURATION
         local progress = duration > 0 and (self.markerClock - button.appearStart) / duration or 1
         if progress < 1 then
