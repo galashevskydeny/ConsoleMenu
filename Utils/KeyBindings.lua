@@ -651,7 +651,7 @@ function ConsoleMenu:SetBaseKeyBindings()
         PADLSTICK = "ACTIONBUTTON5",
         PADRSTICK = "ACTIONBUTTON4",
         PADFORWARD = "",
-        PADRTRIGGER = "ACTIONBUTTON10",
+        PADRTRIGGER = "INTERACTTARGET",
         PADRSHOULDER = "ACTIONBUTTON11",
 
         -- Тачпад DualSense
@@ -660,7 +660,7 @@ function ConsoleMenu:SetBaseKeyBindings()
     }
     
     local shiftBindings = {
-        PAD1 = "INTERACTTARGET",
+        PAD1 = "JUMP",
         PAD2 = "MULTIACTIONBAR1BUTTON3",
         PAD3 = "MULTIACTIONBAR1BUTTON1",
         PAD4 = "MULTIACTIONBAR1BUTTON2",
@@ -671,7 +671,7 @@ function ConsoleMenu:SetBaseKeyBindings()
         PADLSTICK = "MULTIACTIONBAR1BUTTON5",
         PADRSTICK = "MULTIACTIONBAR1BUTTON4",
         PADFORWARD = "CAMERAZOOMOUT",
-        PADRTRIGGER = "MULTIACTIONBAR1BUTTON10",
+        PADRTRIGGER = "INTERACTTARGET",
         PADRSHOULDER = "MULTIACTIONBAR1BUTTON11",
 
         -- Тачпад DualSense
@@ -680,7 +680,7 @@ function ConsoleMenu:SetBaseKeyBindings()
     }
     
     local ctrlBindings = {
-        PAD1 = "INTERACTTARGET",
+        PAD1 = "JUMP",
         PAD2 = "MULTIACTIONBAR2BUTTON3",
         PAD3 = "MULTIACTIONBAR2BUTTON1",
         PAD4 = "MULTIACTIONBAR2BUTTON2",
@@ -691,7 +691,7 @@ function ConsoleMenu:SetBaseKeyBindings()
         PADLSTICK = "MULTIACTIONBAR2BUTTON5",
         PADRSTICK = "MULTIACTIONBAR2BUTTON4",
         PADFORWARD = "CAMERAZOOMIN",
-        PADRTRIGGER = "MULTIACTIONBAR2BUTTON10",
+        PADRTRIGGER = "INTERACTTARGET",
         PADRSHOULDER = "MULTIACTIONBAR2BUTTON11",
 
         -- Тачпад DualSense
