@@ -1,6 +1,7 @@
 local ConsoleMenu = _G.ConsoleMenu
 local Nameplates = ConsoleMenu.Nameplates
 
+-- Собирает слой индикатора: здоровье, имя, звание, заклинание и ауры.
 function Nameplates.CreateDisplay(parent)
     local display = CreateFrame("Frame", nil, parent)
     display:SetAllPoints(parent)
@@ -60,20 +61,16 @@ function Nameplates.CreateDisplay(parent)
     return display
 end
 
+-- Обновляет имя (у игрока — со званием) на индикаторе и на крупном слое заклинания.
 function Nameplates.UpdateName(display)
-    local name = ""
-    if display.unit then
-        local ok, unitName = pcall(UnitName, display.unit)
-        if ok and unitName then
-            name = unitName
-        end
-    end
+    local name = Nameplates.GetUnitDisplayName(display.unit)
     display.name:SetText(name)
     if display.castLarge and display.castLarge.unitName then
         display.castLarge.unitName:SetText(name)
     end
 end
 
+-- Раскладка союзника: только имя и звание по центру.
 function Nameplates.ApplyFriendLayout(display)
     display.healthBar:Hide()
     display.castLarge:Hide()
@@ -85,6 +82,7 @@ function Nameplates.ApplyFriendLayout(display)
     display.nameFrame:SetAlpha(1)
 end
 
+-- Раскладка противника: полоса здоровья, имя и звание сверху.
 function Nameplates.ApplyEnemyLayout(display)
     display.healthBar:Show()
     display.nameFrame:ClearAllPoints()
@@ -94,6 +92,7 @@ function Nameplates.ApplyEnemyLayout(display)
     display.nameFrame:SetAlpha(1)
 end
 
+-- Привязывает индикатор к существу или скрывает его.
 function Nameplates.DisplaySetUnit(display, unit)
     display:UnregisterAllEvents()
     display.unit = unit

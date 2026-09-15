@@ -28,7 +28,8 @@ local MAP_PIN_PREFIXES = {
 local POI_GROUPS = {
     { query = C_AreaPoiInfo.GetEventsForMap, kind = "event" },
     { query = C_AreaPoiInfo.GetDragonridingRacesForMap, kind = "race" },
-    { query = C_AreaPoiInfo.GetQuestHubsForMap, kind = "questHub" },
+    -- Центры заданий только помечаются, чтобы не попасть на полосу из общего списка точек.
+    { query = C_AreaPoiInfo.GetQuestHubsForMap, kind = "questHub", omit = true },
     { query = C_AreaPoiInfo.GetDelvesForMap, kind = "delve" },
     { query = C_AreaPoiInfo.GetAreaPOIForMap, kind = "poi" },
 }
@@ -63,7 +64,7 @@ local function VignetteKind(info)
     return VIGNETTE_KINDS[atlas] or "poi"
 end
 
--- Собирает точки интереса, события, гонки, узлы, вылазки и входы.
+-- Собирает точки интереса, события, гонки, вылазки и входы. Центры заданий отбрасываются.
 function Compass:CollectMapPoints(markers)
     local C = self.Constants
     local seen, refreshAt = {}, math.huge
@@ -80,21 +81,23 @@ function Compass:CollectMapPoints(markers)
                 refreshAt = math.min(refreshAt, self.discoveryClock + POI_RETRY_INTERVAL)
             elseif not seen[id] then
                 seen[id] = true
-                local info = Readable(C_AreaPoiInfo.GetAreaPOIInfo(self.mapID, id))
-                local marker
-                if type(info) == "table" then
-                    marker = self:AddMarker(
-                        markers,
-                        "poi:" .. id,
-                        info.position,
-                        info.name,
-                        info.atlasName,
-                        C.POI_PRIORITY,
-                        group.kind
-                    )
+                if not group.omit then
+                    local info = Readable(C_AreaPoiInfo.GetAreaPOIInfo(self.mapID, id))
+                    local marker
+                    if type(info) == "table" then
+                        marker = self:AddMarker(
+                            markers,
+                            "poi:" .. id,
+                            info.position,
+                            info.name,
+                            info.atlasName,
+                            C.POI_PRIORITY,
+                            group.kind
+                        )
+                    end
+                    local interval = marker and POIRefreshInterval(id) or POI_RETRY_INTERVAL
+                    refreshAt = math.min(refreshAt, self.discoveryClock + interval)
                 end
-                local interval = marker and POIRefreshInterval(id) or POI_RETRY_INTERVAL
-                refreshAt = math.min(refreshAt, self.discoveryClock + interval)
             end
             self:DiscoveryCheckpoint()
         end

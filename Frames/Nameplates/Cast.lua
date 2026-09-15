@@ -120,6 +120,7 @@ local function ApplyFallbackProgress(bar, unit, isChannel)
     end
 end
 
+-- Создаёт крупный и малый слои полосы заклинания.
 function Nameplates.CreateCastLayers(parent)
     local large = CreateFrame("Frame", nil, parent)
     large:Hide()
@@ -241,10 +242,7 @@ function Nameplates.UpdateCastLayers(large, small, healthBar, nameFrame, unit)
         large.text:SetText(displayName)
         small.text:SetText(displayName)
     end
-    local nameOk, unitName = pcall(UnitName, unit)
-    if nameOk and unitName then
-        large.unitName:SetText(unitName)
-    end
+    large.unitName:SetText(Nameplates.GetUnitDisplayName(unit))
 
     pcall(function()
         if healthBar and healthBar.SetAlphaFromBoolean then

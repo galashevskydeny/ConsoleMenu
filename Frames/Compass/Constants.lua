@@ -69,7 +69,9 @@ Compass.Constants = {
     MARKER_SYMBOL_SUBLEVEL = 3,
     MARKER_SHADOW_SUBLEVEL = 1,
     BASIC_CHEST_ATLAS = "vignetteloot",
-    BASIC_CHEST_SCALE = 0.75,
+    BASIC_CHEST_SCALE = 0.9,
+    DECOR_VENDOR_ATLAS = "housing-decor-vendor_32",
+    DECOR_VENDOR_SCALE = 0.8, -- Родной рисунок рассчитан на 24 пикселя из 32.
     TRACKED_GLOW_ATLAS = "housing-basic-panel-gradient-header-bg",
     TRACKED_GLOW_WIDTH_SCALE = 9,
     TRACKED_GLOW_HEIGHT_SCALE = 2.5,
@@ -94,6 +96,15 @@ Compass.Constants = {
     WAYPOINT_MATCH_EPSILON = 0.00001,
     PEEK_DESTINATION_EPSILON = 0.00001,
 }
+
+-- Масштаб значка по атласу, если родной рисунок крупнее остальных.
+do
+    local C = Compass.Constants
+    C.MARKER_ATLAS_SCALES = {
+        [C.BASIC_CHEST_ATLAS] = C.BASIC_CHEST_SCALE,
+        [C.DECOR_VENDOR_ATLAS] = C.DECOR_VENDOR_SCALE,
+    }
+end
 
 -- Поля оформления значка, которые переносятся с исходной точки на путевую.
 Compass.Constants.MARKER_ART_FIELDS = {

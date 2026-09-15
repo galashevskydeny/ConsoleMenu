@@ -60,6 +60,15 @@ local function DefaultOffsetY()
     return offset
 end
 
+-- После проявления рамки возвращает прозрачность дочерних элементов.
+local function RestoreAfterFadeIn(self)
+    local fadeIn = self.frame and self.frame.fadeIn
+    if fadeIn then
+        fadeIn:SetScript("OnFinished", nil)
+    end
+    self:RestoreViewAlpha()
+end
+
 -- Показывает или скрывает полосу с учётом подземелья, поля боя и окон.
 function Compass:RefreshVisibility()
     local hidden = self.inInstance or self.hiddenByGame or self.hiddenByContext or self.hiddenByProgress
@@ -67,6 +76,9 @@ function Compass:RefreshVisibility()
         if self.updating then
             self.events:SetScript("OnUpdate", nil)
             self.updating = false
+        end
+        if self.frame and self.frame.fadeIn then
+            self.frame.fadeIn:SetScript("OnFinished", nil)
         end
         self:ClearMarkers()
         self.navigationTarget = nil
@@ -90,8 +102,19 @@ function Compass:RefreshVisibility()
         self.discoveryDirty = true
         self.sortElapsed = 0
         self.renderDirty = true
+        self.selectionDirty = true
+        self.markerSlotsDirty = true
+        self.headingsDirty = true
         -- Значки проявятся вместе с полосой или отдельно, если сбор точек задержится.
         self.markerFadeIn = true
+        local fadeIn = self.frame.fadeIn
+        if fadeIn and fadeIn:IsPlaying() then
+            fadeIn:SetScript("OnFinished", function()
+                RestoreAfterFadeIn(self)
+            end)
+        else
+            RestoreAfterFadeIn(self)
+        end
         if not self.updating then
             self.events:SetScript("OnUpdate", function(_, elapsed)
                 self:OnUpdate(elapsed)

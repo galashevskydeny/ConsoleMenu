@@ -14,6 +14,22 @@ local QUEST_SYMBOL_ATLASES = {
 }
 local nearbyOrder = {}
 
+-- Возвращает исходную прозрачность текстур и подписей значка.
+local function RestoreMarkerTextures(button)
+    local C = Compass.Constants
+    button:SetAlpha(1)
+    button.icon:SetAlpha(1)
+    button.shadow:SetAlpha(C.MARKER_OUTLINE_ALPHA)
+    button.symbol:SetAlpha(1)
+    button.selection:SetAlpha(1)
+    button.trackedGlow:SetAlpha(1)
+    if button.title then
+        button.title:SetAlpha(1)
+        button.caption:SetAlpha(1)
+    end
+    button.renderAlpha, button.glowAlpha = nil, nil
+end
+
 -- Скрывает подпись слота: текст живёт на полосе, а не на рамке значка.
 local function HideNearbyLabels(button)
     if not button then
@@ -69,6 +85,7 @@ function Compass:CreateMarkerPool()
         button.caption:Hide()
         button:Hide()
         button.renderShown = false
+        RestoreMarkerTextures(button)
         return button
     end, function(_, button)
         button:Hide()
@@ -88,7 +105,26 @@ function Compass:CreateMarkerPool()
         button.symbol:Hide()
         button.selection:Hide()
         button.trackedGlow:Hide()
+        RestoreMarkerTextures(button)
     end)
+end
+
+-- Возвращает прозрачность всех значков после анимации родительской рамки.
+function Compass:RestoreMarkerAlphas()
+    local pool = self.markerPool
+    if not pool then
+        return
+    end
+    if pool.EnumerateActive then
+        for button in pool:EnumerateActive() do
+            RestoreMarkerTextures(button)
+        end
+    end
+    if pool.EnumerateInactive then
+        for _, button in pool:EnumerateInactive() do
+            RestoreMarkerTextures(button)
+        end
+    end
 end
 
 -- Сужает окно поворота, пока набор значков можно только сдвигать.
@@ -689,6 +725,8 @@ local function BindMarkerArt(button, marker, questSymbol)
             button.symbolWidthScale, button.symbolHeightScale = symbolWidth / width, symbolHeight / height
         end
     end
+    button.icon:SetAlpha(1)
+    button.shadow:SetAlpha(Compass.Constants.MARKER_OUTLINE_ALPHA)
     button.symbol:SetShown(questSymbol)
     button.atlas, button.sourceTexture, button.questSymbol = marker.atlas, marker.texture, questSymbol
     button.texLeft, button.texRight, button.texTop, button.texBottom =
@@ -893,6 +931,8 @@ function Compass:RenderMarker(button, marker, x, alpha, markerY, outline, scale)
             button.labelX, button.labelY = x, detailY
         end
         if not button.labelShown then
+            button.title:SetAlpha(1)
+            button.caption:SetAlpha(1)
             button.title:Show()
             button.caption:Show()
             button.labelShown = true

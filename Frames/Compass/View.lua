@@ -171,6 +171,34 @@ function Compass:StyleView()
     self:LayoutArtwork()
 end
 
+-- Возвращает прозрачность линии, подписей и значков после анимации рамки.
+function Compass:RestoreViewAlpha()
+    local C = self.Constants
+    if self.artwork then
+        for _, texture in ipairs(self.artwork) do
+            texture:SetAlpha(1)
+        end
+    end
+    if self.pointer then
+        self.pointer:SetAlpha(C.POINTER_ALPHA)
+    end
+    if self.ticks then
+        for _, tick in ipairs(self.ticks) do
+            tick.alpha, tick.labelAlpha = nil, nil
+        end
+    end
+    self.headingsDirty = true
+    if self.detailTitle and self.detailCaption then
+        SetDetailAlpha(self, 1)
+    end
+    if self.compassPeek and self.compassPeek.frame then
+        self.compassPeek.frame:SetAlpha(1)
+        self:StylePeek(C.FONT_SIZE, true)
+    end
+    self:RestoreMarkerAlphas()
+    self.renderDirty = true
+end
+
 -- Скрывает все значки и подписи.
 function Compass:ClearMarkers()
     self:HidePeek()
@@ -193,7 +221,7 @@ function Compass:ClearMarkers()
     wipe(self.nearbyFading)
     self.nearbyDisplayWidth, self.nearbySlotWidth = nil, nil
     self.arrivalBlend, self.arrivalEase, self.arrivalBlendPending, self.arrivalFanReveal = 0, 0, false, false
-    self.selectionDirty = true
+    self.selectionDirty, self.markerSlotsDirty, self.headingsDirty = true, true, true
     self:HideDetail()
     self.renderDirty = true
 end

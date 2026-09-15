@@ -93,6 +93,25 @@ function Nameplates.ApplyCircularMask(icon)
     icon._consoleMenuMask = mask
 end
 
+-- Возвращает имя существа; у игрока — вместе со званием.
+function Nameplates.GetUnitDisplayName(unit)
+    if not unit then
+        return ""
+    end
+    local playerOk, isPlayer = pcall(UnitIsPlayer, unit)
+    if playerOk and isPlayer then
+        local titledOk, titledName = pcall(UnitPVPName, unit)
+        if titledOk and titledName then
+            return titledName
+        end
+    end
+    local nameOk, name = pcall(UnitName, unit)
+    if nameOk and name then
+        return name
+    end
+    return ""
+end
+
 function Nameplates.IsEnemyUnit(unit)
     if not unit then
         return false
