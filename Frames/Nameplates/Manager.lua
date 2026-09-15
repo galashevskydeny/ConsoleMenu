@@ -99,12 +99,22 @@ function Nameplates.Uninstall(unit)
     end
 end
 
+-- Обновляет прозрачность всех показанных индикаторов.
 function Nameplates.RefreshMountVisibility()
     for _, display in pairs(unitsToDisplay) do
         if display.unit then
             Nameplates.ApplyPlateAlpha(display)
         end
     end
+end
+
+-- Запоминает скрытие индикаторов окном диалога и обновляет уже показанные.
+function Nameplates.SetContextHidden(hidden)
+    if Nameplates.hiddenByContext == hidden then
+        return
+    end
+    Nameplates.hiddenByContext = hidden
+    Nameplates.RefreshMountVisibility()
 end
 
 function ConsoleMenu:InitializeNameplate()

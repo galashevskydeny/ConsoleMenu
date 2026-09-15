@@ -121,6 +121,10 @@ function Nameplates.IsEnemyUnit(unit)
     return attackOk and canAttack and deadOk and not isDead
 end
 
+-- Скрыты ли индикаторы окном диалога.
+Nameplates.hiddenByContext = false
+
+-- Возвращает истину, если индикаторы нужно скрыть на средстве передвижения.
 function Nameplates.ShouldHideOnMount()
     if C_PvP and C_PvP.IsPVPMap and C_PvP.IsPVPMap() then
         return false
@@ -143,11 +147,12 @@ function Nameplates.GetNamePlate(unit)
     return nil
 end
 
+-- Выставляет прозрачность индикатора с учётом диалога и средства передвижения.
 function Nameplates.ApplyPlateAlpha(display)
     if not display then
         return
     end
-    if Nameplates.ShouldHideOnMount() then
+    if Nameplates.hiddenByContext or Nameplates.ShouldHideOnMount() then
         display:SetAlpha(0)
         return
     end

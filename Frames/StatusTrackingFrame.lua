@@ -31,6 +31,29 @@ local function SetCompassProgressHidden(hidden)
 end
 
 local notificationUpdateTimer = nil
+local compassRestoreTimer = nil
+
+-- Отменяет отложенное появление компаса, если снова показана строка статуса.
+local function CancelCompassRestore()
+    if compassRestoreTimer then
+        compassRestoreTimer:Cancel()
+        compassRestoreTimer = nil
+    end
+end
+
+-- Возвращает компас после исчезновения строки статуса и короткой паузы.
+local function ScheduleCompassRestore()
+    CancelCompassRestore()
+    compassRestoreTimer = C_Timer.NewTimer(animationDuration + delay, function()
+        compassRestoreTimer = nil
+        local frame = ConsoleMenuFrame and ConsoleMenuFrame.StatusTrackingFrame
+        local notifications = frame and frame.Notifications
+        if notifications and #notifications > 0 then
+            return
+        end
+        SetCompassProgressHidden(false)
+    end)
+end
 
 -- Функция для получения уведомления с наивысшим приоритетом
 local function GetTopPriorityNotification()
@@ -95,6 +118,7 @@ local function StatusTrackingFrameUpdate()
         ConsoleMenuFrame.StatusTrackingFrame.StatusBar:SetValue(value)
 
         ConsoleMenu:AnimatedShow(ConsoleMenuFrame.StatusTrackingFrame)
+        CancelCompassRestore()
         SetCompassProgressHidden(true)
 
         notificationUpdateTimer = C_Timer.NewTimer(duration, function()
@@ -103,7 +127,8 @@ local function StatusTrackingFrameUpdate()
             ConsoleMenu:AnimatedHide(ConsoleMenuFrame.StatusTrackingFrame)
             local notifications = ConsoleMenuFrame.StatusTrackingFrame.Notifications
             if not notifications or #notifications == 0 then
-                SetCompassProgressHidden(false)
+                -- Компас проявится после исчезновения строки и паузы.
+                ScheduleCompassRestore()
             end
             -- Ждем окончания анимации исчезновения перед проверкой следующего уведомления
             C_Timer.After(animationDuration + delay, function()
@@ -114,7 +139,6 @@ local function StatusTrackingFrameUpdate()
 
     else
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.StatusTrackingFrame)
-        SetCompassProgressHidden(false)
     end
 end
 

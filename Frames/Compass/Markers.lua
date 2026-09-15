@@ -927,11 +927,11 @@ function Compass:RenderMarker(button, marker, x, alpha, markerY, outline, scale)
             button.appearStart = nil
         end
     end
-    if button.renderAlpha ~= alpha then
+    if not self:IsFadeInPlaying() and button.renderAlpha ~= alpha then
         button:SetAlpha(alpha)
         button.renderAlpha = alpha
     end
-    if arrived then
+    if arrived and not self:IsFadeInPlaying() then
         local slotWidth = self.nearbyDisplayWidth or self.nearbySlotWidth
         if not slotWidth or slotWidth <= 0 then
             local ribbon = (self.artworkLayout and self.artworkLayout.contentWidth) or C.WIDTH

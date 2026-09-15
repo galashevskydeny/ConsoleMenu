@@ -63,6 +63,12 @@ local function DefaultOffsetY()
     return offset
 end
 
+-- Возвращает истину, пока рамка полосы проявляется.
+function Compass:IsFadeInPlaying()
+    local fadeIn = self.frame and self.frame.fadeIn
+    return fadeIn and fadeIn:IsPlaying() and true or false
+end
+
 -- После проявления рамки возвращает прозрачность дочерних элементов.
 local function RestoreAfterFadeIn(self)
     local fadeIn = self.frame and self.frame.fadeIn

@@ -487,6 +487,9 @@ local function ApplyWindowKeys(contextData)
         end
 
         ConsoleMenu:HideChatFrame()
+        if ConsoleMenu.Compass then
+            ConsoleMenu.Compass:SetContextHidden(true)
+        end
     elseif interactionType and window[interactionType.Merchant] then
         C_Timer.After(0.1, function()
             local current = GetPlayerContextData()
@@ -606,6 +609,21 @@ local function ApplyHousingKeys(contextData)
     end
 end
 
+-- Скрывает индикаторы, пока открыто окно диалога или задания.
+local function SyncNameplatesWithGossip(contextData)
+    local nameplates = ConsoleMenu.Nameplates
+    if not nameplates or not nameplates.SetContextHidden then
+        return
+    end
+
+    local window = contextData.window
+    local interactionType = Enum and Enum.PlayerInteractionType
+    local gossipOpen = interactionType
+        and window
+        and (window[interactionType.Gossip] or window[interactionType.QuestGiver])
+    nameplates.SetContextHidden(gossipOpen and true or false)
+end
+
 -- Перестраивает подсказки и видимость панелей под текущий режим.
 function ConsoleMenu:ApplyContextUIChanges()
     local contextData = GetPlayerContextData()
@@ -614,6 +632,7 @@ function ConsoleMenu:ApplyContextUIChanges()
     end
 
     local context = ConsoleMenu:GetPlayerContext()
+    SyncNameplatesWithGossip(contextData)
 
     if context == "mount" and contextData.mount == 1 then
         StartFlyingTicker()

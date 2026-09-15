@@ -15,10 +15,12 @@ local function StyleText(region, fontSize, color)
     region:SetTextColor(color.r, color.g, color.b, color.a or 1)
 end
 
--- Задаёт прозрачность названия и второстепенной подписи.
+-- Задаёт прозрачность названия; тусклость подписи — в цвете текста, чтобы анимация рамки её не затирала.
 local function SetDetailAlpha(self, ease)
+    local color = self.Constants.LINE_COLOR
     self.detailTitle:SetAlpha(ease)
-    self.detailCaption:SetAlpha(ease * self.Constants.LABEL_CAPTION_ALPHA)
+    self.detailCaption:SetAlpha(ease)
+    self.detailCaption:SetTextColor(color.r, color.g, color.b, self.Constants.LABEL_CAPTION_ALPHA)
 end
 
 -- Создаёт линию, указатель, деления и подписи сторон света.
@@ -229,6 +231,7 @@ end
 -- Рисует деления и стороны света по направлению взгляда.
 function Compass:RenderHeadings(facing)
     local C = self.Constants
+    local fadingIn = self:IsFadeInPlaying()
     if not self.headingsDirty and self.renderFacing == facing then
         return
     end
@@ -258,7 +261,7 @@ function Compass:RenderHeadings(facing)
                     tick.texture:SetPoint("TOPLEFT", frame, "CENTER", tickX, self.lineY)
                     tick.x, tick.y = tickX, self.lineY
                 end
-                if tick.alpha ~= alpha then
+                if not fadingIn and tick.alpha ~= alpha then
                     tick.texture:SetAlpha(alpha * C.MINOR_TICK_ALPHA)
                     tick.alpha = alpha
                 end
@@ -269,7 +272,7 @@ function Compass:RenderHeadings(facing)
                     tick.x, tick.y = x, headingY
                 end
                 local labelAlpha = alpha * C.HEADING_ALPHA
-                if tick.labelAlpha ~= labelAlpha then
+                if not fadingIn and tick.labelAlpha ~= labelAlpha then
                     tick.label:SetAlpha(labelAlpha)
                     tick.labelAlpha = labelAlpha
                 end
@@ -359,6 +362,12 @@ function Compass:Render(facing, live, elapsed)
         then
             nearest, nearestDelta = marker, absoluteDelta
         end
+    end
+    -- Пока рамка проявляется, подписи не трогаем: иначе их прозрачность смешается с анимацией.
+    if self:IsFadeInPlaying() then
+        self.renderFacing = facing
+        self.renderDirty = true
+        return
     end
     local blend = self.arrivalBlend or 0
     local foci = self:GetNearbyFoci()
