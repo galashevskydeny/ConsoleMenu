@@ -14,30 +14,13 @@ local NAME_LINES = 2
 local BACKGROUND = { r = 0.025, g = 0.035, b = 0.055, a = 0.88 }
 local CONNECTOR_COLOR = { r = 1, g = 0.82, b = 0.46, a = 0.7 }
 
--- Проверяет, совпадает ли точка с выбранной целью.
-local function IsTrackedPoint(marker, target)
-    if marker.navigation then
-        return true
-    end
-    if not target then
-        return false
-    end
-    if marker.key == target.key or (marker.sourceKey or marker.key) == (target.sourceKey or target.key) then
-        return true
-    end
-    local destination, tracked = marker.destination, target.destination
-    return destination.mapID == tracked.mapID
-        and math.abs(destination.x - tracked.x) < Compass.Constants.PEEK_DESTINATION_EPSILON
-        and math.abs(destination.y - tracked.y) < Compass.Constants.PEEK_DESTINATION_EPSILON
-end
-
 -- Ищет первую видимую точку, не закрытую выбранной целью.
 function Compass:FindPeekMarker()
     local target = self.navigationTarget
     local trackedLeft, trackedRight, trackedSize, trackedLevel
     for _, marker in ipairs(self.markerGroupOrder) do
         local slot = self.markerSlotsByKey[marker.key]
-        if slot and slot.marker == marker and slot.renderShown and slot.renderAlpha > 0 and IsTrackedPoint(marker, target) then
+        if slot and slot.marker == marker and slot.renderShown and slot.renderAlpha > 0 and self:IsTrackedPoint(marker, target) then
             trackedLeft = trackedLeft and math.min(trackedLeft, marker.projectedLeftPx) or marker.projectedLeftPx
             trackedRight = trackedRight and math.max(trackedRight, marker.projectedRightPx) or marker.projectedRightPx
             trackedSize = math.max(trackedSize or 0, marker.projectedHitSize)
@@ -51,7 +34,7 @@ function Compass:FindPeekMarker()
             and slot.marker == marker
             and slot.renderShown
             and slot.renderAlpha > 0
-            and not IsTrackedPoint(marker, target)
+            and not self:IsTrackedPoint(marker, target)
         then
             local covered = trackedLeft
                 and marker.depthLevel < trackedLevel

@@ -6,8 +6,9 @@ local ConsoleMenu = _G.ConsoleMenu
 -- Состояние и функции полосы навигации.
 local Compass = {}
 ConsoleMenu.Compass = Compass
--- Набор точек «поблизости», гаснущие после выхода и слоты, которые ещё доигрывают уход.
+-- Набор точек «поблизости», гаснущие после выхода, слоты, которые ещё доигрывают уход, и скрытие выбранной цели.
 Compass.arrivalMarkers, Compass.arrivalKeys, Compass.arrivalLeaving, Compass.nearbyFading = {}, {}, {}, {}
+Compass.hideNavigationOnBar = false
 
 -- Числа внешнего вида и работы полосы.
 Compass.Constants = {

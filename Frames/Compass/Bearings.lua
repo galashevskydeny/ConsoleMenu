@@ -185,13 +185,37 @@ local function CancelNearbyFade(self, marker)
     marker.nearbyFade, marker.nearbyHoldX = nil, nil
 end
 
+-- Убирает выбранную цель из списка, если её рисует игровой указатель.
+local function RemoveHiddenNavigation(self, list)
+    local write = 1
+    local changed = false
+    for index = 1, #list do
+        local marker = list[index]
+        if self:ShouldHideNavigationMarker(marker) then
+            changed = true
+            marker.nearbyFade, marker.nearbyHoldX = nil, nil
+        else
+            if write ~= index then
+                list[write] = marker
+            end
+            write = write + 1
+        end
+    end
+    for index = #list, write, -1 do
+        list[index] = nil
+    end
+    return changed
+end
+
 -- Собирает до трёх точек в радиусе прибытия и удерживает их, пока игрок внутри зоны.
 function Compass:RefreshArrival()
     local C = self.Constants
     local limit = C.NEARBY_YARDS_SQUARED
     local maxCount = C.NEARBY_MAX
     local held, keys, list = self.arrivalMarkers, self.arrivalKeys, self.markers
-    local changed = false
+    local changed = RemoveHiddenNavigation(self, held)
+    changed = RemoveHiddenNavigation(self, self.arrivalLeaving) or changed
+    changed = RemoveHiddenNavigation(self, self.nearbyFading) or changed
     local dropped
     local write = 1
     for index = 1, #held do
@@ -206,7 +230,7 @@ function Compass:RefreshArrival()
         if live then
             self:RefreshMarkerBearing(live)
         end
-        if live and live.distanceSquared and live.distanceSquared <= limit then
+        if live and live.distanceSquared and live.distanceSquared <= limit and not self:ShouldHideNavigationMarker(live) then
             if held[write] ~= live then
                 changed = true
             end
@@ -214,8 +238,10 @@ function Compass:RefreshArrival()
             write = write + 1
         else
             changed = true
-            dropped = dropped or {}
-            dropped[#dropped + 1] = previous
+            if not (live and self:ShouldHideNavigationMarker(live)) then
+                dropped = dropped or {}
+                dropped[#dropped + 1] = previous
+            end
         end
     end
     for index = #held, write, -1 do
@@ -229,7 +255,12 @@ function Compass:RefreshArrival()
         local best
         for _, marker in ipairs(list) do
             local distanceSquared = marker.distanceSquared
-            if distanceSquared and distanceSquared <= limit and not keys[marker.key] then
+            if
+                distanceSquared
+                and distanceSquared <= limit
+                and not keys[marker.key]
+                and not self:ShouldHideNavigationMarker(marker)
+            then
                 if
                     not best
                     or distanceSquared < best.distanceSquared

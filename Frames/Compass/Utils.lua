@@ -38,6 +38,63 @@ function Compass.IsMapPosition(position)
     return x ~= nil and y ~= nil and x >= 0 and x <= 1 and y >= 0 and y <= 1
 end
 
+-- Проверяет, включена ли стандартная навигация игры.
+function Compass:IsGameNavigationEnabled()
+    return self.Readable(C_CVar.GetCVarBool("showInGameNavigation")) == true
+end
+
+-- Проверяет, что игровой указатель сейчас доступен.
+function Compass:IsGameNavigationPointerAvailable()
+    local state = self.Number(C_Navigation.GetTargetState())
+    return state == Enum.NavigationState.Occluded or state == Enum.NavigationState.InRange
+end
+
+-- Проверяет, нужно ли прятать выбранную цель с полосы.
+function Compass:IsGameNavigationHidingTarget()
+    return self:IsGameNavigationEnabled() and self:IsGameNavigationPointerAvailable()
+end
+
+-- Проверяет, совпадает ли точка с выбранной целью.
+function Compass:IsTrackedPoint(marker, target)
+    if not marker then
+        return false
+    end
+    if marker.navigation then
+        return true
+    end
+    if not target then
+        return false
+    end
+    if marker.key == target.key or (marker.sourceKey or marker.key) == (target.sourceKey or target.key) then
+        return true
+    end
+    local destination, tracked = marker.destination, target.destination
+    if not destination or not tracked then
+        return false
+    end
+    return destination.mapID == tracked.mapID
+        and math.abs(destination.x - tracked.x) < self.Constants.PEEK_DESTINATION_EPSILON
+        and math.abs(destination.y - tracked.y) < self.Constants.PEEK_DESTINATION_EPSILON
+end
+
+-- Проверяет, что точку не следует рисовать из-за игрового указателя.
+function Compass:ShouldHideNavigationMarker(marker)
+    return self.hideNavigationOnBar == true and self:IsTrackedPoint(marker, self.navigationTarget)
+end
+
+-- Обновляет признак скрытия выбранной цели и помечает полосу к перерисовке.
+function Compass:RefreshNavigationHide()
+    local hide = self:IsGameNavigationHidingTarget()
+    if self.hideNavigationOnBar == hide then
+        return false
+    end
+    self.hideNavigationOnBar = hide
+    self.selectionDirty = true
+    self.renderDirty = true
+    self.bearingsDirty = true
+    return true
+end
+
 -- Добавляет точку на полосу, если у неё есть имя и координаты.
 function Compass:AddMarker(markers, key, position, name, atlas, priority, kind, destination)
     local C = self.Constants

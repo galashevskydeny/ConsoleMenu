@@ -48,6 +48,9 @@ local EVENTS = {
     "ARENA_OPPONENT_UPDATE",
     "SUPER_TRACKING_PATH_UPDATED",
     "MODIFIER_STATE_CHANGED",
+    "CVAR_UPDATE",
+    "NAVIGATION_FRAME_CREATED",
+    "NAVIGATION_FRAME_DESTROYED",
 }
 
 -- Смещает полосу вниз при включённом вырезе экрана.
@@ -168,6 +171,7 @@ function Compass:OnUpdate(elapsed)
     then
         self:DiscoverMarkers()
     end
+    self:RefreshNavigationHide()
     self:RefreshRange()
     self:RefreshBearings()
     local facing = self:GetFacing()
@@ -193,6 +197,10 @@ function Compass:OnEvent(event, payload)
         if payload == "LALT" or payload == "RALT" then
             self:RefreshPeekModifier()
         end
+        return
+    end
+    if event == "CVAR_UPDATE" or event == "NAVIGATION_FRAME_CREATED" or event == "NAVIGATION_FRAME_DESTROYED" then
+        self:RefreshNavigationHide()
         return
     end
     if event == "QUESTLINE_UPDATE" and Compass.Readable(payload) == true then
@@ -227,6 +235,7 @@ function ConsoleMenu:SetCompassFrame()
     Compass.markers, Compass.bearings = {}, {}
     Compass.selectionKeys = {}
     Compass.arrivalMarkers, Compass.arrivalKeys, Compass.arrivalLeaving, Compass.nearbyFading = {}, {}, {}, {}
+    Compass.hideNavigationOnBar = false
     Compass.arrivalBlend, Compass.arrivalEase, Compass.arrivalBlendPending, Compass.arrivalFanReveal = 0, 0, false, false
     Compass.viewAngle = C.VIEW_ANGLE
     Compass.range = C.RANGE_WALK

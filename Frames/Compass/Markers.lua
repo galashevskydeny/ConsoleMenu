@@ -99,6 +99,7 @@ function Compass:CreateMarkerPool()
         button.markerKey, button.revealAt, button.selected = nil, nil, false
         button.appearStart = nil
         button.renderX, button.renderAlpha, button.renderWaypoint, button.renderGlow, button.renderShown = nil, nil, nil, nil, false
+        button.renderWaypointArt = nil
         button.renderLeft, button.renderTop, button.smoothLeft = nil, nil, nil
         HideNearbyLabels(button)
         button.labelScale, button.labelWidth = nil, nil
@@ -254,7 +255,7 @@ local function AppendNearbyFading(self, selection)
                 break
             end
         end
-        if not seen then
+        if not seen and not self:ShouldHideNavigationMarker(marker) then
             selection[#selection + 1] = marker
             self.selectionKeys[marker.key] = true
             self.markerSlotsDirty = true
@@ -299,8 +300,11 @@ function Compass:SelectMarkers(facing, width, live)
             self.markerSlotsDirty = true
             wipe(self.selectionKeys)
             for index = 1, #foci do
-                selection[index] = foci[index]
-                self.selectionKeys[foci[index].key] = true
+                local focus = foci[index]
+                if not self:ShouldHideNavigationMarker(focus) then
+                    selection[#selection + 1] = focus
+                    self.selectionKeys[focus.key] = true
+                end
             end
         end
         self:LayoutNearby(facing)
@@ -335,7 +339,7 @@ function Compass:SelectMarkers(facing, width, live)
     self.markerSlotsDirty = true
     local halfView, turnMin, turnMax = self.viewAngle / 2 * (1 - C.EDGE_CLIP_FRACTION), -C.HALF_TURN, C.HALF_TURN
     for _, marker in ipairs(self.bearings) do
-        if marker.bearing then
+        if marker.bearing and not self:ShouldHideNavigationMarker(marker) then
             local x, alpha, delta = self:Project(marker.bearing, facing, self.viewAngle, width, C.EDGE_CLIP_FRACTION)
             turnMin, turnMax = LimitTurn(delta, halfView, turnMin, turnMax)
             if x and alpha > 0 then
@@ -494,7 +498,7 @@ function Compass:ApplyArrivalBlend(selection, facing)
                 break
             end
         end
-        if not seen then
+        if not seen and not self:ShouldHideNavigationMarker(focus) then
             focus.projectedX = focus.nearbyX or 0
             focus.projectedAlpha = ease
             focus.projectedDelta = focus.nearbyDelta or 0
@@ -674,10 +678,11 @@ function Compass:AssignMarkerSlots(selection, live)
 end
 
 -- Проверяет, сменилась ли картинка значка.
-local function MarkerArtChanged(button, marker, questSymbol)
+local function MarkerArtChanged(button, marker, questSymbol, waypoint)
     return button.atlas ~= marker.atlas
         or button.sourceTexture ~= marker.texture
         or button.questSymbol ~= questSymbol
+        or button.renderWaypointArt ~= waypoint
         or button.texLeft ~= marker.texLeft
         or button.texRight ~= marker.texRight
         or button.texTop ~= marker.texTop
@@ -688,7 +693,38 @@ local function MarkerArtChanged(button, marker, questSymbol)
 end
 
 -- Назначает атлас или текстуру значку.
-local function BindMarkerArt(button, marker, questSymbol)
+local function BindMarkerArt(button, marker, questSymbol, waypoint)
+    -- Выбранная цель рисуется пином на месте исходного значка, а не поверх него.
+    if waypoint then
+        local C = Compass.Constants
+        button.icon:SetTexCoord(
+            FULL_TEX_COORDS.left,
+            FULL_TEX_COORDS.right,
+            FULL_TEX_COORDS.top,
+            FULL_TEX_COORDS.bottom
+        )
+        button.shadow:SetTexCoord(
+            FULL_TEX_COORDS.left,
+            FULL_TEX_COORDS.right,
+            FULL_TEX_COORDS.top,
+            FULL_TEX_COORDS.bottom
+        )
+        button.icon:SetAtlas(C.SELECTION_MARKER_ATLAS)
+        button.shadow:SetAtlas(C.SELECTION_MARKER_ATLAS)
+        button.icon:SetVertexColor(ICON_COLOR.r, ICON_COLOR.g, ICON_COLOR.b)
+        button.icon:SetAlpha(1)
+        button.shadow:SetAlpha(C.MARKER_OUTLINE_ALPHA)
+        button.symbol:Hide()
+        button.selection:Hide()
+        button.atlas, button.sourceTexture, button.questSymbol = marker.atlas, marker.texture, false
+        button.texLeft, button.texRight, button.texTop, button.texBottom =
+            marker.texLeft, marker.texRight, marker.texTop, marker.texBottom
+        button.colorR, button.colorG, button.colorB = marker.colorR, marker.colorG, marker.colorB
+        button.renderWaypointArt = true
+        button.layoutAtlas, button.renderAlpha = nil, nil
+        return
+    end
+    button.renderWaypointArt = false
     if marker.texture then
         button.icon:SetTexture(marker.texture)
         button.shadow:SetTexture(marker.texture)
@@ -732,6 +768,7 @@ local function BindMarkerArt(button, marker, questSymbol)
     button.texLeft, button.texRight, button.texTop, button.texBottom =
         marker.texLeft, marker.texRight, marker.texTop, marker.texBottom
     button.colorR, button.colorG, button.colorB = marker.colorR, marker.colorG, marker.colorB
+    button.selection:Hide()
     button.layoutAtlas, button.renderAlpha = nil, nil
 end
 
@@ -776,10 +813,12 @@ function Compass:RenderMarker(button, marker, x, alpha, markerY, outline, scale)
     local C = self.Constants
     local blending = (self.arrivalBlend or 0) > 0
     local arrived = blending and self:IsNearbyFocus(marker)
-    local questSymbol = not marker.texture
+    local waypoint = marker.navigation == true
+    local questSymbol = not waypoint
+        and not marker.texture
         and (marker.kind == "quest" or marker.kind == "worldQuest" or QUEST_SYMBOL_ATLASES[marker.atlas] == true)
-    if MarkerArtChanged(button, marker, questSymbol) then
-        BindMarkerArt(button, marker, questSymbol)
+    if MarkerArtChanged(button, marker, questSymbol, waypoint) then
+        BindMarkerArt(button, marker, questSymbol, waypoint)
     end
     if button.marker ~= marker then
         self:BindMarker(button, marker)
@@ -838,15 +877,6 @@ function Compass:RenderMarker(button, marker, x, alpha, markerY, outline, scale)
                 -Pixel:Snap((hitSize - symbolHeight) / 2, scale)
             )
         end
-        local selectionSize = Pixel:Snap(markerSize * C.SELECTION_MARKER_SCALE, scale)
-        button.selection:SetSize(selectionSize, selectionSize)
-        button.selection:SetPoint(
-            "TOPLEFT",
-            button.icon,
-            "BOTTOMLEFT",
-            Pixel:Snap((markerSize - selectionSize) / 2, scale),
-            Pixel:Snap(selectionSize / 2, scale)
-        )
         button.trackedGlow:SetSize(
             Pixel:Snap(markerSize * C.TRACKED_GLOW_WIDTH_SCALE, scale),
             Pixel:Snap(markerSize * C.TRACKED_GLOW_HEIGHT_SCALE, scale)
@@ -863,10 +893,8 @@ function Compass:RenderMarker(button, marker, x, alpha, markerY, outline, scale)
     end
     button.renderX, button.renderY = left + hitSize / 2, top - hitSize / 2
     x = button.renderX
-    local waypoint = marker.navigation == true
     local glow = waypoint or arrived
     if button.renderWaypoint ~= waypoint or button.renderGlow ~= glow then
-        button.selection:SetShown(waypoint)
         button.trackedGlow:SetShown(glow)
         button.renderWaypoint, button.renderGlow = waypoint, glow
     end
