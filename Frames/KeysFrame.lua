@@ -13,7 +13,7 @@ local iconPlusSize = 12
 
 local stackCountSize = 20
 local stackCountOffset = 8
-local stackCountShadowOffsef = 12
+local stackCountShadowOffsef = 10
 
 local padding = 12
 
@@ -23,6 +23,16 @@ local backgroundSize = 1000
 local fontSize = 16
 
 local animationDuration = 0.1
+
+-- Верхний цвет вертикального градиента иконок
+local iconGradientTop = CreateColor(0xF3 / 255, 0xE8 / 255, 0xA1 / 255, 1)
+-- Нижний цвет вертикального градиента иконок
+local iconGradientBottom = CreateColor(0xD1 / 255, 0xB3 / 255, 0x62 / 255, 1)
+
+-- Заливает текстуру иконки вертикальным градиентом
+local function ApplyIconGradient(texture)
+    texture:SetGradient("VERTICAL", iconGradientBottom, iconGradientTop)
+end
 
 -- Проверяет, задана ли кнопка геймпада для эмуляции модификатора
 local function IsEmulatedGamePadButton(value)
@@ -324,7 +334,7 @@ function ConsoleMenu:SetKeysFrame()
 
     local frame = ConsoleMenuFrame.KeysFrame
     frame:SetSize(frameWidth, frameHeight)
-    frame:SetPoint("BOTTOMRIGHT", ConsoleMenuFrame, "BOTTOMRIGHT", -48, 48)
+    frame:SetPoint("BOTTOMRIGHT", ConsoleMenuFrame, "BOTTOMRIGHT", -72, 72)
     frame:SetClipsChildren(false)
 
     -- Тень вешается на полноэкранный кадр, иначе список подсказок обрезает пятно
@@ -384,7 +394,7 @@ function ConsoleMenu:SetKeysFrame()
             if not item.Icon.MainTexture then
                 item.Icon.MainTexture = item.Icon:CreateTexture(nil, "ARTWORK")
                 item.Icon.MainTexture:SetAllPoints()
-                item.Icon.MainTexture:SetVertexColor(1.0, 0.960784, 0.772549, 1)
+                ApplyIconGradient(item.Icon.MainTexture)
 
                 local texture = ConsoleMenu.Textures["PAD1"].texture
                 item.Icon.MainTexture:SetTexture(texture)
@@ -394,7 +404,7 @@ function ConsoleMenu:SetKeysFrame()
                 item.Icon.PlusTexture = item.Icon:CreateTexture(nil, "ARTWORK")
                 item.Icon.PlusTexture:SetPoint("RIGHT", item.Icon.MainTexture, "LEFT", -iconInnerPadding / 2, 0)
                 item.Icon.PlusTexture:SetSize(iconPlusSize, iconPlusSize)
-                item.Icon.PlusTexture:SetVertexColor(1.0, 0.960784, 0.772549, 1)
+                ApplyIconGradient(item.Icon.PlusTexture)
 
                 local texture = "Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\plus.png"
                 item.Icon.PlusTexture:SetTexture(texture)
@@ -405,7 +415,7 @@ function ConsoleMenu:SetKeysFrame()
                 item.Icon.ModifierTexture = item.Icon:CreateTexture(nil, "ARTWORK")
                 item.Icon.ModifierTexture:SetPoint("RIGHT", item.Icon.PlusTexture, "LEFT", -iconInnerPadding / 2, 0)
                 item.Icon.ModifierTexture:SetSize(iconSize, iconSize)
-                item.Icon.ModifierTexture:SetVertexColor(1.0, 0.960784, 0.772549, 1)
+                ApplyIconGradient(item.Icon.ModifierTexture)
 
                 local texture = ConsoleMenu.Textures["PADLSHOULDER"].texture
                 item.Icon.ModifierTexture:SetTexture(texture)
@@ -424,7 +434,7 @@ function ConsoleMenu:SetKeysFrame()
                 if not item.Icon.StackCount.Background then
                     item.Icon.StackCount.Background = item.Icon.StackCount:CreateTexture(nil, "ARTWORK")
                     item.Icon.StackCount.Background:SetAllPoints()
-                    item.Icon.StackCount.Background:SetAlpha(0.5)
+                    item.Icon.StackCount.Background:SetAlpha(0)
 
                     local texture = ConsoleMenu.Backgrounds["PAD"]
                     item.Icon.StackCount.Background:SetTexture(texture)
@@ -435,7 +445,7 @@ function ConsoleMenu:SetKeysFrame()
                     item.Icon.StackCount.Shadow = item.Icon.StackCount:CreateTexture(nil, "BACKGROUND")
                     item.Icon.StackCount.Shadow:SetPoint("TOPLEFT", item.Icon.StackCount.Background, "TOPLEFT", -stackCountShadowOffsef, stackCountShadowOffsef)
                     item.Icon.StackCount.Shadow:SetPoint("BOTTOMRIGHT", item.Icon.StackCount.Background, "BOTTOMRIGHT", stackCountShadowOffsef, -stackCountShadowOffsef)
-
+                    item.Icon.StackCount.Shadow:SetAlpha(0.75)
                     local texture = "Interface\\AddOns\\ConsoleMenu\\Assets\\CrossBackgorund.png"
                     item.Icon.StackCount.Shadow:SetTexture(texture)
                 end
@@ -446,7 +456,7 @@ function ConsoleMenu:SetKeysFrame()
                     item.Icon.StackCount.Text:SetAllPoints()
                     item.Icon.StackCount.Text:SetJustifyH("CENTER")
                     item.Icon.StackCount.Text:SetTextColor(1.0, 0.960784, 0.772549, 1)
-                    item.Icon.StackCount.Text:SetFont("Fonts\\FRIZQT___CYR.TTF", fontSize, "")
+                    item.Icon.StackCount.Text:SetFont("Fonts\\FRIZQT___CYR.TTF", fontSize-2, "")
                     item.Icon.StackCount.Text:SetText("")
                 end
             end

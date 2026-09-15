@@ -385,7 +385,7 @@ function ConsoleMenu:SetFastTravelFrame()
     ConsoleMenu:InitFadeAnimations(FastTravel, animationDuration)
 
     FastTravel:SetSize(frameWidth, sectionHeight * (viewedItemCount + 2))
-    FastTravel:SetPoint("BOTTOMLEFT", ConsoleMenuFrame, "BOTTOMLEFT", 48, 48)
+    FastTravel:SetPoint("BOTTOMLEFT", ConsoleMenuFrame, "BOTTOMLEFT", 72, 72)
 
     FastTravel.Background = FastTravel:CreateTexture(nil, "BACKGROUND")
     FastTravel.Background:SetWidth(800)
