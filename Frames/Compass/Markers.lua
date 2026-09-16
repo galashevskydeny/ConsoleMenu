@@ -8,8 +8,6 @@ local FULL_TEX_COORDS = { left = 0, right = 1, top = 0, bottom = 1 }
 local ICON_COLOR = { r = 1, g = 1, b = 1 }
 local QUEST_BACKGROUND_ATLAS = "UI-QuestPoi-QuestNumber"
 local QUEST_SYMBOL_ATLASES = {
-    ["Quest-In-Progress-Icon-yellow"] = true,
-    ["UI-QuestIcon-TurnIn-Normal"] = true,
     ["Worldquest-icon"] = true,
 }
 local nearbyOrder = {}
@@ -567,7 +565,9 @@ function Compass:LayoutMarkerGroups(selection)
     end
     for index, marker in ipairs(selection) do
         -- Размер не зависит от дальности, только от типа точки.
-        marker.projectedIconSize = Pixel:Snap(self.iconSize * (marker.sizeScale or 1), scale)
+        -- Выбранная цель рисуется пином обычного размера, без увеличения исходного значка.
+        local sizeScale = marker.navigation and 1 or (marker.sizeScale or 1)
+        marker.projectedIconSize = Pixel:Snap(self.iconSize * sizeScale, scale)
         marker.projectedHitSize = marker.projectedIconSize + outline
         local left = centerX + marker.projectedX - marker.projectedHitSize / 2
         marker.projectedLeft = left
@@ -816,6 +816,7 @@ function Compass:RenderMarker(button, marker, x, alpha, markerY, outline, scale)
     local waypoint = marker.navigation == true
     local questSymbol = not waypoint
         and not marker.texture
+        and not marker.standaloneIcon
         and (marker.kind == "quest" or marker.kind == "worldQuest" or QUEST_SYMBOL_ATLASES[marker.atlas] == true)
     if MarkerArtChanged(button, marker, questSymbol, waypoint) then
         BindMarkerArt(button, marker, questSymbol, waypoint)
@@ -851,20 +852,25 @@ function Compass:RenderMarker(button, marker, x, alpha, markerY, outline, scale)
         button.selectionFrame:SetFrameLevel(selectionLevel)
     end
     local markerSize, hitSize = marker.projectedIconSize, marker.projectedHitSize
+    local offsetY = 0
+    if not waypoint then
+        offsetY = Pixel:Multiple(marker.offsetY or 0, scale)
+    end
     if
         button.layoutSize ~= markerSize
         or button.layoutOutline ~= outline
         or button.layoutHitSize ~= hitSize
         or button.layoutScale ~= scale
         or button.layoutAtlas ~= marker.atlas
+        or button.layoutOffsetY ~= offsetY
     then
         button:SetSize(hitSize, hitSize)
         button.icon:SetSize(markerSize, markerSize)
         button.shadow:SetSize(markerSize + outline, markerSize + outline)
         local inset = Pixel:Snap((hitSize - markerSize) / 2, scale)
-        button.icon:SetPoint("TOPLEFT", button, "TOPLEFT", inset, -inset)
+        button.icon:SetPoint("TOPLEFT", button, "TOPLEFT", inset, -inset + offsetY)
         local shadowInset = Pixel:Snap((hitSize - markerSize - outline) / 2, scale)
-        button.shadow:SetPoint("TOPLEFT", button, "TOPLEFT", shadowInset, -shadowInset)
+        button.shadow:SetPoint("TOPLEFT", button, "TOPLEFT", shadowInset, -shadowInset + offsetY)
         if button.symbol:IsShown() then
             local symbolWidth = Pixel:Snap(markerSize * button.symbolWidthScale, scale)
             local symbolHeight = Pixel:Snap(markerSize * button.symbolHeightScale, scale)
@@ -882,7 +888,7 @@ function Compass:RenderMarker(button, marker, x, alpha, markerY, outline, scale)
             Pixel:Snap(markerSize * C.TRACKED_GLOW_HEIGHT_SCALE, scale)
         )
         button.layoutSize, button.layoutOutline, button.layoutHitSize = markerSize, outline, hitSize
-        button.layoutScale, button.layoutAtlas = scale, marker.atlas
+        button.layoutScale, button.layoutAtlas, button.layoutOffsetY = scale, marker.atlas, offsetY
     end
     local centerX, centerY = self.artworkLayout.centerX, self.artworkLayout.centerY
     local left = SmoothMarkerLeft(self, button, marker.projectedLeft - centerX, scale, arrived)

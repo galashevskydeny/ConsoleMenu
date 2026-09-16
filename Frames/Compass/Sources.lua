@@ -7,8 +7,7 @@ local Readable = Compass.Readable
 local Number = Compass.Number
 local ReadPosition = Compass.ReadPosition
 local POI_RETRY_INTERVAL = 30
-local QUEST_PROGRESS_ATLAS = "Quest-In-Progress-Icon-yellow"
-local QUEST_COMPLETE_ATLAS = "UI-QuestIcon-TurnIn-Normal"
+local QUEST_COMPLETE_ATLAS = "Crosshair_Questturnin_128"
 local WORLD_QUEST_ATLAS = "Worldquest-icon"
 local BONUS_OBJECTIVE_ATLAS = "Bonus-Objective-Star"
 local THREAT_ATLAS = "worldquest-icon-nzoth"
@@ -42,6 +41,13 @@ local OFFER_ATLASES = {
     [Enum.QuestClassification.Campaign] = "Quest-Campaign-Available",
     [Enum.QuestClassification.Legendary] = "UI-QuestPoiLegendary-QuestBang",
     [Enum.QuestClassification.Important] = "importantavailablequesticon",
+}
+-- Значки сдачи задания по классу, как в окне диалога.
+local COMPLETE_ATLASES = {
+    [Enum.QuestClassification.Important] = "Crosshair_importantturnin_128",
+    [Enum.QuestClassification.Campaign] = "Crosshair_campaignquestturnin_128",
+    [Enum.QuestClassification.Meta] = "Crosshair_Wrapperturnin_128",
+    [Enum.QuestClassification.Recurring] = "Crosshair_Recurringturnin_128",
 }
 
 -- Интервал повторного опроса точки интереса.
@@ -115,17 +121,18 @@ function Compass:CollectMapPoints(markers)
             refreshAt = math.min(refreshAt, self.discoveryClock + POI_RETRY_INTERVAL)
         elseif not seen[id] then
             seen[id] = true
-            if
-                not self:AddMarker(
-                    markers,
-                    "poi:" .. id,
-                    info.position,
-                    info.name,
-                    info.atlasName,
-                    C.POI_PRIORITY,
-                    "poi"
-                )
-            then
+            local marker = self:AddMarker(
+                markers,
+                "poi:" .. id,
+                info.position,
+                info.name,
+                info.atlasName,
+                C.POI_PRIORITY,
+                "poi"
+            )
+            if marker then
+                marker.sizeScale = C.INSTANCE_ENTRANCE_SCALE
+            else
                 refreshAt = math.min(refreshAt, self.discoveryClock + POI_RETRY_INTERVAL)
             end
         end
@@ -177,6 +184,8 @@ local function AddQuest(self, markers, questID, position, watched, seen, taskOnl
     end
     local isWorld = Readable(C_QuestLog.IsWorldQuest(questID))
     local title, atlas, priority, kind
+    -- Отдельный значок без круглой подложки, как восклицательный знак доступного задания.
+    local standaloneIcon
     if isWorld == true and Readable(C_TaskQuest.IsActive(questID)) == true then
         title = C_TaskQuest.GetQuestInfoByQuestID(questID)
         atlas, priority = WORLD_QUEST_ATLAS, C.WORLD_QUEST_PRIORITY
@@ -208,7 +217,12 @@ local function AddQuest(self, markers, questID, position, watched, seen, taskOnl
             end
         elseif not taskOnly and Readable(C_QuestLog.IsOnQuest(questID)) == true then
             title = C_QuestLog.GetTitleForQuestID(questID)
-            atlas = Readable(C_QuestLog.IsComplete(questID)) == true and QUEST_COMPLETE_ATLAS or QUEST_PROGRESS_ATLAS
+            if Readable(C_QuestLog.IsComplete(questID)) == true then
+                atlas = COMPLETE_ATLASES[classification] or QUEST_COMPLETE_ATLAS
+            else
+                atlas = C.QUEST_PROGRESS_ATLAS
+            end
+            standaloneIcon = true
         else
             return
         end
@@ -220,7 +234,9 @@ local function AddQuest(self, markers, questID, position, watched, seen, taskOnl
     if watched[questID] then
         priority = C.TRACKED_QUEST_PRIORITY
     end
-    if self:AddMarker(markers, "quest:" .. questID, position, title, atlas, priority, kind) then
+    local marker = self:AddMarker(markers, "quest:" .. questID, position, title, atlas, priority, kind)
+    if marker then
+        marker.standaloneIcon = standaloneIcon
         seen[questID] = true
     end
 end

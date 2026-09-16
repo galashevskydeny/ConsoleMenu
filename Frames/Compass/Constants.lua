@@ -32,7 +32,7 @@ Compass.Constants = {
     LINE_THICKNESS = 3,
     LINE_ALPHA = 0.6,
     LINE_FADE_FRACTION = 0.18,
-    LINE_COLOR = { r = 1.0, g = 0.960784, b = 0.772549 },
+    LINE_COLOR = { r = 0xF3 / 255, g = 0xE8 / 255, b = 0xA1 / 255 },
     POINTER_HEIGHT = 6,
     POINTER_GAP = 2,
     POINTER_ALPHA = 0.4,
@@ -73,6 +73,12 @@ Compass.Constants = {
     BASIC_CHEST_SCALE = 0.9,
     DECOR_VENDOR_ATLAS = "housing-decor-vendor_32",
     DECOR_VENDOR_SCALE = 0.8, -- Родной рисунок рассчитан на 24 пикселя из 32.
+    QUEST_PROGRESS_ATLAS = "Quest-In-Progress-Icon-yellow",
+    QUEST_PROGRESS_SCALE = 1.5, -- Жёлтый кружок в исходном рисунке меньше восклицательного знака.
+    QUEST_PROGRESS_OFFSET_Y = -4, -- Сдвиг вниз, чтобы кружок совпал с серединой линии.
+    DUNGEON_ATLAS = "Dungeon",
+    RAID_ATLAS = "Raid",
+    INSTANCE_ENTRANCE_SCALE = 1.2, -- Входы в подземелья и рейды чуть крупнее остальных значков.
     TRACKED_GLOW_ATLAS = "housing-basic-panel-gradient-header-bg",
     TRACKED_GLOW_WIDTH_SCALE = 9,
     TRACKED_GLOW_HEIGHT_SCALE = 2.5,
@@ -104,6 +110,13 @@ do
     C.MARKER_ATLAS_SCALES = {
         [C.BASIC_CHEST_ATLAS] = C.BASIC_CHEST_SCALE,
         [C.DECOR_VENDOR_ATLAS] = C.DECOR_VENDOR_SCALE,
+        [C.QUEST_PROGRESS_ATLAS:lower()] = C.QUEST_PROGRESS_SCALE,
+        [C.DUNGEON_ATLAS:lower()] = C.INSTANCE_ENTRANCE_SCALE,
+        [C.RAID_ATLAS:lower()] = C.INSTANCE_ENTRANCE_SCALE,
+    }
+    -- Сдвиг рисунка, если исходный значок смещён относительно середины.
+    C.MARKER_ATLAS_OFFSETS = {
+        [C.QUEST_PROGRESS_ATLAS:lower()] = C.QUEST_PROGRESS_OFFSET_Y,
     }
 end
 
@@ -119,6 +132,8 @@ Compass.Constants.MARKER_ART_FIELDS = {
     "colorB",
     "sourceAlpha",
     "sizeScale",
+    "offsetY",
+    "standaloneIcon",
 }
 
 -- Квадрат дальности прибытия в ярдах, чтобы не извлекать корень на каждом кадре.
