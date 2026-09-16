@@ -77,6 +77,16 @@ function Compass:IsTrackedPoint(marker, target)
         and math.abs(destination.y - tracked.y) < self.Constants.PEEK_DESTINATION_EPSILON
 end
 
+-- Решает, достаточно ли ярок значок, чтобы показать название и подпись.
+function Compass:ShouldShowMarkerLabel(shown, alpha)
+    local C = self.Constants
+    alpha = alpha or 0
+    if shown then
+        return alpha >= C.LABEL_HIDE_ALPHA
+    end
+    return alpha >= C.LABEL_SHOW_ALPHA
+end
+
 -- Проверяет, что точку не следует рисовать из-за игрового указателя.
 function Compass:ShouldHideNavigationMarker(marker)
     return self.hideNavigationOnBar == true and self:IsTrackedPoint(marker, self.navigationTarget)

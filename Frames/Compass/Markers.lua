@@ -12,6 +12,22 @@ local QUEST_SYMBOL_ATLASES = {
 }
 local nearbyOrder = {}
 
+-- Останавливает проявление или скрытие подписи слота.
+local function StopLabelFade(button)
+    local frame = button and button.labelFrame
+    if not frame then
+        return
+    end
+    if frame.fadeIn then
+        frame.fadeIn:Stop()
+    end
+    if frame.fadeOut then
+        frame.fadeOut:Stop()
+        frame.fadeOut:SetScript("OnFinished", nil)
+    end
+    frame:SetAlpha(1)
+end
+
 -- Возвращает исходную прозрачность текстур и подписей значка.
 local function RestoreMarkerTextures(button)
     local C = Compass.Constants
@@ -28,17 +44,33 @@ local function RestoreMarkerTextures(button)
     button.renderAlpha, button.glowAlpha = nil, nil
 end
 
--- Скрывает подпись слота: текст живёт на полосе, а не на рамке значка.
+-- Скрывает подпись слота сразу, без анимации.
 local function HideNearbyLabels(button)
     if not button then
         return
     end
-    if button.labelShown or (button.title and button.title:IsShown()) then
+    StopLabelFade(button)
+    if button.labelFrame then
+        button.labelFrame:Hide()
+    elseif button.title then
         button.title:Hide()
         button.caption:Hide()
     end
     button.labelShown, button.labelName, button.labelCaption = false, nil, nil
     button.labelX, button.labelY = nil, nil
+end
+
+-- Плавно показывает или прячет подпись слота.
+local function SetNearbyLabelsShown(button, shown)
+    if shown then
+        if not button.labelShown then
+            button.labelShown = true
+            ConsoleMenu:AnimatedShow(button.labelFrame)
+        end
+    elseif button.labelShown then
+        button.labelShown = false
+        ConsoleMenu:AnimatedHide(button.labelFrame)
+    end
 end
 
 -- Создаёт пул декоративных значков без мыши.
@@ -69,18 +101,23 @@ function Compass:CreateMarkerPool()
         button.selection:Hide()
         button:SetClipsChildren(false)
         -- Название и тип на полосе, чтобы подпись не обрезалась рамкой значка.
-        button.title = self.frame:CreateFontString(nil, "OVERLAY")
+        local labelFrame = CreateFrame("Frame", nil, self.frame)
+        labelFrame:EnableMouse(false)
+        labelFrame:SetClipsChildren(false)
+        labelFrame:SetFrameLevel(self.frame:GetFrameLevel() + 2)
+        labelFrame:Hide()
+        ConsoleMenu:InitFadeAnimations(labelFrame, C.LABEL_FADE_DURATION)
+        button.labelFrame = labelFrame
+        button.title = labelFrame:CreateFontString(nil, "OVERLAY")
         button.title:SetMaxLines(2)
         button.title:SetJustifyH("CENTER")
         button.title:SetWordWrap(true)
         button.title:SetNonSpaceWrap(true)
-        button.title:Hide()
-        button.caption = self.frame:CreateFontString(nil, "OVERLAY")
+        button.caption = labelFrame:CreateFontString(nil, "OVERLAY")
         button.caption:SetMaxLines(2)
         button.caption:SetJustifyH("CENTER")
         button.caption:SetWordWrap(true)
         button.caption:SetNonSpaceWrap(true)
-        button.caption:Hide()
         button:Hide()
         button.renderShown = false
         RestoreMarkerTextures(button)
@@ -187,6 +224,9 @@ local function StyleNearbyLabels(self, button, scale, width)
     button.caption:SetShadowColor(0, 0, 0, 1)
     button.title:SetWidth(width)
     button.caption:SetWidth(width)
+    local color = C.LINE_COLOR
+    button.title:SetTextColor(color.r, color.g, color.b, 1)
+    button.caption:SetTextColor(color.r, color.g, color.b, C.LABEL_CAPTION_ALPHA)
     button.labelScale, button.labelWidth = scale, width
 end
 
@@ -961,21 +1001,15 @@ function Compass:RenderMarker(button, marker, x, alpha, markerY, outline, scale)
             button.title:ClearAllPoints()
             button.title:SetPoint("TOP", self.frame, "CENTER", x, detailY)
             button.caption:ClearAllPoints()
-            button.caption:SetPoint("TOP", button.title, "BOTTOM", 0, -Pixel:Multiple(C.LABEL_GAP, scale))
+            button.caption:SetPoint("TOP", button.title, "BOTTOM", 0, -Pixel:Multiple(C.LABEL_CAPTION_GAP, scale))
             button.labelX, button.labelY = x, detailY
         end
-        if not button.labelShown then
-            button.title:SetAlpha(1)
-            button.caption:SetAlpha(1)
-            button.title:Show()
-            button.caption:Show()
-            button.labelShown = true
-        end
-        local color = C.LINE_COLOR
-        button.title:SetTextColor(color.r, color.g, color.b, alpha)
-        button.caption:SetTextColor(color.r, color.g, color.b, alpha * C.LABEL_CAPTION_ALPHA)
-    elseif button.labelShown then
-        HideNearbyLabels(button)
+        -- Пока значок гаснет вместе со слотом, подпись прячем сразу, чтобы она не переживала его.
+        local leaving = marker.nearbyFade ~= nil or #self.arrivalMarkers == 0
+        local wantLabels = not leaving and self:ShouldShowMarkerLabel(button.labelShown, alpha)
+        SetNearbyLabelsShown(button, wantLabels)
+    else
+        SetNearbyLabelsShown(button, false)
     end
     if not button.renderShown then
         button.renderShown = true

@@ -64,18 +64,37 @@ function Compass:CreateView()
         self.ticks[#self.ticks + 1] = tick
     end
     self:CreateMarkerPool()
+    -- Подложка под подписями: начинается у нижнего края полосы.
+    local shadowFrame = CreateFrame("Frame", nil, frame)
+    shadowFrame:EnableMouse(false)
+    shadowFrame:SetClipsChildren(false)
+    shadowFrame:Hide()
+    local shadow = shadowFrame:CreateTexture(nil, "BACKGROUND")
+    shadow:SetTexture(C.LABEL_SHADOW_TEXTURE)
+    shadow:SetSnapToPixelGrid(true)
+    shadow:SetTexelSnappingBias(0)
+    self.labelShadowBottom = shadow
+    ConsoleMenu:InitFadeAnimations(shadowFrame, C.LABEL_FADE_DURATION)
+    self.labelShadow = shadowFrame
+    -- Название и подпись выбранной точки, проявляются отдельно от значка.
+    local detailFrame = CreateFrame("Frame", nil, frame)
+    detailFrame:EnableMouse(false)
+    detailFrame:SetClipsChildren(false)
+    detailFrame:Hide()
+    ConsoleMenu:InitFadeAnimations(detailFrame, C.LABEL_FADE_DURATION)
+    self.detailFrame = detailFrame
+    shadowFrame:SetFrameLevel(frame:GetFrameLevel())
+    detailFrame:SetFrameLevel(frame:GetFrameLevel() + 2)
     -- Название точки по центру взгляда.
-    self.detailTitle = frame:CreateFontString(nil, "OVERLAY")
+    self.detailTitle = detailFrame:CreateFontString(nil, "OVERLAY")
     self.detailTitle:SetMaxLines(1)
     self.detailTitle:SetJustifyH("CENTER")
     self.detailTitle:SetWordWrap(false)
-    self.detailTitle:Hide()
     -- Расстояние и тип под названием.
-    self.detailCaption = frame:CreateFontString(nil, "OVERLAY")
+    self.detailCaption = detailFrame:CreateFontString(nil, "OVERLAY")
     self.detailCaption:SetMaxLines(1)
     self.detailCaption:SetJustifyH("CENTER")
     self.detailCaption:SetWordWrap(false)
-    self.detailCaption:Hide()
     self:CreatePeek()
 end
 
@@ -127,7 +146,7 @@ function Compass:LayoutArtwork()
     self.detailTitle:ClearAllPoints()
     self.detailTitle:SetPoint("TOP", frame, "CENTER", 0, detailY)
     self.detailCaption:ClearAllPoints()
-    self.detailCaption:SetPoint("TOP", self.detailTitle, "BOTTOM", 0, -Pixel:Multiple(C.LABEL_GAP, scale))
+    self.detailCaption:SetPoint("TOP", self.detailTitle, "BOTTOM", 0, -Pixel:Multiple(C.LABEL_CAPTION_GAP, scale))
     local fadeWidth = width * C.LINE_FADE_FRACTION
     local sizes = { fadeWidth, width - fadeWidth * 2, fadeWidth }
     local left = -width / 2
@@ -144,6 +163,26 @@ function Compass:LayoutArtwork()
     self.pointer:SetPoint("TOPLEFT", frame, "CENTER", Pixel:Snap(centerX - thickness / 2, scale) - centerX, pointerY)
     for _, tick in ipairs(self.ticks) do
         tick.texture:SetSize(Pixel:Multiple(C.TICK_WIDTH, scale), Pixel:Multiple(C.TICK_HEIGHT, scale))
+    end
+    local left = Pixel:Snap(centerX - frameWidth / 2, scale) - centerX
+    local right = Pixel:Snap(centerX + frameWidth / 2, scale) - centerX
+    local bottom = self.labelShadowBottom
+    if bottom then
+        local captionBottom = layout.headingY
+            - Pixel:Snap(self.headingHeight, scale)
+            - Pixel:Multiple(C.LABEL_GAP, scale)
+            - Pixel:Snap(C.TITLE_FONT_SIZE, scale)
+            - Pixel:Multiple(C.LABEL_CAPTION_GAP, scale)
+            - Pixel:Snap(C.FONT_SIZE, scale)
+        local shadowTop = Pixel:Snap(centerY + lineBottom, scale) - centerY + Pixel:Multiple(C.LABEL_SHADOW_OFFSET_Y, scale)
+        local height = math.max(
+            Pixel:Multiple(C.LABEL_SHADOW_FADE, scale),
+            shadowTop - captionBottom + Pixel:Multiple(C.LABEL_SHADOW_FADE, scale)
+        )
+        bottom:ClearAllPoints()
+        bottom:SetPoint("TOPLEFT", frame, "CENTER", left, shadowTop)
+        bottom:SetPoint("TOPRIGHT", frame, "CENTER", right, shadowTop)
+        bottom:SetHeight(height)
     end
     return true
 end
@@ -224,7 +263,8 @@ function Compass:ClearMarkers()
     self.nearbyDisplayWidth, self.nearbySlotWidth = nil, nil
     self.arrivalBlend, self.arrivalEase, self.arrivalBlendPending, self.arrivalFanReveal = 0, 0, false, false
     self.selectionDirty, self.markerSlotsDirty, self.headingsDirty = true, true, true
-    self:HideDetail()
+    self:HideDetail(true)
+    self:SetLabelShadowShown(false, true)
     self.renderDirty = true
 end
 
@@ -282,15 +322,80 @@ function Compass:RenderHeadings(facing)
     self.headingsDirty = false
 end
 
--- Скрывает название и подпись под полосой.
-function Compass:HideDetail()
-    if self.detailShown then
-        self.detailTitle:Hide()
-        self.detailCaption:Hide()
-        self.detailShown = false
+-- Останавливает проявление или скрытие рамки.
+local function StopFade(frame)
+    if not frame then
+        return
     end
-    SetDetailAlpha(self, 1)
-    self.detailName, self.detailDistance, self.detailKind, self.detailNearby = nil, nil, nil, nil
+    if frame.fadeIn then
+        frame.fadeIn:Stop()
+    end
+    if frame.fadeOut then
+        frame.fadeOut:Stop()
+        frame.fadeOut:SetScript("OnFinished", nil)
+    end
+    frame:SetAlpha(1)
+end
+
+-- Показывает или прячет подложку под подписями.
+function Compass:SetLabelShadowShown(shown, immediate)
+    local frame = self.labelShadow
+    if not frame then
+        return
+    end
+    if immediate then
+        StopFade(frame)
+        frame:SetShown(shown)
+        self.labelShadowShown = shown and true or false
+        return
+    end
+    shown = shown and true or false
+    if self.labelShadowShown == shown then
+        return
+    end
+    self.labelShadowShown = shown
+    if shown then
+        ConsoleMenu:AnimatedShow(frame)
+    else
+        ConsoleMenu:AnimatedHide(frame)
+    end
+end
+
+-- Подложка видна, пока на полосе есть название или подпись.
+function Compass:RefreshLabelShadow(immediate)
+    local shown = self.detailShown
+    if not shown then
+        local slots = self.markerSlots
+        if slots then
+            for index = 1, #slots do
+                if slots[index].labelShown then
+                    shown = true
+                    break
+                end
+            end
+        end
+    end
+    self:SetLabelShadowShown(shown, immediate)
+end
+
+-- Скрывает название и подпись под полосой.
+function Compass:HideDetail(immediate)
+    if immediate then
+        StopFade(self.detailFrame)
+        if self.detailFrame then
+            self.detailFrame:Hide()
+        else
+            self.detailTitle:Hide()
+            self.detailCaption:Hide()
+        end
+        self.detailShown = false
+        self.detailName, self.detailDistance, self.detailKind, self.detailNearby = nil, nil, nil, nil
+        return
+    end
+    if self.detailShown then
+        self.detailShown = false
+        ConsoleMenu:AnimatedHide(self.detailFrame)
+    end
 end
 
 -- Показывает название, расстояние или отметку прибытия под полосой.
@@ -314,9 +419,17 @@ function Compass:ShowDetail(marker, nearby)
         self.detailName, self.detailDistance, self.detailKind, self.detailNearby = marker.name, distance, kind, nearby
     end
     if not self.detailShown then
-        self.detailTitle:Show()
-        self.detailCaption:Show()
         self.detailShown = true
+        ConsoleMenu:AnimatedShow(self.detailFrame)
+    end
+end
+
+-- Показывает подпись, только когда выбранный значок уже достаточно ярок.
+local function UpdateDetail(self, nearest, alpha)
+    if nearest and self:ShouldShowMarkerLabel(self.detailShown, alpha) then
+        self:ShowDetail(nearest)
+    else
+        self:HideDetail()
     end
 end
 
@@ -332,7 +445,7 @@ function Compass:Render(facing, live, elapsed)
     local layout = self.artworkLayout
     local scale, width = layout.scale, layout.contentWidth
     self:RenderHeadings(facing)
-    local nearest, nearestDelta
+    local nearest, nearestDelta, nearestAlpha
     local outline = Pixel:Multiple(C.MARKER_OUTLINE * 2, scale)
     local selection = self:SelectMarkers(facing, width, live)
     self:ApplyArrivalBlend(selection, facing)
@@ -360,7 +473,7 @@ function Compass:Render(facing, live, elapsed)
                 or (absoluteDelta == nearestDelta and marker.distanceSquared < nearest.distanceSquared)
             )
         then
-            nearest, nearestDelta = marker, absoluteDelta
+            nearest, nearestDelta, nearestAlpha = marker, absoluteDelta, slot.renderAlpha or 0
         end
     end
     -- Пока рамка проявляется, подписи не трогаем: иначе их прозрачность смешается с анимацией.
@@ -375,26 +488,17 @@ function Compass:Render(facing, live, elapsed)
         self:HidePeek()
         self:HideDetail()
     elseif self.peekAltHeld then
-        SetDetailAlpha(self, 1)
         local marker, slot = self:FindPeekMarker()
         if marker then
             self:ShowPeek(marker, slot)
         else
             self:HidePeek()
         end
-        if nearest then
-            self:ShowDetail(nearest)
-        else
-            self:HideDetail()
-        end
+        UpdateDetail(self, nearest, nearestAlpha or 0)
     else
-        SetDetailAlpha(self, 1)
         self:HidePeek()
-        if nearest then
-            self:ShowDetail(nearest)
-        else
-            self:HideDetail()
-        end
+        UpdateDetail(self, nearest, nearestAlpha or 0)
     end
+    self:RefreshLabelShadow()
     self.renderDirty, self.renderFacing = false, facing
 end

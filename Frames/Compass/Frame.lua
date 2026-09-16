@@ -272,7 +272,8 @@ function ConsoleMenu:SetCompassFrame()
 
     frame:SetScript("OnHide", function()
         Compass:HidePeek()
-        Compass:HideDetail()
+        Compass:HideDetail(true)
+        Compass:SetLabelShadowShown(false, true)
     end)
     frame:SetScript("OnShow", function()
         if Compass.inInstance or Compass.hiddenByGame then
