@@ -591,7 +591,7 @@ local function ApplyCombatKeys(context)
     end
 
     if UnitIsInteractable("softinteract") and context == "combat" then
-        ConsoleMenu:AddKeysFrameItem("SHIFT-PADRTRIGGER", "Взаимодействие")
+        ConsoleMenu:AddKeysFrameItem("PADRTRIGGER", "Взаимодействие")
     elseif UnitIsInteractable("softinteract") and context == "precombat" then
         ConsoleMenu:AddKeysFrameItem("PADRTRIGGER", "Взаимодействие")
     end

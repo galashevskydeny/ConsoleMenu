@@ -459,30 +459,12 @@ function ConsoleMenu:SetInteractBinding(newTarget)
     local hasInteractTarget = UnitIsInteractable("softinteract") or UnitIsInteractable("softenemy")
 
     if newTarget and hasInteractTarget then
-        if InCombatLockdown() then
-            ConsoleMenu:DeleteKeysFrameItem("PADRTRIGGER", "Взаимодействие")
-            ConsoleMenu:DeleteKeysFrameItem("SHIFT-PADRTRIGGER")
-            ConsoleMenu:AddKeysFrameItem("SHIFT-PADRTRIGGER", "Взаимодействие")
-            ConsoleMenu:UpdateKeysFrame()
-        else
-            SetOverrideBinding(self.InteractBindingFrame, true, "PADRTRIGGER", "INTERACTTARGET")
-            ConsoleMenu:DeleteKeysFrameItem("PADRTRIGGER")
-            ConsoleMenu:DeleteKeysFrameItem("SHIFT-PADRTRIGGER", "Взаимодействие")
-            ConsoleMenu:AddKeysFrameItem("PADRTRIGGER", "Взаимодействие")
-            ConsoleMenu:UpdateKeysFrame()
-        end
+        ConsoleMenu:DeleteKeysFrameItem("PADRTRIGGER")
+        ConsoleMenu:AddKeysFrameItem("PADRTRIGGER", "Взаимодействие")
+        ConsoleMenu:UpdateKeysFrame()
     else
-        
-        if InCombatLockdown() then
-            ConsoleMenu:DeleteKeysFrameItem("PADRTRIGGER", "Взаимодействие")
-            ConsoleMenu:DeleteKeysFrameItem("SHIFT-PADRTRIGGER", "Взаимодействие")
-            ConsoleMenu:UpdateKeysFrame()
-        else
-            ClearOverrideBindings(self.InteractBindingFrame)
-            ConsoleMenu:DeleteKeysFrameItem("PADRTRIGGER", "Взаимодействие")
-            ConsoleMenu:DeleteKeysFrameItem("SHIFT-PADRTRIGGER", "Взаимодействие")
-            ConsoleMenu:UpdateKeysFrame()
-        end
+        ConsoleMenu:DeleteKeysFrameItem("PADRTRIGGER")
+        ConsoleMenu:UpdateKeysFrame()
     end
 end
 
