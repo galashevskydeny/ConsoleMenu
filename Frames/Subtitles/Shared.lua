@@ -6,11 +6,11 @@ ConsoleMenu.Subtitle = ConsoleMenu.Subtitle or {}
 
 local Subtitle = ConsoleMenu.Subtitle
 
-Subtitle.frameWidth = 680
+Subtitle.frameWidth = 640
 Subtitle.frameHeight = 96
 Subtitle.backgroundOverlapVertical = 200
 Subtitle.backgroundOverlapHorizontal = 176
-Subtitle.maxLineLength = 128
+Subtitle.maxLineLength = 120
 Subtitle.animationDuration = 0.1
 Subtitle.speakerFontSize = 22
 Subtitle.subtitleFontSize = 26
