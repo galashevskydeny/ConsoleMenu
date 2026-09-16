@@ -29,7 +29,6 @@ function Compass:CreateView()
     local frame = self.frame
     self.artwork, self.artworkLayout = {}, {}
     self.headingsDirty = true
-    self.iconSize = C.ICON_SIZE
     self.headingHeight = C.FONT_SIZE
     local line = C.LINE_COLOR
     local clear = CreateColor(line.r, line.g, line.b, 0)
@@ -118,13 +117,12 @@ function Compass:LayoutArtwork()
         and layout.scale == scale
         and layout.thickness == thickness
         and layout.headingHeight == self.headingHeight
-        and layout.iconSize == self.iconSize
     then
         return true
     end
     layout.width, layout.height, layout.centerX, layout.centerY = frameWidth, frameHeight, centerX, centerY
     layout.scale, layout.thickness = scale, thickness
-    layout.headingHeight, layout.iconSize = self.headingHeight, self.iconSize
+    layout.headingHeight = self.headingHeight
     self.renderDirty, self.selectionDirty, self.headingsDirty = true, true, true
     self.detailTitle:SetWidth(frameWidth)
     self.detailCaption:SetWidth(frameWidth)
@@ -260,6 +258,7 @@ function Compass:ClearMarkers()
     wipe(self.arrivalKeys)
     wipe(self.arrivalLeaving)
     wipe(self.nearbyFading)
+    wipe(self.rangeLeaving)
     self.nearbyDisplayWidth, self.nearbySlotWidth = nil, nil
     self.arrivalBlend, self.arrivalEase, self.arrivalBlendPending, self.arrivalFanReveal = 0, 0, false, false
     self.selectionDirty, self.markerSlotsDirty, self.headingsDirty = true, true, true
@@ -449,6 +448,7 @@ function Compass:Render(facing, live, elapsed)
     local outline = Pixel:Multiple(C.MARKER_OUTLINE * 2, scale)
     local selection = self:SelectMarkers(facing, width, live)
     self:ApplyArrivalBlend(selection, facing)
+    self:HoldLeavingMarkers(selection)
     self:LayoutMarkerGroups(selection)
     self:AssignMarkerSlots(selection, live)
     self.markerRevealPending, self.markerSmoothPending = false, false
@@ -466,6 +466,8 @@ function Compass:Render(facing, live, elapsed)
         local absoluteDelta = math.abs(marker.projectedDelta or 0)
         if
             marker.renderShown
+            and not marker.rangeHoldX
+            and not marker.nearbyHoldX
             and absoluteDelta <= C.DETAIL_ANGLE
             and (
                 not nearestDelta

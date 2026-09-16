@@ -105,6 +105,31 @@ function Compass:RefreshNavigationHide()
     return true
 end
 
+-- Возвращает родную ширину и высоту атласа или запасной размер.
+function Compass.AtlasSize(atlas)
+    local fallback = Compass.Constants.ICON_SIZE
+    if type(atlas) ~= "string" or atlas == "" then
+        return fallback, fallback
+    end
+    local info = Compass.Readable(C_Texture.GetAtlasInfo(atlas))
+    if type(info) == "table" then
+        local width, height = Compass.Number(info.width), Compass.Number(info.height)
+        if width and height and width > 0 and height > 0 then
+            return width, height
+        end
+    end
+    return fallback, fallback
+end
+
+-- Ставит запасной размер, когда вместо атласа используется текстура.
+function Compass:UseTextureSize(marker)
+    if not marker then
+        return
+    end
+    local size = self.Constants.ICON_SIZE
+    marker.iconWidth, marker.iconHeight = size, size
+end
+
 -- Добавляет точку на полосу, если у неё есть имя и координаты.
 function Compass:AddMarker(markers, key, position, name, atlas, priority, kind, destination)
     local C = self.Constants
@@ -116,14 +141,15 @@ function Compass:AddMarker(markers, key, position, name, atlas, priority, kind, 
     if type(atlas) ~= "string" or atlas == "" then
         atlas = C.FALLBACK_ATLAS
     end
+    local iconWidth, iconHeight = self.AtlasSize(atlas)
     local marker = {
         key = key,
         x = x,
         y = y,
         name = name,
         atlas = atlas,
-        sizeScale = C.MARKER_ATLAS_SCALES[atlas:lower()] or 1,
-        offsetY = C.MARKER_ATLAS_OFFSETS[atlas:lower()] or 0,
+        iconWidth = iconWidth,
+        iconHeight = iconHeight,
         priority = priority,
         kind = kind,
         destination = destination or { mapID = self.mapID, x = x, y = y },

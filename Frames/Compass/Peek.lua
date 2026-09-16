@@ -165,14 +165,9 @@ function Compass:ShowPeek(marker, slot)
             peek.width, peek.height = width, height
         end
     end
-    local hitSize, iconSize = marker.projectedHitSize, marker.projectedIconSize
-    local inset = Pixel:Snap((hitSize - iconSize) / 2, scale)
-    local iconX = slot.renderX - hitSize / 2 + inset + iconSize / 2
-    local offsetY = 0
-    if not marker.navigation then
-        offsetY = Pixel:Multiple(marker.offsetY or 0, scale)
-    end
-    local iconBottom = Pixel:Snap(centerY + slot.renderY + hitSize / 2 - inset - iconSize + offsetY, scale)
+    local iconHeight = marker.projectedIconHeight or marker.projectedIconSize
+    local iconX = slot.renderX
+    local iconBottom = Pixel:Snap(centerY + slot.renderY - iconHeight / 2, scale)
     local left = math.max(ribbonLeft, math.min(ribbonRight - width, Pixel:Snap(centerX + iconX - width / 2, scale)))
     local top = Pixel:Snap(centerY + layout.headingY - self.headingHeight - Pixel:Multiple(HEADING_GAP, scale), scale)
     if peek.left ~= left or peek.top ~= top or peek.centerX ~= centerX or peek.centerY ~= centerY then

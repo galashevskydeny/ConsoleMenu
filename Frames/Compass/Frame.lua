@@ -245,7 +245,6 @@ function ConsoleMenu:SetCompassFrame()
     Compass.arrivalBlend, Compass.arrivalEase, Compass.arrivalBlendPending, Compass.arrivalFanReveal = 0, 0, false, false
     Compass.viewAngle = C.VIEW_ANGLE
     Compass.range = C.RANGE_WALK
-    Compass.iconSize = C.ICON_SIZE
     Compass.hiddenByContext = false
     Compass.hiddenByProgress = ConsoleMenuFrame.StatusTrackingFrame
         and ConsoleMenuFrame.StatusTrackingFrame:IsShown()

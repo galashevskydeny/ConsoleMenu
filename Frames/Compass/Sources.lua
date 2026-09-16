@@ -130,9 +130,7 @@ function Compass:CollectMapPoints(markers)
                 C.POI_PRIORITY,
                 "poi"
             )
-            if marker then
-                marker.sizeScale = C.INSTANCE_ENTRANCE_SCALE
-            else
+            if not marker then
                 refreshAt = math.min(refreshAt, self.discoveryClock + POI_RETRY_INTERVAL)
             end
         end
@@ -184,8 +182,6 @@ local function AddQuest(self, markers, questID, position, watched, seen, taskOnl
     end
     local isWorld = Readable(C_QuestLog.IsWorldQuest(questID))
     local title, atlas, priority, kind
-    -- Отдельный значок без круглой подложки, как восклицательный знак доступного задания.
-    local standaloneIcon
     if isWorld == true and Readable(C_TaskQuest.IsActive(questID)) == true then
         title = C_TaskQuest.GetQuestInfoByQuestID(questID)
         atlas, priority = WORLD_QUEST_ATLAS, C.WORLD_QUEST_PRIORITY
@@ -222,7 +218,6 @@ local function AddQuest(self, markers, questID, position, watched, seen, taskOnl
             else
                 atlas = C.QUEST_PROGRESS_ATLAS
             end
-            standaloneIcon = true
         else
             return
         end
@@ -236,7 +231,6 @@ local function AddQuest(self, markers, questID, position, watched, seen, taskOnl
     end
     local marker = self:AddMarker(markers, "quest:" .. questID, position, title, atlas, priority, kind)
     if marker then
-        marker.standaloneIcon = standaloneIcon
         seen[questID] = true
     end
 end
@@ -634,6 +628,7 @@ local function ApplyPOITexture(marker, textureIndex)
     if left and right and top and bottom then
         marker.texture = POI_ICONS
         marker.texLeft, marker.texRight, marker.texTop, marker.texBottom = left, right, top, bottom
+        Compass:UseTextureSize(marker)
     end
 end
 
@@ -776,6 +771,7 @@ function Compass:CollectBattlefield(markers)
             )
             if marker and texture then
                 marker.texture = texture
+                self:UseTextureSize(marker)
             end
         end
         self:DiscoveryCheckpoint()

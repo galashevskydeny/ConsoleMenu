@@ -6,8 +6,9 @@ local ConsoleMenu = _G.ConsoleMenu
 -- Состояние и функции полосы навигации.
 local Compass = {}
 ConsoleMenu.Compass = Compass
--- Набор точек «поблизости», гаснущие после выхода, слоты, которые ещё доигрывают уход, и скрытие выбранной цели.
-Compass.arrivalMarkers, Compass.arrivalKeys, Compass.arrivalLeaving, Compass.nearbyFading = {}, {}, {}, {}
+-- Набор точек «поблизости», гаснущие после выхода из него, значки за радиусом, которые ещё доигрывают скрытие, и скрытие выбранной цели.
+Compass.arrivalMarkers, Compass.arrivalKeys, Compass.arrivalLeaving, Compass.nearbyFading, Compass.rangeLeaving =
+    {}, {}, {}, {}, {}
 Compass.hideNavigationOnBar = false
 
 -- Числа внешнего вида и работы полосы.
@@ -18,7 +19,7 @@ Compass.Constants = {
     MACBOOK_OFFSET = 18,
     FONT_SIZE = 15, -- Стороны света и второстепенная подпись.
     TITLE_FONT_SIZE = 16, -- Название выбранной точки.
-    ICON_SIZE = 32,
+    ICON_SIZE = 32, -- Запасной размер, если игра не сообщила ширину и высоту.
     RANGE_WALK = 219,
     RANGE_MOUNT = 437,
     RANGE_FLYING = 875,
@@ -28,7 +29,7 @@ Compass.Constants = {
     NEARBY_MAX = 3, -- Сколько точек держать в режиме «поблизости».
     NEARBY_SLOT_GAP = 8, -- Зазор между подписями соседних слотов.
     NEARBY_BAND_FRACTION = 0.8, -- Доля длины полосы, которую делят слоты.
-    NEARBY_MOTION_DURATION = 0.15, -- Появление, уход и сдвиг слотов.
+    NEARBY_MOTION_DURATION = 0.15, -- Сдвиг слотов и смена ширины подписи.
     LINE_THICKNESS = 4,
     LINE_ALPHA = 0.6,
     LINE_FADE_FRACTION = 0.18,
@@ -58,34 +59,19 @@ Compass.Constants = {
     EDGE_CLIP_FRACTION = 0.18,
     MARKER_RETAINED_DISTANCE_SQUARED = 0.64,
     MARKER_REVEAL_DELAY = 0.08,
-    MARKER_APPEAR_DURATION = 0.2,
+    MARKER_APPEAR_DURATION = 0.2, -- Появление и скрытие значка целиком.
     ARRIVAL_BLEND_DURATION = 0.15,
     MARKER_SMOOTH_TIME = 0.05,
     MARKER_SMOOTH_SNAP = 80,
-    MARKER_RANGE_FADE_FRACTION = 0.05,
-    MARKER_RANGE_FADE_YARDS = 100,
     MARKER_OUTLINE = 1,
     MARKER_OUTLINE_ALPHA = 0.9,
     MARKER_ICON_SUBLEVEL = 2,
-    MARKER_SYMBOL_SUBLEVEL = 3,
     MARKER_SHADOW_SUBLEVEL = 1,
-    BASIC_CHEST_ATLAS = "vignetteloot",
-    BASIC_CHEST_SCALE = 0.9,
-    DECOR_VENDOR_ATLAS = "housing-decor-vendor_32",
-    DECOR_VENDOR_SCALE = 0.8, -- Родной рисунок рассчитан на 24 пикселя из 32.
     QUEST_PROGRESS_ATLAS = "Quest-In-Progress-Icon-yellow",
-    QUEST_PROGRESS_SCALE = 1.5, -- Жёлтый кружок в исходном рисунке меньше восклицательного знака.
-    QUEST_PROGRESS_OFFSET_Y = -4, -- Сдвиг вниз, чтобы кружок совпал с серединой линии.
-    DUNGEON_ATLAS = "Dungeon",
-    RAID_ATLAS = "Raid",
-    INSTANCE_ENTRANCE_SCALE = 1.2, -- Входы в подземелья и рейды чуть крупнее остальных значков.
     TRACKED_GLOW_ATLAS = "housing-basic-panel-gradient-header-bg",
-    TRACKED_GLOW_WIDTH_SCALE = 9,
-    TRACKED_GLOW_HEIGHT_SCALE = 2.5,
+    TRACKED_GLOW_WIDTH_SCALE = 9, -- Ширина подсветки относительно запасного размера значка.
+    TRACKED_GLOW_HEIGHT_SCALE = 2.5, -- Высота подсветки относительно запасного размера значка.
     TRACKED_GLOW_DROP = 5, -- На сколько пикселей опустить подсветку, чтобы её линия совпала с полосой.
-    SELECTION_MARKER_SCALE = 0.78125,
-    SELECTION_MARKER_ATLAS = "Waypoint-MapPin-Tracked",
-    SELECTION_MARKER_SUBLEVEL = 4,
     TICK_WIDTH = 1,
     TICK_HEIGHT = 2,
     LABEL_GAP = 4,
@@ -93,7 +79,7 @@ Compass.Constants = {
     LABEL_CAPTION_ALPHA = 0.6,
     LABEL_SHOW_ALPHA = 0.8, -- Подпись появляется, когда значок уже хорошо виден.
     LABEL_HIDE_ALPHA = 0.35, -- Подпись гаснет, когда значок снова становится тусклым.
-    LABEL_FADE_DURATION = 0.1, -- Длительность проявления и скрытия подписи.
+    LABEL_FADE_DURATION = 0.2, -- То же время, что у появления значка.
     LABEL_SHADOW_TEXTURE = "Interface\\AddOns\\ConsoleMenu\\Assets\\HalfShadow.png",
     LABEL_SHADOW_FADE = 128, -- Запас высоты, чтобы мягкий край рисунка ушёл ниже текста.
     LABEL_SHADOW_OFFSET_Y = 0, -- Сдвиг нижней подложки от края полоски.
@@ -111,22 +97,6 @@ Compass.Constants = {
     PEEK_DESTINATION_EPSILON = 0.00001,
 }
 
--- Масштаб значка по атласу, если родной рисунок крупнее остальных.
-do
-    local C = Compass.Constants
-    C.MARKER_ATLAS_SCALES = {
-        [C.BASIC_CHEST_ATLAS] = C.BASIC_CHEST_SCALE,
-        [C.DECOR_VENDOR_ATLAS] = C.DECOR_VENDOR_SCALE,
-        [C.QUEST_PROGRESS_ATLAS:lower()] = C.QUEST_PROGRESS_SCALE,
-        [C.DUNGEON_ATLAS:lower()] = C.INSTANCE_ENTRANCE_SCALE,
-        [C.RAID_ATLAS:lower()] = C.INSTANCE_ENTRANCE_SCALE,
-    }
-    -- Сдвиг рисунка, если исходный значок смещён относительно середины.
-    C.MARKER_ATLAS_OFFSETS = {
-        [C.QUEST_PROGRESS_ATLAS:lower()] = C.QUEST_PROGRESS_OFFSET_Y,
-    }
-end
-
 -- Поля оформления значка, которые переносятся с исходной точки на путевую.
 Compass.Constants.MARKER_ART_FIELDS = {
     "texture",
@@ -138,9 +108,8 @@ Compass.Constants.MARKER_ART_FIELDS = {
     "colorG",
     "colorB",
     "sourceAlpha",
-    "sizeScale",
-    "offsetY",
-    "standaloneIcon",
+    "iconWidth",
+    "iconHeight",
 }
 
 -- Квадрат дальности прибытия в ярдах, чтобы не извлекать корень на каждом кадре.

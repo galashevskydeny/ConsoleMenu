@@ -85,6 +85,7 @@ function Compass:UpdateBearings(x, y)
         wipe(self.arrivalKeys)
         wipe(self.arrivalLeaving)
         wipe(self.nearbyFading)
+        wipe(self.rangeLeaving)
         self.nearbyDisplayWidth, self.nearbySlotWidth = nil, nil
         self.arrivalBlend, self.arrivalEase, self.arrivalBlendPending = 0, 0, false
         self.selectionDirty = true
@@ -167,7 +168,6 @@ function Compass:QueueNearbyFade(marker)
         end
     end
     marker.nearbyHoldX = marker.nearbyX or marker.projectedX or 0
-    marker.nearbyFade = marker.nearbyFade or 1
     fading[#fading + 1] = marker
     self.nearbyMotionPending = true
     self.selectionDirty = true
@@ -182,7 +182,7 @@ local function CancelNearbyFade(self, marker)
             table.remove(fading, index)
         end
     end
-    marker.nearbyFade, marker.nearbyHoldX = nil, nil
+    marker.nearbyHoldX = nil
 end
 
 -- Убирает выбранную цель из списка, если её рисует игровой указатель.
@@ -193,7 +193,7 @@ local function RemoveHiddenNavigation(self, list)
         local marker = list[index]
         if self:ShouldHideNavigationMarker(marker) then
             changed = true
-            marker.nearbyFade, marker.nearbyHoldX = nil, nil
+            marker.nearbyHoldX = nil
         else
             if write ~= index then
                 list[write] = marker
@@ -273,8 +273,6 @@ function Compass:RefreshArrival()
         if not best then
             break
         end
-        local slot = self.markerSlotsByKey and self.markerSlotsByKey[best.key]
-        best.nearbyAppear = (slot and slot.renderShown) and 1 or 0
         CancelNearbyFade(self, best)
         held[#held + 1] = best
         keys[best.key] = true
