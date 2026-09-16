@@ -24,6 +24,7 @@ local frameHeight = titleFontSize + itemsPadding + sectionHeight * maxItemsCount
 
 local duration = 8
 local animationDuration = 0.3
+local slideOffset = 32
 
 -- Текстуры качества реагента для профессии
 local CraftingQualityTexture = {
@@ -39,7 +40,7 @@ local CraftingQualityOffset = {
     [3] = {4, 4},
 }
 
--- Функция для поиска свободных фреймов для отображения предметов
+-- Свободные строки: сначала полностью скрытые, затем те, что ещё гаснут
 local function FindItemFrames()
     if not ConsoleMenuFrame.LootListFrame or not ConsoleMenuFrame.LootListFrame.Items then
         return {}
@@ -49,7 +50,14 @@ local function FindItemFrames()
 
     for i = 1, maxItemsCount do
         local itemFrame = ConsoleMenuFrame.LootListFrame.Items["Item" .. i]
-        if itemFrame and not itemFrame.lootItem then
+        if itemFrame and not itemFrame.lootItem and not itemFrame:IsShown() then
+            table.insert(frames, itemFrame)
+        end
+    end
+
+    for i = 1, maxItemsCount do
+        local itemFrame = ConsoleMenuFrame.LootListFrame.Items["Item" .. i]
+        if itemFrame and not itemFrame.lootItem and itemFrame:IsShown() then
             table.insert(frames, itemFrame)
         end
     end
@@ -86,7 +94,9 @@ local function AddItem(itemData)
     end
 
     -- Добавляем предмет в очередь
-    table.insert(ConsoleMenuFrame.LootListFrame.Queue, {
+    local lootFrame = ConsoleMenuFrame.LootListFrame
+    lootFrame.nextAddSequence = (lootFrame.nextAddSequence or 0) + 1
+    table.insert(lootFrame.Queue, {
         quantity = normalizedData.quantity,
         itemName = normalizedData.itemName,
         itemQuality = normalizedData.itemQuality,
@@ -94,6 +104,7 @@ local function AddItem(itemData)
         craftingQuality = normalizedData.craftingQuality,
         isCraftingReagent = normalizedData.isCraftingReagent,
         startTime = GetTime(),
+        addSequence = lootFrame.nextAddSequence,
     })
     
 end
@@ -108,28 +119,266 @@ local function CleanQueueGarbage()
     end
 end
 
--- Функция для обновления точек расположения предметов
+-- Вертикальное смещение строки в столбике по порядковому месту
+local function GetItemSlotOffset(index)
+    return -(sectionHeight * (index - 1) + padding * (index - 1))
+end
+
+-- Плавное замедление к концу перемещения
+local function EaseOutQuad(progress)
+    return 1 - (1 - progress) * (1 - progress)
+end
+
+-- Текущие смещения строки относительно контейнера списка
+local function GetItemOffsets(itemFrame)
+    local x = itemFrame.moveX
+    local y = itemFrame.moveY
+    if x == nil or y == nil then
+        local _, _, _, xOffset, yOffset = itemFrame:GetPoint(1)
+        x = xOffset or 0
+        y = yOffset or 0
+    end
+    return x, y
+end
+
+-- Вертикальное смещение строки для привязки фона
+local function GetItemLayoutOffset(itemFrame)
+    local yOffset = itemFrame.moveY
+    if yOffset == nil then
+        local _, _, _, _, pointOffset = itemFrame:GetPoint(1)
+        yOffset = pointOffset or 0
+    end
+    return yOffset
+end
+
+-- Ставит рамку в заданную точку относительно своего контейнера
+local function ApplyItemPoint(itemFrame, x, y)
+    local parent = itemFrame.moveParent
+    if not parent then
+        parent = ConsoleMenuFrame.LootListFrame and ConsoleMenuFrame.LootListFrame.Items
+    end
+    if not parent then
+        return
+    end
+
+    itemFrame.moveX = x
+    itemFrame.moveY = y
+    itemFrame:ClearAllPoints()
+    if itemFrame.moveStretchHorizontal then
+        local leftPoint = itemFrame.moveLeftPoint or "TOPLEFT"
+        local rightPoint = itemFrame.moveRightPoint or "TOPRIGHT"
+        itemFrame:SetPoint(leftPoint, parent, leftPoint, x, y)
+        itemFrame:SetPoint(rightPoint, parent, rightPoint, x, y)
+    else
+        itemFrame:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
+    end
+end
+
+-- Нижняя граница фона задаётся ниже и следует за последней строкой с предметом
+local ReanchorLootListBackground
+local UpdateLootList
+
+-- Продвигает одно движение на прошедшее время; возвращает, едет ли рамка ещё
+local function AdvanceMotion(itemFrame, elapsed)
+    if not itemFrame or not itemFrame.isMoving then
+        return false
+    end
+
+    itemFrame.moveElapsed = (itemFrame.moveElapsed or 0) + elapsed
+    local moveDuration = itemFrame.moveDuration or animationDuration
+    local progress = 1
+    if moveDuration > 0 then
+        progress = itemFrame.moveElapsed / moveDuration
+    end
+
+    local stillMoving = true
+    if progress >= 1 then
+        progress = 1
+        itemFrame.isMoving = false
+        stillMoving = false
+    end
+
+    local eased = EaseOutQuad(progress)
+    local x = itemFrame.moveFromX + (itemFrame.moveToX - itemFrame.moveFromX) * eased
+    local y = itemFrame.moveFromY + (itemFrame.moveToY - itemFrame.moveFromY) * eased
+    ApplyItemPoint(itemFrame, x, y)
+    return stillMoving
+end
+
+-- Каждый кадр приближает едущие строки и надписи к целевому месту
+local function OnItemsUpdate(items, elapsed)
+    local lootFrame = ConsoleMenuFrame.LootListFrame
+    local anyMoving = false
+
+    if lootFrame then
+        if AdvanceMotion(lootFrame.TitleHolder, elapsed) then
+            anyMoving = true
+        end
+        if AdvanceMotion(lootFrame.AdditionalItemsCountHolder, elapsed) then
+            anyMoving = true
+        end
+    end
+
+    for i = 1, maxItemsCount do
+        if AdvanceMotion(items["Item" .. i], elapsed) then
+            anyMoving = true
+        end
+    end
+
+    ReanchorLootListBackground()
+
+    if not anyMoving then
+        items:SetScript("OnUpdate", nil)
+    end
+end
+
+-- Включает покадровый пересчёт, пока хотя бы одна строка ещё едет
+local function EnsureItemsOnUpdate()
+    local items = ConsoleMenuFrame.LootListFrame and ConsoleMenuFrame.LootListFrame.Items
+    if not items then
+        return
+    end
+
+    items:SetScript("OnUpdate", OnItemsUpdate)
+end
+
+-- Направляет строку к новой точке, начиная с текущего или заданного положения
+local function StartItemMotion(itemFrame, targetX, targetY, fromX, fromY)
+    if fromX == nil and fromY == nil
+        and itemFrame.isMoving
+        and itemFrame.moveToX == targetX
+        and itemFrame.moveToY == targetY
+    then
+        return
+    end
+
+    local currentX, currentY = GetItemOffsets(itemFrame)
+    if fromX ~= nil then
+        currentX = fromX
+    end
+    if fromY ~= nil then
+        currentY = fromY
+    end
+
+    if currentX == targetX and currentY == targetY then
+        itemFrame.isMoving = false
+        ApplyItemPoint(itemFrame, targetX, targetY)
+        return
+    end
+
+    itemFrame.moveFromX = currentX
+    itemFrame.moveFromY = currentY
+    itemFrame.moveToX = targetX
+    itemFrame.moveToY = targetY
+    itemFrame.moveElapsed = 0
+    itemFrame.moveDuration = animationDuration
+    itemFrame.isMoving = true
+    ApplyItemPoint(itemFrame, currentX, currentY)
+    EnsureItemsOnUpdate()
+end
+
+-- Поднимает уходящую строку над остальными, чтобы её не перекрывали
+local function RaiseDepartingItem(itemFrame)
+    local baseLevel = itemFrame.baseFrameLevel or itemFrame:GetFrameLevel()
+    itemFrame:SetFrameLevel(baseLevel + 20)
+end
+
+-- Возвращает строку на обычный слой после нового показа
+local function RestoreItemLevel(itemFrame)
+    if itemFrame.baseFrameLevel then
+        itemFrame:SetFrameLevel(itemFrame.baseFrameLevel)
+    end
+end
+
+-- Мгновенно ставит строку в точку и обрывает движение
+local function SnapItemMotion(itemFrame, x, y)
+    itemFrame.isMoving = false
+    itemFrame.moveElapsed = 0
+    itemFrame.moveFromX = x
+    itemFrame.moveFromY = y
+    itemFrame.moveToX = x
+    itemFrame.moveToY = y
+    ApplyItemPoint(itemFrame, x, y)
+end
+
+-- Проявляет надпись с заездом слева
+local function ShowLootLabel(holder)
+    if not holder then
+        return
+    end
+
+    local fadingOut = holder.fadeOut and holder.fadeOut:IsPlaying()
+    if not holder:IsShown() or fadingOut then
+        local y = holder.moveBaseY or 0
+        StartItemMotion(holder, 0, y, -slideOffset, y)
+    end
+    ConsoleMenu:AnimatedShow(holder)
+end
+
+-- Гасит надпись с уходом влево
+local function HideLootLabel(holder)
+    if not holder or not holder:IsShown() then
+        return
+    end
+    if holder.fadeOut and holder.fadeOut:IsPlaying() then
+        return
+    end
+
+    local _, currentY = GetItemOffsets(holder)
+    StartItemMotion(holder, -slideOffset, currentY)
+    ConsoleMenu:AnimatedHide(holder)
+end
+
+-- Расставляет строки по устойчивому порядку показа: новые сверху, без смены мест у остальных
 local function UpdateListItemsPoints()
-    if not ConsoleMenuFrame.LootListFrame or not ConsoleMenuFrame.LootListFrame.Items then
+    local lootFrame = ConsoleMenuFrame.LootListFrame
+    if not lootFrame or not lootFrame.Items then
         return
     end
 
     local frames = {}
     for i = 1, maxItemsCount do
-        local itemFrame = ConsoleMenuFrame.LootListFrame.Items["Item" .. i]
-        if itemFrame then
+        local itemFrame = lootFrame.Items["Item" .. i]
+        if itemFrame and itemFrame.lootItem then
             table.insert(frames, itemFrame)
         end
     end
 
     table.sort(frames, function(a, b)
+        local orderA = a.sortOrder or 0
+        local orderB = b.sortOrder or 0
+        if orderA ~= orderB then
+            return orderA > orderB
+        end
+        local sequenceA = a.addSequence or 0
+        local sequenceB = b.addSequence or 0
+        if sequenceA ~= sequenceB then
+            return sequenceA > sequenceB
+        end
         return (a.startTime or 0) > (b.startTime or 0)
     end)
 
     for i = 1, #frames do
         local itemFrame = frames[i]
-        itemFrame:ClearAllPoints()
-        itemFrame:SetPoint("TOPLEFT", ConsoleMenuFrame.LootListFrame.Items, "TOPLEFT", 0, -(sectionHeight * (i-1) + padding * (i-1)))
+        local targetY = GetItemSlotOffset(i)
+        if itemFrame.enterFromLeft then
+            itemFrame.enterFromLeft = nil
+            -- Новая строка всегда выезжает в свой слот слева, даже если заготовка ещё была на экране
+            if itemFrame:IsShown() then
+                if itemFrame.fadeOut then
+                    itemFrame.fadeOut:Stop()
+                    itemFrame.fadeOut:SetScript("OnFinished", nil)
+                end
+                if itemFrame.fadeIn then
+                    itemFrame.fadeIn:Stop()
+                end
+                itemFrame:Hide()
+                itemFrame:SetAlpha(0)
+            end
+            StartItemMotion(itemFrame, 0, targetY, -slideOffset, targetY)
+        else
+            StartItemMotion(itemFrame, 0, targetY)
+        end
     end
 end
 
@@ -141,28 +390,28 @@ local function UpdateListItemsTitle()
     if displayedCount > 0 then
         ConsoleMenu:PlayFadeOut(PartyFrame)
         ConsoleMenu:PlayFadeOut(CompactRaidFrameContainer)
-        ConsoleMenu:AnimatedShow(lootFrame.Title)
+        ShowLootLabel(lootFrame.TitleHolder or lootFrame.Title)
         if lootFrame.background then
             ConsoleMenu:AnimatedShow(lootFrame.background)
         end
     else
         ConsoleMenu:PlayFadeIn(PartyFrame)
         ConsoleMenu:PlayFadeIn(CompactRaidFrameContainer)
-        ConsoleMenu:AnimatedHide(lootFrame.Title)
+        HideLootLabel(lootFrame.TitleHolder or lootFrame.Title)
         if lootFrame.background then
             ConsoleMenu:AnimatedHide(lootFrame.background)
         end
     end
 
     if displayedCount == maxItemsCount and #ConsoleMenuFrame.LootListFrame.Queue > 0 then
-        ConsoleMenu:AnimatedShow(ConsoleMenuFrame.LootListFrame.AdditionalItemsCount)
+        ShowLootLabel(lootFrame.AdditionalItemsCountHolder or lootFrame.AdditionalItemsCount)
     else
-        ConsoleMenu:AnimatedHide(ConsoleMenuFrame.LootListFrame.AdditionalItemsCount)
+        HideLootLabel(lootFrame.AdditionalItemsCountHolder or lootFrame.AdditionalItemsCount)
     end
 end
 
--- Нижняя граница фона по нижней видимой строке, без экранных координат скрытых рамок
-local function ReanchorLootListBackground(pendingItemFrame)
+-- Нижняя граница фона по последней строке с предметом, иначе по ещё видимой уходящей
+ReanchorLootListBackground = function()
     local lootFrame = ConsoleMenuFrame and ConsoleMenuFrame.LootListFrame
     if not lootFrame or not lootFrame.background or not lootFrame.Title then
         return
@@ -173,8 +422,9 @@ local function ReanchorLootListBackground(pendingItemFrame)
     background:SetPoint("TOPLEFT", lootFrame.Title, "TOPLEFT", -lootListBackgroundHOffset * 1.5, lootListBackgroundVOffset)
     background:SetPoint("TOPRIGHT", lootFrame.Title, "TOPRIGHT", lootListBackgroundHOffset, lootListBackgroundVOffset)
 
-    local totalItemsCount = #lootFrame.DisplayedItems + #lootFrame.Queue
-    if totalItemsCount > maxItemsCount and lootFrame.AdditionalItemsCount then
+    local displayedCount = #lootFrame.DisplayedItems
+    local captionVisible = displayedCount == maxItemsCount and #lootFrame.Queue > 0
+    if captionVisible and lootFrame.AdditionalItemsCount then
         background:SetPoint("BOTTOMLEFT", lootFrame.AdditionalItemsCount, "BOTTOMLEFT", -lootListBackgroundHOffset * 1.5, -lootListBackgroundVOffset)
         background:SetPoint("BOTTOMRIGHT", lootFrame.AdditionalItemsCount, "BOTTOMRIGHT", lootListBackgroundHOffset, -lootListBackgroundVOffset * 2)
         return
@@ -185,12 +435,23 @@ local function ReanchorLootListBackground(pendingItemFrame)
     if lootFrame.Items then
         for i = 1, maxItemsCount do
             local itemFrame = lootFrame.Items["Item" .. i]
-            if itemFrame and (itemFrame:IsShown() or itemFrame == pendingItemFrame) then
-                local _, _, _, _, yOffset = itemFrame:GetPoint(1)
-                yOffset = yOffset or 0
+            if itemFrame and itemFrame.lootItem then
+                local yOffset = GetItemLayoutOffset(itemFrame)
                 if not lowestOffset or yOffset < lowestOffset then
                     lowestOffset = yOffset
                     lastItem = itemFrame
+                end
+            end
+        end
+        if not lastItem then
+            for i = 1, maxItemsCount do
+                local itemFrame = lootFrame.Items["Item" .. i]
+                if itemFrame and itemFrame:IsShown() then
+                    local yOffset = GetItemLayoutOffset(itemFrame)
+                    if not lowestOffset or yOffset < lowestOffset then
+                        lowestOffset = yOffset
+                        lastItem = itemFrame
+                    end
                 end
             end
         end
@@ -199,9 +460,6 @@ local function ReanchorLootListBackground(pendingItemFrame)
     if lastItem then
         background:SetPoint("BOTTOMLEFT", lastItem, "BOTTOMLEFT", -lootListBackgroundHOffset, -lootListBackgroundVOffset)
         background:SetPoint("BOTTOMRIGHT", lastItem, "BOTTOMRIGHT", lootListBackgroundHOffset / 2, -lootListBackgroundVOffset)
-    elseif lootFrame.AdditionalItemsCount then
-        background:SetPoint("BOTTOMLEFT", lootFrame.AdditionalItemsCount, "BOTTOMLEFT", -lootListBackgroundHOffset, -lootListBackgroundVOffset)
-        background:SetPoint("BOTTOMRIGHT", lootFrame.AdditionalItemsCount, "BOTTOMRIGHT", lootListBackgroundHOffset / 2, -lootListBackgroundVOffset)
     end
 end
 
@@ -245,8 +503,13 @@ local function UpdateItemFrame(frame, item)
 
     frame.Text:SetText(text)
 
+    RestoreItemLevel(frame)
     frame.startTime = item.startTime
+    frame.addSequence = item.addSequence
+    frame.sortOrder = nil
     frame.lootItem = item
+    -- Новая строка выезжает слева на своё место в столбике
+    frame.enterFromLeft = true
     frame.displayToken = (frame.displayToken or 0) + 1
     local displayToken = frame.displayToken
 
@@ -259,11 +522,6 @@ local function UpdateItemFrame(frame, item)
             table.remove(ConsoleMenuFrame.LootListFrame.Queue, i)
         end
     end
-
-    UpdateListItemsPoints()
-    UpdateListItemsTitle()
-    ConsoleMenu:AnimatedShow(frame)
-    ReanchorLootListBackground(frame)
 
     C_Timer.After(duration, function()
         -- Таймер с прошлого показа не должен трогать уже скрытую или заменённую строку
@@ -284,9 +542,17 @@ local function UpdateItemFrame(frame, item)
         end
 
         frame.lootItem = nil
-        UpdateListItemsTitle()
-        ReanchorLootListBackground()
+        frame.startTime = nil
+        frame.sortOrder = nil
+        frame.enterFromLeft = nil
+
+        -- Уходящая строка гаснет и слегка уезжает влево, остальные сразу поднимаются
+        local _, currentY = GetItemOffsets(frame)
+        RaiseDepartingItem(frame)
+        StartItemMotion(frame, -slideOffset, currentY)
         ConsoleMenu:AnimatedHide(frame)
+        -- Одну перестановку делает обновление списка, без предварительного уплотнения
+        UpdateLootList()
     end)
 
 end
@@ -301,15 +567,29 @@ local function HideLootListForCombat()
     lootFrame.DisplayedItems = {}
 
     if lootFrame.Items then
+        lootFrame.Items:SetScript("OnUpdate", nil)
         for i = 1, maxItemsCount do
             local itemFrame = lootFrame.Items["Item" .. i]
             if itemFrame then
                 itemFrame.displayToken = (itemFrame.displayToken or 0) + 1
                 itemFrame.lootItem = nil
                 itemFrame.startTime = nil
+                itemFrame.sortOrder = nil
+                itemFrame.enterFromLeft = nil
+                -- Остаёмся на текущей высоте, без скачка к номеру заготовки
+                local _, currentY = GetItemOffsets(itemFrame)
+                SnapItemMotion(itemFrame, 0, currentY)
+                RestoreItemLevel(itemFrame)
                 ConsoleMenu:AnimatedHide(itemFrame)
             end
         end
+    end
+
+    if lootFrame.TitleHolder then
+        SnapItemMotion(lootFrame.TitleHolder, 0, lootFrame.TitleHolder.moveBaseY or 0)
+    end
+    if lootFrame.AdditionalItemsCountHolder then
+        SnapItemMotion(lootFrame.AdditionalItemsCountHolder, 0, lootFrame.AdditionalItemsCountHolder.moveBaseY or 0)
     end
 
     UpdateListItemsTitle()
@@ -317,7 +597,7 @@ local function HideLootListForCombat()
 end
 
 -- Функция для обновления списка предметов
-local function UpdateLootList()
+UpdateLootList = function()
     -- Во время боя список не показываем: предметы остаются в очереди до конца боя
     if InCombatLockdown() then
         return
@@ -326,9 +606,14 @@ local function UpdateLootList()
     -- Находим свободные фреймы для отображения предметов
     local frames = FindItemFrames()
 
-    -- Сортируем предметы по качеству
+    -- Сортируем предметы по качеству, при равенстве — по порядку получения
     table.sort(ConsoleMenuFrame.LootListFrame.Queue, function(a, b)
-        return (a.itemQuality or 0) > (b.itemQuality or 0)
+        local qualityA = a.itemQuality or 0
+        local qualityB = b.itemQuality or 0
+        if qualityA ~= qualityB then
+            return qualityA > qualityB
+        end
+        return (a.addSequence or 0) > (b.addSequence or 0)
     end)
 
     -- Собираем предметы для обработки (до удаления из очереди)
@@ -340,9 +625,28 @@ local function UpdateLootList()
         end
     end
 
-    -- Обрабатываем все собранные предметы
+    -- Сначала заполняем строки и ставим их на места, затем проявляем
     for _, data in ipairs(itemsToProcess) do
         UpdateItemFrame(data.frame, data.item)
+    end
+
+    local processedCount = #itemsToProcess
+    if processedCount > 0 then
+        local lootFrame = ConsoleMenuFrame.LootListFrame
+        local baseOrder = lootFrame.nextSortOrder or 0
+        for i, data in ipairs(itemsToProcess) do
+            -- В одной пачке выше оказываются предметы, взятые из очереди первыми
+            data.frame.sortOrder = baseOrder + (processedCount - i + 1)
+        end
+        lootFrame.nextSortOrder = baseOrder + processedCount
+    end
+
+    UpdateListItemsPoints()
+
+    if processedCount > 0 then
+        for _, data in ipairs(itemsToProcess) do
+            ConsoleMenu:AnimatedShow(data.frame)
+        end
     end
 
     UpdateListItemsTitle()
@@ -373,11 +677,23 @@ function ConsoleMenu:SetLootList()
     frame:SetSize(frameWidth, frameHeight)
     frame:SetPoint("TOPLEFT", ConsoleMenuFrame.NotificationFrame, "BOTTOMLEFT", 0, -48)
 
-    -- Заголовок
+    -- Заголовок в отдельной рамке: анимация прозрачности на тексте не действует
+    if not frame.TitleHolder then
+        frame.TitleHolder = CreateFrame("Frame", nil, frame)
+        frame.TitleHolder:SetHeight(titleFontSize)
+        frame.TitleHolder.moveParent = frame
+        frame.TitleHolder.moveStretchHorizontal = true
+        frame.TitleHolder.moveLeftPoint = "TOPLEFT"
+        frame.TitleHolder.moveRightPoint = "TOPRIGHT"
+        frame.TitleHolder.moveBaseY = 0
+        SnapItemMotion(frame.TitleHolder, 0, 0)
+        ConsoleMenu:InitFadeAnimations(frame.TitleHolder, animationDuration)
+        frame.TitleHolder:Hide()
+    end
+
     if not frame.Title then
-        frame.Title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        frame.Title:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
-        frame.Title:SetPoint("TOPRIGHT", frame, "TOPRIGHT", 0, 0)
+        frame.Title = frame.TitleHolder:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        frame.Title:SetAllPoints()
         frame.Title:SetFont("Fonts\\FRIZQT___CYR.TTF", titleFontSize, "")
         frame.Title:SetTextColor(1.0, 0.960784, 0.772549, 1)
         frame.Title:SetJustifyH("LEFT")
@@ -388,30 +704,32 @@ function ConsoleMenu:SetLootList()
         frame.Title:SetText(title)
         frame.Title:SetNonSpaceWrap(true)
         frame.Title:SetWordWrap(true)
-        frame.Title:SetHeight(titleFontSize)
-
-        ConsoleMenu:InitFadeAnimations(frame.Title, animationDuration)
-
-        frame.Title:Hide()
-
+        frame.Title:SetIgnoreParentAlpha(false)
     end
 
-    -- Счетчик дополнительных предметов
-    if not frame.AdditionalItemsCount then
+    -- Подпись о дополнительных предметах в отдельной рамке
+    if not frame.AdditionalItemsCountHolder then
+        frame.AdditionalItemsCountHolder = CreateFrame("Frame", nil, frame)
+        frame.AdditionalItemsCountHolder:SetHeight(captionFontSize)
+        frame.AdditionalItemsCountHolder.moveParent = frame
+        frame.AdditionalItemsCountHolder.moveStretchHorizontal = true
+        frame.AdditionalItemsCountHolder.moveLeftPoint = "BOTTOMLEFT"
+        frame.AdditionalItemsCountHolder.moveRightPoint = "BOTTOMRIGHT"
+        frame.AdditionalItemsCountHolder.moveBaseY = 0
+        SnapItemMotion(frame.AdditionalItemsCountHolder, 0, 0)
+        ConsoleMenu:InitFadeAnimations(frame.AdditionalItemsCountHolder, animationDuration)
+        frame.AdditionalItemsCountHolder:Hide()
+    end
 
-        frame.AdditionalItemsCount = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        frame.AdditionalItemsCount:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 0, 0)
-        frame.AdditionalItemsCount:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, 0)
+    if not frame.AdditionalItemsCount then
+        frame.AdditionalItemsCount = frame.AdditionalItemsCountHolder:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        frame.AdditionalItemsCount:SetAllPoints()
         frame.AdditionalItemsCount:SetFont("Fonts\\FRIZQT___CYR.TTF", captionFontSize, "")
         frame.AdditionalItemsCount:SetTextColor(1.0, 0.960784, 0.772549, 1)
         frame.AdditionalItemsCount:SetJustifyH("LEFT")
         local text = "и еще несколько в инвентаре"
         frame.AdditionalItemsCount:SetText(text)
-        frame.AdditionalItemsCount:SetHeight(captionFontSize)
-        ConsoleMenu:InitFadeAnimations(frame.AdditionalItemsCount, animationDuration)
-
-        frame.AdditionalItemsCount:Hide()
-
+        frame.AdditionalItemsCount:SetIgnoreParentAlpha(false)
     end
 
     -- Добавляем фон с текстурой
@@ -439,7 +757,8 @@ function ConsoleMenu:SetLootList()
 
             item:SetWidth(frameWidth)
             item:SetHeight(sectionHeight)
-            item:SetPoint("TOPLEFT", frame.Items, "TOPLEFT", 0, -(sectionHeight * (i-1) + padding * (i-1)))
+            SnapItemMotion(item, 0, GetItemSlotOffset(i))
+            item.baseFrameLevel = item:GetFrameLevel()
             ConsoleMenu:InitFadeAnimations(item, animationDuration)
 
             -- Иконка
@@ -471,14 +790,23 @@ function ConsoleMenu:SetLootList()
                 
             end
 
-            -- Текст
+            -- Текст в отдельной рамке, чтобы проявление строки на него действовало
+            if not item.Label then
+                item.Label = CreateFrame("Frame", nil, item)
+                item.Label:SetPoint("LEFT", item.Icon, "RIGHT", padding, 0)
+                item.Label:SetPoint("RIGHT", item, "RIGHT", -padding, 0)
+                item.Label:SetPoint("TOP", item, "TOP", 0, 0)
+                item.Label:SetPoint("BOTTOM", item, "BOTTOM", 0, 0)
+            end
+
             if not item.Text then
-                item.Text = item:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+                item.Text = item.Label:CreateFontString(nil, "OVERLAY", "GameFontNormal")
                 item.Text:SetFont("Fonts\\FRIZQT___CYR.TTF", fontSize, "")
                 item.Text:SetTextColor(1.0, 0.960784, 0.772549, 1)
-                item.Text:SetPoint("LEFT", item.Icon, "RIGHT", padding, 0)
-                item.Text:SetPoint("RIGHT", -padding, 0)
+                item.Text:SetAllPoints()
                 item.Text:SetJustifyH("LEFT")
+                item.Text:SetJustifyV("MIDDLE")
+                item.Text:SetIgnoreParentAlpha(false)
             end
 
             -- Затемнение фона
