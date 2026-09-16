@@ -94,15 +94,9 @@ local function SetIcon(frame, data)
         frame.icon.border:Hide()
     end
 
-    if data.type == "spell" then
-        frame.icon.border:SetAtlas("spellbook-item-iconframe")
-        frame.icon.border:SetPoint("TOPLEFT", frame.icon.texture, "TOPLEFT", -13, 3)
-        frame.icon.border:SetPoint("BOTTOMRIGHT", frame.icon.texture, "BOTTOMRIGHT", 3, -9)
-    else
-        frame.icon.border:SetAtlas("plunderstorm-actionbar-slot-border")
-        frame.icon.border:SetPoint("TOPLEFT", frame.icon.texture, "TOPLEFT", -8, 8)
-        frame.icon.border:SetPoint("BOTTOMRIGHT", frame.icon.texture, "BOTTOMRIGHT", 8, -8)
-    end
+    frame.icon.border:SetAtlas("plunderstorm-actionbar-slot-border")
+    frame.icon.border:SetPoint("TOPLEFT", frame.icon.texture, "TOPLEFT", -8, 8)
+    frame.icon.border:SetPoint("BOTTOMRIGHT", frame.icon.texture, "BOTTOMRIGHT", 8, -8)
 
     frame.icon.texture:SetAllPoints()
     frame.icon.texture:SetTexture(data.texture)
@@ -400,7 +394,7 @@ function ConsoleMenu:SetPanelFrame()
     ConsoleMenu:InitFadeAnimations(PanelFrame, animationDuration)
 
     PanelFrame:SetSize(frameWidth, sectionHeight * (viewedItemCount + 2))
-    PanelFrame:SetPoint("BOTTOMLEFT", ConsoleMenuFrame, "BOTTOMLEFT", 48, 48)
+    PanelFrame:SetPoint("BOTTOMLEFT", ConsoleMenuFrame, "BOTTOMLEFT", 72, 72)
 
     PanelFrame.Background = PanelFrame:CreateTexture(nil, "BACKGROUND")
     PanelFrame.Background:SetWidth(800)
