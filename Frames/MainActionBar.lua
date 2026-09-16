@@ -354,12 +354,21 @@ local function UpdateActionButtonGlow(slotID, spellID, event)
     if spellID then
         local isSpellOverlayed = C_SpellActivationOverlay.IsSpellOverlayed(spellID)
         if isSpellOverlayed then
+            -- Иконка слота часто меняется вместе с проком.
+            UpdateActionButtonTexture(slotID)
             ConsoleMenu:AnimatedShow(btn.Glow)
         else
             ConsoleMenu:AnimatedHide(btn.Glow)
+            -- После исчезновения свечения клиент ещё может отдавать иконку прока.
+            RunNextFrame(function()
+                UpdateActionButtonTexture(slotID)
+            end)
         end
     else
         ConsoleMenu:AnimatedHide(btn.Glow)
+        RunNextFrame(function()
+            UpdateActionButtonTexture(slotID)
+        end)
     end
 end
 
@@ -859,6 +868,7 @@ function ConsoleMenu:InitializeMainActionBar()
 
     frame:RegisterEvent("SPELL_ACTIVATION_OVERLAY_GLOW_SHOW")
     frame:RegisterEvent("SPELL_ACTIVATION_OVERLAY_GLOW_HIDE")
+    frame:RegisterEvent("SPELL_UPDATE_ICON")
 
     frame:RegisterEvent("ACTIONBAR_UPDATE_USABLE")
 
@@ -947,6 +957,11 @@ function ConsoleMenu:InitializeMainActionBar()
                 for _, slotID in pairs(slots) do
                     UpdateActionButtonGlow(slotID, spellID, "SPELL_ACTIVATION_OVERLAY_GLOW_HIDE")
                 end
+            end
+        elseif event == "SPELL_UPDATE_ICON" then
+            -- Иконка может смениться позже свечения, в том числе при окончании прока.
+            for slotID in pairs(frame.actionButtons) do
+                UpdateActionButtonTexture(slotID)
             end
         elseif event == "ACTIONBAR_UPDATE_USABLE" then
             local changes = ...
