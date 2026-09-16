@@ -121,6 +121,19 @@ function Nameplates.IsEnemyUnit(unit)
     return attackOk and canAttack and deadOk and not isDead
 end
 
+-- Возвращает истину, если существо мертво и его индикатор нужно скрыть.
+function Nameplates.ShouldHideDeadUnit(unit)
+    if not unit then
+        return false
+    end
+    local playerOk, isPlayer = pcall(UnitIsPlayer, unit)
+    if playerOk and isPlayer then
+        return false
+    end
+    local deadOk, isDead = pcall(UnitIsDead, unit)
+    return deadOk and isDead
+end
+
 -- Скрыты ли индикаторы окном диалога.
 Nameplates.hiddenByContext = false
 

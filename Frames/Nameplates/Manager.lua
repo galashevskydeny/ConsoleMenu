@@ -53,6 +53,9 @@ local function ShouldSkipUnit(unit, nameplate)
     if UnitIsGameObject and UnitIsGameObject(unit) then
         return true
     end
+    if Nameplates.ShouldHideDeadUnit(unit) then
+        return true
+    end
     return false
 end
 

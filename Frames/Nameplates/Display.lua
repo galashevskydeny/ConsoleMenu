@@ -50,6 +50,10 @@ function Nameplates.CreateDisplay(parent)
             Nameplates.UpdateName(self)
             return
         end
+        if event == "UNIT_HEALTH" or event == "UNIT_FLAGS" then
+            Nameplates.UpdateDeathVisibility(self)
+            return
+        end
         for _, castEvent in ipairs(Nameplates.CastEvents()) do
             if event == castEvent then
                 Nameplates.UpdateCastLayers(self.castLarge, self.castSmall, self.healthBar, self.nameFrame, self.unit)
@@ -92,6 +96,20 @@ function Nameplates.ApplyEnemyLayout(display)
     display.nameFrame:SetAlpha(1)
 end
 
+-- Скрывает индикатор сразу после смерти существа.
+function Nameplates.UpdateDeathVisibility(display)
+    if not display then
+        return
+    end
+    if display.unit and Nameplates.ShouldHideDeadUnit(display.unit) then
+        display:Hide()
+        return
+    end
+    if display.unit then
+        display:Show()
+    end
+end
+
 -- Привязывает индикатор к существу или скрывает его.
 function Nameplates.DisplaySetUnit(display, unit)
     display:UnregisterAllEvents()
@@ -110,6 +128,10 @@ function Nameplates.DisplaySetUnit(display, unit)
     display.isEnemy = Nameplates.IsEnemyUnit(unit)
     Nameplates.UpdateName(display)
     pcall(display.RegisterUnitEvent, display, "UNIT_NAME_UPDATE", unit)
+    pcall(display.RegisterUnitEvent, display, "UNIT_HEALTH", unit)
+    if not C_EventUtils or not C_EventUtils.IsEventValid or C_EventUtils.IsEventValid("UNIT_FLAGS") then
+        pcall(display.RegisterUnitEvent, display, "UNIT_FLAGS", unit)
+    end
 
     if display.isEnemy then
         Nameplates.ApplyEnemyLayout(display)
@@ -127,5 +149,5 @@ function Nameplates.DisplaySetUnit(display, unit)
         Nameplates.ApplyPlateAlpha(display)
     end
 
-    display:Show()
+    Nameplates.UpdateDeathVisibility(display)
 end
