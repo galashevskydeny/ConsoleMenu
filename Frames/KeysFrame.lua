@@ -12,7 +12,7 @@ local iconInnerPadding = 8
 local iconPlusSize = 12
 
 local stackCountSize = 20
-local stackCountOffset = 6
+local stackCountOffset = 7
 local stackCountShadowOffsef = 10
 
 local padding = 12
