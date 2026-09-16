@@ -123,6 +123,12 @@ local function GetRequiredItemNameAndCount(index)
     return itemName, count
 end
 
+-- Реплика готовности при одном требуемом предмете.
+local function GetSingleItemReadyText()
+    local itemName = GetRequiredItemNameAndCount(1)
+    return itemName .. " при мне."
+end
+
 -- Реплика готовности без предметов.
 local function GetNonItemReadyText()
     local requiredMoney = GetRequiredMoney()
@@ -174,8 +180,7 @@ end
 local function GetQuestProgressReadyText(questID, numItems, isComplete)
     if isComplete then
         if numItems == 1 then
-            local itemName, count = GetRequiredItemNameAndCount(1)
-            return AppendRequiredCount(itemName .. " при мне.", count)
+            return GetSingleItemReadyText()
         end
         if numItems > 1 then
             return "Готово!"
@@ -187,8 +192,7 @@ local function GetQuestProgressReadyText(questID, numItems, isComplete)
     end
 
     if numItems == 1 then
-        local name, count = GetRequiredItemNameAndCount(1)
-        return AppendRequiredCount(name .. " при мне.", count)
+        return GetSingleItemReadyText()
     end
     if numItems > 1 then
         return "Все необходимое при мне"
