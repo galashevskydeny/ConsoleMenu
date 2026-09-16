@@ -49,7 +49,7 @@ local function FindItemFrames()
 
     for i = 1, maxItemsCount do
         local itemFrame = ConsoleMenuFrame.LootListFrame.Items["Item" .. i]
-        if itemFrame and not itemFrame:IsShown() then
+        if itemFrame and not itemFrame.lootItem then
             table.insert(frames, itemFrame)
         end
     end
@@ -161,6 +161,7 @@ local function UpdateListItemsTitle()
     end
 end
 
+-- Нижняя граница фона по нижней видимой строке, без экранных координат скрытых рамок
 local function ReanchorLootListBackground(pendingItemFrame)
     local lootFrame = ConsoleMenuFrame and ConsoleMenuFrame.LootListFrame
     if not lootFrame or not lootFrame.background or not lootFrame.Title then
@@ -180,14 +181,15 @@ local function ReanchorLootListBackground(pendingItemFrame)
     end
 
     local lastItem
-    local lowestBottom
+    local lowestOffset
     if lootFrame.Items then
         for i = 1, maxItemsCount do
             local itemFrame = lootFrame.Items["Item" .. i]
             if itemFrame and (itemFrame:IsShown() or itemFrame == pendingItemFrame) then
-                local bottom = itemFrame:GetBottom() or math.huge
-                if not lowestBottom or bottom < lowestBottom then
-                    lowestBottom = bottom
+                local _, _, _, _, yOffset = itemFrame:GetPoint(1)
+                yOffset = yOffset or 0
+                if not lowestOffset or yOffset < lowestOffset then
+                    lowestOffset = yOffset
                     lastItem = itemFrame
                 end
             end
@@ -244,6 +246,9 @@ local function UpdateItemFrame(frame, item)
     frame.Text:SetText(text)
 
     frame.startTime = item.startTime
+    frame.lootItem = item
+    frame.displayToken = (frame.displayToken or 0) + 1
+    local displayToken = frame.displayToken
 
     -- Добавляем в список отображаемых
     table.insert(ConsoleMenuFrame.LootListFrame.DisplayedItems, item)
@@ -257,13 +262,17 @@ local function UpdateItemFrame(frame, item)
 
     UpdateListItemsPoints()
     UpdateListItemsTitle()
-    ReanchorLootListBackground(frame)
     ConsoleMenu:AnimatedShow(frame)
+    ReanchorLootListBackground(frame)
 
     C_Timer.After(duration, function()
+        -- Таймер с прошлого показа не должен трогать уже скрытую или заменённую строку
+        if frame.displayToken ~= displayToken then
+            return
+        end
 
-        -- Если исчезает последний отображемый элемент
-        if #ConsoleMenuFrame.LootListFrame.DisplayedItems == 1 then
+        -- Если исчезает последний отображаемый элемент вне боя, очередь больше не нужна
+        if #ConsoleMenuFrame.LootListFrame.DisplayedItems == 1 and not InCombatLockdown() then
             ConsoleMenuFrame.LootListFrame.Queue = {}
         end
 
@@ -274,6 +283,7 @@ local function UpdateItemFrame(frame, item)
             end
         end
 
+        frame.lootItem = nil
         UpdateListItemsTitle()
         ReanchorLootListBackground()
         ConsoleMenu:AnimatedHide(frame)
@@ -281,8 +291,37 @@ local function UpdateItemFrame(frame, item)
 
 end
 
+-- Скрывает видимый список при входе в бой и сохраняет очередь не показанной добычи
+local function HideLootListForCombat()
+    local lootFrame = ConsoleMenuFrame.LootListFrame
+    if not lootFrame then
+        return
+    end
+
+    lootFrame.DisplayedItems = {}
+
+    if lootFrame.Items then
+        for i = 1, maxItemsCount do
+            local itemFrame = lootFrame.Items["Item" .. i]
+            if itemFrame then
+                itemFrame.displayToken = (itemFrame.displayToken or 0) + 1
+                itemFrame.lootItem = nil
+                itemFrame.startTime = nil
+                ConsoleMenu:AnimatedHide(itemFrame)
+            end
+        end
+    end
+
+    UpdateListItemsTitle()
+    ReanchorLootListBackground()
+end
+
 -- Функция для обновления списка предметов
 local function UpdateLootList()
+    -- Во время боя список не показываем: предметы остаются в очереди до конца боя
+    if InCombatLockdown() then
+        return
+    end
 
     -- Находим свободные фреймы для отображения предметов
     local frames = FindItemFrames()
@@ -307,6 +346,7 @@ local function UpdateLootList()
     end
 
     UpdateListItemsTitle()
+    ReanchorLootListBackground()
 
 end
 
@@ -348,6 +388,7 @@ function ConsoleMenu:SetLootList()
         frame.Title:SetText(title)
         frame.Title:SetNonSpaceWrap(true)
         frame.Title:SetWordWrap(true)
+        frame.Title:SetHeight(titleFontSize)
 
         ConsoleMenu:InitFadeAnimations(frame.Title, animationDuration)
 
@@ -366,6 +407,7 @@ function ConsoleMenu:SetLootList()
         frame.AdditionalItemsCount:SetJustifyH("LEFT")
         local text = "и еще несколько в инвентаре"
         frame.AdditionalItemsCount:SetText(text)
+        frame.AdditionalItemsCount:SetHeight(captionFontSize)
         ConsoleMenu:InitFadeAnimations(frame.AdditionalItemsCount, animationDuration)
 
         frame.AdditionalItemsCount:Hide()
@@ -386,7 +428,7 @@ function ConsoleMenu:SetLootList()
     -- Секции предметов
     if not frame.Items then
         frame.Items = CreateFrame("Frame", "LootListFrameItems", frame)
-        frame.Items:SetPoint("TOPLEFT", frame.Title, "BOTTOMLEFT", 0, -itemsPadding)
+        frame.Items:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -(titleFontSize + itemsPadding))
         frame.Items:SetPoint("BOTTOMRIGHT", frame.AdditionalItemsCount, "TOPRIGHT", 0, itemsPadding)
 
         for i = 1, maxItemsCount do
@@ -454,9 +496,18 @@ function ConsoleMenu:SetLootList()
     frame:RegisterEvent("TRADE_SKILL_ITEM_CRAFTED_RESULT")
     frame:RegisterEvent("QUEST_LOOT_RECEIVED")
     frame:RegisterEvent("SHOW_LOOT_TOAST")
+    frame:RegisterEvent("PLAYER_REGEN_ENABLED")
+    frame:RegisterEvent("PLAYER_REGEN_DISABLED")
 
     local function OnLootListEvent(self, event, ...)
-        if event == "LOOT_OPENED" then
+        if event == "PLAYER_REGEN_DISABLED" then
+            HideLootListForCombat()
+            return
+        elseif event == "PLAYER_REGEN_ENABLED" then
+            -- После окончания боя показываем накопленную очередь
+            UpdateLootList()
+            return
+        elseif event == "LOOT_OPENED" then
             -- Отображение предметов из окна добычи
             for slotIndex = 1, GetNumLootItems() do
                 local itemTexture, itemName, quantity, currencyID, itemQuality, _, isQuestItem, _, _, isCoin = GetLootSlotInfo(slotIndex)

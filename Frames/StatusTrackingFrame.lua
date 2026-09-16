@@ -32,6 +32,27 @@ end
 
 local notificationUpdateTimer = nil
 local compassRestoreTimer = nil
+local currentNotification = nil
+local pendingShowToken = 0
+local progressAnimToken = 0
+local lastProgressByType = {}
+
+-- Проверяет, находится ли игрок в бою.
+local function IsPlayerInCombat()
+    return UnitAffectingCombat("player")
+end
+
+-- Возвращает список ожидающих изменений полосы.
+local function GetNotifications()
+    local frame = ConsoleMenuFrame and ConsoleMenuFrame.StatusTrackingFrame
+    if not frame then
+        return nil
+    end
+    if not frame.Notifications then
+        frame.Notifications = {}
+    end
+    return frame.Notifications
+end
 
 -- Отменяет отложенное появление компаса, если снова показана строка статуса.
 local function CancelCompassRestore()
@@ -46,39 +67,209 @@ local function ScheduleCompassRestore()
     CancelCompassRestore()
     compassRestoreTimer = C_Timer.NewTimer(animationDuration + delay, function()
         compassRestoreTimer = nil
-        local frame = ConsoleMenuFrame and ConsoleMenuFrame.StatusTrackingFrame
-        local notifications = frame and frame.Notifications
+        local notifications = GetNotifications()
         if notifications and #notifications > 0 then
+            return
+        end
+        if currentNotification then
             return
         end
         SetCompassProgressHidden(false)
     end)
 end
 
--- Функция для получения уведомления с наивысшим приоритетом
-local function GetTopPriorityNotification()
+-- Заменяет ожидающее изменение того же типа последним снимком.
+local function ReplaceQueuedNotification(notification)
+    local notifications = GetNotifications()
+    if not notifications then
+        return
+    end
 
-    -- Обходим таблицу ConsoleMenu.Notifications с конца
-    if not ConsoleMenuFrame.StatusTrackingFrame.Notifications or #ConsoleMenuFrame.StatusTrackingFrame.Notifications == 0 then
+    local foundIndex
+    for i = 1, #notifications do
+        if notifications[i].type == notification.type then
+            foundIndex = i
+            break
+        end
+    end
+
+    if foundIndex then
+        notifications[foundIndex] = notification
+        for i = #notifications, foundIndex + 1, -1 do
+            if notifications[i].type == notification.type then
+                table.remove(notifications, i)
+            end
+        end
+    else
+        table.insert(notifications, notification)
+    end
+end
+
+-- Берёт последний снимок первого типа в списке и удаляет все того же типа.
+local function GetTopPriorityNotification()
+    local notifications = GetNotifications()
+    if not notifications or #notifications == 0 then
         return nil
     end
 
-    local notification = ConsoleMenuFrame.StatusTrackingFrame.Notifications[1]
+    local notificationType = notifications[1].type
+    local notification
 
-    -- Обходим таблицу с конца и удаляем все уведомления с таким же type
-    if notification and notification.type then
-        for i = #ConsoleMenuFrame.StatusTrackingFrame.Notifications, 1, -1 do
-            if ConsoleMenuFrame.StatusTrackingFrame.Notifications[i].type == notification.type then
-                table.remove(ConsoleMenuFrame.StatusTrackingFrame.Notifications, i)
+    for i = #notifications, 1, -1 do
+        if notifications[i].type == notificationType then
+            if not notification then
+                notification = notifications[i]
             end
+            table.remove(notifications, i)
         end
     end
 
     return notification
-
 end
 
--- Функция для обновления StatusTrackingFrame
+-- Возвращает заполнение полосы в процентах по снимку.
+local function GetProgressPercent(notification)
+    if not notification.max or notification.max == 0 then
+        return 0
+    end
+    return notification.value / notification.max * 100
+end
+
+-- Останавливает плавное изменение заполнения полосы.
+local function StopProgressAnimation()
+    progressAnimToken = progressAnimToken + 1
+    local frame = ConsoleMenuFrame and ConsoleMenuFrame.StatusTrackingFrame
+    local statusBar = frame and frame.StatusBar
+    if statusBar then
+        statusBar:SetScript("OnUpdate", nil)
+    end
+end
+
+-- Плавно меняет заполнение полосы от начального значения к целевому.
+local function AnimateProgress(fromValue, toValue)
+    local frame = ConsoleMenuFrame.StatusTrackingFrame
+    local statusBar = frame.StatusBar
+    statusBar:SetMinMaxValues(0, 100)
+
+    StopProgressAnimation()
+
+    if fromValue > toValue then
+        fromValue = 0
+    end
+
+    statusBar:SetValue(fromValue)
+
+    if fromValue == toValue then
+        return
+    end
+
+    local token = progressAnimToken
+    local elapsed = 0
+    statusBar:SetScript("OnUpdate", function(self, dt)
+        if token ~= progressAnimToken then
+            self:SetScript("OnUpdate", nil)
+            return
+        end
+        elapsed = elapsed + dt
+        local t = elapsed / animationDuration
+        if t >= 1 then
+            self:SetValue(toValue)
+            self:SetScript("OnUpdate", nil)
+            return
+        end
+        local eased = 1 - (1 - t) * (1 - t)
+        self:SetValue(fromValue + (toValue - fromValue) * eased)
+    end)
+end
+
+-- Запускает рост полосы от последнего значения к новому.
+local function AnimateNotificationProgress(notification, fromValue)
+    local toValue = GetProgressPercent(notification)
+    if fromValue == nil then
+        fromValue = lastProgressByType[notification.type] or 0
+    end
+    AnimateProgress(fromValue, toValue)
+    lastProgressByType[notification.type] = toValue
+end
+
+-- Запоминает текущий опыт, чтобы первая анимация шла от него, а не от нуля.
+local function SeedExperienceProgress()
+    local maxXP = UnitXPMax("player")
+    if not maxXP or maxXP == 0 then
+        return
+    end
+    lastProgressByType.Experience = UnitXP("player") / maxXP * 100
+end
+
+-- Заполняет подписи и значок полосы статуса данными снимка.
+local function ApplyNotificationPresentation(notification)
+    local frame = ConsoleMenuFrame.StatusTrackingFrame
+
+    frame.FromText:SetText(notification.from)
+    frame.ToText:SetText(notification.to)
+    frame.Title:SetText(notification.title)
+
+    if notification.type == "HouseFavor" then
+        frame.Icon:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\Icons\\housing.png")
+    elseif notification.type == "Experience" then
+        frame.Icon:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\Icons\\expirience.png")
+    elseif notification.type == "Honor" then
+        frame.Icon:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\Icons\\honor.png")
+    end
+
+    if notification.type == "HouseFavor" or notification.type == "Experience" or notification.type == "Honor" then
+        frame.Title:Hide()
+        frame.Icon:Show()
+    else
+        frame.Title:Show()
+        frame.Icon:Hide()
+    end
+end
+
+-- Скрывает полосу сразу, без анимации исчезновения.
+local function HideStatusTrackingNow()
+    local frame = ConsoleMenuFrame and ConsoleMenuFrame.StatusTrackingFrame
+    if not frame then
+        return
+    end
+
+    if frame.fadeIn then
+        frame.fadeIn:Stop()
+    end
+    if frame.fadeOut then
+        frame.fadeOut:Stop()
+        frame.fadeOut:SetScript("OnFinished", nil)
+    end
+
+    StopProgressAnimation()
+    frame:Hide()
+    frame:SetAlpha(1)
+end
+
+-- Отменяет текущий показ и отложенный переход к следующей полосе.
+local function CancelNotificationDisplay()
+    pendingShowToken = pendingShowToken + 1
+    if notificationUpdateTimer then
+        notificationUpdateTimer:Cancel()
+        notificationUpdateTimer = nil
+    end
+end
+
+-- Скрывает полосу при входе в бой и сохраняет текущий снимок.
+local function HideForCombat()
+    CancelNotificationDisplay()
+    CancelCompassRestore()
+
+    if currentNotification then
+        ReplaceQueuedNotification(currentNotification)
+        currentNotification = nil
+    end
+
+    HideStatusTrackingNow()
+    SetCompassProgressHidden(false)
+end
+
+-- Показывает следующее изменение полосы, если игрок не в бою.
 local function StatusTrackingFrameUpdate()
     if not ConsoleMenuFrame.StatusTrackingFrame then
         return
@@ -89,50 +280,40 @@ local function StatusTrackingFrameUpdate()
         return
     end
 
+    if IsPlayerInCombat() then
+        return
+    end
+
     local notification = GetTopPriorityNotification()
-    
+
     if notification then
-        ConsoleMenuFrame.StatusTrackingFrame.FromText:SetText(notification.from)
-        ConsoleMenuFrame.StatusTrackingFrame.ToText:SetText(notification.to)
-        ConsoleMenuFrame.StatusTrackingFrame.Title:SetText(notification.title)
-
-        if notification.type == "HouseFavor" then
-            ConsoleMenuFrame.StatusTrackingFrame.Icon:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\Icons\\housing.png")
-        elseif notification.type == "Experience" then
-            ConsoleMenuFrame.StatusTrackingFrame.Icon:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\Icons\\expirience.png")
-        elseif notification.type == "Honor" then
-            ConsoleMenuFrame.StatusTrackingFrame.Icon:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\Icons\\honor.png")
-        end
-
-        if notification.type == "HouseFavor" or notification.type == "Experience" or notification.type == "Honor" then
-            ConsoleMenuFrame.StatusTrackingFrame.Title:Hide()
-            ConsoleMenuFrame.StatusTrackingFrame.Icon:Show()
-        else
-            ConsoleMenuFrame.StatusTrackingFrame.Title:Show()
-            ConsoleMenuFrame.StatusTrackingFrame.Icon:Hide()
-        end
-
-        local value = notification.value / notification.max * 100
-
-        ConsoleMenuFrame.StatusTrackingFrame.StatusBar:SetMinMaxValues(0, 100)
-        ConsoleMenuFrame.StatusTrackingFrame.StatusBar:SetValue(value)
+        currentNotification = notification
+        ApplyNotificationPresentation(notification)
 
         ConsoleMenu:AnimatedShow(ConsoleMenuFrame.StatusTrackingFrame)
+        AnimateNotificationProgress(notification)
         CancelCompassRestore()
         SetCompassProgressHidden(true)
 
+        local token = pendingShowToken
         notificationUpdateTimer = C_Timer.NewTimer(duration, function()
+            if token ~= pendingShowToken then
+                return
+            end
             notificationUpdateTimer = nil
+            currentNotification = nil
             -- Скрываем текущее уведомление с анимацией
             ConsoleMenu:AnimatedHide(ConsoleMenuFrame.StatusTrackingFrame)
-            local notifications = ConsoleMenuFrame.StatusTrackingFrame.Notifications
+            local notifications = GetNotifications()
             if not notifications or #notifications == 0 then
                 -- Компас проявится после исчезновения строки и паузы.
                 ScheduleCompassRestore()
             end
             -- Ждем окончания анимации исчезновения перед проверкой следующего уведомления
             C_Timer.After(animationDuration + delay, function()
-                -- После отображения проверяем, есть ли еще уведомления в очереди
+                if token ~= pendingShowToken then
+                    return
+                end
                 StatusTrackingFrameUpdate()
             end)
         end)
@@ -142,9 +323,8 @@ local function StatusTrackingFrameUpdate()
     end
 end
 
--- Функция для добавления уведомления
+-- Добавляет снимок изменения полосы или обновляет уже показанный.
 local function AddNotification(type, from, to, title, value, min, max)
-        -- Создаем таблицу субтитра
         local notificationData = {
             type = type,
             from = from,
@@ -155,12 +335,21 @@ local function AddNotification(type, from, to, title, value, min, max)
             max = max,
         }
 
-        table.insert(ConsoleMenuFrame.StatusTrackingFrame.Notifications, notificationData)
+        -- Та же полоса уже на экране: обновляем значение, не продлевая показ.
+        if currentNotification and currentNotification.type == type then
+            currentNotification = notificationData
+            ApplyNotificationPresentation(notificationData)
+            local statusBar = ConsoleMenuFrame.StatusTrackingFrame.StatusBar
+            AnimateNotificationProgress(notificationData, statusBar:GetValue())
+            return
+        end
+
+        ReplaceQueuedNotification(notificationData)
 
         if not notificationUpdateTimer then
             StatusTrackingFrameUpdate()
         end
-    
+
         return
 end
 
@@ -240,9 +429,13 @@ function ConsoleMenu:SetStatusTrackingFrame()
         frame.Icon:SetVertexColor(1.0, 0.960784, 0.772549, 1)
     end
 
+    SeedExperienceProgress()
+
     frame:RegisterEvent("PLAYER_LEVEL_CHANGED")
     frame:RegisterEvent("PLAYER_XP_UPDATE")
     frame:RegisterEvent("HOUSE_LEVEL_FAVOR_UPDATED")
+    frame:RegisterEvent("PLAYER_REGEN_DISABLED")
+    frame:RegisterEvent("PLAYER_REGEN_ENABLED")
 
     local function OnStatusTrackingFrameEvent(self, event, ...)
         if event == "PLAYER_LEVEL_CHANGED" then
@@ -292,6 +485,10 @@ function ConsoleMenu:SetStatusTrackingFrame()
             local max = C_Housing.GetHouseLevelFavorForLevel(currentLevel+1) - C_Housing.GetHouseLevelFavorForLevel(currentLevel)
 
             AddNotification("HouseFavor", currentLevel, currentLevel + 1, nil, value, min, max)
+        elseif event == "PLAYER_REGEN_DISABLED" then
+            HideForCombat()
+        elseif event == "PLAYER_REGEN_ENABLED" then
+            StatusTrackingFrameUpdate()
         end
     end
 
