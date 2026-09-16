@@ -116,6 +116,11 @@ local contextsSettings = {
     { name = "Малая дистанция обнаружения союзников", variable = "softTargetFriendRange", default = 2, tooltip = "Радиус фокусировки союзников (SoftTargetFriendRange).", options = toggleOptions},
 }
 
+-- Настройки камеры
+local cameraSettings = {
+    { name = "Автоматическая дистанция камеры", variable = "cameraControlEnable", default = 2, tooltip = "Камера сама подстраивается при входе в игру, посадке и спешивании.", options = toggleOptions },
+}
+
 -- Настройки заданий
 local questSettings = {
     { name = "Переключение активного задания", variable = "questSuperTrackEnable", default = 2, tooltip = "Автоматическое переключение активного задания (Super Track).", options = toggleOptions },
@@ -400,6 +405,17 @@ local function registerQuestOptions(category, layout)
     end
 end
 
+local function registerCameraOptions(category, layout)
+    for _, setting in ipairs(cameraSettings) do
+        registerDropdown(category, setting, function(value)
+            ConsoleMenuDB[setting.variable] = value
+            if setting.variable == "cameraControlEnable" and value == 1 and ConsoleMenu.ApplyCameraZoom then
+                ConsoleMenu:ApplyCameraZoom()
+            end
+        end)
+    end
+end
+
 local function registerMinimapOptions(category, layout)
     for _, setting in ipairs(minimapSettings) do
         registerDropdown(category, setting, function(value)
@@ -433,6 +449,9 @@ local function RegisterOptions()
 
     local questCategory, questLayout = Settings.RegisterVerticalLayoutSubcategory(mainCategory, "Задания")
     registerQuestOptions(questCategory, questLayout)
+
+    local cameraCategory, cameraLayout = Settings.RegisterVerticalLayoutSubcategory(mainCategory, "Камера")
+    registerCameraOptions(cameraCategory, cameraLayout)
 
     Settings.RegisterAddOnCategory(mainCategory)
 

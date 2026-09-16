@@ -104,6 +104,7 @@ local function Initialize()
     ConsoleMenu.InitializeOptions()
     ConsoleMenu:InitializeSuperTrackManager()
     ConsoleMenu:InitializeNameplate()
+    ConsoleMenu:InitializeCameraControl()
     
 end
 
