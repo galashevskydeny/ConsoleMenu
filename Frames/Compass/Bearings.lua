@@ -207,7 +207,7 @@ local function RemoveHiddenNavigation(self, list)
     return changed
 end
 
--- Собирает до трёх точек в радиусе прибытия и удерживает их, пока игрок внутри зоны.
+-- Собирает до трёх точек в радиусе прибытия или в области выполнения задания.
 function Compass:RefreshArrival()
     local C = self.Constants
     local limit = C.NEARBY_YARDS_SQUARED
@@ -230,7 +230,7 @@ function Compass:RefreshArrival()
         if live then
             self:RefreshMarkerBearing(live)
         end
-        if live and live.distanceSquared and live.distanceSquared <= limit and not self:ShouldHideNavigationMarker(live) then
+        if live and not self:ShouldHideNavigationMarker(live) and self:IsNearbyCandidate(live, limit) then
             if held[write] ~= live then
                 changed = true
             end
@@ -252,21 +252,19 @@ function Compass:RefreshArrival()
         keys[held[index].key] = true
     end
     while #held < maxCount do
-        local best
+        local best, bestDistance
         for _, marker in ipairs(list) do
-            local distanceSquared = marker.distanceSquared
-            if
-                distanceSquared
-                and distanceSquared <= limit
-                and not keys[marker.key]
-                and not self:ShouldHideNavigationMarker(marker)
-            then
+            if not keys[marker.key] and not self:ShouldHideNavigationMarker(marker) and self:IsNearbyCandidate(marker, limit) then
+                local distanceSquared = marker.distanceSquared
+                if type(distanceSquared) ~= "number" then
+                    distanceSquared = math.huge
+                end
                 if
                     not best
-                    or distanceSquared < best.distanceSquared
-                    or (distanceSquared == best.distanceSquared and marker.key < best.key)
+                    or distanceSquared < bestDistance
+                    or (distanceSquared == bestDistance and marker.key < best.key)
                 then
-                    best = marker
+                    best, bestDistance = marker, distanceSquared
                 end
             end
         end

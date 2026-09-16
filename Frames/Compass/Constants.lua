@@ -16,7 +16,7 @@ Compass.Constants = {
     WIDTH = 640,
     HEIGHT = 18, -- Высота совпадает с полосой опыта.
     DEFAULT_Y = -48, -- Верх совпадает с полосой опыта.
-    MACBOOK_OFFSET = 18,
+    MACBOOK_OFFSET = 10,
     FONT_SIZE = 15, -- Стороны света и второстепенная подпись.
     TITLE_FONT_SIZE = 16, -- Название выбранной точки.
     ICON_SIZE = 32, -- Запасной размер, если игра не сообщила ширину и высоту.
@@ -66,8 +66,14 @@ Compass.Constants = {
     MARKER_OUTLINE = 1,
     MARKER_OUTLINE_ALPHA = 0.9,
     MARKER_ICON_SUBLEVEL = 2,
-    MARKER_SHADOW_SUBLEVEL = 1,
+    MARKER_BACKGROUND_SUBLEVEL = 1, -- Круг под символом.
+    MARKER_SHADOW_SUBLEVEL = 0, -- Обводка по внешнему силуэту.
     QUEST_PROGRESS_ATLAS = "Quest-In-Progress-Icon-yellow",
+    QUEST_PROGRESS_FOCUSED_ATLAS = "Quest-In-Progress-Icon-Brown", -- Точки выбранного задания в процессе.
+    QUEST_PIN_BACKGROUND = "UI-QuestPoi-QuestNumber", -- Обычный круг точки на карте.
+    QUEST_PIN_BACKGROUND_FOCUSED = "UI-QuestPoi-QuestNumber-SuperTracked", -- Жёлтый круг выбранного задания.
+    BONUS_OBJECTIVE_BACKGROUND = "worldquest-questmarker-epic", -- Пышный круг дополнительной цели.
+    ELITE_WORLD_QUEST_UNDERLAY = "worldquest-questmarker-dragon", -- Рамка элитного мирового задания.
     TRACKED_GLOW_ATLAS = "housing-basic-panel-gradient-header-bg",
     TRACKED_GLOW_WIDTH_SCALE = 9, -- Ширина подсветки относительно запасного размера значка.
     TRACKED_GLOW_HEIGHT_SCALE = 2.5, -- Высота подсветки относительно запасного размера значка.
@@ -110,7 +116,38 @@ Compass.Constants.MARKER_ART_FIELDS = {
     "sourceAlpha",
     "iconWidth",
     "iconHeight",
+    "backgroundAtlas",
+    "backgroundWidth",
+    "backgroundHeight",
+    "underlayAtlas",
+    "underlayWidth",
+    "underlayHeight",
+    "questProgress",
+    "questClassification",
 }
+
+-- Круг точки на карте по классу задания.
+Compass.Constants.QUEST_PIN_BACKGROUNDS = {
+    [Enum.QuestClassification.Legendary] = "UI-QuestPoiLegendary-QuestNumber",
+    [Enum.QuestClassification.Campaign] = "UI-QuestPoiCampaign-QuestNumber",
+    [Enum.QuestClassification.Calling] = "UI-QuestPoiCampaign-QuestNumber",
+    [Enum.QuestClassification.Recurring] = "UI-QuestPoiRecurring-QuestNumber",
+    [Enum.QuestClassification.Important] = "UI-QuestPoiImportant-QuestNumber",
+    [Enum.QuestClassification.Meta] = "UI-QuestPoiWrapper-QuestNumber",
+}
+
+-- Жёлтый круг выбранного задания в процессе по классу.
+Compass.Constants.QUEST_PIN_BACKGROUNDS_FOCUSED = {
+    [Enum.QuestClassification.Legendary] = "UI-QuestPoiLegendary-QuestNumber-SuperTracked",
+    [Enum.QuestClassification.Campaign] = "UI-QuestPoiCampaign-QuestNumber-SuperTracked",
+    [Enum.QuestClassification.Calling] = "UI-QuestPoiCampaign-QuestNumber-SuperTracked",
+    [Enum.QuestClassification.Recurring] = "UI-QuestPoiRecurring-QuestNumber-SuperTracked",
+    [Enum.QuestClassification.Important] = "UI-QuestPoiImportant-QuestNumber-SuperTracked",
+    [Enum.QuestClassification.Meta] = "UI-QuestPoiWrapper-QuestNumber-SuperTracked",
+}
+
+-- Размер значка по имени атласа, если родной рисунок не подходит для полосы.
+Compass.Constants.MARKER_ATLAS_SIZES = {}
 
 -- Квадрат дальности прибытия в ярдах, чтобы не извлекать корень на каждом кадре.
 do

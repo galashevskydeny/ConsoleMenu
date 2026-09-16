@@ -87,9 +87,35 @@ function Compass:ShouldShowMarkerLabel(shown, alpha)
     return alpha >= C.LABEL_SHOW_ALPHA
 end
 
+-- Проверяет, стоит ли персонаж внутри области выполнения задания.
+function Compass:IsInsideQuestArea(marker)
+    local questID = marker and self.Number(marker.questID)
+    if not questID then
+        return false
+    end
+    local isInside = C_Minimap and C_Minimap.IsInsideQuestBlob
+    return isInside and self.Readable(isInside(questID)) == true
+end
+
+-- Точка в радиусе прибытия или внутри области выполнения задания.
+function Compass:IsNearbyCandidate(marker, limit)
+    if not marker then
+        return false
+    end
+    local distanceSquared = marker.distanceSquared
+    if type(distanceSquared) == "number" and distanceSquared <= (limit or self.Constants.NEARBY_YARDS_SQUARED) then
+        return true
+    end
+    return self:IsInsideQuestArea(marker)
+end
+
 -- Проверяет, что точку не следует рисовать из-за игрового указателя.
 function Compass:ShouldHideNavigationMarker(marker)
-    return self.hideNavigationOnBar == true and self:IsTrackedPoint(marker, self.navigationTarget)
+    if self.hideNavigationOnBar ~= true or not self:IsTrackedPoint(marker, self.navigationTarget) then
+        return false
+    end
+    -- Не прячем выбранное задание, если персонаж уже в области его выполнения.
+    return not self:IsInsideQuestArea(marker)
 end
 
 -- Обновляет признак скрытия выбранной цели и помечает полосу к перерисовке.
@@ -105,20 +131,27 @@ function Compass:RefreshNavigationHide()
     return true
 end
 
--- Возвращает родную ширину и высоту атласа или запасной размер.
+-- Возвращает ширину и высоту значка по атласу с учётом заданного размера или запасной величины.
 function Compass.AtlasSize(atlas)
     local fallback = Compass.Constants.ICON_SIZE
     if type(atlas) ~= "string" or atlas == "" then
         return fallback, fallback
     end
+    local width, height
     local info = Compass.Readable(C_Texture.GetAtlasInfo(atlas))
     if type(info) == "table" then
-        local width, height = Compass.Number(info.width), Compass.Number(info.height)
-        if width and height and width > 0 and height > 0 then
-            return width, height
-        end
+        width, height = Compass.Number(info.width), Compass.Number(info.height)
     end
-    return fallback, fallback
+    if not width or not height or width <= 0 or height <= 0 then
+        width, height = fallback, fallback
+    end
+    local size = Compass.Constants.MARKER_ATLAS_SIZES[atlas:lower()]
+    if not size or size <= 0 then
+        return width, height
+    end
+    local longest = math.max(width, height)
+    local fit = size / longest
+    return width * fit, height * fit
 end
 
 -- Ставит запасной размер, когда вместо атласа используется текстура.
@@ -128,6 +161,45 @@ function Compass:UseTextureSize(marker)
     end
     local size = self.Constants.ICON_SIZE
     marker.iconWidth, marker.iconHeight = size, size
+end
+
+-- Возвращает круг точки на карте для класса задания.
+function Compass.QuestPinBackground(classification)
+    local C = Compass.Constants
+    return C.QUEST_PIN_BACKGROUNDS[classification] or C.QUEST_PIN_BACKGROUND
+end
+
+-- Возвращает жёлтый круг выбранного задания в процессе.
+function Compass.QuestPinBackgroundFocused(classification)
+    local C = Compass.Constants
+    return C.QUEST_PIN_BACKGROUNDS_FOCUSED[classification] or C.QUEST_PIN_BACKGROUND_FOCUSED
+end
+
+-- Назначает символу круглую подложку и, при необходимости, рамку вокруг круга.
+function Compass:ApplyQuestPinArt(marker, innerAtlas, backgroundAtlas, underlayAtlas, innerWidth, innerHeight)
+    if not marker then
+        return
+    end
+    if type(innerAtlas) == "string" and innerAtlas ~= "" then
+        marker.atlas = innerAtlas
+        if innerWidth and innerHeight and innerWidth > 0 and innerHeight > 0 then
+            marker.iconWidth, marker.iconHeight = innerWidth, innerHeight
+        else
+            marker.iconWidth, marker.iconHeight = self.AtlasSize(innerAtlas)
+        end
+    end
+    if type(backgroundAtlas) == "string" and backgroundAtlas ~= "" then
+        marker.backgroundAtlas = backgroundAtlas
+        marker.backgroundWidth, marker.backgroundHeight = self.AtlasSize(backgroundAtlas)
+    else
+        marker.backgroundAtlas, marker.backgroundWidth, marker.backgroundHeight = nil, nil, nil
+    end
+    if type(underlayAtlas) == "string" and underlayAtlas ~= "" then
+        marker.underlayAtlas = underlayAtlas
+        marker.underlayWidth, marker.underlayHeight = self.AtlasSize(underlayAtlas)
+    else
+        marker.underlayAtlas, marker.underlayWidth, marker.underlayHeight = nil, nil, nil
+    end
 end
 
 -- Добавляет точку на полосу, если у неё есть имя и координаты.

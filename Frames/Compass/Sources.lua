@@ -7,7 +7,7 @@ local Readable = Compass.Readable
 local Number = Compass.Number
 local ReadPosition = Compass.ReadPosition
 local POI_RETRY_INTERVAL = 30
-local QUEST_COMPLETE_ATLAS = "Crosshair_Questturnin_128"
+local QUEST_COMPLETE_ATLAS = "UI-QuestIcon-TurnIn-Normal"
 local WORLD_QUEST_ATLAS = "Worldquest-icon"
 local BONUS_OBJECTIVE_ATLAS = "Bonus-Objective-Star"
 local THREAT_ATLAS = "worldquest-icon-nzoth"
@@ -42,12 +42,14 @@ local OFFER_ATLASES = {
     [Enum.QuestClassification.Legendary] = "UI-QuestPoiLegendary-QuestBang",
     [Enum.QuestClassification.Important] = "importantavailablequesticon",
 }
--- Значки сдачи задания по классу, как в окне диалога.
+-- Символы сдачи задания по классу, как на карте.
 local COMPLETE_ATLASES = {
-    [Enum.QuestClassification.Important] = "Crosshair_importantturnin_128",
-    [Enum.QuestClassification.Campaign] = "Crosshair_campaignquestturnin_128",
-    [Enum.QuestClassification.Meta] = "Crosshair_Wrapperturnin_128",
-    [Enum.QuestClassification.Recurring] = "Crosshair_Recurringturnin_128",
+    [Enum.QuestClassification.Legendary] = "UI-QuestPoiLegendary-QuestBangTurnIn",
+    [Enum.QuestClassification.Campaign] = "UI-QuestPoiCampaign-QuestBangTurnIn",
+    [Enum.QuestClassification.Calling] = "UI-DailyQuestPoiCampaign-QuestBangTurnIn",
+    [Enum.QuestClassification.Recurring] = "UI-QuestPoiRecurring-QuestBangTurnIn",
+    [Enum.QuestClassification.Important] = "UI-QuestPoiImportant-QuestBangTurnIn",
+    [Enum.QuestClassification.Meta] = "UI-QuestPoiWrapper-QuestBangTurnIn",
 }
 
 -- Интервал повторного опроса точки интереса.
@@ -182,10 +184,28 @@ local function AddQuest(self, markers, questID, position, watched, seen, taskOnl
     end
     local isWorld = Readable(C_QuestLog.IsWorldQuest(questID))
     local title, atlas, priority, kind
+    local backgroundAtlas, underlayAtlas, innerWidth, innerHeight
+    local markerProgress, markerClassification
     if isWorld == true and Readable(C_TaskQuest.IsActive(questID)) == true then
         title = C_TaskQuest.GetQuestInfoByQuestID(questID)
         atlas, priority = WORLD_QUEST_ATLAS, C.WORLD_QUEST_PRIORITY
         kind = "worldQuest"
+        backgroundAtlas = C.QUEST_PIN_BACKGROUND
+        local tagInfo = Readable(C_QuestLog.GetQuestTagInfo(questID))
+        if tagInfo and QuestUtil and QuestUtil.GetWorldQuestAtlasInfo then
+            local worldAtlas, worldWidth, worldHeight = QuestUtil.GetWorldQuestAtlasInfo(questID, tagInfo, false)
+            worldAtlas = Readable(worldAtlas)
+            if type(worldAtlas) == "string" and worldAtlas ~= "" then
+                atlas = worldAtlas
+            end
+            worldWidth, worldHeight = Number(worldWidth), Number(worldHeight)
+            if worldWidth and worldHeight and worldWidth > 0 and worldHeight > 0 then
+                innerWidth, innerHeight = worldWidth, worldHeight
+            end
+            if Readable(tagInfo.isElite) == true then
+                underlayAtlas = C.ELITE_WORLD_QUEST_UNDERLAY
+            end
+        end
     elseif isWorld == false then
         local classification = Number(C_QuestInfoSystem.GetQuestClassification(questID))
         if
@@ -207,16 +227,20 @@ local function AddQuest(self, markers, questID, position, watched, seen, taskOnl
             title = C_TaskQuest.GetQuestInfoByQuestID(questID)
             if classification == Enum.QuestClassification.BonusObjective then
                 atlas = BONUS_OBJECTIVE_ATLAS
+                backgroundAtlas = C.BONUS_OBJECTIVE_BACKGROUND
             else
                 local theme = Readable(C_QuestLog.GetQuestDetailsTheme(questID))
                 atlas = theme and Readable(theme.poiIcon) or THREAT_ATLAS
+                backgroundAtlas = C.QUEST_PIN_BACKGROUND
             end
         elseif not taskOnly and Readable(C_QuestLog.IsOnQuest(questID)) == true then
             title = C_QuestLog.GetTitleForQuestID(questID)
+            backgroundAtlas = Compass.QuestPinBackground(classification)
             if Readable(C_QuestLog.IsComplete(questID)) == true then
                 atlas = COMPLETE_ATLASES[classification] or QUEST_COMPLETE_ATLAS
             else
                 atlas = C.QUEST_PROGRESS_ATLAS
+                markerProgress, markerClassification = true, classification
             end
         else
             return
@@ -231,6 +255,10 @@ local function AddQuest(self, markers, questID, position, watched, seen, taskOnl
     end
     local marker = self:AddMarker(markers, "quest:" .. questID, position, title, atlas, priority, kind)
     if marker then
+        marker.questID = questID
+        marker.questProgress = markerProgress
+        marker.questClassification = markerClassification
+        self:ApplyQuestPinArt(marker, atlas, backgroundAtlas, underlayAtlas, innerWidth, innerHeight)
         seen[questID] = true
     end
 end

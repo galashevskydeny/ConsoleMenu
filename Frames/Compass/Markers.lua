@@ -87,15 +87,23 @@ local function MarkerHoldsFade(self, marker)
     return #self.arrivalMarkers == 0 and (self.arrivalBlend or 0) > 0 and self:IsNearbyFocus(marker)
 end
 
+-- Задаёт цвет названия и тусклость второстепенной подписи.
+local function ApplyNearbyLabelColors(button)
+    if not button or not button.title then
+        return
+    end
+    local color = Compass.Constants.LINE_COLOR
+    button.title:SetTextColor(color.r, color.g, color.b, 1)
+    button.caption:SetTextColor(color.r, color.g, color.b, Compass.Constants.LABEL_CAPTION_ALPHA)
+end
+
 -- Возвращает исходную прозрачность рамки значка после анимации полосы.
 local function RestoreMarkerTextures(button)
     if not MarkerFadePlaying(button) then
         button:SetAlpha(1)
     end
-    if button.title then
-        button.title:SetAlpha(1)
-        button.caption:SetAlpha(1)
-    end
+    -- Тусклость подписи хранится в цвете текста: SetAlpha её затирает.
+    ApplyNearbyLabelColors(button)
     button.renderAlpha = nil
 end
 
@@ -206,14 +214,22 @@ function Compass:CreateMarkerPool()
         local button = CreateFrame("Frame", nil, self.frame)
         button:EnableMouse(false)
         button.icon = button:CreateTexture(nil, "OVERLAY", nil, C.MARKER_ICON_SUBLEVEL)
+        button.background = button:CreateTexture(nil, "OVERLAY", nil, C.MARKER_BACKGROUND_SUBLEVEL)
         button.shadow = button:CreateTexture(nil, "OVERLAY", nil, C.MARKER_SHADOW_SUBLEVEL)
+        button.underlay = button:CreateTexture(nil, "ARTWORK")
         button.icon:SetAlpha(1)
+        button.background:SetAlpha(1)
         button.shadow:SetAlpha(1)
+        button.underlay:SetAlpha(1)
         button.shadow:SetVertexColor(0, 0, 0, C.MARKER_OUTLINE_ALPHA)
         button.icon:SetRotation(0)
+        button.background:SetRotation(0)
         button.shadow:SetRotation(0)
+        button.underlay:SetRotation(0)
         button.icon:Show()
         button.shadow:Show()
+        button.background:Hide()
+        button.underlay:Hide()
         button.trackedGlow = button:CreateTexture(nil, "BACKGROUND")
         button.trackedGlow:SetAtlas(C.TRACKED_GLOW_ATLAS)
         button.trackedGlow:SetAlpha(1)
@@ -259,6 +275,9 @@ function Compass:CreateMarkerPool()
         button.marker, button.atlas = nil, nil
         button.sourceTexture, button.texLeft, button.texRight, button.texTop, button.texBottom = nil, nil, nil, nil, nil
         button.colorR, button.colorG, button.colorB = nil, nil, nil
+        button.backgroundAtlas, button.underlayAtlas = nil, nil
+        button.background:Hide()
+        button.underlay:Hide()
         button.markerKey, button.revealAt, button.selected, button.leaving = nil, nil, false, false
         button.renderX, button.renderAlpha, button.renderWaypoint, button.renderGlow, button.renderShown = nil, nil, nil, nil, false
         button.renderLeft, button.renderTop, button.smoothLeft = nil, nil, nil
@@ -348,9 +367,7 @@ local function StyleNearbyLabels(self, button, scale, width)
     button.caption:SetShadowColor(0, 0, 0, 1)
     button.title:SetWidth(width)
     button.caption:SetWidth(width)
-    local color = C.LINE_COLOR
-    button.title:SetTextColor(color.r, color.g, color.b, 1)
-    button.caption:SetTextColor(color.r, color.g, color.b, C.LABEL_CAPTION_ALPHA)
+    ApplyNearbyLabelColors(button)
     button.labelScale, button.labelWidth = scale, width
 end
 
@@ -602,6 +619,23 @@ function Compass:SelectMarkers(facing, width, live)
     return selection
 end
 
+-- Ставит обычный вид или режим «поблизости» сразу, без перехода.
+function Compass:SnapArrivalMode()
+    local target = #self.arrivalMarkers > 0 and 1 or 0
+    self.arrivalBlend = target
+    self.arrivalEase = target
+    self.arrivalBlendPending = false
+    self.arrivalFanReveal = false
+    if target == 0 then
+        local fading = self.nearbyFading
+        for index = 1, #fading do
+            fading[index].nearbyHoldX = nil
+        end
+        wipe(self.arrivalLeaving)
+        wipe(self.nearbyFading)
+    end
+end
+
 -- Плавно переводит полосу в режим прибытия и обратно.
 function Compass:UpdateArrivalBlend(elapsed)
     local C = self.Constants
@@ -616,7 +650,14 @@ function Compass:UpdateArrivalBlend(elapsed)
     end
     local target = #foci > 0 and 1 or 0
     local blend = self.arrivalBlend or 0
-    if blend ~= target then
+    -- При появлении полосы не проигрываем переход с обычного вида на «поблизости».
+    if self.snapArrivalOnShow then
+        if blend ~= target then
+            self:SnapArrivalMode()
+            self.renderDirty = true
+        end
+        blend = target
+    elseif blend ~= target then
         local duration = C.ARRIVAL_BLEND_DURATION
         local step = duration > 0 and math.max(0, elapsed or 0) / duration or 1
         local fadingOut = target == 0 and blend > 0
@@ -802,11 +843,20 @@ function Compass:LayoutMarkerGroups(selection)
     for index, marker in ipairs(selection) do
         local iconWidth = Pixel:Snap(marker.iconWidth or C.ICON_SIZE, scale)
         local iconHeight = Pixel:Snap(marker.iconHeight or C.ICON_SIZE, scale)
-        local hitWidth = iconWidth + outline
-        local hitHeight = iconHeight + outline
+        local backgroundWidth = marker.backgroundWidth and Pixel:Snap(marker.backgroundWidth, scale)
+        local backgroundHeight = marker.backgroundHeight and Pixel:Snap(marker.backgroundHeight, scale)
+        local underlayWidth = marker.underlayWidth and Pixel:Snap(marker.underlayWidth, scale)
+        local underlayHeight = marker.underlayHeight and Pixel:Snap(marker.underlayHeight, scale)
+        local outerWidth = math.max(iconWidth, backgroundWidth or 0, underlayWidth or 0)
+        local outerHeight = math.max(iconHeight, backgroundHeight or 0, underlayHeight or 0)
+        local hitWidth = outerWidth + outline
+        local hitHeight = outerHeight + outline
         marker.projectedIconWidth, marker.projectedIconHeight = iconWidth, iconHeight
+        marker.projectedOuterWidth, marker.projectedOuterHeight = outerWidth, outerHeight
+        marker.projectedBackgroundWidth, marker.projectedBackgroundHeight = backgroundWidth, backgroundHeight
+        marker.projectedUnderlayWidth, marker.projectedUnderlayHeight = underlayWidth, underlayHeight
         marker.projectedHitWidth, marker.projectedHitHeight = hitWidth, hitHeight
-        marker.projectedIconSize, marker.projectedHitSize = iconWidth, hitWidth
+        marker.projectedIconSize, marker.projectedHitSize = outerWidth, hitWidth
         local left = centerX + marker.projectedX - hitWidth / 2
         marker.projectedLeft = left
         marker.projectedLeftPx = Pixel:ToCount(left, scale)
@@ -939,9 +989,21 @@ function Compass:AssignMarkerSlots(selection, live)
     self.markerSlots, self.nextMarkerSlots = nextSlots, slots
 end
 
+-- Возвращает символ и круг с учётом выбранного задания в процессе.
+local function MarkerDisplayArt(marker)
+    local C = Compass.Constants
+    if marker.questProgress then
+        if marker.navigation then
+            return C.QUEST_PROGRESS_FOCUSED_ATLAS, Compass.QuestPinBackgroundFocused(marker.questClassification)
+        end
+        return C.QUEST_PROGRESS_ATLAS, Compass.QuestPinBackground(marker.questClassification)
+    end
+    return marker.atlas, marker.backgroundAtlas
+end
+
 -- Проверяет, сменилась ли картинка значка.
-local function MarkerArtChanged(button, marker)
-    return button.atlas ~= marker.atlas
+local function MarkerArtChanged(button, marker, atlas, backgroundAtlas)
+    return button.atlas ~= atlas
         or button.sourceTexture ~= marker.texture
         or button.texLeft ~= marker.texLeft
         or button.texRight ~= marker.texRight
@@ -950,12 +1012,17 @@ local function MarkerArtChanged(button, marker)
         or button.colorR ~= marker.colorR
         or button.colorG ~= marker.colorG
         or button.colorB ~= marker.colorB
+        or button.backgroundAtlas ~= backgroundAtlas
+        or button.underlayAtlas ~= marker.underlayAtlas
 end
 
--- Назначает атлас или текстуру значку.
-local function BindMarkerArt(button, marker)
+-- Назначает атлас или текстуру значку и круглую подложку, если она есть.
+local function BindMarkerArt(button, marker, atlas, backgroundAtlas)
     local C = Compass.Constants
-    if marker.texture then
+    atlas = atlas or marker.atlas
+    backgroundAtlas = backgroundAtlas or marker.backgroundAtlas
+    local shadowAtlas = backgroundAtlas or atlas
+    if marker.texture and not backgroundAtlas then
         button.icon:SetTexture(marker.texture)
         button.shadow:SetTexture(marker.texture)
         local left, right = marker.texLeft or FULL_TEX_COORDS.left, marker.texRight or FULL_TEX_COORDS.right
@@ -967,6 +1034,7 @@ local function BindMarkerArt(button, marker)
             marker.colorG or ICON_COLOR.g,
             marker.colorB or ICON_COLOR.b
         )
+        button.background:Hide()
     else
         button.icon:SetTexCoord(
             FULL_TEX_COORDS.left,
@@ -980,15 +1048,40 @@ local function BindMarkerArt(button, marker)
             FULL_TEX_COORDS.top,
             FULL_TEX_COORDS.bottom
         )
-        button.icon:SetAtlas(marker.atlas)
-        button.shadow:SetAtlas(marker.atlas)
+        button.icon:SetAtlas(atlas)
+        button.shadow:SetAtlas(shadowAtlas)
         button.icon:SetVertexColor(ICON_COLOR.r, ICON_COLOR.g, ICON_COLOR.b)
+        if backgroundAtlas then
+            button.background:SetTexCoord(
+                FULL_TEX_COORDS.left,
+                FULL_TEX_COORDS.right,
+                FULL_TEX_COORDS.top,
+                FULL_TEX_COORDS.bottom
+            )
+            button.background:SetAtlas(backgroundAtlas)
+            button.background:Show()
+        else
+            button.background:Hide()
+        end
+    end
+    if marker.underlayAtlas then
+        button.underlay:SetTexCoord(
+            FULL_TEX_COORDS.left,
+            FULL_TEX_COORDS.right,
+            FULL_TEX_COORDS.top,
+            FULL_TEX_COORDS.bottom
+        )
+        button.underlay:SetAtlas(marker.underlayAtlas)
+        button.underlay:Show()
+    else
+        button.underlay:Hide()
     end
     button.shadow:SetVertexColor(0, 0, 0, C.MARKER_OUTLINE_ALPHA)
-    button.atlas, button.sourceTexture = marker.atlas, marker.texture
+    button.atlas, button.sourceTexture = atlas, marker.texture
     button.texLeft, button.texRight, button.texTop, button.texBottom =
         marker.texLeft, marker.texRight, marker.texTop, marker.texBottom
     button.colorR, button.colorG, button.colorB = marker.colorR, marker.colorG, marker.colorB
+    button.backgroundAtlas, button.underlayAtlas = backgroundAtlas, marker.underlayAtlas
     button.layoutAtlas = nil
 end
 
@@ -1034,8 +1127,9 @@ function Compass:RenderMarker(button, marker, x, alpha, markerY, outline, scale)
     local blending = (self.arrivalBlend or 0) > 0
     local arrived = blending and self:IsNearbyFocus(marker)
     local waypoint = marker.navigation == true
-    if MarkerArtChanged(button, marker) then
-        BindMarkerArt(button, marker)
+    local atlas, backgroundAtlas = MarkerDisplayArt(marker)
+    if MarkerArtChanged(button, marker, atlas, backgroundAtlas) then
+        BindMarkerArt(button, marker, atlas, backgroundAtlas)
     end
     if button.marker ~= marker then
         self:BindMarker(button, marker)
@@ -1065,34 +1159,66 @@ function Compass:RenderMarker(button, marker, x, alpha, markerY, outline, scale)
     end
     local iconWidth = marker.projectedIconWidth or marker.projectedIconSize
     local iconHeight = marker.projectedIconHeight or marker.projectedIconSize
+    local outerWidth = marker.projectedOuterWidth or iconWidth
+    local outerHeight = marker.projectedOuterHeight or iconHeight
     local hitWidth = marker.projectedHitWidth or marker.projectedHitSize
     local hitHeight = marker.projectedHitHeight or marker.projectedHitSize
+    local backgroundWidth = marker.projectedBackgroundWidth
+    local backgroundHeight = marker.projectedBackgroundHeight
+    local underlayWidth = marker.projectedUnderlayWidth
+    local underlayHeight = marker.projectedUnderlayHeight
     if
         button.layoutWidth ~= iconWidth
         or button.layoutHeight ~= iconHeight
+        or button.layoutOuterWidth ~= outerWidth
+        or button.layoutOuterHeight ~= outerHeight
         or button.layoutOutline ~= outline
         or button.layoutHitWidth ~= hitWidth
         or button.layoutHitHeight ~= hitHeight
+        or button.layoutBackgroundWidth ~= backgroundWidth
+        or button.layoutBackgroundHeight ~= backgroundHeight
+        or button.layoutUnderlayWidth ~= underlayWidth
+        or button.layoutUnderlayHeight ~= underlayHeight
         or button.layoutScale ~= scale
-        or button.layoutAtlas ~= marker.atlas
+        or button.layoutAtlas ~= atlas
+        or button.layoutBackground ~= backgroundAtlas
+        or button.layoutUnderlay ~= marker.underlayAtlas
     then
         button:SetSize(hitWidth, hitHeight)
         button.icon:SetSize(iconWidth, iconHeight)
-        button.shadow:SetSize(iconWidth + outline, iconHeight + outline)
         local insetX = Pixel:Snap((hitWidth - iconWidth) / 2, scale)
         local insetY = Pixel:Snap((hitHeight - iconHeight) / 2, scale)
         button.icon:SetPoint("TOPLEFT", button, "TOPLEFT", insetX, -insetY)
-        local shadowInsetX = Pixel:Snap((hitWidth - iconWidth - outline) / 2, scale)
-        local shadowInsetY = Pixel:Snap((hitHeight - iconHeight - outline) / 2, scale)
+        local shadowWidth = (backgroundWidth or iconWidth) + outline
+        local shadowHeight = (backgroundHeight or iconHeight) + outline
+        button.shadow:SetSize(shadowWidth, shadowHeight)
+        local shadowInsetX = Pixel:Snap((hitWidth - shadowWidth) / 2, scale)
+        local shadowInsetY = Pixel:Snap((hitHeight - shadowHeight) / 2, scale)
         button.shadow:SetPoint("TOPLEFT", button, "TOPLEFT", shadowInsetX, -shadowInsetY)
+        if backgroundWidth and backgroundHeight then
+            button.background:SetSize(backgroundWidth, backgroundHeight)
+            local backgroundInsetX = Pixel:Snap((hitWidth - backgroundWidth) / 2, scale)
+            local backgroundInsetY = Pixel:Snap((hitHeight - backgroundHeight) / 2, scale)
+            button.background:SetPoint("TOPLEFT", button, "TOPLEFT", backgroundInsetX, -backgroundInsetY)
+        end
+        if underlayWidth and underlayHeight then
+            button.underlay:SetSize(underlayWidth, underlayHeight)
+            local underlayInsetX = Pixel:Snap((hitWidth - underlayWidth) / 2, scale)
+            local underlayInsetY = Pixel:Snap((hitHeight - underlayHeight) / 2, scale)
+            button.underlay:SetPoint("TOPLEFT", button, "TOPLEFT", underlayInsetX, -underlayInsetY)
+        end
         button.trackedGlow:SetSize(
             Pixel:Snap(C.ICON_SIZE * C.TRACKED_GLOW_WIDTH_SCALE, scale),
             Pixel:Snap(C.ICON_SIZE * C.TRACKED_GLOW_HEIGHT_SCALE, scale)
         )
         button.layoutWidth, button.layoutHeight = iconWidth, iconHeight
+        button.layoutOuterWidth, button.layoutOuterHeight = outerWidth, outerHeight
         button.layoutOutline = outline
         button.layoutHitWidth, button.layoutHitHeight = hitWidth, hitHeight
-        button.layoutScale, button.layoutAtlas = scale, marker.atlas
+        button.layoutBackgroundWidth, button.layoutBackgroundHeight = backgroundWidth, backgroundHeight
+        button.layoutUnderlayWidth, button.layoutUnderlayHeight = underlayWidth, underlayHeight
+        button.layoutScale, button.layoutAtlas = scale, atlas
+        button.layoutBackground, button.layoutUnderlay = backgroundAtlas, marker.underlayAtlas
     end
     local centerX, centerY = self.artworkLayout.centerX, self.artworkLayout.centerY
     local left = SmoothMarkerLeft(self, button, marker.projectedLeft - centerX, scale, arrived)
@@ -1125,7 +1251,7 @@ function Compass:RenderMarker(button, marker, x, alpha, markerY, outline, scale)
     else
         button.renderAlpha = alpha
     end
-    if arrived and not self:IsFadeInPlaying() then
+    if arrived then
         local slotWidth = self.nearbyDisplayWidth or self.nearbySlotWidth
         if not slotWidth or slotWidth <= 0 then
             local ribbon = (self.artworkLayout and self.artworkLayout.contentWidth) or C.WIDTH
@@ -1154,7 +1280,20 @@ function Compass:RenderMarker(button, marker, x, alpha, markerY, outline, scale)
         end
         local leaving = button.leaving or marker.nearbyHoldX ~= nil or marker.rangeHoldX ~= nil or #self.arrivalMarkers == 0
         local wantLabels = not leaving and self:ShouldShowMarkerLabel(button.labelShown, button.renderAlpha or alpha)
-        SetNearbyLabelsShown(button, wantLabels)
+        -- Пока проявляется вся полоса, подписи идут вместе с ней, без отдельного скрытия.
+        if self:IsFadeInPlaying() then
+            if wantLabels and not button.labelShown then
+                button.labelShown = true
+                StopLabelFade(button)
+                ApplyNearbyLabelColors(button)
+                if button.labelFrame then
+                    button.labelFrame:SetAlpha(1)
+                    button.labelFrame:Show()
+                end
+            end
+        else
+            SetNearbyLabelsShown(button, wantLabels)
+        end
     else
         SetNearbyLabelsShown(button, false)
     end

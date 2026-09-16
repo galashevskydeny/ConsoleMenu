@@ -478,10 +478,12 @@ function Compass:Render(facing, live, elapsed)
             nearest, nearestDelta, nearestAlpha = marker, absoluteDelta, slot.renderAlpha or 0
         end
     end
-    -- Пока рамка проявляется, подписи не трогаем: иначе их прозрачность смешается с анимацией.
+    -- Пока рамка проявляется, центральную подпись не трогаем: иначе её прозрачность смешается с анимацией.
     if self:IsFadeInPlaying() then
         self.renderFacing = facing
         self.renderDirty = true
+        -- Подложка нужна сразу, если полоса уже в режиме «поблизости».
+        self:RefreshLabelShadow(true)
         return
     end
     local blend = self.arrivalBlend or 0

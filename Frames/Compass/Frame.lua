@@ -75,12 +75,14 @@ local function RestoreAfterFadeIn(self)
     if fadeIn then
         fadeIn:SetScript("OnFinished", nil)
     end
+    self.snapArrivalOnShow = false
     self:RestoreViewAlpha()
 end
 
 -- Показывает или скрывает полосу с учётом подземелья, поля боя и окон.
 function Compass:RefreshVisibility()
     local hidden = self.inInstance or self.hiddenByGame or self.hiddenByContext or self.hiddenByProgress
+    local resetState = self.inInstance or self.hiddenByGame
     if hidden then
         if self.updating then
             self.events:SetScript("OnUpdate", nil)
@@ -89,14 +91,18 @@ function Compass:RefreshVisibility()
         if self.frame and self.frame.fadeIn then
             self.frame.fadeIn:SetScript("OnFinished", nil)
         end
-        self:ClearMarkers()
-        self.navigationTarget = nil
-        self:InitializeDiscovery()
-        wipe(self.markers)
-        wipe(self.bearings)
+        self.snapArrivalOnShow = false
+        -- Полоса опыта и окна только прячут рамку: иначе при возврате снова вспыхивает обычный вид.
+        if resetState then
+            self:ClearMarkers()
+            self.navigationTarget = nil
+            self:InitializeDiscovery()
+            wipe(self.markers)
+            wipe(self.bearings)
+        end
         if self.frame then
             ConsoleMenu:AnimatedHide(self.frame)
-            if self.inInstance or self.hiddenByGame then
+            if resetState then
                 if self.frame.fadeOut then
                     self.frame.fadeOut:Stop()
                     self.frame.fadeOut:SetScript("OnFinished", nil)
@@ -107,8 +113,16 @@ function Compass:RefreshVisibility()
         return
     end
     if self.frame then
+        -- Пока рамка проявляется, режим «поблизости» ставим сразу, без перехода с обычной полосы.
+        self.snapArrivalOnShow = true
+        if #self.markers == 0 then
+            self.discoveryDirty = true
+        else
+            self:RefreshRange()
+            self:RefreshBearings()
+            self:SnapArrivalMode()
+        end
         ConsoleMenu:AnimatedShow(self.frame)
-        self.discoveryDirty = true
         self.sortElapsed = 0
         self.renderDirty = true
         self.selectionDirty = true
