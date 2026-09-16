@@ -5,14 +5,14 @@ local maxItemsCount = 5
 local frameWidth = 304
 local frameHeight = frameWidth
 
-local sectionHeight = 32
+local sectionHeight = 34
 
 local iconSize = sectionHeight
 local iconInnerPadding = 8
 local iconPlusSize = 12
 
 local stackCountSize = 20
-local stackCountOffset = 8
+local stackCountOffset = 6
 local stackCountShadowOffsef = 10
 
 local padding = 12
@@ -455,7 +455,7 @@ function ConsoleMenu:SetKeysFrame()
                     item.Icon.StackCount.Text = item.Icon.StackCount:CreateFontString(nil, "OVERLAY", "GameFontNormal")
                     item.Icon.StackCount.Text:SetAllPoints()
                     item.Icon.StackCount.Text:SetJustifyH("CENTER")
-                    item.Icon.StackCount.Text:SetTextColor(1.0, 0.960784, 0.772549, 1)
+                    item.Icon.StackCount.Text:SetTextColor(1.0, 0.960784, 0.772549, 0.8)
                     item.Icon.StackCount.Text:SetFont("Fonts\\FRIZQT___CYR.TTF", fontSize-2, "")
                     item.Icon.StackCount.Text:SetText("")
                 end
@@ -467,7 +467,7 @@ function ConsoleMenu:SetKeysFrame()
             item.Text = item:CreateFontString(nil, "OVERLAY", "GameFontNormal")
             item.Text:SetPoint("RIGHT", item.Icon, "LEFT", -padding, 0)
             item.Text:SetFont("Fonts\\FRIZQT___CYR.TTF", fontSize, "")
-            item.Text:SetTextColor(1.0, 0.960784, 0.772549, 1)
+            item.Text:SetTextColor(1.0, 0.960784, 0.772549, 0.9)
             item.Text:SetText("")
         end
     end
