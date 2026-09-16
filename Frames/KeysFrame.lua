@@ -5,7 +5,7 @@ local maxItemsCount = 5
 local frameWidth = 304
 local frameHeight = frameWidth
 
-local sectionHeight = 34
+local sectionHeight = 32
 
 local iconSize = sectionHeight
 local iconInnerPadding = 8
