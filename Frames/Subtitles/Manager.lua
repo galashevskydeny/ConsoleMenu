@@ -31,9 +31,8 @@ local function OnSubtitleEvent(_, event, ...)
         local sender = UnitName("npc")
         ConsoleMenu:AddSubtitles(event, message, sender)
     elseif event == "TAXIMAP_OPENED" then
+        -- Отменяет отложенное скрытие; окно диалога снимет реплику само, без второго исчезновения.
         Subtitle.closeToken = Subtitle.closeToken + 1
-        Subtitle.RemoveByPriority(1)
-        ConsoleMenu:SubtitleFrameUpdate()
         return
     elseif event == "QUEST_DETAIL" then
         Subtitle.closeToken = Subtitle.closeToken + 1

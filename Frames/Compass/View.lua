@@ -30,18 +30,25 @@ function Compass:CreateView()
     self.artwork, self.artworkLayout = {}, {}
     self.headingsDirty = true
     self.headingHeight = C.FONT_SIZE
+    -- Линия, указатель и стороны света на отдельной рамке. Уровень не задаём: по умолчанию он на единицу выше родителя и ниже значков.
+    local lineFrame = CreateFrame("Frame", nil, frame)
+    lineFrame:SetAllPoints(frame)
+    lineFrame:EnableMouse(false)
+    lineFrame:SetClipsChildren(false)
+    self.lineFrame = lineFrame
     local line = C.LINE_COLOR
     local clear = CreateColor(line.r, line.g, line.b, 0)
     local solid = CreateColor(line.r, line.g, line.b, C.LINE_ALPHA)
     for index = 1, 3 do
-        local texture = frame:CreateTexture(nil, "BORDER")
+        local texture = lineFrame:CreateTexture(nil, "ARTWORK")
         texture:SetColorTexture(1, 1, 1)
         texture:SetSnapToPixelGrid(true)
         texture:SetTexelSnappingBias(0)
         texture:SetGradient("HORIZONTAL", index == 1 and clear or solid, index == 3 and clear or solid)
         self.artwork[index] = texture
     end
-    self.pointer = frame:CreateTexture(nil, "OVERLAY")
+    -- Указатель на рамке линии, чтобы не накрывать значки сверху.
+    self.pointer = lineFrame:CreateTexture(nil, "OVERLAY")
     self.pointer:SetColorTexture(line.r, line.g, line.b)
     self.pointer:SetSnapToPixelGrid(true)
     self.pointer:SetTexelSnappingBias(0)
@@ -52,12 +59,12 @@ function Compass:CreateView()
     self.markerGeneration, self.markerClock = 0, 0
     local directions = { self.L.N, self.L.W, self.L.S, self.L.E }
     for degrees = 0, C.FULL_TURN - C.TICK_STEP, C.TICK_STEP do
-        local tick = { bearing = degrees, texture = frame:CreateTexture(nil, "ARTWORK") }
+        local tick = { bearing = degrees, texture = lineFrame:CreateTexture(nil, "ARTWORK") }
         tick.texture:SetColorTexture(line.r, line.g, line.b)
         tick.texture:SetSnapToPixelGrid(true)
         tick.texture:SetTexelSnappingBias(0)
         if degrees % C.CARDINAL_STEP == 0 then
-            tick.label = frame:CreateFontString(nil, "OVERLAY")
+            tick.label = lineFrame:CreateFontString(nil, "OVERLAY")
             tick.labelText = directions[degrees / C.CARDINAL_STEP + 1]
         end
         self.ticks[#self.ticks + 1] = tick
@@ -260,6 +267,9 @@ function Compass:ClearMarkers()
     wipe(self.nearbyFading)
     wipe(self.rangeLeaving)
     self.nearbyDisplayWidth, self.nearbySlotWidth = nil, nil
+    self.nearbyLiveCount = 0
+    wipe(self.nearbyLiveKeys)
+    self:ClearNearbyReflow()
     self.arrivalBlend, self.arrivalEase, self.arrivalBlendPending, self.arrivalFanReveal = 0, 0, false, false
     self.selectionDirty, self.markerSlotsDirty, self.headingsDirty = true, true, true
     self:HideDetail(true)
@@ -364,12 +374,17 @@ end
 function Compass:RefreshLabelShadow(immediate)
     local shown = self.detailShown
     if not shown then
-        local slots = self.markerSlots
-        if slots then
-            for index = 1, #slots do
-                if slots[index].labelShown then
-                    shown = true
-                    break
+        local phase = self.nearbyReflowPhase
+        if phase == "hide" or phase == "move" then
+            shown = true
+        else
+            local slots = self.markerSlots
+            if slots then
+                for index = 1, #slots do
+                    if slots[index].labelShown then
+                        shown = true
+                        break
+                    end
                 end
             end
         end
@@ -377,8 +392,44 @@ function Compass:RefreshLabelShadow(immediate)
     self:SetLabelShadowShown(shown, immediate)
 end
 
+-- Сбрасывает удержание и смену центральной подписи.
+local function ResetDetailState(self)
+    self.detailMarker = nil
+    self.detailPendingMarker = nil
+    self.detailPendingElapsed = 0
+    self.detailEmptyElapsed = 0
+    self.detailSwapPhase = nil
+    self.detailSwapTarget = nil
+    self.detailSwapElapsed = 0
+    self.detailAnimPending = false
+end
+
+-- Подставляет название и второстепенную строку без анимации.
+local function ApplyDetailText(self, marker, nearby)
+    local distance = nearby and -1 or self:DisplayDistance(marker.distance)
+    local kind = marker.kind
+    if
+        self.detailName == marker.name
+        and self.detailDistance == distance
+        and self.detailKind == kind
+        and self.detailNearby == nearby
+    then
+        return
+    end
+    self.detailTitle:SetText(marker.name)
+    local typeLabel = self.L[kind]
+    local second = nearby and self.L.NEARBY or self:FormatDistance(marker.distance)
+    if typeLabel then
+        self.detailCaption:SetText(self.L.DETAIL_F:format(typeLabel, second))
+    else
+        self.detailCaption:SetText(second)
+    end
+    self.detailName, self.detailDistance, self.detailKind, self.detailNearby = marker.name, distance, kind, nearby
+end
+
 -- Скрывает название и подпись под полосой.
 function Compass:HideDetail(immediate)
+    ResetDetailState(self)
     if immediate then
         StopFade(self.detailFrame)
         if self.detailFrame then
@@ -399,37 +450,164 @@ end
 
 -- Показывает название, расстояние или отметку прибытия под полосой.
 function Compass:ShowDetail(marker, nearby)
-    local distance = nearby and -1 or self:DisplayDistance(marker.distance)
-    local kind = marker.kind
-    if
-        self.detailName ~= marker.name
-        or self.detailDistance ~= distance
-        or self.detailKind ~= kind
-        or self.detailNearby ~= nearby
-    then
-        self.detailTitle:SetText(marker.name)
-        local typeLabel = self.L[kind]
-        local second = nearby and self.L.NEARBY or self:FormatDistance(marker.distance)
-        if typeLabel then
-            self.detailCaption:SetText(self.L.DETAIL_F:format(typeLabel, second))
-        else
-            self.detailCaption:SetText(second)
-        end
-        self.detailName, self.detailDistance, self.detailKind, self.detailNearby = marker.name, distance, kind, nearby
-    end
+    ApplyDetailText(self, marker, nearby)
+    self.detailMarker = marker
     if not self.detailShown then
         self.detailShown = true
         ConsoleMenu:AnimatedShow(self.detailFrame)
     end
 end
 
--- Показывает подпись, только когда выбранный значок уже достаточно ярок.
-local function UpdateDetail(self, nearest, alpha)
-    if nearest and self:ShouldShowMarkerLabel(self.detailShown, alpha) then
-        self:ShowDetail(nearest)
+-- Плавно меняет центральную надпись на последнее выбранное имя.
+local function UpdateDetailSwap(self, elapsed, candidate)
+    local C = self.Constants
+    if candidate then
+        self.detailSwapTarget = candidate
+        self.detailEmptyElapsed = 0
     else
-        self:HideDetail()
+        self.detailEmptyElapsed = (self.detailEmptyElapsed or 0) + elapsed
     end
+    self.detailSwapElapsed = (self.detailSwapElapsed or 0) + elapsed
+    local duration = C.LABEL_FADE_DURATION
+    local target = self.detailSwapTarget
+    if self.detailSwapPhase == "hide" then
+        if candidate and self.detailMarker and candidate.key == self.detailMarker.key then
+            self.detailSwapPhase = "show"
+            self.detailSwapElapsed = 0
+            self.detailShown = true
+            ConsoleMenu:AnimatedShow(self.detailFrame)
+            return
+        end
+        if self.detailSwapElapsed < duration then
+            return
+        end
+        if not candidate then
+            if (self.detailEmptyElapsed or 0) >= C.DETAIL_EMPTY_HOLD then
+                self.detailShown = false
+                ResetDetailState(self)
+                if self.detailFrame and not (self.detailFrame.fadeOut and self.detailFrame.fadeOut:IsPlaying()) then
+                    self.detailFrame:Hide()
+                end
+            end
+            return
+        end
+        ApplyDetailText(self, candidate)
+        self.detailMarker = candidate
+        self.detailShown = true
+        self.detailSwapPhase = "show"
+        self.detailSwapElapsed = 0
+        ConsoleMenu:AnimatedShow(self.detailFrame)
+    elseif self.detailSwapPhase == "show" then
+        if target and self.detailMarker and target.key ~= self.detailMarker.key then
+            self.detailSwapPhase = "hide"
+            self.detailSwapElapsed = 0
+            ConsoleMenu:AnimatedHide(self.detailFrame)
+            return
+        end
+        if self.detailSwapElapsed >= duration then
+            self.detailSwapPhase = nil
+            self.detailSwapTarget = nil
+            self.detailSwapElapsed = 0
+        end
+    end
+end
+
+-- Начинает одно гашение и проявление при смене точки в центре.
+local function BeginDetailSwap(self, target)
+    if not target then
+        return
+    end
+    self.detailSwapTarget = target
+    self.detailPendingMarker, self.detailPendingElapsed = nil, 0
+    self.detailEmptyElapsed = 0
+    self.detailAnimPending = true
+    if not self.detailShown then
+        self:ShowDetail(target)
+        self.detailSwapPhase = "show"
+        self.detailSwapElapsed = 0
+        return
+    end
+    if self.detailMarker and target.key == self.detailMarker.key and self.detailSwapPhase ~= "hide" then
+        self.detailSwapPhase = nil
+        self.detailSwapTarget = nil
+        return
+    end
+    if self.detailSwapPhase == "hide" then
+        return
+    end
+    self.detailSwapPhase = "hide"
+    self.detailSwapElapsed = 0
+    ConsoleMenu:AnimatedHide(self.detailFrame)
+end
+
+-- Держит текущую надпись и меняет её без цепочки морганий.
+local function UpdateDetail(self, nearest, nearestDelta, nearestAlpha, held, heldDelta, heldAlpha, elapsed)
+    elapsed = elapsed or 0
+    if self.detailSwapPhase then
+        UpdateDetailSwap(self, elapsed, nearest)
+        self.detailAnimPending = self.detailSwapPhase ~= nil
+        return
+    end
+    local committed = self.detailMarker
+    local committedLive = held and committed and held.key == committed.key and held
+    if not committed or not self.detailShown then
+        if nearest and self:ShouldShowMarkerLabel(false, nearestAlpha) then
+            self:ShowDetail(nearest)
+            self.detailPendingMarker, self.detailPendingElapsed = nil, 0
+            self.detailEmptyElapsed = 0
+        end
+        self.detailAnimPending = false
+        return
+    end
+    local gone = not committedLive
+        or heldDelta > self.Constants.DETAIL_HIDE_ANGLE
+        or not self:ShouldShowMarkerLabel(true, heldAlpha or 0)
+    if committedLive then
+        ApplyDetailText(self, committedLive)
+        self.detailMarker = committedLive
+    end
+    if nearest and nearest.key == committed.key then
+        self.detailPendingMarker, self.detailPendingElapsed = nil, 0
+        self.detailEmptyElapsed = 0
+        self.detailAnimPending = false
+        return
+    end
+    if nearest and not gone then
+        local closer = not committedLive or nearestDelta < heldDelta
+        if closer then
+            if self.detailPendingMarker and self.detailPendingMarker.key == nearest.key then
+                self.detailPendingElapsed = (self.detailPendingElapsed or 0) + elapsed
+            else
+                self.detailPendingMarker = nearest
+                self.detailPendingElapsed = 0
+            end
+            if self.detailPendingElapsed >= self.Constants.DETAIL_SWITCH_HOLD then
+                BeginDetailSwap(self, nearest)
+            end
+        else
+            self.detailPendingMarker, self.detailPendingElapsed = nil, 0
+        end
+        self.detailEmptyElapsed = 0
+        self.detailAnimPending = closer or self.detailSwapPhase ~= nil
+        return
+    end
+    if gone then
+        if nearest then
+            BeginDetailSwap(self, nearest)
+            return
+        end
+        self.detailPendingMarker, self.detailPendingElapsed = nil, 0
+        self.detailEmptyElapsed = (self.detailEmptyElapsed or 0) + elapsed
+        if self.detailEmptyElapsed >= self.Constants.DETAIL_EMPTY_HOLD then
+            self:HideDetail()
+        else
+            self.detailAnimPending = true
+        end
+        return
+    end
+    self.detailPendingMarker, self.detailPendingElapsed = nil, 0
+    self.detailEmptyElapsed = 0
+    self.detailAnimPending = false
 end
 
 -- Рисует полосу: стороны света, значки и подпись выбранной точки.
@@ -445,6 +623,8 @@ function Compass:Render(facing, live, elapsed)
     local scale, width = layout.scale, layout.contentWidth
     self:RenderHeadings(facing)
     local nearest, nearestDelta, nearestAlpha
+    local held, heldDelta, heldAlpha
+    local detailKey = self.detailMarker and self.detailMarker.key
     local outline = Pixel:Multiple(C.MARKER_OUTLINE * 2, scale)
     local selection = self:SelectMarkers(facing, width, live)
     self:ApplyArrivalBlend(selection, facing)
@@ -464,18 +644,20 @@ function Compass:Render(facing, live, elapsed)
             scale
         )
         local absoluteDelta = math.abs(marker.projectedDelta or 0)
-        if
-            marker.renderShown
-            and not marker.rangeHoldX
-            and not marker.nearbyHoldX
-            and absoluteDelta <= C.DETAIL_ANGLE
-            and (
-                not nearestDelta
-                or absoluteDelta < nearestDelta
-                or (absoluteDelta == nearestDelta and marker.distanceSquared < nearest.distanceSquared)
-            )
-        then
-            nearest, nearestDelta, nearestAlpha = marker, absoluteDelta, slot.renderAlpha or 0
+        if marker.renderShown and not marker.rangeHoldX and not marker.nearbyHoldX then
+            if detailKey and marker.key == detailKey then
+                held, heldDelta, heldAlpha = marker, absoluteDelta, slot.renderAlpha or 0
+            end
+            if
+                absoluteDelta <= C.DETAIL_ANGLE
+                and (
+                    not nearestDelta
+                    or absoluteDelta < nearestDelta
+                    or (absoluteDelta == nearestDelta and marker.distanceSquared < nearest.distanceSquared)
+                )
+            then
+                nearest, nearestDelta, nearestAlpha = marker, absoluteDelta, slot.renderAlpha or 0
+            end
         end
     end
     -- Пока рамка проявляется, центральную подпись не трогаем: иначе её прозрачность смешается с анимацией.
@@ -498,10 +680,28 @@ function Compass:Render(facing, live, elapsed)
         else
             self:HidePeek()
         end
-        UpdateDetail(self, nearest, nearestAlpha or 0)
+        UpdateDetail(
+            self,
+            nearest,
+            nearestDelta or 0,
+            nearestAlpha or 0,
+            held,
+            heldDelta or 0,
+            heldAlpha or 0,
+            self.markerSmoothElapsed
+        )
     else
         self:HidePeek()
-        UpdateDetail(self, nearest, nearestAlpha or 0)
+        UpdateDetail(
+            self,
+            nearest,
+            nearestDelta or 0,
+            nearestAlpha or 0,
+            held,
+            heldDelta or 0,
+            heldAlpha or 0,
+            self.markerSmoothElapsed
+        )
     end
     self:RefreshLabelShadow()
     self.renderDirty, self.renderFacing = false, facing

@@ -175,8 +175,8 @@ function Compass.QuestPinBackgroundFocused(classification)
     return C.QUEST_PIN_BACKGROUNDS_FOCUSED[classification] or C.QUEST_PIN_BACKGROUND_FOCUSED
 end
 
--- Назначает символу круглую подложку и, при необходимости, рамку вокруг круга.
-function Compass:ApplyQuestPinArt(marker, innerAtlas, backgroundAtlas, underlayAtlas, innerWidth, innerHeight)
+-- Назначает символу круглую подложку, выбранный круг и, при необходимости, рамку вокруг круга.
+function Compass:ApplyQuestPinArt(marker, innerAtlas, backgroundAtlas, underlayAtlas, innerWidth, innerHeight, focusedBackground)
     if not marker then
         return
     end
@@ -193,6 +193,12 @@ function Compass:ApplyQuestPinArt(marker, innerAtlas, backgroundAtlas, underlayA
         marker.backgroundWidth, marker.backgroundHeight = self.AtlasSize(backgroundAtlas)
     else
         marker.backgroundAtlas, marker.backgroundWidth, marker.backgroundHeight = nil, nil, nil
+    end
+    if type(focusedBackground) == "string" and focusedBackground ~= "" then
+        marker.backgroundAtlasFocused = focusedBackground
+        marker.backgroundWidthFocused, marker.backgroundHeightFocused = self.AtlasSize(focusedBackground)
+    else
+        marker.backgroundAtlasFocused, marker.backgroundWidthFocused, marker.backgroundHeightFocused = nil, nil, nil
     end
     if type(underlayAtlas) == "string" and underlayAtlas ~= "" then
         marker.underlayAtlas = underlayAtlas

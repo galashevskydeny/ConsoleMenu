@@ -409,8 +409,8 @@ local function registerCameraOptions(category, layout)
     for _, setting in ipairs(cameraSettings) do
         registerDropdown(category, setting, function(value)
             ConsoleMenuDB[setting.variable] = value
-            if setting.variable == "cameraControlEnable" and value == 1 and ConsoleMenu.ApplyCameraZoom then
-                ConsoleMenu:ApplyCameraZoom()
+            if setting.variable == "cameraControlEnable" and ConsoleMenu.OnCameraControlSettingChanged then
+                ConsoleMenu:OnCameraControlSettingChanged(value == 1)
             end
         end)
     end

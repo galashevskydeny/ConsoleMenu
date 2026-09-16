@@ -22,9 +22,43 @@ local lootListBackgroundHOffset = 720
 
 local frameHeight = titleFontSize + itemsPadding + sectionHeight * maxItemsCount + padding * (maxItemsCount - 1) + itemsPadding + captionFontSize
 
-local duration = 8
-local animationDuration = 0.3
+local duration = 6
+local animationDuration = 0.24
 local slideOffset = 32
+local iconStartScale = 0.75
+local iconPeakScale = 1.06
+local iconGrowDuration = 0.18
+local nameDelay = 0.08
+local nameSlideOffset = 22
+local nameMoveDuration = 0.2
+local batchStagger = 0.05
+local nameOutDuration = nameMoveDuration
+local nameOutFadeDuration = nameMoveDuration
+local iconOutDelay = nameDelay
+local iconOutDuration = iconGrowDuration
+local iconOutFadeDuration = iconGrowDuration
+local iconEndScale = 0.75
+local titleOutFadeDuration = animationDuration
+local maxAnimationStep = 0.04
+
+-- Длительность показа строки списка добычи
+function ConsoleMenu:GetLootListDisplayDuration()
+    return duration
+end
+
+-- Длительность анимации заголовка и фона списка добычи
+function ConsoleMenu:GetLootListAnimationDuration()
+    return animationDuration
+end
+
+-- Есть ли сейчас видимые строки списка добычи
+function ConsoleMenu:IsLootListShowing()
+    local lootFrame = ConsoleMenuFrame and ConsoleMenuFrame.LootListFrame
+    if not lootFrame or not lootFrame.DisplayedItems then
+        return false
+    end
+    return #lootFrame.DisplayedItems > 0
+end
 
 -- Текстуры качества реагента для профессии
 local CraftingQualityTexture = {
@@ -40,7 +74,7 @@ local CraftingQualityOffset = {
     [3] = {4, 4},
 }
 
--- Свободные строки: сначала полностью скрытые, затем те, что ещё гаснут
+-- Свободные строки: только полностью скрытые, уходящие не забираем
 local function FindItemFrames()
     if not ConsoleMenuFrame.LootListFrame or not ConsoleMenuFrame.LootListFrame.Items then
         return {}
@@ -50,14 +84,12 @@ local function FindItemFrames()
 
     for i = 1, maxItemsCount do
         local itemFrame = ConsoleMenuFrame.LootListFrame.Items["Item" .. i]
-        if itemFrame and not itemFrame.lootItem and not itemFrame:IsShown() then
-            table.insert(frames, itemFrame)
-        end
-    end
-
-    for i = 1, maxItemsCount do
-        local itemFrame = ConsoleMenuFrame.LootListFrame.Items["Item" .. i]
-        if itemFrame and not itemFrame.lootItem and itemFrame:IsShown() then
+        if itemFrame
+            and not itemFrame.lootItem
+            and not itemFrame:IsShown()
+            and not itemFrame.pendingHide
+            and not itemFrame.contentPlaying
+        then
             table.insert(frames, itemFrame)
         end
     end
@@ -129,6 +161,33 @@ local function EaseOutQuad(progress)
     return 1 - (1 - progress) * (1 - progress)
 end
 
+-- Плавное ускорение от начала перемещения
+local function EaseInQuad(progress)
+    return progress * progress
+end
+
+-- Плавный разгон и замедление, без рывка в начале и в конце
+local function EaseInOutQuad(progress)
+    if progress < 0.5 then
+        return 2 * progress * progress
+    end
+    local rest = 1 - progress
+    return 1 - 2 * rest * rest
+end
+
+-- Масштаб значка при появлении: рост с превышением и посадка
+local function IconAppearScale(progress)
+    if progress < 0.7 then
+        local p = EaseOutQuad(progress / 0.7)
+        return iconStartScale + (iconPeakScale - iconStartScale) * p
+    end
+    local p = (progress - 0.7) / 0.3
+    if p > 1 then
+        p = 1
+    end
+    return iconPeakScale + (1 - iconPeakScale) * EaseOutQuad(p)
+end
+
 -- Текущие смещения строки относительно контейнера списка
 local function GetItemOffsets(itemFrame)
     local x = itemFrame.moveX
@@ -174,6 +233,177 @@ local function ApplyItemPoint(itemFrame, x, y)
     end
 end
 
+-- Сдвигает имя относительно значка
+local function ApplyLabelSlide(itemFrame, x)
+    local label = itemFrame.Label
+    local holder = itemFrame.IconHolder
+    if not label or not holder then
+        return
+    end
+
+    itemFrame.nameSlideX = x
+    label:ClearAllPoints()
+    label:SetPoint("LEFT", holder, "RIGHT", padding + x, 0)
+    label:SetPoint("RIGHT", itemFrame, "RIGHT", -padding, 0)
+    label:SetPoint("TOP", itemFrame, "TOP", 0, 0)
+    label:SetPoint("BOTTOM", itemFrame, "BOTTOM", 0, 0)
+end
+
+-- Ставит масштаб и вертикальный сдвиг значка
+local function ApplyIconPose(itemFrame, scale, offsetY)
+    local icon = itemFrame.Icon
+    if not icon then
+        return
+    end
+
+    itemFrame.iconOffsetY = offsetY or 0
+    icon:SetScale(scale or 1)
+    icon:ClearAllPoints()
+    icon:SetPoint("CENTER", 0, itemFrame.iconOffsetY)
+end
+
+-- Возвращает значок и имя в исходное положение без движения
+local function ResetContentVisuals(itemFrame, appearing)
+    if appearing then
+        ApplyIconPose(itemFrame, iconStartScale, 0)
+        if itemFrame.Icon then
+            itemFrame.Icon:SetAlpha(0)
+        end
+        if itemFrame.Label then
+            itemFrame.Label:SetAlpha(0)
+        end
+        ApplyLabelSlide(itemFrame, -nameSlideOffset)
+    else
+        ApplyIconPose(itemFrame, 1, 0)
+        if itemFrame.Icon then
+            itemFrame.Icon:SetAlpha(1)
+        end
+        if itemFrame.Label then
+            itemFrame.Label:SetAlpha(1)
+        end
+        ApplyLabelSlide(itemFrame, 0)
+    end
+end
+
+-- Останавливает проявление или уход значка и имени
+local function StopContent(itemFrame)
+    if not itemFrame then
+        return
+    end
+    itemFrame.contentPlaying = false
+    itemFrame.contentMode = nil
+end
+
+-- Продвигает проявление или уход значка и имени
+local function AdvanceContent(itemFrame, elapsed)
+    if not itemFrame or not itemFrame.contentPlaying then
+        return false
+    end
+
+    itemFrame.contentElapsed = (itemFrame.contentElapsed or 0) + elapsed
+    local elapsedTime = itemFrame.contentElapsed
+
+    if itemFrame.contentMode == "in" then
+        local t = elapsedTime - (itemFrame.contentDelay or 0)
+        if t < 0 then
+            return true
+        end
+
+        local iconProgress = t / iconGrowDuration
+        if iconProgress > 1 then
+            iconProgress = 1
+        end
+        ApplyIconPose(itemFrame, IconAppearScale(iconProgress), 0)
+        if itemFrame.Icon then
+            local iconAlpha = t / iconGrowDuration
+            if iconAlpha > 1 then
+                iconAlpha = 1
+            end
+            itemFrame.Icon:SetAlpha(EaseOutQuad(iconAlpha))
+        end
+
+        local nameTime = t - nameDelay
+        if nameTime < 0 then
+            if itemFrame.Label then
+                itemFrame.Label:SetAlpha(0)
+            end
+            ApplyLabelSlide(itemFrame, -nameSlideOffset)
+        else
+            local nameProgress = nameTime / nameMoveDuration
+            if nameProgress > 1 then
+                nameProgress = 1
+            end
+            local eased = EaseOutQuad(nameProgress)
+            if itemFrame.Label then
+                itemFrame.Label:SetAlpha(eased)
+            end
+            ApplyLabelSlide(itemFrame, -nameSlideOffset * (1 - eased))
+        end
+
+        if iconProgress >= 1 and nameTime >= nameMoveDuration then
+            StopContent(itemFrame)
+            ResetContentVisuals(itemFrame, false)
+            return false
+        end
+        return true
+    end
+
+    if itemFrame.contentMode == "out" then
+        -- Обратно появлению: сначала сильное гашение, сдвиг почти не читается
+        local nameProgress = elapsedTime / nameOutDuration
+        if nameProgress > 1 then
+            nameProgress = 1
+        end
+        local nameMoved = EaseInQuad(nameProgress)
+        local fromX = itemFrame.nameFromX or 0
+        local fromNameAlpha = itemFrame.nameFromAlpha or 1
+        local fadeProgress = elapsedTime / nameOutFadeDuration
+        if fadeProgress > 1 then
+            fadeProgress = 1
+        end
+        if itemFrame.Label then
+            itemFrame.Label:SetAlpha(fromNameAlpha * (1 - EaseInOutQuad(fadeProgress)))
+        end
+        ApplyLabelSlide(itemFrame, fromX + (-nameSlideOffset - fromX) * nameMoved)
+
+        local fromScale = itemFrame.iconFromScale or 1
+        local fromIconAlpha = itemFrame.iconFromAlpha or 1
+        local iconFadeProgress = elapsedTime / iconOutFadeDuration
+        if iconFadeProgress > 1 then
+            iconFadeProgress = 1
+        end
+        if itemFrame.Icon then
+            itemFrame.Icon:SetAlpha(fromIconAlpha * (1 - EaseInOutQuad(iconFadeProgress)))
+        end
+
+        local iconTime = elapsedTime - iconOutDelay
+        if iconTime < 0 then
+            ApplyIconPose(itemFrame, fromScale, 0)
+            return true
+        end
+
+        local iconProgress = iconTime / iconOutDuration
+        if iconProgress > 1 then
+            iconProgress = 1
+        end
+        local iconEased = EaseOutQuad(iconProgress)
+        ApplyIconPose(
+            itemFrame,
+            fromScale + (iconEndScale - fromScale) * iconEased,
+            0
+        )
+
+        if nameProgress >= 1 and iconProgress >= 1 then
+            StopContent(itemFrame)
+            itemFrame.pendingHide = true
+            return false
+        end
+        return true
+    end
+
+    return false
+end
+
 -- Нижняя граница фона задаётся ниже и следует за последней строкой с предметом
 local ReanchorLootListBackground
 local UpdateLootList
@@ -207,6 +437,10 @@ end
 
 -- Каждый кадр приближает едущие строки и надписи к целевому месту
 local function OnItemsUpdate(items, elapsed)
+    if elapsed > maxAnimationStep then
+        elapsed = maxAnimationStep
+    end
+
     local lootFrame = ConsoleMenuFrame.LootListFrame
     local anyMoving = false
 
@@ -220,15 +454,39 @@ local function OnItemsUpdate(items, elapsed)
     end
 
     for i = 1, maxItemsCount do
-        if AdvanceMotion(items["Item" .. i], elapsed) then
+        local itemFrame = items["Item" .. i]
+        if AdvanceMotion(itemFrame, elapsed) then
+            anyMoving = true
+        end
+        if AdvanceContent(itemFrame, elapsed) then
             anyMoving = true
         end
     end
 
     ReanchorLootListBackground()
 
+    local hiddenAny = false
+    if lootFrame and lootFrame.Items then
+        for i = 1, maxItemsCount do
+            local itemFrame = lootFrame.Items["Item" .. i]
+            if itemFrame and itemFrame.pendingHide then
+                itemFrame.pendingHide = nil
+                StopContent(itemFrame)
+                itemFrame:SetAlpha(1)
+                ResetContentVisuals(itemFrame, false)
+                itemFrame:Hide()
+                hiddenAny = true
+            end
+        end
+    end
+
     if not anyMoving then
         items:SetScript("OnUpdate", nil)
+    end
+
+    -- Очередь занимает слот только после конца ухода, иначе анимация обрывается
+    if hiddenAny then
+        UpdateLootList()
     end
 end
 
@@ -243,7 +501,7 @@ local function EnsureItemsOnUpdate()
 end
 
 -- Направляет строку к новой точке, начиная с текущего или заданного положения
-local function StartItemMotion(itemFrame, targetX, targetY, fromX, fromY)
+local function StartItemMotion(itemFrame, targetX, targetY, fromX, fromY, moveDuration)
     if fromX == nil and fromY == nil
         and itemFrame.isMoving
         and itemFrame.moveToX == targetX
@@ -271,7 +529,7 @@ local function StartItemMotion(itemFrame, targetX, targetY, fromX, fromY)
     itemFrame.moveToX = targetX
     itemFrame.moveToY = targetY
     itemFrame.moveElapsed = 0
-    itemFrame.moveDuration = animationDuration
+    itemFrame.moveDuration = moveDuration or animationDuration
     itemFrame.isMoving = true
     ApplyItemPoint(itemFrame, currentX, currentY)
     EnsureItemsOnUpdate()
@@ -301,6 +559,48 @@ local function SnapItemMotion(itemFrame, x, y)
     ApplyItemPoint(itemFrame, x, y)
 end
 
+-- Начинает появление значка и имени с необязательной задержкой пачки
+local function StartContentIn(itemFrame, delay)
+    StopContent(itemFrame)
+    itemFrame.pendingHide = nil
+    itemFrame:Show()
+    itemFrame:SetAlpha(1)
+    ResetContentVisuals(itemFrame, true)
+    itemFrame.contentMode = "in"
+    itemFrame.contentElapsed = 0
+    itemFrame.contentDelay = delay or 0
+    itemFrame.contentPlaying = true
+    EnsureItemsOnUpdate()
+end
+
+-- Начинает обратный порядок появления: имя за значок, затем толчок значка внутрь
+local function StartContentOut(itemFrame)
+    if not itemFrame or not itemFrame:IsShown() then
+        return
+    end
+
+    itemFrame.pendingHide = nil
+    itemFrame.iconFromScale = itemFrame.Icon and itemFrame.Icon:GetScale() or 1
+    itemFrame.iconFromAlpha = itemFrame.Icon and itemFrame.Icon:GetAlpha() or 1
+    itemFrame.iconFromY = itemFrame.iconOffsetY or 0
+    itemFrame.nameFromX = itemFrame.nameSlideX or 0
+    itemFrame.nameFromAlpha = itemFrame.Label and itemFrame.Label:GetAlpha() or 1
+    itemFrame.contentMode = "out"
+    itemFrame.contentElapsed = 0
+    itemFrame.contentDelay = 0
+    itemFrame.contentPlaying = true
+    EnsureItemsOnUpdate()
+end
+
+-- Настраивает гашение без рывка в конце
+local function PrepareFadeOut(region, fadeDuration)
+    if not region or not region.fadeOut or not region.fadeOut.alpha then
+        return
+    end
+    region.fadeOut.alpha:SetDuration(fadeDuration or animationDuration)
+    region.fadeOut.alpha:SetSmoothing("IN_OUT")
+end
+
 -- Проявляет надпись с заездом слева
 local function ShowLootLabel(holder)
     if not holder then
@@ -315,7 +615,7 @@ local function ShowLootLabel(holder)
     ConsoleMenu:AnimatedShow(holder)
 end
 
--- Гасит надпись с уходом влево
+-- Гасит надпись быстрее значков, с уходом влево
 local function HideLootLabel(holder)
     if not holder or not holder:IsShown() then
         return
@@ -325,7 +625,8 @@ local function HideLootLabel(holder)
     end
 
     local _, currentY = GetItemOffsets(holder)
-    StartItemMotion(holder, -slideOffset, currentY)
+    StartItemMotion(holder, -slideOffset, currentY, nil, nil, titleOutFadeDuration)
+    PrepareFadeOut(holder, titleOutFadeDuration)
     ConsoleMenu:AnimatedHide(holder)
 end
 
@@ -358,24 +659,16 @@ local function UpdateListItemsPoints()
         return (a.startTime or 0) > (b.startTime or 0)
     end)
 
+    local appearIndex = 0
     for i = 1, #frames do
         local itemFrame = frames[i]
         local targetY = GetItemSlotOffset(i)
         if itemFrame.enterFromLeft then
             itemFrame.enterFromLeft = nil
-            -- Новая строка всегда выезжает в свой слот слева, даже если заготовка ещё была на экране
-            if itemFrame:IsShown() then
-                if itemFrame.fadeOut then
-                    itemFrame.fadeOut:Stop()
-                    itemFrame.fadeOut:SetScript("OnFinished", nil)
-                end
-                if itemFrame.fadeIn then
-                    itemFrame.fadeIn:Stop()
-                end
-                itemFrame:Hide()
-                itemFrame:SetAlpha(0)
-            end
-            StartItemMotion(itemFrame, 0, targetY, -slideOffset, targetY)
+            -- Новая строка встаёт в слот на месте: едет только имя, не вся строка
+            SnapItemMotion(itemFrame, 0, targetY)
+            StartContentIn(itemFrame, appearIndex * batchStagger)
+            appearIndex = appearIndex + 1
         else
             StartItemMotion(itemFrame, 0, targetY)
         end
@@ -399,6 +692,7 @@ local function UpdateListItemsTitle()
         ConsoleMenu:PlayFadeIn(CompactRaidFrameContainer)
         HideLootLabel(lootFrame.TitleHolder or lootFrame.Title)
         if lootFrame.background then
+            PrepareFadeOut(lootFrame.background, titleOutFadeDuration)
             ConsoleMenu:AnimatedHide(lootFrame.background)
         end
     end
@@ -410,17 +704,17 @@ local function UpdateListItemsTitle()
     end
 end
 
--- Нижняя граница фона по последней строке с предметом, иначе по ещё видимой уходящей
+-- Нижняя граница фона по самой низкой видимой строке, в том числе уходящей
 ReanchorLootListBackground = function()
     local lootFrame = ConsoleMenuFrame and ConsoleMenuFrame.LootListFrame
-    if not lootFrame or not lootFrame.background or not lootFrame.Title then
+    if not lootFrame or not lootFrame.background then
         return
     end
 
     local background = lootFrame.background
-    background:ClearAllPoints()
-    background:SetPoint("TOPLEFT", lootFrame.Title, "TOPLEFT", -lootListBackgroundHOffset * 1.5, lootListBackgroundVOffset)
-    background:SetPoint("TOPRIGHT", lootFrame.Title, "TOPRIGHT", lootListBackgroundHOffset, lootListBackgroundVOffset)
+    -- Верх держим за сам список: заголовок при уходе уезжает влево и тащил бы тень
+    background:SetPoint("TOPLEFT", lootFrame, "TOPLEFT", -lootListBackgroundHOffset * 1.5, lootListBackgroundVOffset)
+    background:SetPoint("TOPRIGHT", lootFrame, "TOPRIGHT", lootListBackgroundHOffset, lootListBackgroundVOffset)
 
     local displayedCount = #lootFrame.DisplayedItems
     local captionVisible = displayedCount == maxItemsCount and #lootFrame.Queue > 0
@@ -435,23 +729,11 @@ ReanchorLootListBackground = function()
     if lootFrame.Items then
         for i = 1, maxItemsCount do
             local itemFrame = lootFrame.Items["Item" .. i]
-            if itemFrame and itemFrame.lootItem then
+            if itemFrame and itemFrame:IsShown() then
                 local yOffset = GetItemLayoutOffset(itemFrame)
                 if not lowestOffset or yOffset < lowestOffset then
                     lowestOffset = yOffset
                     lastItem = itemFrame
-                end
-            end
-        end
-        if not lastItem then
-            for i = 1, maxItemsCount do
-                local itemFrame = lootFrame.Items["Item" .. i]
-                if itemFrame and itemFrame:IsShown() then
-                    local yOffset = GetItemLayoutOffset(itemFrame)
-                    if not lowestOffset or yOffset < lowestOffset then
-                        lowestOffset = yOffset
-                        lastItem = itemFrame
-                    end
                 end
             end
         end
@@ -508,7 +790,7 @@ local function UpdateItemFrame(frame, item)
     frame.addSequence = item.addSequence
     frame.sortOrder = nil
     frame.lootItem = item
-    -- Новая строка выезжает слева на своё место в столбике
+    -- Новая строка: значок вырастает, имя выезжает следом
     frame.enterFromLeft = true
     frame.displayToken = (frame.displayToken or 0) + 1
     local displayToken = frame.displayToken
@@ -546,18 +828,16 @@ local function UpdateItemFrame(frame, item)
         frame.sortOrder = nil
         frame.enterFromLeft = nil
 
-        -- Уходящая строка гаснет и слегка уезжает влево, остальные сразу поднимаются
-        local _, currentY = GetItemOffsets(frame)
+        -- Уход на месте: соседи не едут вверх, пока строка ещё гаснет
         RaiseDepartingItem(frame)
-        StartItemMotion(frame, -slideOffset, currentY)
-        ConsoleMenu:AnimatedHide(frame)
-        -- Одну перестановку делает обновление списка, без предварительного уплотнения
-        UpdateLootList()
+        StartContentOut(frame)
+        UpdateListItemsTitle()
+        ReanchorLootListBackground()
     end)
 
 end
 
--- Скрывает видимый список при входе в бой и сохраняет очередь не показанной добычи
+-- Скрывает видимый список при входе в бой обычным уходом; очередь не показанной добычи сохраняется
 local function HideLootListForCombat()
     local lootFrame = ConsoleMenuFrame.LootListFrame
     if not lootFrame then
@@ -567,7 +847,6 @@ local function HideLootListForCombat()
     lootFrame.DisplayedItems = {}
 
     if lootFrame.Items then
-        lootFrame.Items:SetScript("OnUpdate", nil)
         for i = 1, maxItemsCount do
             local itemFrame = lootFrame.Items["Item" .. i]
             if itemFrame then
@@ -576,24 +855,41 @@ local function HideLootListForCombat()
                 itemFrame.startTime = nil
                 itemFrame.sortOrder = nil
                 itemFrame.enterFromLeft = nil
-                -- Остаёмся на текущей высоте, без скачка к номеру заготовки
-                local _, currentY = GetItemOffsets(itemFrame)
-                SnapItemMotion(itemFrame, 0, currentY)
-                RestoreItemLevel(itemFrame)
-                ConsoleMenu:AnimatedHide(itemFrame)
+                if itemFrame:IsShown() then
+                    -- В бою уходим на месте, тем же движением, что и по таймеру
+                    local _, currentY = GetItemOffsets(itemFrame)
+                    SnapItemMotion(itemFrame, 0, currentY)
+                    RaiseDepartingItem(itemFrame)
+                    StartContentOut(itemFrame)
+                else
+                    RestoreItemLevel(itemFrame)
+                    StopContent(itemFrame)
+                    itemFrame.pendingHide = nil
+                    ResetContentVisuals(itemFrame, false)
+                end
             end
         end
     end
 
-    if lootFrame.TitleHolder then
-        SnapItemMotion(lootFrame.TitleHolder, 0, lootFrame.TitleHolder.moveBaseY or 0)
-    end
-    if lootFrame.AdditionalItemsCountHolder then
-        SnapItemMotion(lootFrame.AdditionalItemsCountHolder, 0, lootFrame.AdditionalItemsCountHolder.moveBaseY or 0)
-    end
-
     UpdateListItemsTitle()
     ReanchorLootListBackground()
+end
+
+-- Есть ли ещё строки, которые гаснут после снятия с учёта
+local function HasDepartingLootItems()
+    local lootFrame = ConsoleMenuFrame.LootListFrame
+    if not lootFrame or not lootFrame.Items then
+        return false
+    end
+
+    for i = 1, maxItemsCount do
+        local itemFrame = lootFrame.Items["Item" .. i]
+        if itemFrame and itemFrame:IsShown() and (itemFrame.contentPlaying or itemFrame.pendingHide) then
+            return true
+        end
+    end
+
+    return false
 end
 
 -- Функция для обновления списка предметов
@@ -643,14 +939,13 @@ UpdateLootList = function()
 
     UpdateListItemsPoints()
 
-    if processedCount > 0 then
-        for _, data in ipairs(itemsToProcess) do
-            ConsoleMenu:AnimatedShow(data.frame)
-        end
-    end
-
     UpdateListItemsTitle()
     ReanchorLootListBackground()
+
+    -- Сообщает уведомлениям, что список только что вывел новые строки
+    if processedCount > 0 and ConsoleMenu.OnLootListAppeared then
+        ConsoleMenu:OnLootListAppeared()
+    end
 
 end
 
@@ -688,6 +983,7 @@ function ConsoleMenu:SetLootList()
         frame.TitleHolder.moveBaseY = 0
         SnapItemMotion(frame.TitleHolder, 0, 0)
         ConsoleMenu:InitFadeAnimations(frame.TitleHolder, animationDuration)
+        PrepareFadeOut(frame.TitleHolder, titleOutFadeDuration)
         frame.TitleHolder:Hide()
     end
 
@@ -718,6 +1014,7 @@ function ConsoleMenu:SetLootList()
         frame.AdditionalItemsCountHolder.moveBaseY = 0
         SnapItemMotion(frame.AdditionalItemsCountHolder, 0, 0)
         ConsoleMenu:InitFadeAnimations(frame.AdditionalItemsCountHolder, animationDuration)
+        PrepareFadeOut(frame.AdditionalItemsCountHolder, titleOutFadeDuration)
         frame.AdditionalItemsCountHolder:Hide()
     end
 
@@ -739,6 +1036,7 @@ function ConsoleMenu:SetLootList()
         frame.background:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\CrossBackgorund.png")
         frame.background:SetDrawLayer("BACKGROUND", 0)
         ConsoleMenu:InitFadeAnimations(frame.background, animationDuration)
+        PrepareFadeOut(frame.background, titleOutFadeDuration)
         frame.background:Hide()
         ReanchorLootListBackground()
     end
@@ -759,13 +1057,19 @@ function ConsoleMenu:SetLootList()
             item:SetHeight(sectionHeight)
             SnapItemMotion(item, 0, GetItemSlotOffset(i))
             item.baseFrameLevel = item:GetFrameLevel()
-            ConsoleMenu:InitFadeAnimations(item, animationDuration)
+
+            -- Держатель значка, чтобы масштаб рос из центра
+            if not item.IconHolder then
+                item.IconHolder = CreateFrame("Frame", nil, item)
+                item.IconHolder:SetSize(iconSize, iconSize)
+                item.IconHolder:SetPoint("LEFT", sectionPadding, 0)
+            end
 
             -- Иконка
             if not item.Icon then
-                item.Icon = CreateFrame("Frame", nil, item)
+                item.Icon = CreateFrame("Frame", nil, item.IconHolder)
                 item.Icon:SetSize(iconSize, iconSize)
-                item.Icon:SetPoint("LEFT", sectionPadding, 0)
+                item.Icon:SetPoint("CENTER")
             end
 
             if not item.Icon.Texture then
@@ -790,13 +1094,10 @@ function ConsoleMenu:SetLootList()
                 
             end
 
-            -- Текст в отдельной рамке, чтобы проявление строки на него действовало
+            -- Текст в отдельной рамке: выезжает из-за значка отдельно от него
             if not item.Label then
                 item.Label = CreateFrame("Frame", nil, item)
-                item.Label:SetPoint("LEFT", item.Icon, "RIGHT", padding, 0)
-                item.Label:SetPoint("RIGHT", item, "RIGHT", -padding, 0)
-                item.Label:SetPoint("TOP", item, "TOP", 0, 0)
-                item.Label:SetPoint("BOTTOM", item, "BOTTOM", 0, 0)
+                ApplyLabelSlide(item, 0)
             end
 
             if not item.Text then
@@ -832,8 +1133,10 @@ function ConsoleMenu:SetLootList()
             HideLootListForCombat()
             return
         elseif event == "PLAYER_REGEN_ENABLED" then
-            -- После окончания боя показываем накопленную очередь
-            UpdateLootList()
+            -- После боя очередь проявится; если уход ещё идёт, ждём его конца
+            if not HasDepartingLootItems() then
+                UpdateLootList()
+            end
             return
         elseif event == "LOOT_OPENED" then
             -- Отображение предметов из окна добычи

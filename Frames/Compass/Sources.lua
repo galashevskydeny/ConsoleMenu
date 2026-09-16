@@ -72,6 +72,37 @@ local function VignetteKind(info)
     return VIGNETTE_KINDS[atlas] or "poi"
 end
 
+-- Возвращает символ события, как на карте.
+local function EventPinAtlas(info)
+    local C = Compass.Constants
+    if Readable(info.isCurrentEvent) ~= true then
+        return C.EVENT_PIN_ATLAS
+    end
+    local atlas = Readable(info.atlasName)
+    if atlas == "minimap-genericevent-hornicon" then
+        return C.EVENT_PIN_ATLAS
+    end
+    if type(atlas) == "string" and atlas ~= "" then
+        return atlas
+    end
+end
+
+-- Ставит событию пышный круг и уменьшенный символ, как на карте.
+local function ApplyEventPinArt(self, marker)
+    local C = self.Constants
+    local innerWidth, innerHeight = self.AtlasSize(marker.atlas)
+    local scale = C.EVENT_PIN_ICON_SCALE
+    self:ApplyQuestPinArt(
+        marker,
+        marker.atlas,
+        C.EVENT_PIN_BACKGROUND,
+        nil,
+        innerWidth * scale,
+        innerHeight * scale,
+        C.EVENT_PIN_BACKGROUND_FOCUSED
+    )
+end
+
 -- Собирает точки интереса, события, гонки, вылазки и входы. Центры заданий отбрасываются.
 function Compass:CollectMapPoints(markers)
     local C = self.Constants
@@ -93,15 +124,24 @@ function Compass:CollectMapPoints(markers)
                     local info = Readable(C_AreaPoiInfo.GetAreaPOIInfo(self.mapID, id))
                     local marker
                     if type(info) == "table" then
+                        local atlas = info.atlasName
+                        local eventAtlas
+                        if group.kind == "event" then
+                            eventAtlas = EventPinAtlas(info)
+                            atlas = eventAtlas
+                        end
                         marker = self:AddMarker(
                             markers,
                             "poi:" .. id,
                             info.position,
                             info.name,
-                            info.atlasName,
+                            atlas,
                             C.POI_PRIORITY,
                             group.kind
                         )
+                        if marker and eventAtlas then
+                            ApplyEventPinArt(self, marker)
+                        end
                     end
                     local interval = marker and POIRefreshInterval(id) or POI_RETRY_INTERVAL
                     refreshAt = math.min(refreshAt, self.discoveryClock + interval)
@@ -184,13 +224,14 @@ local function AddQuest(self, markers, questID, position, watched, seen, taskOnl
     end
     local isWorld = Readable(C_QuestLog.IsWorldQuest(questID))
     local title, atlas, priority, kind
-    local backgroundAtlas, underlayAtlas, innerWidth, innerHeight
-    local markerProgress, markerClassification
+    local backgroundAtlas, focusedBackground, underlayAtlas, innerWidth, innerHeight
+    local markerProgress, markerComplete, markerClassification
     if isWorld == true and Readable(C_TaskQuest.IsActive(questID)) == true then
         title = C_TaskQuest.GetQuestInfoByQuestID(questID)
         atlas, priority = WORLD_QUEST_ATLAS, C.WORLD_QUEST_PRIORITY
         kind = "worldQuest"
         backgroundAtlas = C.QUEST_PIN_BACKGROUND
+        focusedBackground = C.QUEST_PIN_BACKGROUND_FOCUSED
         local tagInfo = Readable(C_QuestLog.GetQuestTagInfo(questID))
         if tagInfo and QuestUtil and QuestUtil.GetWorldQuestAtlasInfo then
             local worldAtlas, worldWidth, worldHeight = QuestUtil.GetWorldQuestAtlasInfo(questID, tagInfo, false)
@@ -228,19 +269,24 @@ local function AddQuest(self, markers, questID, position, watched, seen, taskOnl
             if classification == Enum.QuestClassification.BonusObjective then
                 atlas = BONUS_OBJECTIVE_ATLAS
                 backgroundAtlas = C.BONUS_OBJECTIVE_BACKGROUND
+                focusedBackground = C.BONUS_OBJECTIVE_BACKGROUND_FOCUSED
             else
                 local theme = Readable(C_QuestLog.GetQuestDetailsTheme(questID))
                 atlas = theme and Readable(theme.poiIcon) or THREAT_ATLAS
                 backgroundAtlas = C.QUEST_PIN_BACKGROUND
+                focusedBackground = C.QUEST_PIN_BACKGROUND_FOCUSED
             end
         elseif not taskOnly and Readable(C_QuestLog.IsOnQuest(questID)) == true then
             title = C_QuestLog.GetTitleForQuestID(questID)
             backgroundAtlas = Compass.QuestPinBackground(classification)
+            focusedBackground = Compass.QuestPinBackgroundFocused(classification)
+            markerClassification = classification
             if Readable(C_QuestLog.IsComplete(questID)) == true then
                 atlas = COMPLETE_ATLASES[classification] or QUEST_COMPLETE_ATLAS
+                markerComplete = true
             else
                 atlas = C.QUEST_PROGRESS_ATLAS
-                markerProgress, markerClassification = true, classification
+                markerProgress = true
             end
         else
             return
@@ -257,8 +303,12 @@ local function AddQuest(self, markers, questID, position, watched, seen, taskOnl
     if marker then
         marker.questID = questID
         marker.questProgress = markerProgress
+        marker.questComplete = markerComplete
         marker.questClassification = markerClassification
-        self:ApplyQuestPinArt(marker, atlas, backgroundAtlas, underlayAtlas, innerWidth, innerHeight)
+        self:ApplyQuestPinArt(marker, atlas, backgroundAtlas, underlayAtlas, innerWidth, innerHeight, focusedBackground)
+        if markerProgress then
+            marker.iconWidthFocused, marker.iconHeightFocused = self.AtlasSize(C.QUEST_PROGRESS_FOCUSED_ATLAS)
+        end
         seen[questID] = true
     end
 end

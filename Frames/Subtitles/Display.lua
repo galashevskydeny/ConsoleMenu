@@ -31,6 +31,13 @@ function Subtitle.SetBackgroundSizeFromContent(frame, contentWidth, contentHeigh
     )
 end
 
+-- Снимает реплики разговора и запускает скрытие окна субтитров.
+function Subtitle.CloseDialogue()
+    Subtitle.closeToken = (Subtitle.closeToken or 0) + 1
+    Subtitle.RemoveByPriority(1)
+    ConsoleMenu:SubtitleFrameUpdate()
+end
+
 -- Назначает следующее обновление, если в очереди ещё есть реплики.
 function Subtitle.ScheduleNextUpdate(current)
     Subtitle.CancelUpdateTimer()

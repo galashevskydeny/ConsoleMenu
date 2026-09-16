@@ -9,6 +9,8 @@ ConsoleMenu.Compass = Compass
 -- Набор точек «поблизости», гаснущие после выхода из него, значки за радиусом, которые ещё доигрывают скрытие, и скрытие выбранной цели.
 Compass.arrivalMarkers, Compass.arrivalKeys, Compass.arrivalLeaving, Compass.nearbyFading, Compass.rangeLeaving =
     {}, {}, {}, {}, {}
+-- Зафиксированные места и ещё не показанные точки на время перестроения ряда.
+Compass.nearbyFrozenPositions, Compass.nearbyDeferredKeys, Compass.nearbyLiveKeys = {}, {}, {}
 Compass.hideNavigationOnBar = false
 
 -- Числа внешнего вида и работы полосы.
@@ -25,11 +27,14 @@ Compass.Constants = {
     RANGE_FLYING = 875,
     VIEW_ANGLE = 90,
     METERS_PER_YARD = 0.9144,
-    NEARBY_METERS = 20,
+    NEARBY_METERS = 10,
+    NEARBY_LEAVE_METERS = 12, -- Дальше этого радиуса точка покидает уже открытый ряд.
     NEARBY_MAX = 3, -- Сколько точек держать в режиме «поблизости».
     NEARBY_SLOT_GAP = 8, -- Зазор между подписями соседних слотов.
     NEARBY_BAND_FRACTION = 0.8, -- Доля длины полосы, которую делят слоты.
-    NEARBY_MOTION_DURATION = 0.15, -- Сдвиг слотов и смена ширины подписи.
+    NEARBY_MOTION_DURATION = 0.1, -- Сдвиг слотов внутри уже открытого ряда.
+    NEARBY_RELAYOUT_DURATION = 0.14, -- Разъезд значков, пока подписи скрыты.
+    NEARBY_LABEL_HIDE_DURATION = 0.04, -- Быстрое скрытие подписи перед перестановкой точек.
     LINE_THICKNESS = 4,
     LINE_ALPHA = 0.6,
     LINE_FADE_FRACTION = 0.18,
@@ -53,7 +58,7 @@ Compass.Constants = {
     FULL_TURN = 360,
     HALF_TURN = 180,
     MAX_MARKERS = 24,
-    MARKER_BASE_LEVEL = 1,
+    MARKER_BASE_LEVEL = 2, -- Выше рамки линии, чтобы значок не уходил под полоску.
     EDGE_INSET = 12,
     EDGE_FADE_FRACTION = 0.25,
     EDGE_CLIP_FRACTION = 0.18,
@@ -73,6 +78,11 @@ Compass.Constants = {
     QUEST_PIN_BACKGROUND = "UI-QuestPoi-QuestNumber", -- Обычный круг точки на карте.
     QUEST_PIN_BACKGROUND_FOCUSED = "UI-QuestPoi-QuestNumber-SuperTracked", -- Жёлтый круг выбранного задания.
     BONUS_OBJECTIVE_BACKGROUND = "worldquest-questmarker-epic", -- Пышный круг дополнительной цели.
+    BONUS_OBJECTIVE_BACKGROUND_FOCUSED = "worldquest-questmarker-epic-supertracked", -- Пышный круг выбранной дополнительной цели.
+    EVENT_PIN_BACKGROUND = "worldquest-questmarker-epic", -- Круг события на карте.
+    EVENT_PIN_BACKGROUND_FOCUSED = "worldquest-questmarker-epic-supertracked", -- Круг выбранного события.
+    EVENT_PIN_ATLAS = "UI-EventPoi-Horn-big", -- Запасной символ события.
+    EVENT_PIN_ICON_SCALE = 0.72, -- Символ события чуть меньше круга, как на карте.
     ELITE_WORLD_QUEST_UNDERLAY = "worldquest-questmarker-dragon", -- Рамка элитного мирового задания.
     TRACKED_GLOW_ATLAS = "housing-basic-panel-gradient-header-bg",
     TRACKED_GLOW_WIDTH_SCALE = 9, -- Ширина подсветки относительно запасного размера значка.
@@ -85,12 +95,15 @@ Compass.Constants = {
     LABEL_CAPTION_ALPHA = 0.6,
     LABEL_SHOW_ALPHA = 0.8, -- Подпись появляется, когда значок уже хорошо виден.
     LABEL_HIDE_ALPHA = 0.35, -- Подпись гаснет, когда значок снова становится тусклым.
-    LABEL_FADE_DURATION = 0.2, -- То же время, что у появления значка.
+    LABEL_FADE_DURATION = 0.1, -- Скрытие и проявление подписи.
     LABEL_SHADOW_TEXTURE = "Interface\\AddOns\\ConsoleMenu\\Assets\\HalfShadow.png",
     LABEL_SHADOW_FADE = 128, -- Запас высоты, чтобы мягкий край рисунка ушёл ниже текста.
     LABEL_SHADOW_OFFSET_Y = 0, -- Сдвиг нижней подложки от края полоски.
     LINE_Y_FRACTION = -0.22,
-    DETAIL_ANGLE = 12,
+    DETAIL_ANGLE = 12, -- Появление центральной подписи.
+    DETAIL_HIDE_ANGLE = 18, -- Пока точка в этом конусе, центральная подпись не пропадает.
+    DETAIL_SWITCH_HOLD = 0.12, -- Новая точка должна побыть ближе, прежде чем сменить надпись.
+    DETAIL_EMPTY_HOLD = 0.1, -- Пауза без точки в центре, прежде чем полностью скрыть подпись.
     WAYPOINT_PRIORITY = 1,
     TRACKED_QUEST_PRIORITY = 2,
     VIGNETTE_PRIORITY = 3,
@@ -119,10 +132,16 @@ Compass.Constants.MARKER_ART_FIELDS = {
     "backgroundAtlas",
     "backgroundWidth",
     "backgroundHeight",
+    "backgroundAtlasFocused",
+    "backgroundWidthFocused",
+    "backgroundHeightFocused",
+    "iconWidthFocused",
+    "iconHeightFocused",
     "underlayAtlas",
     "underlayWidth",
     "underlayHeight",
     "questProgress",
+    "questComplete",
     "questClassification",
 }
 
@@ -149,9 +168,11 @@ Compass.Constants.QUEST_PIN_BACKGROUNDS_FOCUSED = {
 -- Размер значка по имени атласа, если родной рисунок не подходит для полосы.
 Compass.Constants.MARKER_ATLAS_SIZES = {}
 
--- Квадрат дальности прибытия в ярдах, чтобы не извлекать корень на каждом кадре.
+-- Квадраты дальности входа и выхода в ярдах, чтобы не извлекать корень на каждом кадре.
 do
     local C = Compass.Constants
-    local yards = C.NEARBY_METERS / C.METERS_PER_YARD
-    C.NEARBY_YARDS_SQUARED = yards * yards
+    local enterYards = C.NEARBY_METERS / C.METERS_PER_YARD
+    local leaveYards = C.NEARBY_LEAVE_METERS / C.METERS_PER_YARD
+    C.NEARBY_YARDS_SQUARED = enterYards * enterYards
+    C.NEARBY_LEAVE_YARDS_SQUARED = leaveYards * leaveYards
 end

@@ -87,6 +87,9 @@ function Compass:UpdateBearings(x, y)
         wipe(self.nearbyFading)
         wipe(self.rangeLeaving)
         self.nearbyDisplayWidth, self.nearbySlotWidth = nil, nil
+        self.nearbyLiveCount = 0
+        wipe(self.nearbyLiveKeys)
+        self:ClearNearbyReflow()
         self.arrivalBlend, self.arrivalEase, self.arrivalBlendPending = 0, 0, false
         self.selectionDirty = true
         wipe(self.bearings)
@@ -207,10 +210,106 @@ local function RemoveHiddenNavigation(self, list)
     return changed
 end
 
+-- Возвращает имя для объединения одинаковых точек «поблизости».
+local function NearbyCollapseName(marker)
+    local name = marker and marker.name
+    if type(name) ~= "string" or name == "" then
+        return nil
+    end
+    return name
+end
+
+-- Истина, если первая точка ближе второй или при равной дальности её ключ меньше.
+local function NearbyCloser(a, b)
+    local first = type(a.distanceSquared) == "number" and a.distanceSquared or math.huge
+    local second = type(b.distanceSquared) == "number" and b.distanceSquared or math.huge
+    if first ~= second then
+        return first < second
+    end
+    return a.key < b.key
+end
+
+-- Строит соответствие имени к номеру слота в ряду «поблизости».
+local function NearbyNameSlots(held)
+    local names = {}
+    for index = 1, #held do
+        local name = NearbyCollapseName(held[index])
+        if name then
+            names[name] = index
+        end
+    end
+    return names
+end
+
+-- Оставляет в ряду одну точку на имя: ближайшую.
+local function CollapseNearbyNames(held, keys, dropped)
+    local seen = {}
+    local write = 1
+    for index = 1, #held do
+        local marker = held[index]
+        local name = NearbyCollapseName(marker)
+        if not name then
+            if write ~= index then
+                held[write] = marker
+            end
+            write = write + 1
+        elseif not seen[name] then
+            seen[name] = write
+            if write ~= index then
+                held[write] = marker
+            end
+            write = write + 1
+        elseif NearbyCloser(marker, held[seen[name]]) then
+            local other = held[seen[name]]
+            dropped = dropped or {}
+            dropped[#dropped + 1] = other
+            keys[other.key] = nil
+            held[seen[name]] = marker
+        else
+            dropped = dropped or {}
+            dropped[#dropped + 1] = marker
+            keys[marker.key] = nil
+        end
+    end
+    for index = #held, write, -1 do
+        held[index] = nil
+    end
+    return dropped
+end
+
+-- Истина, если набор точек ряда отличается от предыдущего.
+local function NearbySetChanged(previousKeys, held)
+    local count = #held
+    local seen = 0
+    if previousKeys then
+        for _ in pairs(previousKeys) do
+            seen = seen + 1
+        end
+    end
+    if seen ~= count then
+        return true
+    end
+    for index = 1, count do
+        if not previousKeys[held[index].key] then
+            return true
+        end
+    end
+    return false
+end
+
+-- Запоминает ключи точек текущего ряда.
+local function StoreNearbyKeys(keys, held)
+    wipe(keys)
+    for index = 1, #held do
+        keys[held[index].key] = true
+    end
+end
+
 -- Собирает до трёх точек в радиусе прибытия или в области выполнения задания.
 function Compass:RefreshArrival()
     local C = self.Constants
-    local limit = C.NEARBY_YARDS_SQUARED
+    local enterLimit = C.NEARBY_YARDS_SQUARED
+    local leaveLimit = C.NEARBY_LEAVE_YARDS_SQUARED
     local maxCount = C.NEARBY_MAX
     local held, keys, list = self.arrivalMarkers, self.arrivalKeys, self.markers
     local changed = RemoveHiddenNavigation(self, held)
@@ -230,7 +329,7 @@ function Compass:RefreshArrival()
         if live then
             self:RefreshMarkerBearing(live)
         end
-        if live and not self:ShouldHideNavigationMarker(live) and self:IsNearbyCandidate(live, limit) then
+        if live and not self:ShouldHideNavigationMarker(live) and self:IsNearbyCandidate(live, leaveLimit) then
             if held[write] ~= live then
                 changed = true
             end
@@ -251,20 +350,46 @@ function Compass:RefreshArrival()
     for index = 1, #held do
         keys[held[index].key] = true
     end
+    local droppedCount = dropped and #dropped or 0
+    dropped = CollapseNearbyNames(held, keys, dropped)
+    if (dropped and #dropped or 0) ~= droppedCount then
+        changed = true
+    end
+    local names = NearbyNameSlots(held)
+    -- Более близкая точка с тем же именем занимает слот, число секций не растёт.
+    for _, marker in ipairs(list) do
+        if not keys[marker.key] and not self:ShouldHideNavigationMarker(marker) and self:IsNearbyCandidate(marker, enterLimit) then
+            local name = NearbyCollapseName(marker)
+            local slot = name and names[name]
+            if slot and NearbyCloser(marker, held[slot]) then
+                local other = held[slot]
+                dropped = dropped or {}
+                dropped[#dropped + 1] = other
+                keys[other.key] = nil
+                CancelNearbyFade(self, marker)
+                held[slot] = marker
+                keys[marker.key] = true
+                changed = true
+            end
+        end
+    end
     while #held < maxCount do
         local best, bestDistance
         for _, marker in ipairs(list) do
-            if not keys[marker.key] and not self:ShouldHideNavigationMarker(marker) and self:IsNearbyCandidate(marker, limit) then
-                local distanceSquared = marker.distanceSquared
-                if type(distanceSquared) ~= "number" then
-                    distanceSquared = math.huge
-                end
-                if
-                    not best
-                    or distanceSquared < bestDistance
-                    or (distanceSquared == bestDistance and marker.key < best.key)
-                then
-                    best, bestDistance = marker, distanceSquared
+            if not keys[marker.key] and not self:ShouldHideNavigationMarker(marker) and self:IsNearbyCandidate(marker, enterLimit) then
+                local name = NearbyCollapseName(marker)
+                if not (name and names[name]) then
+                    local distanceSquared = marker.distanceSquared
+                    if type(distanceSquared) ~= "number" then
+                        distanceSquared = math.huge
+                    end
+                    if
+                        not best
+                        or distanceSquared < bestDistance
+                        or (distanceSquared == bestDistance and marker.key < best.key)
+                    then
+                        best, bestDistance = marker, distanceSquared
+                    end
                 end
             end
         end
@@ -274,6 +399,10 @@ function Compass:RefreshArrival()
         CancelNearbyFade(self, best)
         held[#held + 1] = best
         keys[best.key] = true
+        local name = NearbyCollapseName(best)
+        if name then
+            names[name] = #held
+        end
         changed = true
     end
     -- Последняя точка гаснет вместе с режимом, остальные — на своём месте.
@@ -282,6 +411,24 @@ function Compass:RefreshArrival()
             self:QueueNearbyFade(dropped[index])
         end
     end
+    local newCount = #held
+    if not self.nearbyLiveKeys then
+        self.nearbyLiveKeys = {}
+    end
+    local compositionChanged = NearbySetChanged(self.nearbyLiveKeys, held)
+    if newCount == 0 then
+        self:ClearNearbyReflow()
+        wipe(self.nearbyLiveKeys)
+    elseif
+        not self.snapArrivalOnShow
+        and (self.arrivalBlend or 0) >= 1
+        and (self.nearbyLiveCount or 0) > 0
+        and compositionChanged
+    then
+        self:BeginNearbyReflow()
+    end
+    self.nearbyLiveCount = newCount
+    StoreNearbyKeys(self.nearbyLiveKeys, held)
     if changed then
         self.selectionDirty = true
         self.renderDirty = true

@@ -2,6 +2,7 @@
 
 local ConsoleMenu = _G.ConsoleMenu
 local Gossip = ConsoleMenu.Gossip
+local Subtitle = ConsoleMenu.Subtitle
 
 -- Создание окна диалогов и заданий.
 function ConsoleMenu:SetCustomGossipFrame()
@@ -80,6 +81,7 @@ function ConsoleMenu:SetCustomGossipFrame()
         ConsoleMenu:RemoveWindow(Enum.PlayerInteractionType.Gossip)
         ConsoleMenu:RemoveWindow(Enum.PlayerInteractionType.QuestGiver)
         ConsoleMenu:ApplyContextUIChanges()
+        Subtitle.CloseDialogue()
     end
 
     Gossip.HideWindowNow = HideGossipWindowNow

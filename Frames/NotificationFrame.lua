@@ -8,8 +8,9 @@ local titleFontSize = 24
 local fontSize = 20
 local captionFontSize = 16
 
-local animationDuration = 0.3
 local delay = 0.5
+local fallbackLootDisplayDuration = 6
+local fallbackLootAnimationDuration = 0.24
 
 -- Номер валюты торговца за золото
 local tradersTenderCurrencyID = 2032
@@ -47,10 +48,7 @@ local NotificationEventPriority = {
 local NotificationDuration = {
     UI_ERROR_MESSAGE = 3,
 
-    CHAT_MSG_MONEY = 5,
     CHAT_MSG_COMBAT_FACTION_CHANGE = 5,
-    CURRENCY_DISPLAY_UPDATE = 5,
-    PERKS_PROGRAM_CURRENCY_AWARDED = 5,
     UPDATE_PENDING_MAIL = 10,
 
     ZONE_CHANGED_NEW_AREA = 5,
@@ -59,11 +57,50 @@ local NotificationDuration = {
     UI_INFO_MESSAGE = 5,
 }
 
+-- События получения золота и валюты
+local CurrencyNotificationEvents = {
+    CHAT_MSG_MONEY = true,
+    CURRENCY_DISPLAY_UPDATE = true,
+    PERKS_PROGRAM_CURRENCY_AWARDED = true,
+}
+
 -- Срок подавления повторного названия одной и той же области
 local deduplicationDuration = 45
 
+-- Определяет уведомление о получении золота или валюты
+local function IsCurrencyNotification(event)
+    return CurrencyNotificationEvents[event]
+end
+
+-- Золото и валюту в бою не показываем: оставляем в очереди до конца боя
+local function IsCurrencyDeferredInCombat(event)
+    return IsCurrencyNotification(event) and InCombatLockdown()
+end
+
+-- Список добычи уже на экране, валюту нужно показать сразу
+local function ShouldShowCurrencyWithLootList(event)
+    return IsCurrencyNotification(event)
+        and not InCombatLockdown()
+        and ConsoleMenu.IsLootListShowing
+        and ConsoleMenu:IsLootListShowing()
+end
+
+-- Длительность анимации списка добычи, с запасным значением
+local function GetAnimationDuration()
+    if ConsoleMenu.GetLootListAnimationDuration then
+        return ConsoleMenu:GetLootListAnimationDuration()
+    end
+    return fallbackLootAnimationDuration
+end
+
 -- Возвращает длительность показа для события
 local function GetNotificationDuration(event)
+    if IsCurrencyNotification(event) then
+        if ConsoleMenu.GetLootListDisplayDuration then
+            return ConsoleMenu:GetLootListDisplayDuration()
+        end
+        return fallbackLootDisplayDuration
+    end
     return NotificationDuration[event] or 5
 end
 
@@ -296,10 +333,12 @@ local function GetTopPriorityNotification()
 
     for i = #ConsoleMenu.Notifications, 1, -1 do
         local notification = ConsoleMenu.Notifications[i]
-        local priority = GetNotificationPriority(notification.event)
-        if not minPriority or priority < minPriority then
-            minPriority = priority
-            minNotification = notification
+        if not IsCurrencyDeferredInCombat(notification.event) then
+            local priority = GetNotificationPriority(notification.event)
+            if not minPriority or priority < minPriority then
+                minPriority = priority
+                minNotification = notification
+            end
         end
     end
 
@@ -552,7 +591,7 @@ local function ApplyNotificationContent(notification)
     end
 
     if event == "UPDATE_PENDING_MAIL" then
-        ConsoleMenu.Deduplication[mailDeduplicationKey] = GetTime() + GetNotificationDuration(event) + animationDuration + delay
+        ConsoleMenu.Deduplication[mailDeduplicationKey] = GetTime() + GetNotificationDuration(event) + GetAnimationDuration() + delay
     end
 
     ScheduleNotificationFrameHeightUpdate(frame)
@@ -562,7 +601,7 @@ end
 local function HideAndContinue(generation)
     ClearCommitment()
     ConsoleMenu:AnimatedHide(ConsoleMenuFrame.NotificationFrame)
-    transitionTimer = C_Timer.NewTimer(animationDuration + delay, function()
+    transitionTimer = C_Timer.NewTimer(GetAnimationDuration() + delay, function()
         transitionTimer = nil
         if generation ~= showGeneration then
             return
@@ -673,6 +712,14 @@ function ConsoleMenu:NotificationFrameUpdate()
         committedVisible = false
         ApplyNotificationContent(notification)
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.QueueStatusToastFrame)
+        if ShouldShowCurrencyWithLootList(notification.event) then
+            local generation = showGeneration
+            local duration = GetNotificationDuration(notification.event)
+            transitionTimer:Cancel()
+            transitionTimer = nil
+            ForceAnimatedShow(frame)
+            StartDisplayTimer(generation, duration)
+        end
         return
     end
 
@@ -686,14 +733,15 @@ function ConsoleMenu:NotificationFrameUpdate()
 
         local duration = GetNotificationDuration(notification.event)
         local fadeOutPlaying = IsFadingOut(frame)
+        local showWithLootList = ShouldShowCurrencyWithLootList(notification.event)
 
         if frame:IsShown() and not fadeOutPlaying then
             StartDisplayTimer(generation, duration)
-        elseif fadeOutPlaying then
+        elseif fadeOutPlaying or showWithLootList then
             ForceAnimatedShow(frame)
             StartDisplayTimer(generation, duration)
         else
-            transitionTimer = C_Timer.NewTimer(animationDuration + delay, function()
+            transitionTimer = C_Timer.NewTimer(GetAnimationDuration() + delay, function()
                 transitionTimer = nil
                 if generation ~= showGeneration then
                     return
@@ -704,8 +752,12 @@ function ConsoleMenu:NotificationFrameUpdate()
         end
     else
         ClearCommitment()
+        -- В бою золото и валюта остаются в очереди: рамку не трогаем, если она уже скрыта
+        if InCombatLockdown() and not frame:IsShown() and not IsFadingOut(frame) then
+            return
+        end
         ConsoleMenu:AnimatedHide(frame)
-        transitionTimer = C_Timer.NewTimer(animationDuration + delay, function()
+        transitionTimer = C_Timer.NewTimer(GetAnimationDuration() + delay, function()
             transitionTimer = nil
             if generation ~= showGeneration then
                 return
@@ -713,6 +765,53 @@ function ConsoleMenu:NotificationFrameUpdate()
             ConsoleMenu:QueueStatusToastFrameUpdate()
         end)
     end
+end
+
+-- Возвращает золото и валюту в очередь и скрывает рамку на время боя
+local function DeferCurrencyForCombat()
+    if not committedNotification or not IsCurrencyNotification(committedNotification.event) then
+        return
+    end
+
+    if ConsoleMenu.Notifications then
+        table.insert(ConsoleMenu.Notifications, committedNotification)
+    end
+    committedNotification = nil
+    committedVisible = false
+
+    local generation = BeginShowGeneration()
+    local frame = ConsoleMenuFrame.NotificationFrame
+    ConsoleMenu:AnimatedHide(frame)
+    transitionTimer = C_Timer.NewTimer(GetAnimationDuration() + delay, function()
+        transitionTimer = nil
+        if generation ~= showGeneration then
+            return
+        end
+        ConsoleMenu:NotificationFrameUpdate()
+    end)
+end
+
+-- Показывает ожидающее золото или валюту вместе со списком добычи
+function ConsoleMenu:OnLootListAppeared()
+    if InCombatLockdown() then
+        return
+    end
+    if not committedNotification or committedVisible then
+        return
+    end
+    if not IsCurrencyNotification(committedNotification.event) then
+        return
+    end
+    if not transitionTimer then
+        return
+    end
+
+    local generation = showGeneration
+    local duration = GetNotificationDuration(committedNotification.event)
+    transitionTimer:Cancel()
+    transitionTimer = nil
+    ForceAnimatedShow(ConsoleMenuFrame.NotificationFrame)
+    StartDisplayTimer(generation, duration)
 end
 
 -- Создаёт рамку уведомлений и подписывается на события клиента
@@ -734,7 +833,7 @@ function ConsoleMenu:SetNotificationFrame()
     local frame = ConsoleMenuFrame.NotificationFrame
     frame:SetSize(frameWidth, frameHeight)
     frame:SetPoint("TOPLEFT", ConsoleMenuFrame, "TOPLEFT", 72, -72)
-    ConsoleMenu:InitFadeAnimations(frame, animationDuration)
+    ConsoleMenu:InitFadeAnimations(frame, GetAnimationDuration())
     frame:Hide()
 
     -- Основной текст уведомления
@@ -777,11 +876,21 @@ function ConsoleMenu:SetNotificationFrame()
     frame:RegisterEvent("ZONE_CHANGED")
     frame:RegisterEvent("ZONE_CHANGED_INDOORS")
     frame:RegisterEvent("UI_INFO_MESSAGE")
+    frame:RegisterEvent("PLAYER_REGEN_DISABLED")
+    frame:RegisterEvent("PLAYER_REGEN_ENABLED")
 
     -- Обрабатывает события клиента и ставит уведомления в очередь
     local function OnNotificationEvent(self, event, ...)
 
-        if event == "UI_ERROR_MESSAGE" then
+        if event == "PLAYER_REGEN_DISABLED" then
+            DeferCurrencyForCombat()
+            return
+
+        elseif event == "PLAYER_REGEN_ENABLED" then
+            ConsoleMenu:NotificationFrameUpdate()
+            return
+
+        elseif event == "UI_ERROR_MESSAGE" then
 
             -- Если выбран стандартный стиль ошибок интерфейса
             if ConsoleMenuDB.errorsFrameStyle == 1 then return end

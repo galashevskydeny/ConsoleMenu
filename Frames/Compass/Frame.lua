@@ -99,6 +99,9 @@ function Compass:RefreshVisibility()
             self:InitializeDiscovery()
             wipe(self.markers)
             wipe(self.bearings)
+        else
+            -- Обводка названий не гаснет вместе с полосой, поэтому подписи снимаем сразу.
+            self:HideAllNearbyLabels()
         end
         if self.frame then
             ConsoleMenu:AnimatedHide(self.frame)
@@ -113,6 +116,11 @@ function Compass:RefreshVisibility()
         return
     end
     if self.frame then
+        local fadeOutPlaying = self.frame.fadeOut and self.frame.fadeOut:IsPlaying()
+        local alreadyVisible = self.frame:IsShown() and self.updating and not fadeOutPlaying
+        if alreadyVisible then
+            return
+        end
         -- Пока рамка проявляется, режим «поблизости» ставим сразу, без перехода с обычной полосы.
         self.snapArrivalOnShow = true
         if #self.markers == 0 then
@@ -204,6 +212,7 @@ function Compass:OnUpdate(elapsed)
             or self.markerSmoothPending
             or self.arrivalBlendPending
             or self.nearbyMotionPending
+            or self.detailAnimPending
             or self.renderFacing ~= facing
         )
     then
@@ -255,6 +264,7 @@ function ConsoleMenu:SetCompassFrame()
     Compass.markers, Compass.bearings = {}, {}
     Compass.selectionKeys = {}
     Compass.arrivalMarkers, Compass.arrivalKeys, Compass.arrivalLeaving, Compass.nearbyFading = {}, {}, {}, {}
+    Compass.nearbyLiveKeys = {}
     Compass.hideNavigationOnBar = false
     Compass.arrivalBlend, Compass.arrivalEase, Compass.arrivalBlendPending, Compass.arrivalFanReveal = 0, 0, false, false
     Compass.viewAngle = C.VIEW_ANGLE
@@ -286,6 +296,7 @@ function ConsoleMenu:SetCompassFrame()
     frame:SetScript("OnHide", function()
         Compass:HidePeek()
         Compass:HideDetail(true)
+        Compass:HideAllNearbyLabels()
         Compass:SetLabelShadowShown(false, true)
     end)
     frame:SetScript("OnShow", function()
