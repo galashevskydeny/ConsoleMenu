@@ -117,6 +117,12 @@ function Compass:InitializeDiscovery()
     self.discoveryClock, self.discoveryNext = 0, 0
     self.bearingSampleX = nil
     self.selectionKeys = {}
+    if self.questAreaState then
+        wipe(self.questAreaState)
+    else
+        self.questAreaState = {}
+    end
+    self.hideNavigationState = nil
     self.compassSources = {}
     for _, definition in ipairs(SOURCES) do
         self.compassSources[definition.key] = { markers = {}, dirty = true, nextAllowed = 0, nextRefresh = 0 }

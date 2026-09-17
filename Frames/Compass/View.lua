@@ -70,19 +70,18 @@ function Compass:CreateView()
         self.ticks[#self.ticks + 1] = tick
     end
     self:CreateMarkerPool()
-    -- Подложка под сторонами света: проявляется вместе с полосой, без отдельной анимации.
+    -- Подложка под названиями: прозрачность совпадает с подписью, без отдельного проявления.
     local shadowFrame = CreateFrame("Frame", nil, frame)
     shadowFrame:EnableMouse(false)
     shadowFrame:SetClipsChildren(false)
-    shadowFrame:SetAlpha(1)
-    shadowFrame:Show()
+    shadowFrame:Hide()
     local shadow = shadowFrame:CreateTexture(nil, "BACKGROUND")
     shadow:SetTexture(C.LABEL_SHADOW_TEXTURE)
     shadow:SetSnapToPixelGrid(true)
     shadow:SetTexelSnappingBias(0)
     self.labelShadowBottom = shadow
     self.labelShadow = shadowFrame
-    self.labelShadowShown = true
+    self.labelShadowShown = false
     -- Название и подпись выбранной точки, проявляются отдельно от значка.
     local detailFrame = CreateFrame("Frame", nil, frame)
     detailFrame:EnableMouse(false)
@@ -243,13 +242,6 @@ function Compass:RestoreViewAlpha()
         self:StylePeek(C.FONT_SIZE, true)
     end
     self:RestoreMarkerAlphas()
-    if self.labelShadow then
-        self.labelShadow:SetAlpha(1)
-        if self.frame and self.frame:IsShown() then
-            self.labelShadow:Show()
-            self.labelShadowShown = true
-        end
-    end
     self.renderDirty = true
 end
 
@@ -282,7 +274,7 @@ function Compass:ClearMarkers()
     self.arrivalBlendFrom, self.arrivalBlendGoal, self.arrivalBlendElapsed = 0, 0, 0
     self.selectionDirty, self.markerSlotsDirty, self.headingsDirty = true, true, true
     self:HideDetail(true)
-    self:SetLabelShadowShown(false)
+    self:SetLabelShadowShown(false, true)
     self.renderDirty = true
 end
 
@@ -355,7 +347,57 @@ local function StopFade(frame)
     frame:SetAlpha(1)
 end
 
--- Показывает или прячет подложку; отдельная анимация не нужна: прозрачность берётся у полосы.
+-- Текущая прозрачность рамки с учётом идущего проявления или скрытия.
+local function GetFrameFadeAlpha(frame)
+    if not frame then
+        return 0
+    end
+    local group
+    if frame.fadeOut and frame.fadeOut:IsPlaying() then
+        group = frame.fadeOut
+    elseif frame.fadeIn and frame.fadeIn:IsPlaying() then
+        group = frame.fadeIn
+    end
+    if group and group.alpha then
+        local anim = group.alpha
+        local progress = anim.GetSmoothProgress and anim:GetSmoothProgress() or group:GetProgress() or 0
+        return anim:GetFromAlpha() + (anim:GetToAlpha() - anim:GetFromAlpha()) * progress
+    end
+    if not frame:IsShown() then
+        return 0
+    end
+    return frame:GetAlpha() or 0
+end
+
+-- Идёт ли проявление или скрытие рамки.
+local function IsFrameFadePlaying(frame)
+    return frame
+        and (
+            (frame.fadeIn and frame.fadeIn:IsPlaying())
+            or (frame.fadeOut and frame.fadeOut:IsPlaying())
+        )
+end
+
+-- Нужно ли продолжать кадры, пока подпись, название или тень ещё проявляются.
+function Compass:HasLabelFadePending()
+    if IsFrameFadePlaying(self.detailFrame) then
+        return true
+    end
+    if self.labelShadowPending then
+        return true
+    end
+    local slots = self.markerSlots
+    if slots then
+        for index = 1, #slots do
+            if IsFrameFadePlaying(slots[index].labelFrame) then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+-- Ставит подложку сразу, без собственной анимации.
 function Compass:SetLabelShadowShown(shown)
     local frame = self.labelShadow
     if not frame then
@@ -363,23 +405,101 @@ function Compass:SetLabelShadowShown(shown)
     end
     shown = shown and true or false
     StopFade(frame)
-    frame:SetAlpha(1)
-    frame:SetShown(shown)
+    if shown then
+        frame:SetAlpha(1)
+        frame:Show()
+        self.labelShadowHeldAlpha = 1
+    else
+        frame:Hide()
+        frame:SetAlpha(1)
+        self.labelShadowHeldAlpha = 0
+    end
     self.labelShadowShown = shown
+    self.labelShadowHoldElapsed = 0
+    self.labelShadowPending = false
 end
 
--- Подложка идёт вместе с полосой: стороны света под линией есть всегда.
-function Compass:RefreshLabelShadow()
-    local frame = self.frame
-    local shown = frame and frame:IsShown() and true or false
-    if shown and (self.inInstance or self.hiddenByGame or self.hiddenByContext or self.hiddenByProgress) then
-        shown = false
+-- Подложка повторяет подписи; при смене точки держит паузу и не гаснет в промежутке.
+function Compass:RefreshLabelShadow(incoming)
+    local frame = self.labelShadow
+    if not frame then
+        return
     end
-    if not shown and frame and frame.fadeOut and frame.fadeOut:IsPlaying() then
-        -- Пока полоса гаснет, подложка остаётся и тускнеет вместе с ней.
-        shown = true
+    local C = self.Constants
+    local live = GetFrameFadeAlpha(self.detailFrame)
+    local slots = self.markerSlots
+    if slots then
+        for index = 1, #slots do
+            local labelAlpha = GetFrameFadeAlpha(slots[index].labelFrame)
+            if labelAlpha > live then
+                live = labelAlpha
+            end
+        end
     end
-    self:SetLabelShadowShown(shown)
+    if not incoming then
+        incoming = self.detailPendingMarker ~= nil
+            or self.detailSwapTarget ~= nil
+            or self.detailSwapPhase ~= nil
+            or (self.arrivalMarkers and #self.arrivalMarkers > 0)
+        local phase = self.nearbyReflowPhase
+        if phase == "hide" or phase == "move" then
+            incoming = true
+        end
+    end
+    local elapsed = self.markerSmoothElapsed or 0
+    local held = self.labelShadowHeldAlpha or 0
+    local alpha
+    if live > 0.01 then
+        -- Пока следующая подпись ещё не на полной силе, тень не повторяет угасание.
+        if incoming and held > live then
+            alpha = held
+            self.labelShadowPending = true
+        else
+            alpha = live
+            self.labelShadowHeldAlpha = live
+            self.labelShadowHoldElapsed = 0
+            self.labelShadowPending = false
+        end
+    elseif incoming and held > 0.01 then
+        alpha = held
+        self.labelShadowHoldElapsed = 0
+        self.labelShadowPending = true
+    elseif held > 0.01 then
+        self.labelShadowHoldElapsed = (self.labelShadowHoldElapsed or 0) + elapsed
+        local hold = C.LABEL_SHADOW_HOLD
+        if self.labelShadowHoldElapsed < hold then
+            alpha = held
+            self.labelShadowPending = true
+        else
+            local fadeElapsed = self.labelShadowHoldElapsed - hold
+            local duration = C.LABEL_FADE_DURATION
+            local progress = duration > 0 and fadeElapsed / duration or 1
+            if progress >= 1 then
+                alpha = 0
+                self.labelShadowHeldAlpha = 0
+                self.labelShadowHoldElapsed = 0
+                self.labelShadowPending = false
+            else
+                local rest = 1 - progress
+                alpha = held * rest * rest
+                self.labelShadowPending = true
+            end
+        end
+    else
+        alpha = 0
+        self.labelShadowHoldElapsed = 0
+        self.labelShadowPending = false
+    end
+    if alpha > 0.01 then
+        frame:Show()
+        frame:SetAlpha(alpha)
+        self.labelShadowShown = true
+    else
+        StopFade(frame)
+        frame:Hide()
+        frame:SetAlpha(1)
+        self.labelShadowShown = false
+    end
 end
 
 -- Сбрасывает удержание и смену центральной подписи.
@@ -626,6 +746,15 @@ function Compass:Render(facing, live, elapsed)
     self:LayoutMarkerGroups(selection)
     self:AssignMarkerSlots(selection, live)
     self.markerRevealPending, self.markerSmoothPending = false, false
+    local blend = self.arrivalBlend or 0
+    local foci = self:GetNearbyFoci()
+    -- Та же точка уже подписана по центру: прятать текст и проявлять его на значке не нужно.
+    self.nearbyKeepsDetail = self.detailShown
+        and self.detailMarker
+        and blend > 0
+        and #foci == 1
+        and foci[1].key == self.detailMarker.key
+    self.detailNearbyHandoff = false
     for index, marker in ipairs(selection) do
         local slot = self.markerSlots[index]
         marker.renderShown = self:RenderMarker(
@@ -658,15 +787,24 @@ function Compass:Render(facing, live, elapsed)
     if self:IsFadeInPlaying() then
         self.renderFacing = facing
         self.renderDirty = true
-        -- Подложка проявляется вместе с полосой, без ожидания подписи.
-        self:RefreshLabelShadow()
+        -- Пока рамка проявляется, тень ставим сразу, если подписи уже есть.
+        local nearbyIncoming = self.arrivalMarkers and #self.arrivalMarkers > 0
+        local reflow = self.nearbyReflowPhase == "hide" or self.nearbyReflowPhase == "move"
+        local centerIncoming = nearest
+            and self:ShouldShowMarkerLabel(self.detailShown, nearestAlpha or 0)
+        self:RefreshLabelShadow(centerIncoming or nearbyIncoming or reflow)
         return
     end
-    local blend = self.arrivalBlend or 0
-    local foci = self:GetNearbyFoci()
     if #foci > 0 and blend > 0 then
         self:HidePeek()
-        self:HideDetail()
+        if self.nearbyKeepsDetail then
+            ApplyDetailText(self, foci[1], true)
+        elseif self.detailNearbyHandoff then
+            self:HideDetail(true)
+            self.detailNearbyHandoff = false
+        else
+            self:HideDetail()
+        end
     elseif self.peekAltHeld then
         local marker, slot = self:FindPeekMarker()
         if marker then
@@ -697,6 +835,9 @@ function Compass:Render(facing, live, elapsed)
             self.markerSmoothElapsed
         )
     end
-    self:RefreshLabelShadow()
+    local nearbyIncoming = self.arrivalMarkers and #self.arrivalMarkers > 0
+    local reflow = self.nearbyReflowPhase == "hide" or self.nearbyReflowPhase == "move"
+    local centerIncoming = nearest and self:ShouldShowMarkerLabel(self.detailShown, nearestAlpha or 0)
+    self:RefreshLabelShadow(centerIncoming or nearbyIncoming or reflow)
     self.renderDirty, self.renderFacing = false, facing
 end

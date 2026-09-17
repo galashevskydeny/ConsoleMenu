@@ -50,7 +50,13 @@ function Compass:RefreshMarkerBearing(marker)
     local x, y = self.bearingPlayerX, self.bearingPlayerY
     local east, north = (marker.x - x) * self.mapWidth, (y - marker.y) * self.mapHeight
     marker.distanceSquared = east * east + north * north
-    if marker.distanceSquared <= self.rangeSquared or marker.navigation or marker.priority == C.WAYPOINT_PRIORITY then
+    local inRange = marker.distanceSquared <= self.rangeSquared or marker.navigation or marker.priority == C.WAYPOINT_PRIORITY
+    if inRange and marker.distanceSquared <= C.BEARING_HOLD_YARDS_SQUARED then
+        marker.distance = math.sqrt(marker.distanceSquared)
+        if type(marker.bearing) ~= "number" then
+            marker.bearing = self:GetFacing() or 0
+        end
+    elseif inRange then
         marker.bearing, marker.distance = self:Bearing(east, north, marker.distanceSquared)
     else
         marker.bearing, marker.distance = nil, nil
@@ -230,6 +236,13 @@ local function NearbyCloser(a, b)
     return a.key < b.key
 end
 
+-- Истина, если первая точка заметно ближе второй, без обмена на каждом шаге.
+local function NearbyClearlyCloser(a, b)
+    local first = type(a.distanceSquared) == "number" and a.distanceSquared or math.huge
+    local second = type(b.distanceSquared) == "number" and b.distanceSquared or math.huge
+    return first + Compass.Constants.NEARBY_NAME_SWAP_YARDS_SQUARED < second
+end
+
 -- Строит соответствие имени к номеру слота в ряду «поблизости».
 local function NearbyNameSlots(held)
     local names = {}
@@ -362,7 +375,7 @@ function Compass:RefreshArrival()
         if not keys[marker.key] and not self:ShouldHideNavigationMarker(marker) and self:IsNearbyCandidate(marker, enterLimit) then
             local name = NearbyCollapseName(marker)
             local slot = name and names[name]
-            if slot and NearbyCloser(marker, held[slot]) then
+            if slot and NearbyClearlyCloser(marker, held[slot]) then
                 local other = held[slot]
                 dropped = dropped or {}
                 dropped[#dropped + 1] = other

@@ -137,6 +137,7 @@ local function MarkerTargetAlpha(marker)
 end
 
 -- Значок должен доиграть скрытие и не проявляться снова.
+-- Выход из «поблизости» сюда не входит: те же рамки уезжают к азимуту, а не гаснут.
 local function MarkerHoldsFade(self, marker)
     if not marker then
         return false
@@ -156,7 +157,7 @@ local function MarkerHoldsFade(self, marker)
             return true
         end
     end
-    return #self.arrivalMarkers == 0 and (self.arrivalBlend or 0) > 0 and self:IsNearbyFocus(marker)
+    return false
 end
 
 -- Задаёт цвет названия и тусклость второстепенной подписи.
@@ -384,6 +385,38 @@ local function AdvanceMarkerContent(button, elapsed, toAlpha, wantLabels)
     return false
 end
 
+-- Истина, если у рамки уже есть место на полосе.
+local function SlotHasPose(button)
+    return button and (button.smoothLeft or button.renderLeft)
+end
+
+-- Показывает уже стоявший значок без роста с нуля и без чужого масштаба.
+local function ShowExistingMarker(button, toAlpha)
+    if not button then
+        return
+    end
+    StopFrameFade(button)
+    if button.glowFrame then
+        StopFrameFade(button.glowFrame)
+        button.glowFrame:Show()
+    end
+    StopMarkerContent(button)
+    button.leaving = false
+    button.revealAt = nil
+    button:Show()
+    ApplyMarkerArtScale(button, 1)
+    toAlpha = toAlpha or 1
+    if toAlpha < 0 then
+        toAlpha = 0
+    elseif toAlpha > 1 then
+        toAlpha = 1
+    end
+    SetMarkerFrameAlpha(button, toAlpha)
+    button.renderShown = true
+    button.renderAlpha = toAlpha
+    button.contentToAlpha = toAlpha
+end
+
 -- Проявляет значок с ростом и необязательной задержкой пачки
 local function FadeMarkerIn(button, toAlpha, delay)
     if not button then
@@ -410,22 +443,13 @@ local function FadeMarkerIn(button, toAlpha, delay)
 
     local shown = button:IsShown() and (button.renderShown or button.contentPlaying)
     if shown and button.contentPlaying and button.contentMode == "out" then
-        button.contentFromScale = button.artScale or 1
-        button.contentMode = "in"
-        button.contentElapsed = 0
-        button.contentDelay = 0
-        button.contentPlaying = true
-        button.renderShown = true
-        Compass.markerRevealPending = true
-        Compass.renderDirty = true
+        -- Возврат с ухода: едем дальше с обычным размером, без роста с нуля.
+        ShowExistingMarker(button, MarkerFrameAlpha(button))
         return
     end
 
     if shown and not button.contentPlaying then
-        ApplyMarkerArtScale(button, 1)
-        SetMarkerFrameAlpha(button, toAlpha)
-        button.renderShown = true
-        button.renderAlpha = toAlpha
+        ShowExistingMarker(button, toAlpha)
         return
     end
 
@@ -445,9 +469,112 @@ local function FadeMarkerIn(button, toAlpha, delay)
     Compass.renderDirty = true
 end
 
+-- Прячет значок сразу, без анимации исчезновения.
+local function InstantHideMarker(button)
+    if not button then
+        return
+    end
+    StopFrameFade(button)
+    if button.glowFrame then
+        StopFrameFade(button.glowFrame)
+        button.glowFrame:Hide()
+        button.glowFrame:SetAlpha(1)
+    end
+    StopMarkerContent(button)
+    HideNearbyLabels(button)
+    ApplyMarkerArtScale(button, 1)
+    button:SetAlpha(1)
+    button:Hide()
+    button.leaving = false
+    button.revealAt = nil
+    button.renderShown = false
+    button.renderAlpha = nil
+    button.smoothLeft = nil
+    if button.marker then
+        button.marker.renderShown = false
+        button.marker.rangeHoldX = nil
+        button.marker.nearbyHoldX = nil
+    end
+end
+
+-- Прячет значок, но оставляет место на полосе, чтобы потом уехать, а не появиться заново.
+local function HideMarkerKeepPose(button)
+    if not button then
+        return
+    end
+    StopFrameFade(button)
+    if button.glowFrame then
+        StopFrameFade(button.glowFrame)
+        button.glowFrame:Hide()
+    end
+    StopMarkerContent(button)
+    HideNearbyLabels(button)
+    ApplyMarkerArtScale(button, 1)
+    button:SetAlpha(1)
+    button:Hide()
+    button.leaving = false
+    button.revealAt = nil
+    button.renderShown = false
+    button.renderAlpha = nil
+    if button.marker then
+        button.marker.renderShown = false
+    end
+end
+
+-- Истина, пока полоса только проявляется: старые значки не должны отдельно уходить.
+local function MarkerHideIsInstant()
+    return Compass.snapArrivalOnShow or Compass:IsFadeInPlaying()
+end
+
+-- Останавливает уход значков, чтобы после скрытия полосы они не доигрывали исчезновение.
+function Compass:SettleMarkersForHide()
+    local slots = self.markerSlots
+    if slots then
+        for index = 1, #slots do
+            local slot = slots[index]
+            StopFrameFade(slot)
+            if slot.glowFrame then
+                StopFrameFade(slot.glowFrame)
+            end
+            if slot.leaving or (slot.contentPlaying and slot.contentMode == "out") then
+                InstantHideMarker(slot)
+                slot.selected = false
+            else
+                StopMarkerContent(slot)
+                ApplyMarkerArtScale(slot, 1)
+                if slot.renderShown then
+                    slot:SetAlpha(1)
+                    slot.renderAlpha = nil
+                    if slot.glowFrame then
+                        slot.glowFrame:SetAlpha(1)
+                    end
+                end
+            end
+        end
+    end
+    local leaving = self.rangeLeaving
+    if leaving then
+        for index = 1, #leaving do
+            leaving[index].rangeHoldX = nil
+        end
+        wipe(leaving)
+    end
+    local fading = self.nearbyFading
+    if fading then
+        for index = 1, #fading do
+            fading[index].nearbyHoldX = nil
+        end
+        wipe(fading)
+    end
+end
+
 -- Гасит значок на месте, без сброса положения
 local function FadeMarkerOut(button)
     if not button or button.leaving then
+        return
+    end
+    if MarkerHideIsInstant() then
+        InstantHideMarker(button)
         return
     end
     button.leaving = true
@@ -480,6 +607,20 @@ local function SetIdleFadeDuration(group, duration)
         return
     end
     group.alpha:SetDuration(duration)
+end
+
+-- Показывает подпись слота сразу, без проявления: текст уже был на экране.
+local function InstantShowNearbyLabels(button)
+    if not button then
+        return
+    end
+    StopLabelFade(button)
+    local frame = button.labelFrame
+    if frame then
+        frame:Show()
+    end
+    ApplyNearbyLabelColors(button, 1)
+    button.labelShown = true
 end
 
 -- Плавно показывает или прячет подпись слота.
@@ -958,8 +1099,8 @@ function Compass:SelectMarkers(facing, width, live)
     local foci = self:GetNearbyFoci()
     local blend = self.arrivalBlend or 0
     local arrived = #self.arrivalMarkers > 0
-    -- Пока близкие точки гаснут на месте, веер значков ещё не показываем.
-    local lock = #foci > 0 and ((arrived and blend >= 1) or (not arrived and blend > 0))
+    -- В открытом ряде «поблизости» веер не держим. На выходе снова берём азимуты, чтобы значки уехали.
+    local lock = #foci > 0 and arrived and blend >= 1
     if lock then
         local extra = #self.nearbyFading
         local skip = self.nearbyReflowPhase == "hide" and self.nearbyDeferredKeys or nil
@@ -1201,24 +1342,49 @@ function Compass:ApplyArrivalBlend(selection, facing)
     if ease <= 0 or #foci == 0 then
         return selection
     end
-    self:LayoutNearby(facing)
     if #self.arrivalMarkers == 0 then
-        -- Исчезновение: значки остаются на своих сторонах и гаснут той же анимацией рамки.
+        -- Выход: бывшие близкие точки едут к азимуту, остальные веера проявляются на месте.
+        for _, marker in ipairs(selection) do
+            if self:IsNearbyFocus(marker) then
+                marker.projectedAlpha = 1
+            else
+                marker.projectedAlpha = (marker.projectedAlpha or 1) * (1 - ease)
+            end
+        end
+        local width = (self.artworkLayout and self.artworkLayout.contentWidth) or Compass.Constants.WIDTH
         for index = 1, #foci do
-            local marker = foci[index]
-            marker.projectedX = marker.nearbyX or 0
-            marker.projectedAlpha = 1
-            marker.projectedDelta = marker.nearbyDelta or 0
-            local slot = self.markerSlotsByKey and self.markerSlotsByKey[marker.key]
-            if slot then
-                slot.revealAt = nil
-                if slot.renderShown and not slot.leaving then
-                    FadeMarkerOut(slot)
+            local focus = foci[index]
+            if not self.selectionKeys[focus.key] and not self:ShouldHideNavigationMarker(focus) then
+                local x, _, delta
+                if focus.bearing and facing then
+                    x, _, delta = self:Project(focus.bearing, facing, self.viewAngle, width, Compass.Constants.EDGE_CLIP_FRACTION)
+                    if not x then
+                        -- За краем полосы: уезжаем к краю, а не гаснем в центре.
+                        delta = self:WrapDegrees(facing - focus.bearing)
+                        local hideAt = 1 - Compass.Constants.EDGE_CLIP_FRACTION
+                        local fraction = delta / (self.viewAngle / 2)
+                        if fraction > hideAt then
+                            fraction = hideAt
+                        elseif fraction < -hideAt then
+                            fraction = -hideAt
+                        end
+                        x = fraction * width / 2
+                    end
+                else
+                    x = focus.nearbyX or focus.projectedX or 0
+                    delta = focus.projectedDelta or focus.nearbyDelta or 0
                 end
+                focus.projectedX = x
+                focus.projectedAlpha = 1
+                focus.projectedDelta = delta or 0
+                selection[#selection + 1] = focus
+                self.selectionKeys[focus.key] = true
+                self.markerSlotsDirty = true
             end
         end
         return selection
     end
+    self:LayoutNearby(facing)
     for _, marker in ipairs(selection) do
         if marker.nearbyHoldX and not self.arrivalKeys[marker.key] then
             marker.projectedX = marker.nearbyHoldX or marker.projectedX or 0
@@ -1375,6 +1541,27 @@ function Compass:LayoutMarkerGroups(selection)
     end
 end
 
+-- Находит рамку точки по ключу, в том числе если таблица соответствия устарела.
+local function FindSlotByKey(slots, byKey, key)
+    if not key then
+        return
+    end
+    local slot = byKey[key]
+    if slot and slot.markerKey == key then
+        return slot
+    end
+    if not slots then
+        return
+    end
+    for index = 1, #slots do
+        local candidate = slots[index]
+        if candidate.markerKey == key then
+            byKey[key] = candidate
+            return candidate
+        end
+    end
+end
+
 -- Назначает рамки отобранным точкам.
 function Compass:AssignMarkerSlots(selection, live)
     local C = self.Constants
@@ -1387,7 +1574,7 @@ function Compass:AssignMarkerSlots(selection, live)
     self.markerGeneration = generation
     wipe(nextSlots)
     for index, marker in ipairs(selection) do
-        local slot = byKey[marker.key]
+        local slot = FindSlotByKey(slots, byKey, marker.key)
         if slot then
             slot.markerGeneration = generation
             nextSlots[index] = slot
@@ -1401,7 +1588,11 @@ function Compass:AssignMarkerSlots(selection, live)
         if not slot then
             while
                 slots[freeIndex]
-                and (slots[freeIndex].markerGeneration == generation or slots[freeIndex].leaving)
+                and (
+                    slots[freeIndex].markerGeneration == generation
+                    or slots[freeIndex].leaving
+                    or (slots[freeIndex].markerKey and self.selectionKeys[slots[freeIndex].markerKey])
+                )
             do
                 freeIndex = freeIndex + 1
             end
@@ -1409,6 +1600,11 @@ function Compass:AssignMarkerSlots(selection, live)
             freeIndex = freeIndex + 1
             if slot.markerKey then
                 byKey[slot.markerKey] = nil
+            end
+            -- Чужой слот не должен тащить чужое место: иначе значок вспыхнет не там.
+            if slot.markerKey ~= marker.key then
+                slot.smoothLeft = nil
+                slot.renderLeft = nil
             end
             slot.markerKey, slot.markerGeneration = marker.key, generation
             slot.leaving = false
@@ -1418,6 +1614,25 @@ function Compass:AssignMarkerSlots(selection, live)
         end
         local shown = slot.renderShown or MarkerFadePlaying(slot)
         local toAlpha = MarkerTargetAlpha(marker)
+        -- Уже стоявшую рамку не растим с нуля: она уедет к новому месту.
+        local function RevealSlot(useStagger)
+            slot.revealAt = nil
+            if shown then
+                return
+            end
+            if SlotHasPose(slot) then
+                ShowExistingMarker(slot, toAlpha)
+                shown = true
+                return
+            end
+            if useStagger then
+                FadeMarkerIn(slot, toAlpha, appearIndex * C.MARKER_BATCH_STAGGER)
+                appearIndex = appearIndex + 1
+            else
+                FadeMarkerIn(slot, toAlpha)
+            end
+            shown = true
+        end
         if MarkerHoldsFade(self, marker) then
             slot.revealAt = nil
             if shown and not slot.leaving then
@@ -1429,41 +1644,27 @@ function Compass:AssignMarkerSlots(selection, live)
                 shown = true
             end
             if self.arrivalFanReveal then
-                slot.revealAt = nil
-                if not shown then
-                    FadeMarkerIn(slot, toAlpha, appearIndex * C.MARKER_BATCH_STAGGER)
-                    appearIndex = appearIndex + 1
-                end
+                RevealSlot(true)
             elseif self:IsNearbyFocus(marker) then
-                slot.revealAt = nil
-                if not shown then
-                    FadeMarkerIn(slot, toAlpha, appearIndex * C.MARKER_BATCH_STAGGER)
-                    appearIndex = appearIndex + 1
-                end
+                RevealSlot(true)
             elseif (self.arrivalBlend or 0) > 0 then
                 slot.revealAt = nil
-            elseif self.rangeChanged and not shown then
-                slot.revealAt = nil
-                FadeMarkerIn(slot, toAlpha, appearIndex * C.MARKER_BATCH_STAGGER)
-                appearIndex = appearIndex + 1
-            elseif self.markerFadeIn and not shown then
+                if not shown and SlotHasPose(slot) then
+                    ShowExistingMarker(slot, toAlpha)
+                    shown = true
+                end
+            elseif self.rangeChanged then
+                RevealSlot(true)
+            elseif self.markerFadeIn then
                 -- Пока сама полоса проявляется, значки идут с ней; иначе проявляем отдельно.
                 slot.revealAt = nil
-                if not (self.frame.fadeIn and self.frame.fadeIn:IsPlaying()) then
-                    FadeMarkerIn(slot, toAlpha, appearIndex * C.MARKER_BATCH_STAGGER)
-                    appearIndex = appearIndex + 1
+                if not shown and not (self.frame.fadeIn and self.frame.fadeIn:IsPlaying()) then
+                    RevealSlot(true)
                 end
             elseif not live or marker.navigation or marker.priority <= C.TRACKED_QUEST_PRIORITY then
-                slot.revealAt = nil
-                if not shown then
-                    FadeMarkerIn(slot, toAlpha)
-                end
+                RevealSlot(false)
             elseif assignedNew or not slot.selected or not slot.marker or slot.marker.key ~= marker.key then
-                slot.revealAt = nil
-                if not shown then
-                    FadeMarkerIn(slot, toAlpha, appearIndex * C.MARKER_BATCH_STAGGER)
-                    appearIndex = appearIndex + 1
-                end
+                RevealSlot(true)
             end
         end
         slot.selected = true
@@ -1475,14 +1676,20 @@ function Compass:AssignMarkerSlots(selection, live)
     for _, slot in ipairs(slots) do
         if slot.markerGeneration ~= generation then
             slot.selected, slot.revealAt = false, nil
-            if slot.renderShown and not slot.leaving then
+            if slot.markerKey and self.selectionKeys[slot.markerKey] then
+                InstantHideMarker(slot)
+            elseif MarkerHideIsInstant() then
+                InstantHideMarker(slot)
+            elseif #self.arrivalMarkers > 0 and (self.arrivalBlend or 0) >= 1 then
+                -- Ряд «поблизости»: веер прячем, положение оставляем для возврата.
+                HideMarkerKeepPose(slot)
+            elseif slot.renderShown and not slot.leaving then
                 FadeMarkerOut(slot)
             elseif not slot.leaving then
                 if slot.marker then
                     slot.marker.renderShown = false
                 end
                 HideNearbyLabels(slot)
-                slot.smoothLeft = nil
             end
             nextSlots[#nextSlots + 1] = slot
         end
@@ -1576,10 +1783,12 @@ end
 
 -- Привязывает рамку к точке.
 function Compass:BindMarker(button, marker)
-    if button.marker and button.marker ~= marker then
-        button.marker.renderShown = false
+    local previous = button.marker
+    if previous and previous ~= marker then
+        previous.renderShown = false
     end
-    if button.marker ~= marker then
+    -- Ту же точку после пересборки не сдвигаем скачком: рамка уже на полосе.
+    if previous ~= marker and not (previous and marker and previous.key == marker.key) then
         button.smoothLeft = nil
     end
     button.marker = marker
@@ -1743,8 +1952,11 @@ function Compass:RenderMarker(button, marker, x, alpha, markerY, outline, scale)
         button.layoutBackground, button.layoutUnderlay = backgroundAtlas, marker.underlayAtlas
         ApplyMarkerArtScale(button, button.artScale or 1)
     end
+    if not button.contentPlaying and (button.artScale or 1) ~= 1 then
+        ApplyMarkerArtScale(button, 1)
+    end
     local centerX, centerY = self.artworkLayout.centerX, self.artworkLayout.centerY
-    local left = SmoothMarkerLeft(self, button, marker.projectedLeft - centerX, scale, arrived)
+    local left = SmoothMarkerLeft(self, button, marker.projectedLeft - centerX, scale, blending or button.isMoving)
     local top = Pixel:Snap(centerY + markerY + hitHeight / 2, scale) - centerY
     if button.renderLeft ~= left or button.renderTop ~= top then
         button:SetPoint("TOPLEFT", self.frame, "CENTER", left, top)
@@ -1769,6 +1981,7 @@ function Compass:RenderMarker(button, marker, x, alpha, markerY, outline, scale)
     local reflow = self.nearbyReflowPhase
     local hideForReflow = reflow == "hide" or reflow == "move"
     local wantLabels = false
+    local handoff = false
     if arrived then
         local slotWidth = self.nearbyDisplayWidth or self.nearbySlotWidth
         if not slotWidth or slotWidth <= 0 then
@@ -1797,7 +2010,15 @@ function Compass:RenderMarker(button, marker, x, alpha, markerY, outline, scale)
             button.labelX, button.labelY = x, detailY
         end
         wantLabels = not leaving and not hideForReflow
-        if not button.contentPlaying then
+        local keepCenter = self.nearbyKeepsDetail and self.detailMarker and marker.key == self.detailMarker.key
+        -- Та же подпись уже на экране: переносим её на значок без проявления.
+        handoff = not keepCenter
+            and self.detailShown
+            and self.detailMarker
+            and marker.key == self.detailMarker.key
+        if keepCenter then
+            wantLabels = false
+        elseif not handoff and not button.contentPlaying then
             wantLabels = wantLabels and self:ShouldShowMarkerLabel(button.labelShown, button.renderAlpha or alpha)
         end
     end
@@ -1828,6 +2049,9 @@ function Compass:RenderMarker(button, marker, x, alpha, markerY, outline, scale)
                 else
                     SetNearbyLabelsShown(button, false)
                 end
+            elseif handoff and wantLabels then
+                InstantShowNearbyLabels(button)
+                self.detailNearbyHandoff = true
             else
                 SetNearbyLabelsShown(button, wantLabels)
             end
@@ -1838,6 +2062,8 @@ function Compass:RenderMarker(button, marker, x, alpha, markerY, outline, scale)
     if not button.renderShown and not button.leaving then
         if MarkerHoldsFade(self, marker) then
             return false
+        elseif SlotHasPose(button) or blending then
+            ShowExistingMarker(button, alpha)
         elseif self:IsFadeInPlaying() then
             button:Show()
             SetMarkerFrameAlpha(button, alpha)

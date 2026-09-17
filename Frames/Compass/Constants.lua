@@ -12,6 +12,8 @@ Compass.arrivalMarkers, Compass.arrivalKeys, Compass.arrivalLeaving, Compass.nea
 -- Зафиксированные места и ещё не показанные точки на время перестроения ряда.
 Compass.nearbyFrozenPositions, Compass.nearbyDeferredKeys, Compass.nearbyLiveKeys = {}, {}, {}
 Compass.hideNavigationOnBar = false
+-- Устойчивый признак области задания: не меняется от разового сбоя на границе.
+Compass.questAreaState = {}
 
 -- Числа внешнего вида и работы полосы.
 Compass.Constants = {
@@ -52,6 +54,10 @@ Compass.Constants = {
     SORT_INTERVAL = 0.1,
     BEARING_REFRESH_INTERVAL = 0.05,
     BEARING_RESET_DISTANCE = 64,
+    BEARING_HOLD_YARDS = 2, -- Ближе этого расстояния азимут держим, чтобы значок не скакал.
+    NAVIGATION_HIDE_HOLD = 0.15, -- Пауза перед скрытием или возвратом выбранной цели.
+    QUEST_AREA_HOLD = 0.15, -- Пауза перед сменой признака области задания.
+    NEARBY_NAME_SWAP_METERS = 2, -- Запас, с которым одноимённая точка занимает чужой слот.
     POSITION_SYNC_INTERVAL = 1,
     TICK_STEP = 15,
     CARDINAL_STEP = 90,
@@ -105,6 +111,7 @@ Compass.Constants = {
     LABEL_SHOW_ALPHA = 0.8, -- Подпись появляется, когда значок уже хорошо виден.
     LABEL_HIDE_ALPHA = 0.35, -- Подпись гаснет, когда значок снова становится тусклым.
     LABEL_FADE_DURATION = 0.2, -- Скрытие и проявление подписи.
+    LABEL_SHADOW_HOLD = 0.2, -- Пауза, в которую тень не гаснет, если уже подходит новая точка.
     LABEL_SHADOW_TEXTURE = "Interface\\AddOns\\ConsoleMenu\\Assets\\HalfShadow.png",
     LABEL_SHADOW_FADE = 128, -- Запас высоты, чтобы мягкий край рисунка ушёл ниже текста.
     LABEL_SHADOW_OFFSET_Y = 0, -- Сдвиг нижней подложки от края полоски.
@@ -182,6 +189,9 @@ do
     local C = Compass.Constants
     local enterYards = C.NEARBY_METERS / C.METERS_PER_YARD
     local leaveYards = C.NEARBY_LEAVE_METERS / C.METERS_PER_YARD
+    local swapYards = C.NEARBY_NAME_SWAP_METERS / C.METERS_PER_YARD
     C.NEARBY_YARDS_SQUARED = enterYards * enterYards
     C.NEARBY_LEAVE_YARDS_SQUARED = leaveYards * leaveYards
+    C.NEARBY_NAME_SWAP_YARDS_SQUARED = swapYards * swapYards
+    C.BEARING_HOLD_YARDS_SQUARED = C.BEARING_HOLD_YARDS * C.BEARING_HOLD_YARDS
 end

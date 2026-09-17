@@ -87,6 +87,32 @@ function Compass:ShouldShowMarkerLabel(shown, alpha)
     return alpha >= C.LABEL_SHOW_ALPHA
 end
 
+-- Возвращает устойчивый логический признак: новое значение принимается после паузы.
+local function SettleFlag(state, incoming, now, hold, force)
+    if not state then
+        return { value = incoming, wanted = incoming, since = now }
+    end
+    if force or state.value == nil then
+        state.value, state.wanted, state.since = incoming, incoming, now
+        return state
+    end
+    if state.value == incoming then
+        state.wanted = incoming
+        state.since = now
+        return state
+    end
+    if state.wanted ~= incoming then
+        state.wanted = incoming
+        state.since = now
+        return state
+    end
+    if now - state.since >= hold then
+        state.value = incoming
+        state.since = now
+    end
+    return state
+end
+
 -- Проверяет, стоит ли персонаж внутри области выполнения задания.
 function Compass:IsInsideQuestArea(marker)
     local questID = marker and self.Number(marker.questID)
@@ -94,7 +120,15 @@ function Compass:IsInsideQuestArea(marker)
         return false
     end
     local isInside = C_Minimap and C_Minimap.IsInsideQuestBlob
-    return isInside and self.Readable(isInside(questID)) == true
+    local raw = isInside and self.Readable(isInside(questID)) == true
+    local cache = self.questAreaState
+    if not cache then
+        cache = {}
+        self.questAreaState = cache
+    end
+    local state = SettleFlag(cache[questID], raw, GetTime(), self.Constants.QUEST_AREA_HOLD)
+    cache[questID] = state
+    return state.value
 end
 
 -- Точка в радиусе прибытия или внутри области выполнения задания.
@@ -119,8 +153,17 @@ function Compass:ShouldHideNavigationMarker(marker)
 end
 
 -- Обновляет признак скрытия выбранной цели и помечает полосу к перерисовке.
-function Compass:RefreshNavigationHide()
+function Compass:RefreshNavigationHide(force)
     local hide = self:IsGameNavigationHidingTarget()
+    local state = SettleFlag(
+        self.hideNavigationState,
+        hide,
+        GetTime(),
+        self.Constants.NAVIGATION_HIDE_HOLD,
+        force
+    )
+    self.hideNavigationState = state
+    hide = state.value and true or false
     if self.hideNavigationOnBar == hide then
         return false
     end

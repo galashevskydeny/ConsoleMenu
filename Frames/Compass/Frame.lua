@@ -102,6 +102,8 @@ function Compass:RefreshVisibility()
         else
             -- Обводка названий не гаснет вместе с полосой, поэтому подписи снимаем сразу.
             self:HideAllNearbyLabels()
+            -- Значки, которые уже уходили, прячем сразу: иначе после боя они доиграют исчезновение.
+            self:SettleMarkersForHide()
         end
         if self.frame then
             ConsoleMenu:AnimatedHide(self.frame)
@@ -130,8 +132,6 @@ function Compass:RefreshVisibility()
             self:RefreshBearings()
             self:SnapArrivalMode()
         end
-        -- Тень включаем до проявления, чтобы она тускнела и проявлялась вместе с полосой.
-        self:SetLabelShadowShown(true)
         ConsoleMenu:AnimatedShow(self.frame)
         self.sortElapsed = 0
         self.renderDirty = true
@@ -215,6 +215,7 @@ function Compass:OnUpdate(elapsed)
             or self.arrivalBlendPending
             or self.nearbyMotionPending
             or self.detailAnimPending
+            or self:HasLabelFadePending()
             or self.renderFacing ~= facing
         )
     then
@@ -230,8 +231,12 @@ function Compass:OnEvent(event, payload)
         end
         return
     end
-    if event == "CVAR_UPDATE" or event == "NAVIGATION_FRAME_CREATED" or event == "NAVIGATION_FRAME_DESTROYED" then
-        self:RefreshNavigationHide()
+    if event == "NAVIGATION_FRAME_CREATED" or event == "NAVIGATION_FRAME_DESTROYED" then
+        self:RefreshNavigationHide(true)
+        return
+    end
+    if event == "CVAR_UPDATE" then
+        self:RefreshNavigationHide(payload == "showInGameNavigation")
         return
     end
     if event == "QUESTLINE_UPDATE" and Compass.Readable(payload) == true then
@@ -300,7 +305,7 @@ function ConsoleMenu:SetCompassFrame()
         Compass:HidePeek()
         Compass:HideDetail(true)
         Compass:HideAllNearbyLabels()
-        Compass:SetLabelShadowShown(false)
+        Compass:SetLabelShadowShown(false, true)
     end)
     frame:SetScript("OnShow", function()
         if Compass.inInstance or Compass.hiddenByGame then
