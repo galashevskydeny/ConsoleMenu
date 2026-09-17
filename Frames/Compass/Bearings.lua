@@ -91,6 +91,7 @@ function Compass:UpdateBearings(x, y)
         wipe(self.nearbyLiveKeys)
         self:ClearNearbyReflow()
         self.arrivalBlend, self.arrivalEase, self.arrivalBlendPending = 0, 0, false
+        self.arrivalBlendFrom, self.arrivalBlendGoal, self.arrivalBlendElapsed = 0, 0, 0
         self.selectionDirty = true
         wipe(self.bearings)
         return

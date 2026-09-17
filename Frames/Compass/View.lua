@@ -70,18 +70,19 @@ function Compass:CreateView()
         self.ticks[#self.ticks + 1] = tick
     end
     self:CreateMarkerPool()
-    -- Подложка под подписями: начинается у нижнего края полосы.
+    -- Подложка под сторонами света: проявляется вместе с полосой, без отдельной анимации.
     local shadowFrame = CreateFrame("Frame", nil, frame)
     shadowFrame:EnableMouse(false)
     shadowFrame:SetClipsChildren(false)
-    shadowFrame:Hide()
+    shadowFrame:SetAlpha(1)
+    shadowFrame:Show()
     local shadow = shadowFrame:CreateTexture(nil, "BACKGROUND")
     shadow:SetTexture(C.LABEL_SHADOW_TEXTURE)
     shadow:SetSnapToPixelGrid(true)
     shadow:SetTexelSnappingBias(0)
     self.labelShadowBottom = shadow
-    ConsoleMenu:InitFadeAnimations(shadowFrame, C.LABEL_FADE_DURATION)
     self.labelShadow = shadowFrame
+    self.labelShadowShown = true
     -- Название и подпись выбранной точки, проявляются отдельно от значка.
     local detailFrame = CreateFrame("Frame", nil, frame)
     detailFrame:EnableMouse(false)
@@ -242,6 +243,13 @@ function Compass:RestoreViewAlpha()
         self:StylePeek(C.FONT_SIZE, true)
     end
     self:RestoreMarkerAlphas()
+    if self.labelShadow then
+        self.labelShadow:SetAlpha(1)
+        if self.frame and self.frame:IsShown() then
+            self.labelShadow:Show()
+            self.labelShadowShown = true
+        end
+    end
     self.renderDirty = true
 end
 
@@ -271,9 +279,10 @@ function Compass:ClearMarkers()
     wipe(self.nearbyLiveKeys)
     self:ClearNearbyReflow()
     self.arrivalBlend, self.arrivalEase, self.arrivalBlendPending, self.arrivalFanReveal = 0, 0, false, false
+    self.arrivalBlendFrom, self.arrivalBlendGoal, self.arrivalBlendElapsed = 0, 0, 0
     self.selectionDirty, self.markerSlotsDirty, self.headingsDirty = true, true, true
     self:HideDetail(true)
-    self:SetLabelShadowShown(false, true)
+    self:SetLabelShadowShown(false)
     self.renderDirty = true
 end
 
@@ -346,50 +355,31 @@ local function StopFade(frame)
     frame:SetAlpha(1)
 end
 
--- Показывает или прячет подложку под подписями.
-function Compass:SetLabelShadowShown(shown, immediate)
+-- Показывает или прячет подложку; отдельная анимация не нужна: прозрачность берётся у полосы.
+function Compass:SetLabelShadowShown(shown)
     local frame = self.labelShadow
     if not frame then
         return
     end
-    if immediate then
-        StopFade(frame)
-        frame:SetShown(shown)
-        self.labelShadowShown = shown and true or false
-        return
-    end
     shown = shown and true or false
-    if self.labelShadowShown == shown then
-        return
-    end
+    StopFade(frame)
+    frame:SetAlpha(1)
+    frame:SetShown(shown)
     self.labelShadowShown = shown
-    if shown then
-        ConsoleMenu:AnimatedShow(frame)
-    else
-        ConsoleMenu:AnimatedHide(frame)
-    end
 end
 
--- Подложка видна, пока на полосе есть название или подпись.
-function Compass:RefreshLabelShadow(immediate)
-    local shown = self.detailShown
-    if not shown then
-        local phase = self.nearbyReflowPhase
-        if phase == "hide" or phase == "move" then
-            shown = true
-        else
-            local slots = self.markerSlots
-            if slots then
-                for index = 1, #slots do
-                    if slots[index].labelShown then
-                        shown = true
-                        break
-                    end
-                end
-            end
-        end
+-- Подложка идёт вместе с полосой: стороны света под линией есть всегда.
+function Compass:RefreshLabelShadow()
+    local frame = self.frame
+    local shown = frame and frame:IsShown() and true or false
+    if shown and (self.inInstance or self.hiddenByGame or self.hiddenByContext or self.hiddenByProgress) then
+        shown = false
     end
-    self:SetLabelShadowShown(shown, immediate)
+    if not shown and frame and frame.fadeOut and frame.fadeOut:IsPlaying() then
+        -- Пока полоса гаснет, подложка остаётся и тускнеет вместе с ней.
+        shown = true
+    end
+    self:SetLabelShadowShown(shown)
 end
 
 -- Сбрасывает удержание и смену центральной подписи.
@@ -616,7 +606,11 @@ function Compass:Render(facing, live, elapsed)
     if not live and not self:LayoutArtwork() then
         return
     end
-    self.markerSmoothElapsed = elapsed or 0
+    elapsed = elapsed or 0
+    if elapsed > C.MAX_ANIMATION_STEP then
+        elapsed = C.MAX_ANIMATION_STEP
+    end
+    self.markerSmoothElapsed = elapsed
     self:UpdateArrivalBlend(self.markerSmoothElapsed)
     self:UpdateNearbyMotion(self.markerSmoothElapsed)
     local layout = self.artworkLayout
@@ -664,8 +658,8 @@ function Compass:Render(facing, live, elapsed)
     if self:IsFadeInPlaying() then
         self.renderFacing = facing
         self.renderDirty = true
-        -- Подложка нужна сразу, если полоса уже в режиме «поблизости».
-        self:RefreshLabelShadow(true)
+        -- Подложка проявляется вместе с полосой, без ожидания подписи.
+        self:RefreshLabelShadow()
         return
     end
     local blend = self.arrivalBlend or 0

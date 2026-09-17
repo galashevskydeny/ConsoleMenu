@@ -130,6 +130,8 @@ function Compass:RefreshVisibility()
             self:RefreshBearings()
             self:SnapArrivalMode()
         end
+        -- Тень включаем до проявления, чтобы она тускнела и проявлялась вместе с полосой.
+        self:SetLabelShadowShown(true)
         ConsoleMenu:AnimatedShow(self.frame)
         self.sortElapsed = 0
         self.renderDirty = true
@@ -267,6 +269,7 @@ function ConsoleMenu:SetCompassFrame()
     Compass.nearbyLiveKeys = {}
     Compass.hideNavigationOnBar = false
     Compass.arrivalBlend, Compass.arrivalEase, Compass.arrivalBlendPending, Compass.arrivalFanReveal = 0, 0, false, false
+    Compass.arrivalBlendFrom, Compass.arrivalBlendGoal, Compass.arrivalBlendElapsed = 0, 0, 0
     Compass.viewAngle = C.VIEW_ANGLE
     Compass.range = C.RANGE_WALK
     Compass.hiddenByContext = false
@@ -297,7 +300,7 @@ function ConsoleMenu:SetCompassFrame()
         Compass:HidePeek()
         Compass:HideDetail(true)
         Compass:HideAllNearbyLabels()
-        Compass:SetLabelShadowShown(false, true)
+        Compass:SetLabelShadowShown(false)
     end)
     frame:SetScript("OnShow", function()
         if Compass.inInstance or Compass.hiddenByGame then

@@ -8,11 +8,83 @@ local FULL_TEX_COORDS = { left = 0, right = 1, top = 0, bottom = 1 }
 local ICON_COLOR = { r = 1, g = 1, b = 1 }
 local nearbyOrder = {}
 
+-- Плавное замедление к концу перемещения
+local function EaseOutQuad(progress)
+    return 1 - (1 - progress) * (1 - progress)
+end
+
+-- Плавный разгон и замедление, без рывка в начале и в конце
+local function EaseInOutQuad(progress)
+    if progress < 0.5 then
+        return 2 * progress * progress
+    end
+    local rest = 1 - progress
+    return 1 - 2 * rest * rest
+end
+
+-- Ограничивает долю анимации нулём и единицей
+local function ClampProgress(progress)
+    if progress < 0 then
+        return 0
+    end
+    if progress > 1 then
+        return 1
+    end
+    return progress
+end
+
+-- Масштаб значка при появлении: рост с превышением и посадка
+local function IconAppearScale(progress)
+    local C = Compass.Constants
+    if progress < 0.7 then
+        local p = EaseOutQuad(progress / 0.7)
+        return C.MARKER_ICON_START_SCALE + (C.MARKER_ICON_PEAK_SCALE - C.MARKER_ICON_START_SCALE) * p
+    end
+    local p = (progress - 0.7) / 0.3
+    if p > 1 then
+        p = 1
+    end
+    return C.MARKER_ICON_PEAK_SCALE + (1 - C.MARKER_ICON_PEAK_SCALE) * EaseOutQuad(p)
+end
+
+-- Ставит масштаб одной текстуры значка от центра рамки
+local function PoseMarkerArt(region, button, scale)
+    if not region then
+        return
+    end
+    region:SetScale(scale)
+    region:ClearAllPoints()
+    region:SetPoint("CENTER", button, "CENTER", 0, 0)
+end
+
+-- Ставит масштаб рисунка значка от центра рамки
+local function ApplyMarkerArtScale(button, scale)
+    if not button then
+        return
+    end
+    scale = scale or 1
+    button.artScale = scale
+    PoseMarkerArt(button.icon, button, scale)
+    PoseMarkerArt(button.shadow, button, scale)
+    PoseMarkerArt(button.background, button, scale)
+    PoseMarkerArt(button.underlay, button, scale)
+end
+
+-- Останавливает проявление или скрытие значка
+local function StopMarkerContent(button)
+    if not button then
+        return
+    end
+    button.contentPlaying = false
+    button.contentMode = nil
+end
+
 -- Проверяет, идёт ли проявление или скрытие рамки значка.
 local function MarkerFadePlaying(button)
     return button
         and (
-            (button.fadeIn and button.fadeIn:IsPlaying())
+            button.contentPlaying
+            or (button.fadeIn and button.fadeIn:IsPlaying())
             or (button.fadeOut and button.fadeOut:IsPlaying())
         )
 end
@@ -157,6 +229,7 @@ end
 local function RestoreMarkerTextures(button)
     if not MarkerFadePlaying(button) then
         button:SetAlpha(1)
+        ApplyMarkerArtScale(button, 1)
     end
     local glowFrame = button.glowFrame
     if glowFrame and not MarkerFadePlaying(glowFrame) then
@@ -196,8 +269,123 @@ function Compass:HideAllNearbyLabels()
     end
 end
 
--- Проявляет значок целиком до уже посчитанной прозрачности, без вспышки на полную яркость.
-local function FadeMarkerIn(button, toAlpha)
+-- Ставит прозрачность подписи без отдельной анимации рамки
+local function SetLabelFrameAlpha(button, alpha)
+    local frame = button and button.labelFrame
+    if not frame then
+        return
+    end
+    StopLabelFade(button)
+    if alpha <= 0 then
+        frame:SetAlpha(1)
+        frame:Hide()
+        button.labelShown = false
+        return
+    end
+    frame:Show()
+    frame:SetAlpha(alpha)
+    button.labelShown = true
+end
+
+-- Продвигает проявление или скрытие значка и подписи
+local function AdvanceMarkerContent(button, elapsed, toAlpha, wantLabels)
+    if not button or not button.contentPlaying then
+        return false
+    end
+
+    local C = Compass.Constants
+    button.contentElapsed = (button.contentElapsed or 0) + elapsed
+    local elapsedTime = button.contentElapsed
+    toAlpha = toAlpha or button.contentToAlpha or 1
+
+    if button.contentMode == "in" then
+        local t = elapsedTime - (button.contentDelay or 0)
+        if t < 0 then
+            ApplyMarkerArtScale(button, C.MARKER_ICON_START_SCALE)
+            SetMarkerFrameAlpha(button, 0)
+            button.renderAlpha = 0
+            if button.labelFrame then
+                SetLabelFrameAlpha(button, 0)
+            end
+            return true
+        end
+
+        local iconProgress = t / C.MARKER_ICON_GROW_DURATION
+        if iconProgress > 1 then
+            iconProgress = 1
+        end
+        ApplyMarkerArtScale(button, IconAppearScale(iconProgress))
+        local iconAlpha = EaseOutQuad(ClampProgress(t / C.MARKER_ICON_GROW_DURATION))
+        SetMarkerFrameAlpha(button, iconAlpha * toAlpha)
+        button.renderAlpha = iconAlpha * toAlpha
+
+        local nameTime = t - C.MARKER_LABEL_DELAY
+        if button.labelFrame then
+            if not wantLabels or nameTime < 0 then
+                SetLabelFrameAlpha(button, 0)
+            else
+                local nameProgress = ClampProgress(nameTime / C.MARKER_LABEL_DURATION)
+                SetLabelFrameAlpha(button, EaseOutQuad(nameProgress))
+            end
+        end
+
+        local labelsDone = not wantLabels or nameTime >= C.MARKER_LABEL_DURATION
+        if iconProgress >= 1 and labelsDone then
+            StopMarkerContent(button)
+            ApplyMarkerArtScale(button, 1)
+            SetMarkerFrameAlpha(button, toAlpha)
+            button.renderAlpha = toAlpha
+            return false
+        end
+        return true
+    end
+
+    if button.contentMode == "out" then
+        local fromAlpha = button.contentFromAlpha or 1
+        local fromScale = button.contentFromScale or 1
+        local fadeProgress = ClampProgress(elapsedTime / C.MARKER_LABEL_DURATION)
+        if button.labelFrame and button.labelFrame:IsShown() then
+            SetLabelFrameAlpha(button, (button.labelFromAlpha or 1) * (1 - EaseInOutQuad(fadeProgress)))
+        end
+
+        local iconTime = elapsedTime - C.MARKER_LABEL_DELAY
+        if iconTime < 0 then
+            ApplyMarkerArtScale(button, fromScale)
+            SetMarkerFrameAlpha(button, fromAlpha)
+            button.renderAlpha = fromAlpha
+            return true
+        end
+
+        local iconProgress = ClampProgress(iconTime / C.MARKER_ICON_GROW_DURATION)
+        local iconEased = EaseOutQuad(iconProgress)
+        ApplyMarkerArtScale(button, fromScale + (C.MARKER_ICON_END_SCALE - fromScale) * iconEased)
+        local iconAlpha = fromAlpha * (1 - EaseInOutQuad(ClampProgress(elapsedTime / C.MARKER_ICON_GROW_DURATION)))
+        SetMarkerFrameAlpha(button, iconAlpha)
+        button.renderAlpha = iconAlpha
+
+        if fadeProgress >= 1 and iconProgress >= 1 then
+            StopMarkerContent(button)
+            button.renderShown = false
+            button.leaving = false
+            ApplyMarkerArtScale(button, 1)
+            button:Hide()
+            if button.glowFrame then
+                button.glowFrame:Hide()
+            end
+            HideNearbyLabels(button)
+            Compass.markerSlotsDirty = true
+            Compass.selectionDirty = true
+            Compass.renderDirty = true
+            return false
+        end
+        return true
+    end
+
+    return false
+end
+
+-- Проявляет значок с ростом и необязательной задержкой пачки
+local function FadeMarkerIn(button, toAlpha, delay)
     if not button then
         return
     end
@@ -208,54 +396,82 @@ local function FadeMarkerIn(button, toAlpha)
     elseif toAlpha > 1 then
         toAlpha = 1
     end
-    local current = MarkerFrameAlpha(button)
-    if not button:IsShown() then
-        current = 0
+    button.contentToAlpha = toAlpha
+    button.revealAt = nil
+
+    StopFrameFade(button)
+    if button.glowFrame then
+        StopFrameFade(button.glowFrame)
     end
-    StartFrameFadeIn(button, toAlpha, current)
-    local glowFrame = button.glowFrame
-    if glowFrame then
-        local glowCurrent = MarkerFrameAlpha(glowFrame)
-        if not glowFrame:IsShown() then
-            glowCurrent = 0
-        end
-        StartFrameFadeIn(glowFrame, toAlpha, glowCurrent)
+
+    if button.contentPlaying and button.contentMode == "in" then
+        return
     end
+
+    local shown = button:IsShown() and (button.renderShown or button.contentPlaying)
+    if shown and button.contentPlaying and button.contentMode == "out" then
+        button.contentFromScale = button.artScale or 1
+        button.contentMode = "in"
+        button.contentElapsed = 0
+        button.contentDelay = 0
+        button.contentPlaying = true
+        button.renderShown = true
+        Compass.markerRevealPending = true
+        Compass.renderDirty = true
+        return
+    end
+
+    if shown and not button.contentPlaying then
+        ApplyMarkerArtScale(button, 1)
+        SetMarkerFrameAlpha(button, toAlpha)
+        button.renderShown = true
+        button.renderAlpha = toAlpha
+        return
+    end
+
+    button:Show()
+    if button.glowFrame then
+        button.glowFrame:Show()
+    end
+    ApplyMarkerArtScale(button, Compass.Constants.MARKER_ICON_START_SCALE)
+    SetMarkerFrameAlpha(button, 0)
+    button.contentMode = "in"
+    button.contentElapsed = 0
+    button.contentDelay = delay or 0
+    button.contentPlaying = true
     button.renderShown = true
-    button.renderAlpha = MarkerFrameAlpha(button)
+    button.renderAlpha = 0
+    Compass.markerRevealPending = true
+    Compass.renderDirty = true
 end
 
--- Гасит значок целиком и помечает слот к освобождению.
+-- Гасит значок на месте, без сброса положения
 local function FadeMarkerOut(button)
     if not button or button.leaving then
         return
     end
     button.leaving = true
     button.revealAt = nil
-    HideNearbyLabels(button)
-    local fadeOut = button.fadeOut
-    ConsoleMenu:AnimatedHide(button)
+    StopFrameFade(button)
     if button.glowFrame then
-        ConsoleMenu:AnimatedHide(button.glowFrame)
+        StopFrameFade(button.glowFrame)
     end
-    if not fadeOut or not fadeOut:IsPlaying() then
+    if not button:IsShown() then
+        StopMarkerContent(button)
         button.renderShown = false
         button.leaving = false
-        button.smoothLeft = nil
         return
     end
-    local finished = fadeOut:GetScript("OnFinished")
-    fadeOut:SetScript("OnFinished", function(...)
-        if finished then
-            finished(...)
-        end
-        button.renderShown = false
-        button.leaving = false
-        button.smoothLeft = nil
-        Compass.markerSlotsDirty = true
-        Compass.selectionDirty = true
-        Compass.renderDirty = true
-    end)
+    button.contentFromAlpha = button.renderAlpha or button:GetAlpha() or 1
+    button.contentFromScale = button.artScale or 1
+    button.labelFromAlpha = button.labelFrame and button.labelFrame:IsShown() and (button.labelFrame:GetAlpha() or 1) or 0
+    button.contentMode = "out"
+    button.contentElapsed = 0
+    button.contentDelay = 0
+    button.contentPlaying = true
+    button.renderShown = true
+    Compass.markerRevealPending = true
+    Compass.renderDirty = true
 end
 
 -- Задаёт длительность анимации, только если она сейчас не играет.
@@ -365,6 +581,8 @@ function Compass:CreateMarkerPool()
         button:Hide()
         button:SetAlpha(1)
         button:ClearAllPoints()
+        StopMarkerContent(button)
+        ApplyMarkerArtScale(button, 1)
         if button.marker then
             button.marker.renderShown = false
         end
@@ -377,6 +595,7 @@ function Compass:CreateMarkerPool()
         button.markerKey, button.revealAt, button.selected, button.leaving = nil, nil, false, false
         button.renderX, button.renderAlpha, button.renderWaypoint, button.renderGlow, button.renderShown = nil, nil, nil, nil, false
         button.renderLeft, button.renderTop, button.smoothLeft = nil, nil, nil
+        button.isMoving, button.moveFromLeft, button.moveToLeft, button.moveElapsed = false, nil, nil, nil
         HideNearbyLabels(button)
         button.labelScale, button.labelWidth = nil, nil
         button.trackedGlow:Hide()
@@ -829,16 +1048,12 @@ function Compass:SnapArrivalMode()
     local target = #self.arrivalMarkers > 0 and 1 or 0
     self.arrivalBlend = target
     self.arrivalEase = target
+    self.arrivalBlendFrom = target
+    self.arrivalBlendGoal = target
+    self.arrivalBlendElapsed = 0
     self.arrivalBlendPending = false
     self.arrivalFanReveal = false
     self:ClearNearbyReflow()
-    -- После возврата полосы не сдвигаем значки с мест, застывших до скрытия.
-    local slots = self.markerSlots
-    if slots then
-        for index = 1, #slots do
-            slots[index].smoothLeft = nil
-        end
-    end
     if target == 0 then
         local fading = self.nearbyFading
         for index = 1, #fading do
@@ -872,23 +1087,36 @@ function Compass:UpdateArrivalBlend(elapsed)
             self.renderDirty = true
         end
         blend = target
+        self.arrivalBlendGoal = target
+        self.arrivalBlendFrom = target
+        self.arrivalBlendElapsed = 0
     elseif blend ~= target then
         local duration = C.ARRIVAL_BLEND_DURATION
-        local step = duration > 0 and math.max(0, elapsed or 0) / duration or 1
-        local fadingOut = target == 0 and blend > 0
-        if blend < target then
-            blend = math.min(target, blend + step)
-        else
-            blend = math.max(target, blend - step)
+        if self.arrivalBlendGoal ~= target then
+            self.arrivalBlendFrom = blend
+            self.arrivalBlendGoal = target
+            self.arrivalBlendElapsed = 0
         end
-        if fadingOut and blend <= 0 then
-            self.arrivalFanReveal = true
+        self.arrivalBlendElapsed = (self.arrivalBlendElapsed or 0) + math.max(0, elapsed or 0)
+        local progress = duration > 0 and self.arrivalBlendElapsed / duration or 1
+        local fadingOut = target == 0
+        if progress >= 1 then
+            blend = target
+            if fadingOut then
+                self.arrivalFanReveal = true
+            end
+        else
+            blend = self.arrivalBlendFrom + (target - self.arrivalBlendFrom) * EaseOutQuad(progress)
         end
         self.arrivalBlend = blend
         self.renderDirty = true
+    else
+        self.arrivalBlendGoal = target
+        self.arrivalBlendFrom = blend
+        self.arrivalBlendElapsed = 0
     end
     self.arrivalBlendPending = blend ~= target
-    self.arrivalEase = blend * blend * (3 - 2 * blend)
+    self.arrivalEase = blend
     if #foci == 0 and blend <= 0 then
         local fading = self.nearbyFading
         for index = 1, #fading do
@@ -1165,6 +1393,7 @@ function Compass:AssignMarkerSlots(selection, live)
             nextSlots[index] = slot
         end
     end
+    local appearIndex = 0
     local freeIndex = 1
     for index, marker in ipairs(selection) do
         local slot = nextSlots[index]
@@ -1182,7 +1411,6 @@ function Compass:AssignMarkerSlots(selection, live)
                 byKey[slot.markerKey] = nil
             end
             slot.markerKey, slot.markerGeneration = marker.key, generation
-            slot.smoothLeft = nil
             slot.leaving = false
             HideNearbyLabels(slot)
             byKey[marker.key], nextSlots[index] = slot, slot
@@ -1202,30 +1430,40 @@ function Compass:AssignMarkerSlots(selection, live)
             end
             if self.arrivalFanReveal then
                 slot.revealAt = nil
-                slot.smoothLeft = nil
                 if not shown then
-                    FadeMarkerIn(slot, toAlpha)
+                    FadeMarkerIn(slot, toAlpha, appearIndex * C.MARKER_BATCH_STAGGER)
+                    appearIndex = appearIndex + 1
                 end
             elseif self:IsNearbyFocus(marker) then
                 slot.revealAt = nil
                 if not shown then
-                    FadeMarkerIn(slot, toAlpha)
+                    FadeMarkerIn(slot, toAlpha, appearIndex * C.MARKER_BATCH_STAGGER)
+                    appearIndex = appearIndex + 1
                 end
             elseif (self.arrivalBlend or 0) > 0 then
                 slot.revealAt = nil
             elseif self.rangeChanged and not shown then
                 slot.revealAt = nil
-                FadeMarkerIn(slot, toAlpha)
+                FadeMarkerIn(slot, toAlpha, appearIndex * C.MARKER_BATCH_STAGGER)
+                appearIndex = appearIndex + 1
             elseif self.markerFadeIn and not shown then
                 -- Пока сама полоса проявляется, значки идут с ней; иначе проявляем отдельно.
                 slot.revealAt = nil
                 if not (self.frame.fadeIn and self.frame.fadeIn:IsPlaying()) then
-                    FadeMarkerIn(slot, toAlpha)
+                    FadeMarkerIn(slot, toAlpha, appearIndex * C.MARKER_BATCH_STAGGER)
+                    appearIndex = appearIndex + 1
                 end
             elseif not live or marker.navigation or marker.priority <= C.TRACKED_QUEST_PRIORITY then
                 slot.revealAt = nil
+                if not shown then
+                    FadeMarkerIn(slot, toAlpha)
+                end
             elseif assignedNew or not slot.selected or not slot.marker or slot.marker.key ~= marker.key then
-                slot.revealAt = self.markerClock + C.MARKER_REVEAL_DELAY
+                slot.revealAt = nil
+                if not shown then
+                    FadeMarkerIn(slot, toAlpha, appearIndex * C.MARKER_BATCH_STAGGER)
+                    appearIndex = appearIndex + 1
+                end
             end
         end
         slot.selected = true
@@ -1351,21 +1589,55 @@ end
 local function SmoothMarkerLeft(self, button, targetLeft, scale, gentle)
     local C = self.Constants
     local current = button.smoothLeft
-    if not current or (not gentle and math.abs(targetLeft - current) >= C.MARKER_SMOOTH_SNAP) then
+    local elapsed = self.markerSmoothElapsed or 0
+    if not current then
         button.smoothLeft = targetLeft
+        button.moveFromLeft = targetLeft
+        button.moveToLeft = targetLeft
+        button.moveElapsed = 0
+        button.isMoving = false
         return targetLeft
     end
-    local elapsed = self.markerSmoothElapsed or 0
-    local tau
-    if gentle then
-        if self.nearbyReflowPhase == "move" then
-            tau = C.NEARBY_RELAYOUT_DURATION * 0.5
-        else
-            tau = C.NEARBY_MOTION_DURATION * 0.6
-        end
-    else
-        tau = C.MARKER_SMOOTH_TIME
+    if not gentle and math.abs(targetLeft - current) >= C.MARKER_SMOOTH_SNAP then
+        button.smoothLeft = targetLeft
+        button.moveToLeft = targetLeft
+        button.isMoving = false
+        return targetLeft
     end
+    if gentle then
+        local duration = C.MARKER_MOTION_DURATION
+        if self.nearbyReflowPhase == "move" then
+            duration = C.NEARBY_RELAYOUT_DURATION
+        end
+        if current == targetLeft then
+            button.isMoving = false
+            button.moveToLeft = targetLeft
+            return current
+        end
+        if not button.isMoving or button.moveToLeft ~= targetLeft then
+            button.moveFromLeft = current
+            button.moveToLeft = targetLeft
+            button.moveElapsed = 0
+            button.moveDuration = duration
+            button.isMoving = true
+        end
+        button.moveElapsed = (button.moveElapsed or 0) + elapsed
+        local moveDuration = button.moveDuration or duration
+        local progress = 1
+        if moveDuration > 0 then
+            progress = button.moveElapsed / moveDuration
+        end
+        if progress >= 1 then
+            button.isMoving = false
+            button.smoothLeft = button.moveToLeft
+            return button.moveToLeft
+        end
+        local left = button.moveFromLeft + (button.moveToLeft - button.moveFromLeft) * EaseOutQuad(progress)
+        button.smoothLeft = left
+        self.markerSmoothPending = true
+        return left
+    end
+    local tau = C.MARKER_SMOOTH_TIME
     local factor = 1
     if tau > 0 and elapsed > 0 then
         factor = 1 - math.exp(-elapsed / tau)
@@ -1378,6 +1650,7 @@ local function SmoothMarkerLeft(self, button, targetLeft, scale, gentle)
         return left
     end
     button.smoothLeft = targetLeft
+    button.isMoving = false
     return targetLeft
 end
 
@@ -1401,17 +1674,6 @@ function Compass:RenderMarker(button, marker, x, alpha, markerY, outline, scale)
         button.revealAt = nil
     end
     alpha = (alpha or 1) * (marker.sourceAlpha or 1)
-    if button.revealAt and self.markerClock < button.revealAt then
-        self.markerRevealPending = true
-        HideNearbyLabels(button)
-        return false
-    end
-    if button.revealAt then
-        button.revealAt = nil
-        if not button.renderShown and not MarkerFadePlaying(button) then
-            FadeMarkerIn(button, alpha)
-        end
-    end
     local baseLevel = self.frame:GetFrameLevel()
     local level = baseLevel + marker.depthLevel
     if button:GetFrameLevel() ~= level then
@@ -1479,6 +1741,7 @@ function Compass:RenderMarker(button, marker, x, alpha, markerY, outline, scale)
         button.layoutUnderlayWidth, button.layoutUnderlayHeight = underlayWidth, underlayHeight
         button.layoutScale, button.layoutAtlas = scale, atlas
         button.layoutBackground, button.layoutUnderlay = backgroundAtlas, marker.underlayAtlas
+        ApplyMarkerArtScale(button, button.artScale or 1)
     end
     local centerX, centerY = self.artworkLayout.centerX, self.artworkLayout.centerY
     local left = SmoothMarkerLeft(self, button, marker.projectedLeft - centerX, scale, arrived)
@@ -1502,15 +1765,10 @@ function Compass:RenderMarker(button, marker, x, alpha, markerY, outline, scale)
         end
     end
     local fading = MarkerFadePlaying(button) or button.leaving
-    if fading then
-        self.markerRevealPending = true
-        button.renderAlpha = MarkerFrameAlpha(button)
-    elseif not self:IsFadeInPlaying() and button.renderAlpha ~= alpha then
-        SetMarkerFrameAlpha(button, alpha)
-        button.renderAlpha = alpha
-    else
-        button.renderAlpha = alpha
-    end
+    local leaving = button.leaving or marker.nearbyHoldX ~= nil or marker.rangeHoldX ~= nil or #self.arrivalMarkers == 0
+    local reflow = self.nearbyReflowPhase
+    local hideForReflow = reflow == "hide" or reflow == "move"
+    local wantLabels = false
     if arrived then
         local slotWidth = self.nearbyDisplayWidth or self.nearbySlotWidth
         if not slotWidth or slotWidth <= 0 then
@@ -1538,28 +1796,44 @@ function Compass:RenderMarker(button, marker, x, alpha, markerY, outline, scale)
             button.caption:SetPoint("TOP", button.title, "BOTTOM", 0, -Pixel:Multiple(C.LABEL_CAPTION_GAP, scale))
             button.labelX, button.labelY = x, detailY
         end
-        local leaving = button.leaving or marker.nearbyHoldX ~= nil or marker.rangeHoldX ~= nil or #self.arrivalMarkers == 0
-        local reflow = self.nearbyReflowPhase
-        local hideForReflow = reflow == "hide" or reflow == "move"
-        local wantLabels = not leaving and not hideForReflow and self:ShouldShowMarkerLabel(button.labelShown, button.renderAlpha or alpha)
-        -- Пока проявляется полоса, подписи остаются на экране, прозрачность — в цвете текста.
-        if self:IsFadeInPlaying() then
-            if wantLabels then
-                StopLabelFade(button)
-                if button.labelFrame then
-                    button.labelFrame:SetAlpha(1)
-                    button.labelFrame:Show()
+        wantLabels = not leaving and not hideForReflow
+        if not button.contentPlaying then
+            wantLabels = wantLabels and self:ShouldShowMarkerLabel(button.labelShown, button.renderAlpha or alpha)
+        end
+    end
+    if button.contentPlaying then
+        AdvanceMarkerContent(button, self.markerSmoothElapsed or 0, alpha, wantLabels)
+        self.markerRevealPending = true
+    elseif fading then
+        self.markerRevealPending = true
+        button.renderAlpha = MarkerFrameAlpha(button)
+    elseif not self:IsFadeInPlaying() and button.renderAlpha ~= alpha then
+        SetMarkerFrameAlpha(button, alpha)
+        button.renderAlpha = alpha
+    else
+        button.renderAlpha = alpha
+    end
+    if not button.contentPlaying then
+        if arrived then
+            -- Пока проявляется полоса, подписи остаются на экране, прозрачность — в цвете текста.
+            if self:IsFadeInPlaying() then
+                if wantLabels then
+                    StopLabelFade(button)
+                    if button.labelFrame then
+                        button.labelFrame:SetAlpha(1)
+                        button.labelFrame:Show()
+                    end
+                    ApplyNearbyLabelColors(button, MarkerFrameAlpha(self.frame))
+                    button.labelShown = true
+                else
+                    SetNearbyLabelsShown(button, false)
                 end
-                ApplyNearbyLabelColors(button, MarkerFrameAlpha(self.frame))
-                button.labelShown = true
             else
-                SetNearbyLabelsShown(button, false)
+                SetNearbyLabelsShown(button, wantLabels)
             end
         else
-            SetNearbyLabelsShown(button, wantLabels)
+            SetNearbyLabelsShown(button, false)
         end
-    else
-        SetNearbyLabelsShown(button, false)
     end
     if not button.renderShown and not button.leaving then
         if MarkerHoldsFade(self, marker) then
@@ -1567,6 +1841,7 @@ function Compass:RenderMarker(button, marker, x, alpha, markerY, outline, scale)
         elseif self:IsFadeInPlaying() then
             button:Show()
             SetMarkerFrameAlpha(button, alpha)
+            ApplyMarkerArtScale(button, 1)
             if button.glowFrame then
                 button.glowFrame:Show()
             end
