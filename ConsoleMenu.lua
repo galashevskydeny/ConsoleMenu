@@ -100,6 +100,7 @@ local function Initialize()
     
     ConsoleMenu:InitHousingBindingFrame()
     ConsoleMenu:InitInteractBindingFrame()
+    ConsoleMenu:InitExtraActionBindingFrame()
     ConsoleMenu:InitZoneAbilityBindingFrame()
     ConsoleMenu:InitStopCastingBindingFrame()
     

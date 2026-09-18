@@ -95,8 +95,7 @@ local standardUISettings = {
 
 -- Настройки клавиш
 local keyBindingSettings = {
-    { name = "Переопределять кнопку при наличии объекта взаимодействия", variable = "overrideInteractKey", default = 1, tooltip = "Если включено, основная кнопка автоматически использует действие взаимодействия при наличии объекта.", options = toggleOptions },
-    { name = "Переопределять кнопку при наличии способности области", variable = "overrideZoneAbilityKey", default = 2, tooltip = "Если включено, выбранная кнопка автоматически использует способность области, если она доступна.", options = toggleOptions },
+    { name = "Способность области", variable = "overrideZoneAbilityKey", default = 2, tooltip = "Если включено, выбранная кнопка автоматически использует способность области, если она доступна.", options = toggleOptions },
     { name = "Схема привязки контроллера", variable = "keyBindingScheme", default = 2, tooltip = "Выберите схему привязки игровых клавиш контроллера к действиям в игре.", options = { "Авторская", "Вручную" } },
     { name = "Вибрация контроллера", variable = "controllerVibration", default = 2, tooltip = "Управляет вибрацией контроллера при использовании способностей.", options = { "Нет", "При усилении активной способности" } },
     { name = "Макросы панели исследования", variable = "actionBarPageExploring", default = 2, tooltip = "Устанавливает фиксированный набор преднастроенных макросов для панели исследования открытого мира.", options = toggleOptions },  
@@ -104,6 +103,7 @@ local keyBindingSettings = {
     { name = "Макросы панели верховой езды", variable = "actionBarPageMount", default = 2, tooltip = "Устанавливает фиксированный набор преднастроенных макросов для панели верховой езды.", options = toggleOptions },
     { name = "Способности и макросы панели полета на драконе", variable = "actionBarPageDragonriding", default = 2, tooltip = "Устанавливает фиксированный набор преднастроенных способностей и макросов для панели полета на драконе.", options = toggleOptions }, 
     { name = "Переопределять кнопку при произнесении заклинания", variable = "overrideStopCastingKey", default = 1, tooltip = "Если включено, выбранная кнопка автоматически используется для остановки заклинания (действует только вне боя).", options = toggleOptions },
+    { name = "Дополнительная кнопка действия", variable = "overrideExtraActionKey", default = 1, tooltip = "Если включено, выбранная кнопка автоматически использует дополнительную кнопку действия, когда она появляется на экране.", options = toggleOptions },
 }
 
 -- Настройки контекстов
@@ -228,15 +228,15 @@ local function registerContextsOptions(category, layout)
 
     layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Исследование открытого мира"))
 
-    registerDropdown(category, keyBindingSettings[5], function(value)
-        ConsoleMenuDB[keyBindingSettings[5].variable] = value
+    registerDropdown(category, keyBindingSettings[4], function(value)
+        ConsoleMenuDB[keyBindingSettings[4].variable] = value
         if _G.ApplyMacroSettings then
             _G.ApplyMacroSettings()
         end
     end)
 
-    registerDropdown(category, keyBindingSettings[6], function(value)
-        ConsoleMenuDB[keyBindingSettings[6].variable] = value
+    registerDropdown(category, keyBindingSettings[5], function(value)
+        ConsoleMenuDB[keyBindingSettings[5].variable] = value
         if _G.ApplyMacroSettings then
             _G.ApplyMacroSettings()
         end
@@ -258,15 +258,15 @@ local function registerContextsOptions(category, layout)
         ConsoleMenuDB[contextsSettings[2].variable] = value
     end)
 
-    registerDropdown(category, keyBindingSettings[7], function(value)
-        ConsoleMenuDB[keyBindingSettings[7].variable] = value
+    registerDropdown(category, keyBindingSettings[6], function(value)
+        ConsoleMenuDB[keyBindingSettings[6].variable] = value
         if _G.ApplyMacroSettings then
             _G.ApplyMacroSettings()
         end
     end)
 
-    registerDropdown(category, keyBindingSettings[8], function(value)
-        ConsoleMenuDB[keyBindingSettings[8].variable] = value
+    registerDropdown(category, keyBindingSettings[7], function(value)
+        ConsoleMenuDB[keyBindingSettings[7].variable] = value
         if _G.ApplyMacroSettings then
             _G.ApplyMacroSettings()
         end
@@ -275,30 +275,10 @@ local function registerContextsOptions(category, layout)
 end
 
 local function registerKeyBindingOptions(category, layout)
-    layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Взаимодействие"))
-
-    registerDropdown(category, keyBindingSettings[1], function(value)
-        ConsoleMenuDB[keyBindingSettings[1].variable] = value
-    end)
-
-    registerKeyBindingPicker(
-        category,
-        layout,
-        {
-            name = "Клавиша для взаимодействия",
-            variable = "interactButton",
-            defaultKey = "PAD1",
-            tooltip = "Выберите, какая кнопка будет использоваться для взаимодействия с объектами.",
-        },
-        function(newKey)
-            ConsoleMenuDB.interactButton = newKey
-        end
-    )
-
     layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Прерывание заклинания (вне боя)"))
 
-    registerDropdown(category, keyBindingSettings[9], function(value)
-        ConsoleMenuDB[keyBindingSettings[9].variable] = value
+    registerDropdown(category, keyBindingSettings[8], function(value)
+        ConsoleMenuDB[keyBindingSettings[8].variable] = value
     end)
 
     registerKeyBindingPicker(
@@ -315,10 +295,20 @@ local function registerKeyBindingOptions(category, layout)
         end
     )
 
-    layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Способность области"))
+    layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Автоматическое назначение дополнительных действий"))
 
-    registerDropdown(category, keyBindingSettings[2], function(value)
-        ConsoleMenuDB[keyBindingSettings[2].variable] = value
+    registerDropdown(category, keyBindingSettings[1], function(value)
+        ConsoleMenuDB[keyBindingSettings[1].variable] = value
+        if ConsoleMenu and ConsoleMenu.SetBindingsZoneAbility then
+            ConsoleMenu:SetBindingsZoneAbility()
+        end
+    end)
+
+    registerDropdown(category, keyBindingSettings[9], function(value)
+        ConsoleMenuDB[keyBindingSettings[9].variable] = value
+        if ConsoleMenu and ConsoleMenu.SetBindingsExtraAction then
+            ConsoleMenu:SetBindingsExtraAction()
+        end
         if ConsoleMenu and ConsoleMenu.SetBindingsZoneAbility then
             ConsoleMenu:SetBindingsZoneAbility()
         end
@@ -326,15 +316,15 @@ local function registerKeyBindingOptions(category, layout)
 
     layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Игровой контроллер"))
 
-    registerDropdown(category, keyBindingSettings[3], function(value)
-        ConsoleMenuDB[keyBindingSettings[3].variable] = value
+    registerDropdown(category, keyBindingSettings[2], function(value)
+        ConsoleMenuDB[keyBindingSettings[2].variable] = value
         if ConsoleMenu and ConsoleMenu.SetBaseKeyBindings then
             ConsoleMenu:SetBaseKeyBindings()
         end
     end)
 
-    registerDropdown(category, keyBindingSettings[4], function(value)
-        ConsoleMenuDB[keyBindingSettings[4].variable] = value
+    registerDropdown(category, keyBindingSettings[3], function(value)
+        ConsoleMenuDB[keyBindingSettings[3].variable] = value
     end)
 
     local clearBindingsInitializer = CreateSettingsButtonInitializer(
@@ -353,6 +343,13 @@ local function registerKeyBindingOptions(category, layout)
 
     layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Страницы и макросы"))
 
+    registerDropdown(category, keyBindingSettings[4], function(value)
+        ConsoleMenuDB[keyBindingSettings[4].variable] = value
+        if _G.ApplyMacroSettings then
+            _G.ApplyMacroSettings()
+        end
+    end)
+
     registerDropdown(category, keyBindingSettings[5], function(value)
         ConsoleMenuDB[keyBindingSettings[5].variable] = value
         if _G.ApplyMacroSettings then
@@ -369,13 +366,6 @@ local function registerKeyBindingOptions(category, layout)
 
     registerDropdown(category, keyBindingSettings[7], function(value)
         ConsoleMenuDB[keyBindingSettings[7].variable] = value
-        if _G.ApplyMacroSettings then
-            _G.ApplyMacroSettings()
-        end
-    end)
-
-    registerDropdown(category, keyBindingSettings[8], function(value)
-        ConsoleMenuDB[keyBindingSettings[8].variable] = value
         if _G.ApplyMacroSettings then
             _G.ApplyMacroSettings()
         end

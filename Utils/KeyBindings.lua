@@ -451,11 +451,6 @@ function ConsoleMenu:InitInteractBindingFrame()
 end
 
 function ConsoleMenu:SetInteractBinding(newTarget)
-
-    if ConsoleMenuDB and ConsoleMenuDB.overrideInteractKey == 2 then
-        return
-    end
-
     local hasInteractTarget = UnitIsInteractable("softinteract") or UnitIsInteractable("softenemy")
 
     if newTarget and hasInteractTarget then
@@ -466,6 +461,130 @@ function ConsoleMenu:SetInteractBinding(newTarget)
         ConsoleMenu:DeleteKeysFrameItem("PADRTRIGGER")
         ConsoleMenu:UpdateKeysFrame()
     end
+end
+
+-- Проверяет, включено ли переназначение тачпада на дополнительную кнопку действия
+local function IsExtraActionOverrideEnabled()
+    return not ConsoleMenuDB or ConsoleMenuDB.overrideExtraActionKey ~= 2
+end
+
+-- Проверяет, что дополнительная кнопка сейчас должна занимать тачпад
+function ConsoleMenu:HasActiveExtraActionOverride()
+    return IsExtraActionOverrideEnabled() and C_ActionBar and C_ActionBar.HasExtraActionBar()
+end
+
+-- Последнее название подсказки дополнительной кнопки
+local extraActionHintTitle
+
+-- Возвращает название действия дополнительной кнопки для подсказки
+local function GetExtraActionHintTitle()
+    local button = _G.ExtraActionButton1
+    local action = button and button.action
+    if (not action or action == 0) and button and button.CalculateAction then
+        action = button:CalculateAction()
+    end
+
+    if action and action ~= 0 then
+        local actionType, id, subType = GetActionInfo(action)
+        local title = ConsoleMenu:GetSlotTitle(actionType, id, subType, action)
+        if title and title ~= "" then
+            return title
+        end
+    end
+
+    return "Дополнительное действие"
+end
+
+-- Обновляет подсказку тачпада при появлении или скрытии дополнительной кнопки
+function ConsoleMenu:UpdateExtraActionKeyHint()
+    local shouldShow = self:HasActiveExtraActionOverride()
+    local newTitle = shouldShow and GetExtraActionHintTitle() or nil
+
+    if extraActionHintTitle and extraActionHintTitle ~= newTitle then
+        ConsoleMenu:DeleteKeysFrameItem("PAD6", extraActionHintTitle)
+        ConsoleMenu:DeleteKeysFrameItem("PADBACK", extraActionHintTitle)
+        extraActionHintTitle = nil
+    end
+
+    if newTitle then
+        ConsoleMenu:AddKeysFrameItem("PAD6", newTitle)
+        ConsoleMenu:AddKeysFrameItem("PADBACK", newTitle)
+        extraActionHintTitle = newTitle
+    end
+
+    ConsoleMenu:UpdateKeysFrame()
+end
+
+-- Включает или выключает защищённое переназначение тачпада
+function ConsoleMenu:SetBindingsExtraAction()
+    local frame = self.ExtraActionBindingFrame
+    if not frame then
+        return
+    end
+
+    if InCombatLockdown() then
+        return
+    end
+
+    if not IsExtraActionOverrideEnabled() then
+        UnregisterStateDriver(frame, "extrabar")
+        ClearOverrideBindings(frame)
+        self:UpdateExtraActionKeyHint()
+        return
+    end
+
+    RegisterStateDriver(frame, "extrabar", "[extrabar] 1; 0")
+    self:UpdateExtraActionKeyHint()
+end
+
+-- Создаёт защищённый фрейм переназначения тачпада на дополнительную кнопку
+function ConsoleMenu:InitExtraActionBindingFrame()
+    if not self.ExtraActionBindingFrame then
+        self.ExtraActionBindingFrame = CreateFrame("Frame", nil, nil, "SecureHandlerStateTemplate")
+        -- В бою обычное переопределение недоступно, поэтому состояние задаёт клиент
+        self.ExtraActionBindingFrame:SetAttribute("_onstate-extrabar", [[
+            if newstate == "1" then
+                self:SetBinding(true, "PAD6", "EXTRAACTIONBUTTON1")
+                self:SetBinding(true, "PADBACK", "EXTRAACTIONBUTTON1")
+            else
+                self:ClearBindings()
+            end
+        ]])
+    end
+
+    self.ExtraActionBindingFrame:RegisterEvent("UPDATE_EXTRA_ACTIONBAR")
+    self.ExtraActionBindingFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+    self.ExtraActionBindingFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+
+    self.ExtraActionBindingFrame:SetScript("OnEvent", function(_, event)
+        if not ConsoleMenu then
+            return
+        end
+
+        if event == "PLAYER_REGEN_ENABLED" then
+            if ConsoleMenu.SetBindingsExtraAction then
+                ConsoleMenu:SetBindingsExtraAction()
+            end
+            if ConsoleMenu.SetBindingsZoneAbility then
+                ConsoleMenu:SetBindingsZoneAbility()
+            end
+            return
+        end
+
+        if ConsoleMenu.UpdateExtraActionKeyHint then
+            ConsoleMenu:UpdateExtraActionKeyHint()
+        end
+
+        if event == "UPDATE_EXTRA_ACTIONBAR"
+            and C_ActionBar
+            and not C_ActionBar.HasExtraActionBar()
+            and ConsoleMenu.SetBindingsZoneAbility
+        then
+            ConsoleMenu:SetBindingsZoneAbility()
+        end
+    end)
+
+    self:SetBindingsExtraAction()
 end
 
 -- Модуль для отслеживания способности зоны PAD6 и PADBACK
@@ -479,6 +598,7 @@ function ConsoleMenu:InitZoneAbilityBindingFrame()
     self.ZoneAbilityBindingFrame:RegisterEvent("PLAYER_GAINS_VEHICLE_DATA")
     self.ZoneAbilityBindingFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
     self.ZoneAbilityBindingFrame:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED")
+    self.ZoneAbilityBindingFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 
     self.ZoneAbilityBindingFrame:SetScript("OnEvent", function(self, event, ...)
         if not ConsoleMenu or not ConsoleMenu.SetBindingsZoneAbility then
@@ -498,6 +618,11 @@ function ConsoleMenu:SetBindingsZoneAbility()
     end
 
     if InCombatLockdown() then return end
+
+    -- Пока активна дополнительная кнопка, тачпад принадлежит ей
+    if ConsoleMenu:HasActiveExtraActionOverride() then
+        return
+    end
 
     -- Получаем активные зоновые способности
     local zoneAbilities = C_ZoneAbility.GetActiveAbilities()
