@@ -46,7 +46,7 @@ local function GetTextBlockWidth(list)
     return math.max(80, listWidth - contentPadding - ExpandableList.iconSize - ExpandableList.sectionPadding * 6)
 end
 
--- Высота подписи: если перенос ещё не готов, берём оценку по ширине.
+-- Высота подписи по уже известному переносу, без завышения по неперенесённой ширине.
 local function MeasureFontStringHeight(fontString, fallback)
     if not fontString then
         return fallback
@@ -60,28 +60,48 @@ local function MeasureFontStringHeight(fontString, fallback)
     end
 
     local measured = fontString:GetStringHeight() or 0
-
-    local estimated = 0
-    local width = fontString:GetWidth()
-    local stringWidth = fontString:GetStringWidth()
-    if lineHeight > 0 and width and width > 0 and stringWidth and stringWidth > 0 then
-        estimated = math.max(lineHeight, math.ceil(stringWidth / width) * lineHeight)
-    end
-
-    -- Одна видимая строка при большей оценке означает, что перенос ещё не выполнен.
-    if lineCount <= 1 and estimated > measured + lineHeight then
-        return math.max(estimated, fallback)
-    end
-
     local height = math.max(measured, wrapped)
     if height > 1 then
         return height
     end
-    if estimated > 1 then
-        return estimated
-    end
 
     return fallback
+end
+
+-- Нужно ли ещё раз уточнить высоту: подпись ниже числа строк или одна строка всё ещё шире поля.
+local function NeedsWrapRemeasure(fontString)
+    if not fontString or not fontString:IsShown() then
+        return false
+    end
+
+    local lineHeight = fontString.GetLineHeight and fontString:GetLineHeight() or 0
+    local lineCount = fontString.GetNumLines and fontString:GetNumLines() or 0
+    local measured = fontString:GetStringHeight() or 0
+    if lineHeight > 0 and lineCount > 0 and measured + lineHeight < lineHeight * lineCount then
+        return true
+    end
+
+    -- Длинная строка без абзацев: перенос ещё не выполнен, пока текст шире поля.
+    if lineCount <= 1 then
+        local width = fontString:GetWidth()
+        local stringWidth = fontString:GetStringWidth() or 0
+        if width and width > 0 and stringWidth > width + 1 then
+            return true
+        end
+    end
+
+    return false
+end
+
+-- Есть ли у раскрытой строки описание или цена, высота которых ещё не совпала со строками.
+local function RowHasPendingWrap(frame)
+    if not frame or not frame.text then
+        return false
+    end
+    if NeedsWrapRemeasure(frame.text.description) then
+        return true
+    end
+    return frame.text.extra and frame.text.extra:IsShown() and NeedsWrapRemeasure(frame.text.extra.text)
 end
 
 -- Высота дополнительного блока с учётом значков.
@@ -207,6 +227,7 @@ local function CollapseRow(frame, data)
     local wasExpanded = frame:GetHeight() > ExpandableList.sectionHeight
 
     frame:SetScript("OnUpdate", nil)
+    frame.wrapRemeasureCount = nil
     frame:SetHeight(ExpandableList.sectionHeight)
     ExpandableList.ApplyBodyFont(frame.text.title, ExpandableList.itemFontSize, "OUTLINE")
     frame.text.title:SetText(data.name or "")
@@ -228,10 +249,59 @@ local function CollapseRow(frame, data)
     return wasExpanded
 end
 
--- Не планировать повторный замер, пока идёт отложенное уточнение высоты.
-local isRemeasuringFocusedRow = false
+-- Пересчитать высоту уже раскрытой строки без повторного сбора описания.
+local function RelayoutExpandedRow(frame, list)
+    if not frame or not frame.text then
+        return false
+    end
 
--- Повторить раскрытие выбранной строки после переноса описания.
+    if frame.text.description and frame.text.description:IsShown() then
+        frame.text.description:SetWidth(GetTextBlockWidth(list))
+    end
+
+    local extra = frame.text.extra
+    if extra then
+        extra:ClearAllPoints()
+        if frame.text.description and frame.text.description:IsShown() then
+            local descriptionHeight = MeasureFontStringHeight(frame.text.description, ExpandableList.descriptionFontSize)
+            local extraTopGap = ExpandableList.sectionPadding
+            if descriptionHeight > ExpandableList.descriptionFontSize * 1.5 then
+                extraTopGap = ExpandableList.sectionPadding * 2
+            end
+            extra:SetPoint("TOPLEFT", frame.text.description, "BOTTOMLEFT", 0, -extraTopGap)
+        else
+            extra:SetPoint("TOPLEFT", frame.text.title, "BOTTOMLEFT", 0, -ExpandableList.sectionPadding)
+        end
+        extra:SetPoint("TOPRIGHT", frame.text, "TOPRIGHT", 0, 0)
+        if extra:IsShown() then
+            UpdateExtraHeight(frame)
+        end
+    end
+
+    UpdateTextHeight(frame)
+
+    local newExtent = math.max(
+        ExpandableList.sectionHeight,
+        (frame.text.height or ExpandableList.sectionHeight) + ExpandableList.sectionPadding * 2
+    )
+    frame:SetHeight(newExtent)
+    if newExtent <= ExpandableList.sectionHeight then
+        ApplyDefaultLayout(frame)
+    else
+        ApplyExpandedLayout(frame)
+    end
+
+    local previousExtent = list and list.focusedExtent or ExpandableList.sectionHeight
+    if list then
+        list.focusedExtent = newExtent
+    end
+    return previousExtent ~= newExtent
+end
+
+-- Уточнить высоту выбранной строки после переноса и вернуть подпись группы в кадр.
+local MAX_WRAP_REMEASURES = 2
+local ScheduleFocusedExtentRefresh
+
 local function RemeasureFocusedRow(frame, list)
     if not frame or not list or not frame.listData then
         return
@@ -240,18 +310,24 @@ local function RemeasureFocusedRow(frame, list)
         return
     end
 
-    local previousExtent = list.focusedExtent
-    isRemeasuringFocusedRow = true
-    local changed = ExpandableList.SetRowFocused(frame, true)
-    isRemeasuringFocusedRow = false
-    if (changed or list.focusedExtent ~= previousExtent) and list.UpdateScrollBar then
-        list:UpdateScrollBar()
+    local changed = RelayoutExpandedRow(frame, list)
+    frame.wrapRemeasureCount = (frame.wrapRemeasureCount or 0) + 1
+    if changed then
+        if list.UpdateScrollBar then
+            list:UpdateScrollBar()
+        end
+        if ExpandableList.ScrollFocusedIntoView then
+            ExpandableList.ScrollFocusedIntoView(list)
+        end
+    end
+    if RowHasPendingWrap(frame) and frame.wrapRemeasureCount < MAX_WRAP_REMEASURES then
+        ScheduleFocusedExtentRefresh(frame, list)
     end
 end
 
--- Уточнить высоту выбранной строки на следующем кадре, когда перенос уже известен.
-local function ScheduleFocusedExtentRefresh(frame, list)
-    if isRemeasuringFocusedRow or not frame or not list then
+-- Уточнить высоту на следующем кадре, когда перенос уже известен.
+ScheduleFocusedExtentRefresh = function(frame, list)
+    if not frame or not list then
         return
     end
     frame:SetScript("OnUpdate", function(self)
@@ -328,7 +404,9 @@ local function ExpandRow(frame, data, list)
     if list then
         list.focusedExtent = newExtent
     end
-    if frame.text.description:IsShown() then
+
+    frame.wrapRemeasureCount = 0
+    if frame.text.description:IsShown() or (frame.text.extra and frame.text.extra:IsShown()) then
         ScheduleFocusedExtentRefresh(frame, list)
     end
     return previousExtent ~= newExtent
@@ -448,6 +526,7 @@ end
 -- Сбросить визуальное состояние перед новой отрисовкой.
 local function ResetRowVisuals(frame)
     frame:SetScript("OnUpdate", nil)
+    frame.wrapRemeasureCount = nil
     frame:SetHeight(ExpandableList.sectionHeight)
     ExpandableList.ApplyBodyFont(frame.text.title, ExpandableList.itemFontSize, "OUTLINE")
     frame.text.title:SetText("")
@@ -477,6 +556,7 @@ function ExpandableList.ResetReleasedRow(frame)
         return
     end
     frame:SetScript("OnUpdate", nil)
+    frame.wrapRemeasureCount = nil
     frame.listData = nil
     frame:SetHeight(ExpandableList.sectionHeight)
     if frame.EnableMouse then

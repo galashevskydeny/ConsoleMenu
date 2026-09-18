@@ -69,8 +69,10 @@ function Merchant.RestoreCurrentTabFocus()
     end
 
     if not restored then
-        Merchant.UpdateActionKeys(nil)
-        ConsoleMenu:UpdateKeysFrame()
+        if not list:GetFocusedElement() then
+            Merchant.UpdateActionKeys(nil)
+            ConsoleMenu:UpdateKeysFrame()
+        end
     end
 end
 

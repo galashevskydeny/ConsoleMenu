@@ -204,26 +204,53 @@ function Merchant.GetListItemTooltipData(element, forceRefresh)
     return tooltipData
 end
 
--- Подогнать встроенные значки под кегль строки, чтобы знак качества не раздувал подпись.
+-- Подогнать встроенные значки под кегль строки, сохраняя обрезку текстуры.
 local function ScaleInlineIcons(text, size)
     if not text or text == "" then
         return text
     end
 
     local iconSize = size or ExpandableList.descriptionFontSize
+
+    local function ReplaceMarkupBody(body)
+        local name = body:match("^([^:]+)")
+        if not name or name == "" then
+            return nil
+        end
+
+        local extras = {}
+        local fieldIndex = 0
+        for field in string.gmatch(body, "[^:]+") do
+            fieldIndex = fieldIndex + 1
+            if fieldIndex >= 4 then
+                table.insert(extras, field)
+            end
+        end
+        if #extras > 0 then
+            return name, table.concat(extras, ":")
+        end
+        return name, nil
+    end
+
     text = text:gsub("|A:([^|]+)|a", function(body)
-        local atlas = body:match("^([^:]+)")
-        if not atlas or atlas == "" then
+        local atlas, extras = ReplaceMarkupBody(body)
+        if not atlas then
             return ""
+        end
+        if extras then
+            return string.format("|A:%s:%d:%d:%s|a", atlas, iconSize, iconSize, extras)
         end
         return string.format("|A:%s:%d:%d|a", atlas, iconSize, iconSize)
     end)
     text = text:gsub("|T([^|]+)|t", function(body)
-        local path = body:match("^([^:]+)")
-        if not path or path == "" then
+        local path, extras = ReplaceMarkupBody(body)
+        if not path then
             return ""
         end
-        return string.format("|T%s:%d:%d:0:0|t", path, iconSize, iconSize)
+        if extras then
+            return string.format("|T%s:%d:%d:%s|t", path, iconSize, iconSize, extras)
+        end
+        return string.format("|T%s:%d:%d|t", path, iconSize, iconSize)
     end)
     return text
 end

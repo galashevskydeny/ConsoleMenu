@@ -34,6 +34,7 @@ function ExpandableList.ResetFocusState(list)
     end
     list.focusedIndex = nil
     list.focusedExtent = ExpandableList.sectionHeight
+    list.focusFrameRetryQueued = nil
 end
 
 -- Строка по номеру через открытый метод поставщика.
@@ -202,6 +203,14 @@ local function ScrollToIndex(list, index)
     list.scrollBox:ScrollToElementDataIndex(index, GetAlignNearest(), 0, noInterpolation)
 end
 
+-- Вернуть выбранную строку и подпись группы в видимую область после смены высоты.
+function ExpandableList.ScrollFocusedIntoView(list)
+    if not list or not list.focusedIndex then
+        return
+    end
+    ScrollToIndex(list, list.focusedIndex)
+end
+
 -- Найти видимую рамку строки с учётом сравнения потребителя.
 local function FindVisibleFrame(list, element)
     if not list or not list.scrollBox or not element then
@@ -233,8 +242,13 @@ local function ApplyFocusToVisibleFrames(list, element)
         end
     end
 
-    if focusedFrame and focusedFrame.SetFocused then
-        layoutChanged = focusedFrame:SetFocused(true) or layoutChanged
+    if focusedFrame then
+        if not focusedFrame.SetFocused then
+            ExpandableList.InitializeRow(focusedFrame, element, list)
+            layoutChanged = true
+        else
+            layoutChanged = focusedFrame:SetFocused(true) or layoutChanged
+        end
     end
 
     return layoutChanged, focusedFrame
@@ -259,7 +273,7 @@ local function NotifyFocusChanged(list, element, skipNotify)
 end
 
 -- Обновить выбор и при необходимости прокрутить к строке.
-function ExpandableList.UpdateFocus(list, element, changeFocus, skipNotify)
+function ExpandableList.UpdateFocus(list, element, changeFocus, skipNotify, isRetry)
     if not list or not element or not list.scrollBox then
         return nil
     end
@@ -293,11 +307,23 @@ function ExpandableList.UpdateFocus(list, element, changeFocus, skipNotify)
         layoutChanged, focusedFrame = ApplyFocusToVisibleFrames(list, element)
     end
     if not focusedFrame then
-        NotifyFocusChanged(list, element, skipNotify)
-        if skipNotify then
-            return nil
+        if not isRetry and not list.focusFrameRetryQueued then
+            list.focusFrameRetryQueued = true
+            C_Timer.After(0, function()
+                list.focusFrameRetryQueued = nil
+                local current = ExpandableList.GetFocusedElement(list)
+                if not current or not ExpandableList.AreEqual(list, current, element) then
+                    return
+                end
+                local restored = ExpandableList.UpdateFocus(list, current, true, skipNotify, true)
+                if not restored then
+                    NotifyFocusChanged(list, element, skipNotify)
+                end
+            end)
+        elseif isRetry then
+            NotifyFocusChanged(list, element, skipNotify)
         end
-        return element
+        return nil
     end
 
     if layoutChanged or list.focusedExtent ~= previousExtent then
