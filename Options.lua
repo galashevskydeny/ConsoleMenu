@@ -21,13 +21,18 @@ local mainCategorySettings = {
 -- Основные элементы
 local hudSettingsMainElements = {
     { name = "Задания", variable = "hideObjectiveTracker", default = 1, tooltip = "Управляет отображением трекера заданий (ObjectiveTracker).", options = hudDropdownOptions },
-    { name = "Миникарта", variable = "hideMinimap", default = 1, tooltip = "Управляет отображением миникарты (Minimap).", options = hudDropdownOptions },
+    { name = "Миникарта", variable = "hideMinimap", default = 1, tooltip = "Выберите вид миникарты: стандартную карту или обновлённый компас вместо неё.", options = hudUpdateDropdownOptions },
     { name = "Главное меню", variable = "hideMicroMenu", default = 1, tooltip = "Управляет отображением главного меню (MicroMenu).", options = hudDropdownOptions },
     { name = "Поиск группы", variable = "groupFinderFrameStyle", default = 1, tooltip = "Управляет отображением фрейма поиска группы (GroupFinderFrame).", options = hudUpdateDropdownOptions },
     { name = "Панель сумок", variable = "hideBagsBarsBar", default = 1, tooltip = "Управляет отображением панели сумок (BagsBarsBar).", options = hudDropdownOptions },
     { name = "Чат", variable = "chatWindowStyle", default = 2, tooltip = "Выберите стиль окна чата: обновленную версию (скрытую по умолчанию в центре экрана) или стандартную.", options = hudUpdateDropdownOptions },
     { name = "Индикаторы опыта и статуса", variable = "statusTrackingBarManagerStyle", default = 1, tooltip = "Управляет отображением индикатора здоровья противников (StatusTrackingBarManager).", options = hudUpdateDropdownOptions },
+}
 
+-- Настройки миникарты
+local minimapSettings = {
+    { name = "Сводка", variable = "hideExpansionLandingPageMinimapButton", default = 1, tooltip = "Управляет отображением кнопки сводки (ExpansionLandingPageMinimapButton).", options = hudDropdownOptions },
+    { name = "Шапка", variable = "hideMinimapCluster", default = 1, tooltip = "Управляет отображением шапки (MinimapCluster).", options = hudDropdownOptions },
 }
 
 -- Рамки противников и союзников
@@ -79,12 +84,6 @@ local hudSettingsGameplay = {
     { name = "Реплики персонажей над головой", variable = "chatBubble", default = 4, tooltip = "Отключает облака с субтитрами над головой персонажей и игроков (chatBubbles, chatBubblesParty).", options = cvarDropdownOptions },
     { name = "Подсветка квестодателя", variable = "qestCircle", default = 4, tooltip = "Выделение квестодателя при взаимодействии в геймплее (ShowQuestUnitCircles, ObjectSelectionCircle).", options = cvarDropdownOptions },
     { name = "Выделение персонажей и игроков", variable = "hideGraphicsOutlineMode", default = 3, tooltip = "Отключает режим контуров графики (graphicsOutlineMode).", options = cvarHideDropdownOptions },
-}
-
--- Настройки миникарты
-local minimapSettings = {
-    { name = "Сводка", variable = "hideExpansionLandingPageMinimapButton", default = 1, tooltip = "Управляет отображением кнопки сводки (ExpansionLandingPageMinimapButton).", options = hudDropdownOptions },
-    { name = "Шапка", variable = "hideMinimapCluster", default = 1, tooltip = "Управляет отображением шапки (MinimapCluster).", options = hudDropdownOptions },
 }
 
 -- Игровые окна
@@ -149,6 +148,14 @@ local function registerHUDOptions(category, layout)
     -- Основные элементы
     layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Основные"))
     for _, setting in ipairs(hudSettingsMainElements) do
+        registerDropdown(category, setting, function(value)
+            ConsoleMenuDB[setting.variable] = value
+        end)
+    end
+
+    -- Настройки миникарты
+    layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Миникарта"))
+    for _, setting in ipairs(minimapSettings) do
         registerDropdown(category, setting, function(value)
             ConsoleMenuDB[setting.variable] = value
         end)
@@ -415,14 +422,6 @@ local function registerCameraOptions(category, layout)
     end
 end
 
-local function registerMinimapOptions(category, layout)
-    for _, setting in ipairs(minimapSettings) do
-        registerDropdown(category, setting, function(value)
-            ConsoleMenuDB[setting.variable] = value
-        end)
-    end
-end
-
 local function RegisterOptions()
     if not Settings then
         return false
@@ -433,9 +432,6 @@ local function RegisterOptions()
 
     local hudCategory, hudLayout = Settings.RegisterVerticalLayoutSubcategory(mainCategory, "Элементы интерфейса")
     registerHUDOptions(hudCategory, hudLayout)
-
-    local minimapCategory, minimapLayout = Settings.RegisterVerticalLayoutSubcategory(hudCategory, "Миникарта")
-    registerMinimapOptions(minimapCategory, minimapLayout)
 
     local standardUICategory, standardUILayout = Settings.RegisterVerticalLayoutSubcategory(mainCategory, "Игровые окна")
     registerStandardUIOptions(standardUICategory, standardUILayout)

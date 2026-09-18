@@ -35,41 +35,32 @@ function Merchant.UpdateActionKeys(element)
     local canRepair = tab and tab.code == "trade" and Merchant.NeedsEquipmentRepair()
     local canSellAllJunk = tab and tab.code == "sell" and Merchant.CanSellAllJunk()
 
+    -- Снимаем действия прошлой вкладки, иначе у одной кнопки остаются две подписи.
+    ConsoleMenu:DeleteKeysFrameItem("PAD1")
+    ConsoleMenu:DeleteKeysFrameItem("PAD3")
+    ConsoleMenu:DeleteKeysFrameItem("PAD4")
+
     if element and element.type == "merchantItem" and not element.isUnavailable then
         ConsoleMenu:AddKeysFrameItem("PAD1", "Купить предмет")
         if canRepair then
             ConsoleMenu:AddKeysFrameItem("PAD3", "Отремонтировать снаряжение")
-        else
-            ConsoleMenu:DeleteKeysFrameItem("PAD3")
         end
         if Merchant.GetListItemStackSize(element) > 1 then
             ConsoleMenu:AddKeysFrameItem("PAD4", "Купить пачку предметов")
-        else
-            ConsoleMenu:DeleteKeysFrameItem("PAD4")
         end
     elseif element and element.type == "buybackItem" then
         ConsoleMenu:AddKeysFrameItem("PAD1", "Выкупить предмет")
-        ConsoleMenu:DeleteKeysFrameItem("PAD3")
-        ConsoleMenu:DeleteKeysFrameItem("PAD4")
     elseif element and element.type == "bagItem" then
         ConsoleMenu:AddKeysFrameItem("PAD1", "Продать предмет")
-        ConsoleMenu:DeleteKeysFrameItem("PAD3")
         if canSellAllJunk then
             ConsoleMenu:AddKeysFrameItem("PAD4", "Продать весь хлам")
-        else
-            ConsoleMenu:DeleteKeysFrameItem("PAD4")
         end
     else
-        ConsoleMenu:DeleteKeysFrameItem("PAD1")
         if canRepair then
             ConsoleMenu:AddKeysFrameItem("PAD3", "Отремонтировать снаряжение")
-        else
-            ConsoleMenu:DeleteKeysFrameItem("PAD3")
         end
         if canSellAllJunk then
             ConsoleMenu:AddKeysFrameItem("PAD4", "Продать весь хлам")
-        else
-            ConsoleMenu:DeleteKeysFrameItem("PAD4")
         end
     end
 end

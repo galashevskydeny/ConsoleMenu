@@ -54,7 +54,9 @@ local function Initialize()
     end
     ConsoleMenu:SetQuestFrame()
     ConsoleMenu:SetStatusTrackingFrame()
-    ConsoleMenu:SetCompassFrame()
+    if ConsoleMenuDB.hideMinimap == 2 then
+        ConsoleMenu:SetCompassFrame()
+    end
     ConsoleMenu:SetObjectiveTrackerFrame()
     ConsoleMenu:SetGameDialog()
     ConsoleMenu:SetPlayerChoice()

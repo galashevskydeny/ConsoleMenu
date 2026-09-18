@@ -159,6 +159,9 @@ end
 
 -- Запоминает скрытие полосы окнами интерфейса.
 function Compass:SetContextHidden(hidden)
+    if not self.frame then
+        return
+    end
     if self.hiddenByContext == hidden then
         return
     end
@@ -168,6 +171,9 @@ end
 
 -- Запоминает скрытие полосы индикатором опыта.
 function Compass:SetProgressHidden(hidden)
+    if not self.frame then
+        return
+    end
     if self.hiddenByProgress == hidden then
         return
     end
@@ -262,6 +268,9 @@ end
 
 -- Создаёт полосу навигации и запускает её.
 function ConsoleMenu:SetCompassFrame()
+    if ConsoleMenuDB.hideMinimap ~= 2 then
+        return
+    end
     if Compass.frame then
         return
     end
