@@ -50,13 +50,16 @@ function Merchant.IsSelectable(element)
     return Merchant.IsListItem(element) and element.slot ~= nil
 end
 
--- Совпадают ли две строки по типу, ячейке и сумке.
+-- Совпадают ли две строки по типу, ячейке и сумке. Разделители сравниваются по тождеству.
 function Merchant.AreElementsEqual(left, right)
     if not left or not right then
         return false
     end
     if left.type ~= right.type then
         return false
+    end
+    if left.type == "separator" then
+        return left == right
     end
     if left.type == "bagItem" then
         return left.slot == right.slot and left.bag == right.bag

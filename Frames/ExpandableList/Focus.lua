@@ -3,6 +3,39 @@
 local ConsoleMenu = _G.ConsoleMenu
 local ExpandableList = ConsoleMenu.ExpandableList
 
+-- Выравнивание прокрутки к ближайшему краю видимой области.
+local function GetAlignNearest()
+    if ScrollBoxConstants and ScrollBoxConstants.AlignNearest then
+        return ScrollBoxConstants.AlignNearest
+    end
+    return -1
+end
+
+-- Выравнивание прокрутки к верхнему краю видимой области.
+local function GetAlignBegin()
+    if ScrollBoxConstants and ScrollBoxConstants.AlignBegin then
+        return ScrollBoxConstants.AlignBegin
+    end
+    return 0
+end
+
+-- Прокрутка без плавного смещения, чтобы рамка строки появилась сразу.
+local function GetNoInterpolation()
+    if ScrollBoxConstants and ScrollBoxConstants.NoScrollInterpolation then
+        return ScrollBoxConstants.NoScrollInterpolation
+    end
+    return true
+end
+
+-- Сбросить номер и высоту выбора, пока строка не назначена.
+function ExpandableList.ResetFocusState(list)
+    if not list then
+        return
+    end
+    list.focusedIndex = nil
+    list.focusedExtent = ExpandableList.sectionHeight
+end
+
 -- Строка по номеру через открытый метод поставщика.
 function ExpandableList.GetElement(list, index)
     if not list or not list.dataProvider or not index then
@@ -19,6 +52,31 @@ function ExpandableList.GetSize(list)
     return list.dataProvider:GetSize()
 end
 
+-- Номер строки в поставщике с учётом сравнения потребителя.
+function ExpandableList.FindElementIndex(list, element)
+    if not list or not element then
+        return nil
+    end
+
+    if list.areElementsEqual then
+        local size = ExpandableList.GetSize(list)
+        for index = 1, size do
+            local candidate = ExpandableList.GetElement(list, index)
+            if candidate and list.areElementsEqual(candidate, element) then
+                return index, candidate
+            end
+        end
+        return nil
+    end
+
+    if list.dataProvider and list.dataProvider.FindIndex then
+        local index, found = list.dataProvider:FindIndex(element)
+        return index, found or element
+    end
+
+    return nil
+end
+
 -- Текущая выбранная строка.
 function ExpandableList.GetFocusedElement(list)
     if not list then
@@ -29,24 +87,30 @@ end
 
 -- Совпадает ли строка с текущим выбором.
 function ExpandableList.IsFocusedElement(list, element)
-    if not list or not element or not ExpandableList.IsSelectable(element) then
-        return false
-    end
-    if list.isSelectable and not list.isSelectable(element) then
+    if not list or not ExpandableList.CanSelect(list, element) then
         return false
     end
     local focused = ExpandableList.GetFocusedElement(list)
     if not focused then
         return false
     end
-    if list.areElementsEqual then
-        return list.areElementsEqual(focused, element)
-    end
-    return focused == element
+    return ExpandableList.AreEqual(list, focused, element)
 end
 
 -- Найти первую строку, для которой сравнение истинно.
 function ExpandableList.FindElement(list, predicate)
+    if not list or not predicate then
+        return nil
+    end
+
+    if list.dataProvider and list.dataProvider.FindByPredicate then
+        local index, element = list.dataProvider:FindByPredicate(predicate)
+        if element then
+            return element, index
+        end
+        return nil
+    end
+
     local size = ExpandableList.GetSize(list)
     for index = 1, size do
         local element = ExpandableList.GetElement(list, index)
@@ -65,32 +129,14 @@ function ExpandableList.GetNeighbors(list, element)
         return neighbors
     end
 
-    local index = list.scrollBox and list.scrollBox:FindElementDataIndex(element) or nil
-    if not index then
-        for candidateIndex = 1, size do
-            if ExpandableList.GetElement(list, candidateIndex) == element then
-                index = candidateIndex
-                break
-            end
-        end
-    end
+    local index = ExpandableList.FindElementIndex(list, element)
     if not index then
         return neighbors
     end
 
-    local function IsNeighbor(candidate)
-        if not candidate then
-            return false
-        end
-        if list.isSelectable then
-            return list.isSelectable(candidate)
-        end
-        return ExpandableList.IsSelectable(candidate)
-    end
-
     for previousIndex = index - 1, 1, -1 do
         local previous = ExpandableList.GetElement(list, previousIndex)
-        if IsNeighbor(previous) then
+        if ExpandableList.CanSelect(list, previous) then
             table.insert(neighbors, previous)
             break
         end
@@ -98,7 +144,7 @@ function ExpandableList.GetNeighbors(list, element)
 
     for nextIndex = index + 1, size do
         local nextElement = ExpandableList.GetElement(list, nextIndex)
-        if IsNeighbor(nextElement) then
+        if ExpandableList.CanSelect(list, nextElement) then
             table.insert(neighbors, nextElement)
             break
         end
@@ -121,93 +167,166 @@ function ExpandableList.FindNearestSelectable(list, startIndex)
         fromIndex = size
     end
 
-    local function IsNeighbor(candidate)
-        if not candidate then
-            return false
-        end
-        if list.isSelectable then
-            return list.isSelectable(candidate)
-        end
-        return ExpandableList.IsSelectable(candidate)
-    end
-
     for index = fromIndex, size do
         local element = ExpandableList.GetElement(list, index)
-        if IsNeighbor(element) then
-            return element
+        if ExpandableList.CanSelect(list, element) then
+            return element, index
         end
     end
 
     for index = fromIndex - 1, 1, -1 do
         local element = ExpandableList.GetElement(list, index)
-        if IsNeighbor(element) then
-            return element
+        if ExpandableList.CanSelect(list, element) then
+            return element, index
         end
     end
 
     return nil
 end
 
--- Обновить выбор и при необходимости прокрутить к строке.
-function ExpandableList.UpdateFocus(list, element, changeFocus)
-    if not list or not element or not list.scrollBox then
+-- Прокрутить к номеру строки без плавного смещения.
+-- Если над выбранной строкой есть подпись группы, сначала показываем её.
+local function ScrollToIndex(list, index)
+    if not list or not list.scrollBox or not index then
         return
     end
 
-    local previousExtent = list.focusedExtent
-    local previousElement = ExpandableList.GetFocusedElement(list)
+    local noInterpolation = GetNoInterpolation()
+    local previous = ExpandableList.GetElement(list, index - 1)
+    if ExpandableList.IsSeparator(previous) then
+        list.scrollBox:ScrollToElementDataIndex(index - 1, GetAlignBegin(), 0, noInterpolation)
+        list.scrollBox:ScrollToElementDataIndex(index, GetAlignNearest(), 0, noInterpolation)
+        return
+    end
+
+    list.scrollBox:ScrollToElementDataIndex(index, GetAlignNearest(), 0, noInterpolation)
+end
+
+-- Найти видимую рамку строки с учётом сравнения потребителя.
+local function FindVisibleFrame(list, element)
+    if not list or not list.scrollBox or not element then
+        return nil
+    end
+    return list.scrollBox:FindFrameByPredicate(function(_, elementData)
+        return ExpandableList.AreEqual(list, elementData, element)
+    end)
+end
+
+-- Свернуть остальные обычные строки и раскрыть выбранную, не трогая разделители.
+local function ApplyFocusToVisibleFrames(list, element)
     local layoutChanged = false
-
-    local focusedIndex = list.scrollBox:FindElementDataIndex(element)
-    if not focusedIndex then
-        return
+    if not list.scrollBox then
+        return layoutChanged, nil
     end
 
-    local sameElement = previousElement == element
-    if list.areElementsEqual and previousElement then
-        sameElement = list.areElementsEqual(previousElement, element)
-    end
-    if not sameElement then
-        list.focusedExtent = ExpandableList.sectionHeight
-    end
-
-    list.focusedIndex = focusedIndex
-
-    if changeFocus then
-        list.scrollBox:ScrollToElementDataIndex(list.focusedIndex)
-    end
-
-    for _, rowFrame in ipairs(list.scrollBox:GetFrames()) do
-        if rowFrame.SetFocused then
+    local frames = list.scrollBox.GetFrames and list.scrollBox:GetFrames() or {}
+    local focusedFrame = nil
+    for _, rowFrame in ipairs(frames) do
+        local data = rowFrame.listData
+        if not data and rowFrame.GetElementData then
+            data = rowFrame:GetElementData()
+        end
+        if data and ExpandableList.AreEqual(list, data, element) then
+            focusedFrame = rowFrame
+        elseif rowFrame.SetFocused and data and ExpandableList.CanSelect(list, data) then
             layoutChanged = rowFrame:SetFocused(false) or layoutChanged
         end
     end
-
-    local focusedFrame = list.scrollBox:FindFrameByPredicate(function(_, elementData)
-        return elementData == element
-    end)
 
     if focusedFrame and focusedFrame.SetFocused then
         layoutChanged = focusedFrame:SetFocused(true) or layoutChanged
     end
 
-    if (layoutChanged or list.focusedExtent ~= previousExtent) and list.UpdateScrollBar then
+    return layoutChanged, focusedFrame
+end
+
+-- Пересчитать протяжённость списка после смены высоты выбранной строки.
+local function RefreshVisibleLayout(list, changeFocus, focusedIndex)
+    if list.UpdateScrollBar then
         list:UpdateScrollBar()
     end
-
-    if list.onFocusChanged then
-        list.onFocusChanged(element)
+    if changeFocus then
+        ScrollToIndex(list, focusedIndex)
     end
+end
+
+-- Сообщить потребителю о смене выбора.
+local function NotifyFocusChanged(list, element, skipNotify)
+    if skipNotify or not list.onFocusChanged then
+        return
+    end
+    list.onFocusChanged(element)
+end
+
+-- Обновить выбор и при необходимости прокрутить к строке.
+function ExpandableList.UpdateFocus(list, element, changeFocus, skipNotify)
+    if not list or not element or not list.scrollBox then
+        return nil
+    end
+
+    local focusedIndex, currentElement = ExpandableList.FindElementIndex(list, element)
+    if not focusedIndex then
+        return nil
+    end
+    element = currentElement or element
+
+    local previousExtent = list.focusedExtent
+    local previousElement = ExpandableList.GetFocusedElement(list)
+    if not ExpandableList.AreEqual(list, previousElement, element) then
+        list.focusedExtent = ExpandableList.sectionHeight
+    end
+
+    list.focusedIndex = focusedIndex
+
+    local focusedFrame = FindVisibleFrame(list, element)
+    if changeFocus or not focusedFrame then
+        ScrollToIndex(list, focusedIndex)
+    end
+
+    local layoutChanged
+    layoutChanged, focusedFrame = ApplyFocusToVisibleFrames(list, element)
+    if not focusedFrame then
+        ScrollToIndex(list, focusedIndex)
+        if list.UpdateScrollBar then
+            list:UpdateScrollBar()
+        end
+        layoutChanged, focusedFrame = ApplyFocusToVisibleFrames(list, element)
+    end
+    if not focusedFrame then
+        NotifyFocusChanged(list, element, skipNotify)
+        if skipNotify then
+            return nil
+        end
+        return element
+    end
+
+    if layoutChanged or list.focusedExtent ~= previousExtent then
+        RefreshVisibleLayout(list, changeFocus, focusedIndex)
+    end
+
+    NotifyFocusChanged(list, element, skipNotify)
+    return element
 end
 
 -- Сместить выбор на соседнюю обычную строку, замыкая список в кольцо.
 function ExpandableList.MoveFocus(list, delta)
     local size = ExpandableList.GetSize(list)
     if size <= 0 then
-        return
+        return nil
     end
 
-    local newIndex = list.focusedIndex or 1
+    if not list.focusedIndex then
+        if delta < 0 then
+            local last = ExpandableList.FindNearestSelectable(list, size)
+            if last then
+                return ExpandableList.UpdateFocus(list, last, true)
+            end
+            return nil
+        end
+        return ExpandableList.FocusFirst(list)
+    end
+
+    local newIndex = list.focusedIndex
     for _ = 1, size do
         newIndex = newIndex + delta
         if newIndex < 1 then
@@ -217,13 +336,8 @@ function ExpandableList.MoveFocus(list, delta)
         end
 
         local candidate = ExpandableList.GetElement(list, newIndex)
-        local selectable = candidate and ExpandableList.IsSelectable(candidate)
-        if list.isSelectable then
-            selectable = candidate and list.isSelectable(candidate)
-        end
-        if selectable then
-            ExpandableList.UpdateFocus(list, candidate, true)
-            return candidate
+        if ExpandableList.CanSelect(list, candidate) then
+            return ExpandableList.UpdateFocus(list, candidate, true)
         end
     end
 
@@ -234,12 +348,10 @@ end
 function ExpandableList.FocusFirst(list)
     local first = ExpandableList.FindNearestSelectable(list, 1)
     if first then
-        ExpandableList.UpdateFocus(list, first, true)
-        return first
+        return ExpandableList.UpdateFocus(list, first, true)
     end
 
-    list.focusedIndex = 1
-    list.focusedExtent = ExpandableList.sectionHeight
+    ExpandableList.ResetFocusState(list)
     if list.onFocusChanged then
         list.onFocusChanged(nil)
     end
@@ -259,17 +371,16 @@ function ExpandableList.RestoreFocus(list, predicate, startIndex)
         restored = ExpandableList.FindNearestSelectable(list, startIndex or list.focusedIndex)
     end
     if restored then
-        ExpandableList.UpdateFocus(list, restored, true)
-        return restored
+        return ExpandableList.UpdateFocus(list, restored, true)
     end
     return ExpandableList.FocusFirst(list)
 end
 
--- Перерисовать выбранную строку без смены номера.
+-- Перерисовать выбранную строку на месте, без принудительной прокрутки.
 function ExpandableList.RefreshFocused(list)
     local element = ExpandableList.GetFocusedElement(list)
     if not element then
         return
     end
-    ExpandableList.UpdateFocus(list, element, false)
+    return ExpandableList.UpdateFocus(list, element, false, true)
 end

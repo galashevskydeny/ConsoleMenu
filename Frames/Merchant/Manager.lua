@@ -106,10 +106,6 @@ end
 -- Сброс привязок при скрытии окна торговца.
 local function OnMerchantFrameHide(self)
     Merchant.SaveCurrentTabFocus()
-    local list = Merchant.GetList()
-    if list then
-        list.focusedExtent = ExpandableList.sectionHeight
-    end
     Merchant.SetMoneyEventsRegistered(self, false)
     Merchant.SetTooltipEventsRegistered(self, false)
     Merchant.ClearOverrideBindings(self)
@@ -192,6 +188,7 @@ local function CreateMerchantList(frame)
         namePrefix = "ConsoleMenuMerchant",
         frameWidth = ExpandableList.frameWidth,
         contentPadding = ExpandableList.contentPadding,
+        bottomPadding = ExpandableList.sectionHeight,
         isSelectable = Merchant.IsSelectable,
         areElementsEqual = Merchant.AreElementsEqual,
         onExpand = Merchant.GetExpandInfo,
@@ -281,12 +278,10 @@ end
 -- Показать окно торговца.
 function Merchant.Show()
     local frame = Merchant.GetFrame()
-    local list = Merchant.GetList()
-    if not frame or not list then
+    if not frame or not Merchant.GetList() then
         return
     end
 
-    list:UpdateScrollBar()
     Merchant.UpdateCurrenciesFrame()
     ConsoleMenu:AnimatedShow(frame)
 end

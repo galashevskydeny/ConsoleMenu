@@ -50,20 +50,57 @@ local function RefreshScrollLayout(list)
     end
 end
 
+-- Назначить расчёт высоты, создание строки и сброс повторно используемой рамки.
+local function BindScrollView(list)
+    local scrollView = list.scrollView
+    if not scrollView then
+        return
+    end
+
+    if scrollView.SetElementExtentCalculator then
+        scrollView:SetElementExtentCalculator(function(_, elementData)
+            if ExpandableList.IsFocusedElement(list, elementData) then
+                return math.max(ExpandableList.sectionHeight, list.focusedExtent or ExpandableList.sectionHeight)
+            end
+            return ExpandableList.sectionHeight
+        end)
+    elseif scrollView.SetElementExtent then
+        scrollView:SetElementExtent(ExpandableList.sectionHeight)
+    end
+
+    scrollView:SetElementInitializer("Frame", function(frame, data)
+        ExpandableList.InitializeRow(frame, data, list)
+    end)
+
+    if scrollView.SetElementResetter then
+        scrollView:SetElementResetter(function(frame)
+            ExpandableList.ResetReleasedRow(frame)
+        end)
+    end
+
+    if scrollView.SetPanExtent then
+        scrollView:SetPanExtent(ExpandableList.sectionHeight)
+    elseif list.scrollBox and list.scrollBox.SetPanExtent then
+        list.scrollBox:SetPanExtent(ExpandableList.sectionHeight)
+    end
+end
+
 -- Создать блок пустого списка.
 local function CreateEmptyList(parent, namePrefix, list)
     local emptyList = CreateFrame("Frame", namePrefix and (namePrefix .. "EmptyList") or nil, parent)
     emptyList:SetPoint("TOPLEFT", parent, "TOPLEFT", list.contentPadding, 0)
-    emptyList:SetPoint("TOPRIGHT", parent, "TOPRIGHT", 128, 0)
+    emptyList:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -list.contentPadding, 0)
     emptyList:SetHeight(160)
+    emptyList:Hide()
 
     local title = emptyList:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     emptyList.Text = title
     title:SetPoint("TOPLEFT", emptyList, "TOPLEFT", 0, 0)
-    title:SetWidth(list.frameWidth)
+    title:SetPoint("TOPRIGHT", emptyList, "TOPRIGHT", 0, 0)
     title:SetJustifyH("LEFT")
     title:SetNonSpaceWrap(true)
-    title:SetFont(ExpandableList.emptyTitleFontName, ExpandableList.emptyListFontSize, "OUTLINE")
+    title:SetWordWrap(true)
+    ExpandableList.ApplyTitleFont(title, ExpandableList.emptyListFontSize, "OUTLINE")
     title:SetTextColor(
         ExpandableList.titleColorR,
         ExpandableList.titleColorG,
@@ -75,10 +112,11 @@ local function CreateEmptyList(parent, namePrefix, list)
     local description = emptyList:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     emptyList.Description = description
     description:SetPoint("TOPLEFT", emptyList.Text, "BOTTOMLEFT", 0, -24)
-    description:SetWidth(list.frameWidth)
+    description:SetPoint("TOPRIGHT", emptyList.Text, "BOTTOMRIGHT", 0, -24)
     description:SetJustifyH("LEFT")
     description:SetNonSpaceWrap(true)
-    description:SetFont(ExpandableList.fontName, ExpandableList.emptyListDescriptionFontSize, "OUTLINE")
+    description:SetWordWrap(true)
+    ExpandableList.ApplyBodyFont(description, ExpandableList.emptyListDescriptionFontSize, "OUTLINE")
     description:SetTextColor(
         ExpandableList.separatorColorR,
         ExpandableList.separatorColorG,
@@ -90,46 +128,89 @@ local function CreateEmptyList(parent, namePrefix, list)
     return emptyList
 end
 
+-- Скрыть встроенные тени шаблона области прокрутки.
+local function HideScrollBoxShadows(scrollBox)
+    if not scrollBox then
+        return
+    end
+    if scrollBox.Shadows then
+        scrollBox.Shadows:Hide()
+        return
+    end
+    if scrollBox.SetShadowsShown then
+        scrollBox:SetShadowsShown(false, false)
+    end
+end
+
+-- Перепривязать дорожку полосы, потому что стрелки скрыты.
+local function RelayoutScrollBarTrack(scrollBar)
+    if not scrollBar then
+        return
+    end
+    if scrollBar.Forward then
+        scrollBar.Forward:Hide()
+    end
+    if scrollBar.Back then
+        scrollBar.Back:Hide()
+    end
+    if scrollBar.Track then
+        scrollBar.Track:ClearAllPoints()
+        scrollBar.Track:SetPoint("TOPLEFT")
+        scrollBar.Track:SetPoint("BOTTOMRIGHT")
+    end
+end
+
+-- Привязать область прокрутки и полосу к текущим отступам списка.
+local function ApplyScrollAreaLayout(list)
+    local items = list.items
+    local scrollBox = list.scrollBox
+    if not items or not scrollBox then
+        return
+    end
+
+    scrollBox:ClearAllPoints()
+    scrollBox:SetPoint("TOPLEFT", items, "TOPLEFT", list.contentPadding, 0)
+    scrollBox:SetPoint("BOTTOMRIGHT", items, "BOTTOMRIGHT", 0, list.bottomPadding)
+    HideScrollBoxShadows(scrollBox)
+
+    local scrollBar = list.scrollBar
+    if not scrollBar then
+        return
+    end
+    scrollBar:ClearAllPoints()
+    scrollBar:SetPoint("TOPLEFT", scrollBox, "TOPLEFT", -list.contentPadding, 0)
+    scrollBar:SetPoint("BOTTOMLEFT", scrollBox, "BOTTOMLEFT", 0, 0)
+    RelayoutScrollBarTrack(scrollBar)
+end
+
 -- Создать прокручиваемую область списка.
 local function CreateScrollArea(parent, namePrefix, list)
     local items = CreateFrame("Frame", namePrefix and (namePrefix .. "Items") or nil, parent)
     items:SetAllPoints(parent)
 
     local scrollBox = CreateFrame("Frame", namePrefix and (namePrefix .. "ScrollBox") or nil, items, "WowScrollBoxList")
-    scrollBox:SetPoint("TOPLEFT", items, "TOPLEFT", list.contentPadding, 0)
-    scrollBox:SetPoint("BOTTOMRIGHT", items, "BOTTOMRIGHT", 0, ExpandableList.sectionHeight)
-
     local scrollBar = CreateFrame("EventFrame", namePrefix and (namePrefix .. "ScrollBar") or nil, items, "MinimalScrollBar")
     scrollBar:SetAlpha(0.4)
-    scrollBar:SetPoint("TOPLEFT", scrollBox, "TOPLEFT", -list.contentPadding, -24)
-    scrollBar:SetPoint("BOTTOMLEFT", scrollBox, "BOTTOMLEFT", 0, 24)
-    scrollBar.Forward:Hide()
-    scrollBar.Back:Hide()
 
     local scrollView = CreateScrollBoxListLinearView()
     local dataProvider = CreateDataProvider()
 
-    if scrollView.SetElementExtentCalculator then
-        scrollView:SetElementExtentCalculator(function(index, elementData)
-            local data = elementData
-            if type(data) ~= "table" and type(index) == "table" then
-                data = index
-            end
-            if ExpandableList.IsFocusedElement(list, data) then
-                return math.max(ExpandableList.sectionHeight, list.focusedExtent or ExpandableList.sectionHeight)
-            end
-            return ExpandableList.sectionHeight
-        end)
-    else
-        scrollView:SetElementExtent(ExpandableList.sectionHeight)
-    end
+    list.items = items
+    list.scrollBox = scrollBox
+    list.scrollBar = scrollBar
+    list.scrollView = scrollView
+    list.dataProvider = dataProvider
 
-    scrollView:SetElementInitializer("Button", function(frame, data)
-        ExpandableList.InitializeRow(frame, data, list)
-    end)
-
+    ApplyScrollAreaLayout(list)
+    BindScrollView(list)
     ScrollUtil.InitScrollBoxListWithScrollBar(scrollBox, scrollBar, scrollView)
     scrollBox:SetDataProvider(dataProvider)
+
+    if scrollView.SetPanExtent then
+        scrollView:SetPanExtent(ExpandableList.sectionHeight)
+    elseif scrollBox.SetPanExtent then
+        scrollBox:SetPanExtent(ExpandableList.sectionHeight)
+    end
 
     return items, scrollBox, scrollBar, scrollView, dataProvider
 end
@@ -145,7 +226,8 @@ function ExpandableList.Create(parent, options)
         parent = parent,
         frameWidth = options.frameWidth or ExpandableList.frameWidth,
         contentPadding = options.contentPadding or ExpandableList.contentPadding,
-        focusedIndex = 1,
+        bottomPadding = options.bottomPadding or 0,
+        focusedIndex = nil,
         focusedExtent = ExpandableList.sectionHeight,
         isSelectable = options.isSelectable,
         onExpand = options.onExpand,
@@ -163,7 +245,9 @@ function ExpandableList.Create(parent, options)
         list.scrollBox = parent.Items.ScrollBox
         list.scrollBar = parent.Items.ScrollBar
         list.scrollView = parent.Items.ScrollView
-        list.dataProvider = list.scrollBox:GetDataProvider()
+        list.dataProvider = list.scrollBox.GetDataProvider and list.scrollBox:GetDataProvider() or nil
+        ApplyScrollAreaLayout(list)
+        BindScrollView(list)
     else
         local items, scrollBox, scrollBar, scrollView, dataProvider = CreateScrollArea(parent, namePrefix, list)
         list.items = items
@@ -179,25 +263,19 @@ function ExpandableList.Create(parent, options)
 
     -- Заменить содержимое списка новым набором строк.
     function list:SetElements(elements)
-        if not self.dataProvider then
+        ExpandableList.ResetFocusState(self)
+        if not self.scrollBox or not self.scrollBox.SetDataProvider then
             return
         end
-        self.dataProvider:Flush()
-        if not elements then
-            return
-        end
-        for index = 1, #elements do
-            self.dataProvider:Insert(elements[index])
-        end
+        local dataProvider = CreateDataProvider(elements)
+        self.dataProvider = dataProvider
+        self.scrollBox:SetDataProvider(dataProvider)
+        self:UpdateScrollBarShown()
     end
 
     -- Очистить список.
     function list:Clear()
-        if self.dataProvider then
-            self.dataProvider:Flush()
-        end
-        self.focusedIndex = 1
-        self.focusedExtent = ExpandableList.sectionHeight
+        self:SetElements(nil)
     end
 
     -- Показать или скрыть пустой блок с заголовком и подписью.
@@ -214,24 +292,36 @@ function ExpandableList.Create(parent, options)
         end
         if isShown then
             emptyList:Show()
+            if self.items then
+                self.items:Hide()
+            end
         else
             emptyList:Hide()
+            if self.items then
+                self.items:Show()
+            end
         end
         ReanchorBackground(self, not isShown)
+        self:UpdateScrollBarShown()
+    end
+
+    -- Показать или скрыть полосу по диапазону прокрутки.
+    function list:UpdateScrollBarShown()
+        if not self.scrollBar then
+            return
+        end
+        local scrollRange = self.scrollBox and self.scrollBox:GetDerivedScrollRange() or 0
+        if scrollRange > 0 and (not self.items or self.items:IsShown()) then
+            self.scrollBar:Show()
+        else
+            self.scrollBar:Hide()
+        end
     end
 
     -- Пересчитать полосу прокрутки.
     function list:UpdateScrollBar()
         RefreshScrollLayout(self)
-        if not self.scrollBar then
-            return
-        end
-        local scrollRange = self.scrollBox and self.scrollBox:GetDerivedScrollRange() or 0
-        if scrollRange > 0 then
-            self.scrollBar:Show()
-        else
-            self.scrollBar:Hide()
-        end
+        self:UpdateScrollBarShown()
     end
 
     -- Привязать фон к текущему содержимому.
@@ -283,6 +373,6 @@ function ExpandableList.Create(parent, options)
         return ExpandableList.RefreshFocused(self)
     end
 
-    ReanchorBackground(list, false)
+    ReanchorBackground(list, true)
     return list
 end

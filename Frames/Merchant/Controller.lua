@@ -45,7 +45,6 @@ function Merchant.LoadTabData(tab)
             selectableCount = selectableCount + 1
         end
     end
-    list.focusedExtent = ExpandableList.sectionHeight
     list:SetElements(elements)
     list:SetEmpty(emptyTitle, emptyDescription, selectableCount == 0)
     Merchant.PreloadNearFocusedOrFirst()
@@ -69,17 +68,10 @@ function Merchant.RestoreCurrentTabFocus()
         restored = list:FocusFirst()
     end
 
-    if restored then
-        Merchant.LoadNearTooltipData(restored)
-        if restored.type == "merchantItem" then
-            Merchant.LoadNearStackSizeData(restored)
-        end
-    else
+    if not restored then
         Merchant.UpdateActionKeys(nil)
         ConsoleMenu:UpdateKeysFrame()
     end
-
-    list:UpdateScrollBar()
 end
 
 -- Обновить внешний вид вкладок по выбранной.
@@ -219,10 +211,6 @@ function Merchant.ScheduleRefresh(rebuildTabs)
         Merchant.LoadCurrenciesData()
         Merchant.UpdateCurrenciesFrame()
         Merchant.RestoreCurrentTabFocus()
-        local list = Merchant.GetList()
-        if list then
-            list:UpdateScrollBar()
-        end
     end)
 end
 
@@ -303,25 +291,13 @@ function Merchant.CreateControllerButtons(frame)
     CreateBindingButton(frame, "FocusUpButton", "ConsoleMenuMerchantFocusUpButton", 0, function()
         local list = Merchant.GetList()
         if list then
-            local candidate = list:MoveFocus(-1)
-            if candidate then
-                Merchant.LoadNearTooltipData(candidate)
-                if candidate.type == "merchantItem" then
-                    Merchant.LoadNearStackSizeData(candidate)
-                end
-            end
+            list:MoveFocus(-1)
         end
     end)
     CreateBindingButton(frame, "FocusDownButton", "ConsoleMenuMerchantFocusDownButton", 20, function()
         local list = Merchant.GetList()
         if list then
-            local candidate = list:MoveFocus(1)
-            if candidate then
-                Merchant.LoadNearTooltipData(candidate)
-                if candidate.type == "merchantItem" then
-                    Merchant.LoadNearStackSizeData(candidate)
-                end
-            end
+            list:MoveFocus(1)
         end
     end)
     CreateBindingButton(frame, "TabLeftButton", "ConsoleMenuMerchantTabLeftButton", 100, function()
@@ -379,7 +355,7 @@ function Merchant.CreateTabs(frame)
         tabButton.circle.texture:SetColorTexture(1.0, 0.960784, 0.772549, 0.4)
         tabButton.circle.mask = tabButton.circle:CreateMaskTexture()
         tabButton.circle.mask:SetAllPoints(tabButton.circle)
-        tabButton.circle.mask:SetTexture(ExpandableList.circleMaskPath, "CLAMPTOBLACK")
+        tabButton.circle.mask:SetTexture(ExpandableList.circleMaskPath, ExpandableList.maskWrapMode)
         tabButton.circle.texture:AddMaskTexture(tabButton.circle.mask)
         tabButton.circle:Hide()
         tabButton:SetHeight(ExpandableList.sectionHeight)

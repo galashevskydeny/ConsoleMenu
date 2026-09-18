@@ -2,6 +2,7 @@
 
 local ConsoleMenu = _G.ConsoleMenu
 local Merchant = ConsoleMenu.Merchant
+local ExpandableList = ConsoleMenu.ExpandableList
 
 local tooltipDataCache = {}
 local tooltipInstanceMap = {}
@@ -46,8 +47,6 @@ function Merchant.ResetSelection()
     wipe(Merchant.pendingSellItemIDs)
     local list = Merchant.GetList()
     if list then
-        list.focusedIndex = 1
-        list.focusedExtent = ConsoleMenu.ExpandableList.sectionHeight
         list:Clear()
     end
 end
@@ -205,6 +204,30 @@ function Merchant.GetListItemTooltipData(element, forceRefresh)
     return tooltipData
 end
 
+-- Подогнать встроенные значки под кегль строки, чтобы знак качества не раздувал подпись.
+local function ScaleInlineIcons(text, size)
+    if not text or text == "" then
+        return text
+    end
+
+    local iconSize = size or ExpandableList.descriptionFontSize
+    text = text:gsub("|A:([^|]+)|a", function(body)
+        local atlas = body:match("^([^:]+)")
+        if not atlas or atlas == "" then
+            return ""
+        end
+        return string.format("|A:%s:%d:%d|a", atlas, iconSize, iconSize)
+    end)
+    text = text:gsub("|T([^|]+)|t", function(body)
+        local path = body:match("^([^:]+)")
+        if not path or path == "" then
+            return ""
+        end
+        return string.format("|T%s:%d:%d:0:0|t", path, iconSize, iconSize)
+    end)
+    return text
+end
+
 -- Окрасить фрагмент текста подсказки.
 local function ColorizeTooltipText(text, color)
     if not text or not color then
@@ -238,9 +261,11 @@ function Merchant.BuildTooltipDescriptionText(tooltipData)
             local leftText = tooltipLine.leftText
             local containsAngleBrackets = leftText and leftText:find("<", 1, true) and leftText:find(">", 1, true)
             if leftText and leftText ~= "" and not containsAngleBrackets then
+                leftText = ScaleInlineIcons(leftText, ExpandableList.descriptionFontSize)
                 local displayText = ColorizeTooltipText(leftText, tooltipLine.leftColor) or leftText
                 local rightText = tooltipLine.rightText
                 if rightText and rightText ~= "" then
+                    rightText = ScaleInlineIcons(rightText, ExpandableList.descriptionFontSize)
                     displayText = displayText .. ", " .. (ColorizeTooltipText(rightText, tooltipLine.rightColor) or rightText)
                 end
                 table.insert(parts, displayText)
@@ -315,6 +340,7 @@ function Merchant.GetExpandInfo(data)
     if data and data.stackCount and data.stackCount > 1 then
         title = string.format("%s x%d", data.name, data.stackCount)
     end
+    title = ScaleInlineIcons(title, ExpandableList.focusedItemFontSize)
 
     local tooltipData = Merchant.GetListItemTooltipData(data)
     local extraText, extraIcons = Merchant.GetExpandPrice(data)

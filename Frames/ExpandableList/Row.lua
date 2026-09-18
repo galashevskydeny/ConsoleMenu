@@ -8,7 +8,7 @@ local function CreateCircleIconTexture(parent, drawLayer, subLevel)
     local texture = parent:CreateTexture(nil, drawLayer, nil, subLevel)
     local mask = parent:CreateMaskTexture()
     mask:SetAllPoints(texture)
-    mask:SetTexture(ExpandableList.circleMaskPath, "CLAMPTOBLACK")
+    mask:SetTexture(ExpandableList.circleMaskPath, ExpandableList.maskWrapMode)
     texture:AddMaskTexture(mask)
     return texture, mask
 end
@@ -24,6 +24,7 @@ end
 
 -- Расположение текста разделителя без значка.
 local function ApplySeparatorLayout(frame)
+    frame.icon:Hide()
     frame.text:ClearAllPoints()
     frame.text:SetPoint("LEFT", frame, "LEFT", 0, -2)
     frame.text:SetPoint("RIGHT", frame, "RIGHT", -ExpandableList.sectionPadding * 4, -2)
@@ -38,13 +39,55 @@ local function ApplyExpandedLayout(frame)
     frame.text:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -ExpandableList.sectionPadding * 4, -ExpandableList.sectionPadding)
 end
 
+-- Ширина текста строки по размерам списка, без опоры на ещё не пересчитанную рамку.
+local function GetTextBlockWidth(list)
+    local listWidth = (list and list.frameWidth) or ExpandableList.frameWidth
+    local contentPadding = (list and list.contentPadding) or ExpandableList.contentPadding
+    return math.max(80, listWidth - contentPadding - ExpandableList.iconSize - ExpandableList.sectionPadding * 6)
+end
+
+-- Высота подписи: если перенос ещё не готов, берём оценку по ширине.
+local function MeasureFontStringHeight(fontString, fallback)
+    if not fontString then
+        return fallback
+    end
+
+    local lineHeight = fontString.GetLineHeight and fontString:GetLineHeight() or 0
+    local lineCount = fontString.GetNumLines and fontString:GetNumLines() or 0
+    local wrapped = 0
+    if lineHeight > 0 and lineCount > 0 then
+        wrapped = lineHeight * lineCount
+    end
+
+    local measured = fontString:GetStringHeight() or 0
+
+    local estimated = 0
+    local width = fontString:GetWidth()
+    local stringWidth = fontString:GetStringWidth()
+    if lineHeight > 0 and width and width > 0 and stringWidth and stringWidth > 0 then
+        estimated = math.max(lineHeight, math.ceil(stringWidth / width) * lineHeight)
+    end
+
+    -- Одна видимая строка при большей оценке означает, что перенос ещё не выполнен.
+    if lineCount <= 1 and estimated > measured + lineHeight then
+        return math.max(estimated, fallback)
+    end
+
+    local height = math.max(measured, wrapped)
+    if height > 1 then
+        return height
+    end
+    if estimated > 1 then
+        return estimated
+    end
+
+    return fallback
+end
+
 -- Высота дополнительного блока с учётом значков.
 local function UpdateExtraHeight(frame)
     local extra = frame.text.extra
-    local textHeight = extra.text:GetStringHeight()
-    if textHeight <= 0 then
-        textHeight = ExpandableList.itemFontSize
-    end
+    local textHeight = MeasureFontStringHeight(extra.text, ExpandableList.itemFontSize)
 
     local iconHeight = 0
     if extra.icon:IsShown() then
@@ -59,28 +102,18 @@ end
 
 -- Высота текста строки: название, описание и дополнительный блок.
 local function UpdateTextHeight(frame)
-    local titleHeight = frame.text.title:GetStringHeight()
-    if titleHeight <= 0 then
-        titleHeight = ExpandableList.itemFontSize
-    end
-
+    local titleHeight = MeasureFontStringHeight(frame.text.title, ExpandableList.itemFontSize)
     local totalHeight = titleHeight
     local hasDescription = frame.text.description and frame.text.description:IsShown()
     local descriptionHeight = 0
 
     if hasDescription then
-        descriptionHeight = frame.text.description:GetStringHeight()
-        if descriptionHeight <= 0 then
-            descriptionHeight = ExpandableList.descriptionFontSize
-        end
+        descriptionHeight = MeasureFontStringHeight(frame.text.description, ExpandableList.descriptionFontSize)
         totalHeight = totalHeight + ExpandableList.sectionPadding + descriptionHeight
     end
 
     if frame.text.extra and frame.text.extra:IsShown() then
-        local extraHeight = frame.text.extra.text:GetStringHeight()
-        if extraHeight <= 0 then
-            extraHeight = ExpandableList.itemFontSize
-        end
+        local extraHeight = MeasureFontStringHeight(frame.text.extra.text, ExpandableList.itemFontSize)
         local extraIconHeight = ExpandableList.extraIconSize
         if frame.text.extra.icon.texture2:IsShown() then
             extraIconHeight = ExpandableList.extraIconDualHeight
@@ -99,12 +132,19 @@ end
 
 -- Скрыть описание и дополнительный блок.
 local function CollapseExtra(frame)
+    if not frame.text then
+        return
+    end
+
     if frame.text.description then
         frame.text.description:SetText("")
         frame.text.description:Hide()
     end
 
     local extra = frame.text.extra
+    if not extra then
+        return
+    end
     extra.text:SetText("")
     extra:Hide()
     extra.icon.texture:SetTexture(nil)
@@ -165,31 +205,59 @@ end
 -- Свернуть выбранную строку к обычной высоте.
 local function CollapseRow(frame, data)
     local wasExpanded = frame:GetHeight() > ExpandableList.sectionHeight
-    local descriptionHidden = frame.text.description and not frame.text.description:IsShown()
-    if not wasExpanded and descriptionHidden then
-        frame.text.title:SetFont(ExpandableList.fontName, ExpandableList.itemFontSize, "OUTLINE")
-        frame.text.title:SetText(data.name or "")
-        if ExpandableList.IsSeparator(data) then
-            frame.text:SetAlpha(1)
-        else
-            frame.text:SetAlpha(ExpandableList.unfocusedItemTextAlpha)
-        end
-        return false
-    end
 
+    frame:SetScript("OnUpdate", nil)
     frame:SetHeight(ExpandableList.sectionHeight)
-    frame.text.title:SetFont(ExpandableList.fontName, ExpandableList.itemFontSize, "OUTLINE")
+    ExpandableList.ApplyBodyFont(frame.text.title, ExpandableList.itemFontSize, "OUTLINE")
     frame.text.title:SetText(data.name or "")
+    CollapseExtra(frame)
+
     if ExpandableList.IsSeparator(data) then
         frame.text:SetAlpha(1)
         ApplySeparatorLayout(frame)
-    else
-        frame.text:SetAlpha(ExpandableList.unfocusedItemTextAlpha)
-        ApplyDefaultLayout(frame)
+        -- Не даём подписи разделителя сжаться до нуля при повторном показе.
+        local titleHeight = MeasureFontStringHeight(frame.text.title, ExpandableList.itemFontSize)
+        frame.text:SetHeight(math.max(ExpandableList.itemFontSize, titleHeight))
+        return wasExpanded
     end
-    CollapseExtra(frame)
+
+    frame.text:SetAlpha(ExpandableList.unfocusedItemTextAlpha)
+    ApplyDefaultLayout(frame)
+    frame.icon:Show()
     UpdateTextHeight(frame)
     return wasExpanded
+end
+
+-- Не планировать повторный замер, пока идёт отложенное уточнение высоты.
+local isRemeasuringFocusedRow = false
+
+-- Повторить раскрытие выбранной строки после переноса описания.
+local function RemeasureFocusedRow(frame, list)
+    if not frame or not list or not frame.listData then
+        return
+    end
+    if not list.IsFocusedElement or not list:IsFocusedElement(frame.listData) then
+        return
+    end
+
+    local previousExtent = list.focusedExtent
+    isRemeasuringFocusedRow = true
+    local changed = ExpandableList.SetRowFocused(frame, true)
+    isRemeasuringFocusedRow = false
+    if (changed or list.focusedExtent ~= previousExtent) and list.UpdateScrollBar then
+        list:UpdateScrollBar()
+    end
+end
+
+-- Уточнить высоту выбранной строки на следующем кадре, когда перенос уже известен.
+local function ScheduleFocusedExtentRefresh(frame, list)
+    if isRemeasuringFocusedRow or not frame or not list then
+        return
+    end
+    frame:SetScript("OnUpdate", function(self)
+        self:SetScript("OnUpdate", nil)
+        RemeasureFocusedRow(self, list)
+    end)
 end
 
 -- Раскрыть выбранную строку описанием и дополнительным блоком.
@@ -200,18 +268,16 @@ local function ExpandRow(frame, data, list)
     end
     expandInfo = expandInfo or {}
 
-    frame.text.title:SetFont(ExpandableList.fontName, ExpandableList.focusedItemFontSize, "OUTLINE")
+    ExpandableList.ApplyBodyFont(frame.text.title, ExpandableList.focusedItemFontSize, "OUTLINE")
     frame.text.title:SetText(expandInfo.title or data.name or "")
     frame.text:SetAlpha(1)
+    ApplyExpandedLayout(frame)
 
     local descriptionText = expandInfo.description
     if descriptionText and descriptionText ~= "" then
-        local listWidth = (list and list.frameWidth) or ExpandableList.frameWidth
-        local contentPadding = (list and list.contentPadding) or ExpandableList.contentPadding
-        local descriptionWidth = math.max(80, listWidth - contentPadding - ExpandableList.iconSize - ExpandableList.sectionPadding * 6)
+        local descriptionWidth = GetTextBlockWidth(list)
         frame.text.description:ClearAllPoints()
         frame.text.description:SetPoint("TOPLEFT", frame.text.title, "BOTTOMLEFT", 0, -ExpandableList.sectionPadding)
-        frame.text.description:SetPoint("TOPRIGHT", frame.text.title, "BOTTOMRIGHT", 0, -ExpandableList.sectionPadding)
         frame.text.description:SetWidth(descriptionWidth)
         frame.text.description:SetText(descriptionText)
         frame.text.description:Show()
@@ -226,7 +292,7 @@ local function ExpandRow(frame, data, list)
     extra.text:ClearAllPoints()
 
     if frame.text.description:IsShown() then
-        local descriptionHeight = frame.text.description:GetStringHeight()
+        local descriptionHeight = MeasureFontStringHeight(frame.text.description, ExpandableList.descriptionFontSize)
         local extraTopGap = ExpandableList.sectionPadding
         if descriptionHeight > ExpandableList.descriptionFontSize * 1.5 then
             extraTopGap = ExpandableList.sectionPadding * 2
@@ -254,9 +320,7 @@ local function ExpandRow(frame, data, list)
 
     local newExtent = math.max(ExpandableList.sectionHeight, (frame.text.height or ExpandableList.sectionHeight) + ExpandableList.sectionPadding * 2)
     frame:SetHeight(newExtent)
-    if newExtent > ExpandableList.sectionHeight then
-        ApplyExpandedLayout(frame)
-    else
+    if newExtent <= ExpandableList.sectionHeight then
         ApplyDefaultLayout(frame)
     end
 
@@ -264,21 +328,25 @@ local function ExpandRow(frame, data, list)
     if list then
         list.focusedExtent = newExtent
     end
+    if frame.text.description:IsShown() then
+        ScheduleFocusedExtentRefresh(frame, list)
+    end
     return previousExtent ~= newExtent
 end
 
 -- Показать или скрыть подробности выбранной строки.
 function ExpandableList.SetRowFocused(frame, isFocused)
     local data = frame.listData
+    if not data and frame.GetElementData then
+        data = frame:GetElementData()
+        frame.listData = data
+    end
     if not data then
         return false
     end
 
     local list = frame.expandableList
-    local canExpand = isFocused and ExpandableList.IsSelectable(data)
-    if list and list.isSelectable then
-        canExpand = isFocused and list.isSelectable(data)
-    end
+    local canExpand = isFocused and ExpandableList.CanSelect(list, data)
 
     if not canExpand then
         return CollapseRow(frame, data)
@@ -289,7 +357,12 @@ end
 
 -- Создать поля строки при первом показе.
 local function EnsureRowWidgets(frame)
+    if frame.EnableMouse then
+        frame:EnableMouse(false)
+    end
+
     if not frame.icon then
+        frame:SetHeight(ExpandableList.sectionHeight)
         frame.icon = CreateFrame("Frame", nil, frame)
         frame.icon:SetSize(ExpandableList.iconSize, ExpandableList.iconSize)
         frame.icon:SetPoint("LEFT", 0, 0)
@@ -304,15 +377,15 @@ local function EnsureRowWidgets(frame)
     if not frame.icon.mask then
         frame.icon.mask = frame.icon:CreateMaskTexture()
         frame.icon.mask:SetAllPoints(frame.icon)
-        frame.icon.mask:SetTexture(ExpandableList.maskTexturePath, "CLAMPTOBLACK")
+        frame.icon.mask:SetTexture(ExpandableList.maskTexturePath, ExpandableList.maskWrapMode)
         frame.icon.texture:AddMaskTexture(frame.icon.mask)
     end
 
     if not frame.icon.border then
         frame.icon.border = frame.icon:CreateTexture(nil, "OVERLAY")
-        frame.icon.border:SetAtlas("plunderstorm-actionbar-slot-border")
-        frame.icon.border:SetPoint("TOPLEFT", frame.icon.texture, "TOPLEFT", -11, 11)
-        frame.icon.border:SetPoint("BOTTOMRIGHT", frame.icon.texture, "BOTTOMRIGHT", 11, -11)
+        frame.icon.border:SetAtlas(ExpandableList.iconBorderAtlas)
+        frame.icon.border:SetPoint("TOPLEFT", frame.icon.texture, "TOPLEFT", -2, 2)
+        frame.icon.border:SetPoint("BOTTOMRIGHT", frame.icon.texture, "BOTTOMRIGHT", 4, -4)
     end
 
     if not frame.icon.overlay then
@@ -332,14 +405,14 @@ local function EnsureRowWidgets(frame)
     frame.text.title:SetPoint("TOPLEFT", frame.text, "TOPLEFT", 0, 0)
     frame.text.title:SetPoint("TOPRIGHT", frame.text, "TOPRIGHT", 0, 0)
     frame.text.title:SetJustifyH("LEFT")
-    frame.text.title:SetFont(ExpandableList.fontName, ExpandableList.itemFontSize, "OUTLINE")
+    ExpandableList.ApplyBodyFont(frame.text.title, ExpandableList.itemFontSize, "OUTLINE")
 
     frame.text.extra = CreateFrame("Frame", nil, frame.text)
     frame.text.extra:Hide()
 
     frame.text.extra.text = frame.text.extra:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     frame.text.extra.text:SetJustifyH("LEFT")
-    frame.text.extra.text:SetFont(ExpandableList.fontName, ExpandableList.itemFontSize, "OUTLINE")
+    ExpandableList.ApplyBodyFont(frame.text.extra.text, ExpandableList.itemFontSize, "OUTLINE")
     frame.text.extra.text:SetTextColor(
         ExpandableList.titleColorR,
         ExpandableList.titleColorG,
@@ -368,15 +441,19 @@ local function EnsureRowWidgets(frame)
     frame.text.description:SetJustifyV("TOP")
     frame.text.description:SetNonSpaceWrap(true)
     frame.text.description:SetWordWrap(true)
-    frame.text.description:SetFont(ExpandableList.fontName, ExpandableList.descriptionFontSize, "")
+    ExpandableList.ApplyBodyFont(frame.text.description, ExpandableList.descriptionFontSize, "")
     frame.text.description:Hide()
 end
 
 -- Сбросить визуальное состояние перед новой отрисовкой.
 local function ResetRowVisuals(frame)
+    frame:SetScript("OnUpdate", nil)
+    frame:SetHeight(ExpandableList.sectionHeight)
+    ExpandableList.ApplyBodyFont(frame.text.title, ExpandableList.itemFontSize, "OUTLINE")
     frame.text.title:SetText("")
     frame.text:Show()
     frame.text:SetAlpha(1)
+    frame.text:SetHeight(ExpandableList.itemFontSize)
     frame.text.title:SetAlpha(1)
     frame.text.title:SetTextColor(
         ExpandableList.titleColorR,
@@ -384,6 +461,7 @@ local function ResetRowVisuals(frame)
         ExpandableList.titleColorB,
         1
     )
+    ApplyDefaultLayout(frame)
     frame.icon:Show()
     frame.icon.texture:SetTexture(nil)
     frame.icon.texture:SetDesaturated(false)
@@ -391,6 +469,28 @@ local function ResetRowVisuals(frame)
     frame.icon.border:Hide()
     frame.icon.overlay:Hide()
     CollapseExtra(frame)
+end
+
+-- Сбросить рамку при возврате в набор повторного использования.
+function ExpandableList.ResetReleasedRow(frame)
+    if not frame then
+        return
+    end
+    frame:SetScript("OnUpdate", nil)
+    frame.listData = nil
+    frame:SetHeight(ExpandableList.sectionHeight)
+    if frame.EnableMouse then
+        frame:EnableMouse(false)
+    end
+    if frame.text then
+        CollapseExtra(frame)
+        ApplyDefaultLayout(frame)
+        frame.text:SetHeight(ExpandableList.itemFontSize)
+        frame.text:SetAlpha(1)
+    end
+    if frame.icon then
+        frame.icon:Show()
+    end
 end
 
 -- Отрисовать строку списка по данным.
@@ -421,7 +521,8 @@ function ExpandableList.InitializeRow(frame, data, list)
             ExpandableList.separatorColorB,
             ExpandableList.separatorColorA
         )
-        frame.icon:Hide()
+        local titleHeight = MeasureFontStringHeight(frame.text.title, ExpandableList.itemFontSize)
+        frame.text:SetHeight(math.max(ExpandableList.itemFontSize, titleHeight))
     else
         ApplyDefaultLayout(frame)
         frame.text.title:SetTextColor(

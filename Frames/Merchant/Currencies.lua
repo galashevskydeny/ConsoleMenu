@@ -137,7 +137,7 @@ function Merchant.CreateCurrencies(frame)
         item.Icon.MainTexture:SetAllPoints()
         item.Icon.Mask = item.Icon:CreateMaskTexture()
         item.Icon.Mask:SetAllPoints(item.Icon.MainTexture)
-        item.Icon.Mask:SetTexture(ExpandableList.circleMaskPath, "CLAMPTOBLACK")
+        item.Icon.Mask:SetTexture(ExpandableList.circleMaskPath, ExpandableList.maskWrapMode)
         item.Icon.MainTexture:AddMaskTexture(item.Icon.Mask)
 
         item.Text = item:CreateFontString(nil, "OVERLAY", "GameFontNormal")
