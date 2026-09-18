@@ -103,8 +103,11 @@ end
 -- Приостанавливает сбор, если исчерпан бюджет кадра.
 function Compass:DiscoveryCheckpoint()
     local C = self.Constants
-    self.discoverySteps = self.discoverySteps + 1
-    if self.discoverySteps >= C.DISCOVERY_STEPS or debugprofilestop() >= self.discoveryDeadline then
+    self.discoverySteps = (self.discoverySteps or 0) + 1
+    local deadline = self.discoveryDeadline
+    local overBudget = self.discoverySteps >= C.DISCOVERY_STEPS
+        or (type(deadline) == "number" and debugprofilestop() >= deadline)
+    if overBudget and coroutine.running() then
         coroutine.yield()
     end
 end

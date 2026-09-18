@@ -50,7 +50,12 @@ function Compass:RefreshMarkerBearing(marker)
     local x, y = self.bearingPlayerX, self.bearingPlayerY
     local east, north = (marker.x - x) * self.mapWidth, (y - marker.y) * self.mapHeight
     marker.distanceSquared = east * east + north * north
-    local inRange = marker.distanceSquared <= self.rangeSquared or marker.navigation or marker.priority == C.WAYPOINT_PRIORITY
+    local tracked = marker.navigation
+        or (self.navigationKey and marker.key == self.navigationKey)
+        or self:IsTrackedPoint(marker, self.navigationTarget)
+    local inRange = marker.distanceSquared <= self.rangeSquared
+        or tracked
+        or marker.priority == C.WAYPOINT_PRIORITY
     if inRange and marker.distanceSquared <= C.BEARING_HOLD_YARDS_SQUARED then
         marker.distance = math.sqrt(marker.distanceSquared)
         if type(marker.bearing) ~= "number" then
