@@ -77,6 +77,7 @@ local function StopMarkerContent(button)
     end
     button.contentPlaying = false
     button.contentMode = nil
+    button.contentEdge = nil
 end
 
 -- Проверяет, идёт ли проявление или скрытие рамки значка.
@@ -298,11 +299,15 @@ local function AdvanceMarkerContent(button, elapsed, toAlpha, wantLabels)
     button.contentElapsed = (button.contentElapsed or 0) + elapsed
     local elapsedTime = button.contentElapsed
     toAlpha = toAlpha or button.contentToAlpha or 1
+    local edge = button.contentEdge
+    local growDuration = edge and C.MARKER_EDGE_FADE_DURATION or C.MARKER_ICON_GROW_DURATION
+    local labelDuration = edge and C.MARKER_EDGE_FADE_DURATION or C.MARKER_LABEL_DURATION
+    local labelDelay = edge and 0 or C.MARKER_LABEL_DELAY
 
     if button.contentMode == "in" then
         local t = elapsedTime - (button.contentDelay or 0)
         if t < 0 then
-            ApplyMarkerArtScale(button, C.MARKER_ICON_START_SCALE)
+            ApplyMarkerArtScale(button, edge and 1 or C.MARKER_ICON_START_SCALE)
             SetMarkerFrameAlpha(button, 0)
             button.renderAlpha = 0
             if button.labelFrame then
@@ -311,26 +316,30 @@ local function AdvanceMarkerContent(button, elapsed, toAlpha, wantLabels)
             return true
         end
 
-        local iconProgress = t / C.MARKER_ICON_GROW_DURATION
+        local iconProgress = t / growDuration
         if iconProgress > 1 then
             iconProgress = 1
         end
-        ApplyMarkerArtScale(button, IconAppearScale(iconProgress))
-        local iconAlpha = EaseOutQuad(ClampProgress(t / C.MARKER_ICON_GROW_DURATION))
+        if edge then
+            ApplyMarkerArtScale(button, 1)
+        else
+            ApplyMarkerArtScale(button, IconAppearScale(iconProgress))
+        end
+        local iconAlpha = EaseOutQuad(ClampProgress(t / growDuration))
         SetMarkerFrameAlpha(button, iconAlpha * toAlpha)
         button.renderAlpha = iconAlpha * toAlpha
 
-        local nameTime = t - C.MARKER_LABEL_DELAY
+        local nameTime = t - labelDelay
         if button.labelFrame then
             if not wantLabels or nameTime < 0 then
                 SetLabelFrameAlpha(button, 0)
             else
-                local nameProgress = ClampProgress(nameTime / C.MARKER_LABEL_DURATION)
+                local nameProgress = ClampProgress(nameTime / labelDuration)
                 SetLabelFrameAlpha(button, EaseOutQuad(nameProgress))
             end
         end
 
-        local labelsDone = not wantLabels or nameTime >= C.MARKER_LABEL_DURATION
+        local labelsDone = not wantLabels or nameTime >= labelDuration
         if iconProgress >= 1 and labelsDone then
             StopMarkerContent(button)
             ApplyMarkerArtScale(button, 1)
@@ -344,12 +353,12 @@ local function AdvanceMarkerContent(button, elapsed, toAlpha, wantLabels)
     if button.contentMode == "out" then
         local fromAlpha = button.contentFromAlpha or 1
         local fromScale = button.contentFromScale or 1
-        local fadeProgress = ClampProgress(elapsedTime / C.MARKER_LABEL_DURATION)
+        local fadeProgress = ClampProgress(elapsedTime / labelDuration)
         if button.labelFrame and button.labelFrame:IsShown() then
             SetLabelFrameAlpha(button, (button.labelFromAlpha or 1) * (1 - EaseInOutQuad(fadeProgress)))
         end
 
-        local iconTime = elapsedTime - C.MARKER_LABEL_DELAY
+        local iconTime = elapsedTime - (edge and 0 or labelDelay)
         if iconTime < 0 then
             ApplyMarkerArtScale(button, fromScale)
             SetMarkerFrameAlpha(button, fromAlpha)
@@ -357,10 +366,14 @@ local function AdvanceMarkerContent(button, elapsed, toAlpha, wantLabels)
             return true
         end
 
-        local iconProgress = ClampProgress(iconTime / C.MARKER_ICON_GROW_DURATION)
-        local iconEased = EaseOutQuad(iconProgress)
-        ApplyMarkerArtScale(button, fromScale + (C.MARKER_ICON_END_SCALE - fromScale) * iconEased)
-        local iconAlpha = fromAlpha * (1 - EaseInOutQuad(ClampProgress(elapsedTime / C.MARKER_ICON_GROW_DURATION)))
+        local iconProgress = ClampProgress(iconTime / growDuration)
+        if edge then
+            ApplyMarkerArtScale(button, fromScale)
+        else
+            local iconEased = EaseOutQuad(iconProgress)
+            ApplyMarkerArtScale(button, fromScale + (C.MARKER_ICON_END_SCALE - fromScale) * iconEased)
+        end
+        local iconAlpha = fromAlpha * (1 - EaseInOutQuad(ClampProgress(elapsedTime / growDuration)))
         SetMarkerFrameAlpha(button, iconAlpha)
         button.renderAlpha = iconAlpha
 
@@ -417,8 +430,20 @@ local function ShowExistingMarker(button, toAlpha)
     button.contentToAlpha = toAlpha
 end
 
+-- Истина, если значок относится к ряду «поблизости», а не к краю обзора.
+local function MarkerIsNearbyContent(button)
+    local marker = button and button.marker
+    if not marker then
+        return false
+    end
+    if marker.nearbyHoldX then
+        return true
+    end
+    return Compass:IsNearbyFocus(marker)
+end
+
 -- Проявляет значок с ростом и необязательной задержкой пачки
-local function FadeMarkerIn(button, toAlpha, delay)
+local function FadeMarkerIn(button, toAlpha, delay, edge)
     if not button then
         return
     end
@@ -431,6 +456,7 @@ local function FadeMarkerIn(button, toAlpha, delay)
     end
     button.contentToAlpha = toAlpha
     button.revealAt = nil
+    button.contentEdge = edge and true or nil
 
     StopFrameFade(button)
     if button.glowFrame then
@@ -457,11 +483,17 @@ local function FadeMarkerIn(button, toAlpha, delay)
     if button.glowFrame then
         button.glowFrame:Show()
     end
-    ApplyMarkerArtScale(button, Compass.Constants.MARKER_ICON_START_SCALE)
+    if edge then
+        -- Вход из‑за края: обычный размер и короткое проявление, без роста.
+        ApplyMarkerArtScale(button, 1)
+        button.contentDelay = 0
+    else
+        ApplyMarkerArtScale(button, Compass.Constants.MARKER_ICON_START_SCALE)
+        button.contentDelay = delay or 0
+    end
     SetMarkerFrameAlpha(button, 0)
     button.contentMode = "in"
     button.contentElapsed = 0
-    button.contentDelay = delay or 0
     button.contentPlaying = true
     button.renderShown = true
     button.renderAlpha = 0
@@ -593,6 +625,8 @@ local function FadeMarkerOut(button)
     button.contentFromScale = button.artScale or 1
     button.labelFromAlpha = button.labelFrame and button.labelFrame:IsShown() and (button.labelFrame:GetAlpha() or 1) or 0
     button.contentMode = "out"
+    -- Край обзора: короткое гашение без паузы. Ряд «поблизости» оставляет полный уход.
+    button.contentEdge = not MarkerIsNearbyContent(button)
     button.contentElapsed = 0
     button.contentDelay = 0
     button.contentPlaying = true
@@ -1615,7 +1649,7 @@ function Compass:AssignMarkerSlots(selection, live)
         local shown = slot.renderShown or MarkerFadePlaying(slot)
         local toAlpha = MarkerTargetAlpha(marker)
         -- Уже стоявшую рамку не растим с нуля: она уедет к новому месту.
-        local function RevealSlot(useStagger)
+        local function RevealSlot(useStagger, edge)
             slot.revealAt = nil
             if shown then
                 return
@@ -1625,12 +1659,12 @@ function Compass:AssignMarkerSlots(selection, live)
                 shown = true
                 return
             end
-            if useStagger then
-                FadeMarkerIn(slot, toAlpha, appearIndex * C.MARKER_BATCH_STAGGER)
+            local delay = 0
+            if useStagger and not edge then
+                delay = appearIndex * C.MARKER_BATCH_STAGGER
                 appearIndex = appearIndex + 1
-            else
-                FadeMarkerIn(slot, toAlpha)
             end
+            FadeMarkerIn(slot, toAlpha, delay, edge)
             shown = true
         end
         if MarkerHoldsFade(self, marker) then
@@ -1640,13 +1674,13 @@ function Compass:AssignMarkerSlots(selection, live)
             end
         else
             if slot.leaving then
-                FadeMarkerIn(slot, toAlpha)
+                FadeMarkerIn(slot, toAlpha, 0, not self:IsNearbyFocus(marker))
                 shown = true
             end
             if self.arrivalFanReveal then
-                RevealSlot(true)
+                RevealSlot(true, true)
             elseif self:IsNearbyFocus(marker) then
-                RevealSlot(true)
+                RevealSlot(true, false)
             elseif (self.arrivalBlend or 0) > 0 then
                 slot.revealAt = nil
                 if not shown and SlotHasPose(slot) then
@@ -1654,17 +1688,17 @@ function Compass:AssignMarkerSlots(selection, live)
                     shown = true
                 end
             elseif self.rangeChanged then
-                RevealSlot(true)
+                RevealSlot(true, true)
             elseif self.markerFadeIn then
                 -- Пока сама полоса проявляется, значки идут с ней; иначе проявляем отдельно.
                 slot.revealAt = nil
                 if not shown and not (self.frame.fadeIn and self.frame.fadeIn:IsPlaying()) then
-                    RevealSlot(true)
+                    RevealSlot(true, false)
                 end
             elseif not live or marker.navigation or marker.priority <= C.TRACKED_QUEST_PRIORITY then
-                RevealSlot(false)
+                RevealSlot(false, true)
             elseif assignedNew or not slot.selected or not slot.marker or slot.marker.key ~= marker.key then
-                RevealSlot(true)
+                RevealSlot(true, true)
             end
         end
         slot.selected = true
@@ -2074,7 +2108,7 @@ function Compass:RenderMarker(button, marker, x, alpha, markerY, outline, scale)
             button.renderShown = true
             button.renderAlpha = alpha
         else
-            FadeMarkerIn(button, alpha)
+            FadeMarkerIn(button, alpha, 0, not self:IsNearbyFocus(marker))
         end
     end
     return button.renderShown or MarkerFadePlaying(button)
