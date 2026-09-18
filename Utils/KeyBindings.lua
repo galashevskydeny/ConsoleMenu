@@ -527,29 +527,56 @@ function ConsoleMenu:SetBindingsExtraAction()
     end
 
     if not IsExtraActionOverrideEnabled() then
+        frame:SetAttribute("enabled", 0)
         UnregisterStateDriver(frame, "extrabar")
         ClearOverrideBindings(frame)
         self:UpdateExtraActionKeyHint()
         return
     end
 
-    RegisterStateDriver(frame, "extrabar", "[extrabar] 1; 0")
+    frame:SetAttribute("enabled", 1)
+    -- Строки, а не цифры: драйвер состояния превращает «1» в число, и сравнение со строкой не срабатывает
+    RegisterStateDriver(frame, "extrabar", "[extrabar] shown; hidden")
     self:UpdateExtraActionKeyHint()
 end
+
+-- Назначает тачпад на дополнительную кнопку в защищённом обработчике
+local extraActionSecureSnippet = [[
+    if self:GetAttribute("enabled") == 1 and newstate == "shown" then
+        self:SetBinding(true, "PAD6", "EXTRAACTIONBUTTON1")
+        self:SetBinding(true, "PADBACK", "EXTRAACTIONBUTTON1")
+    else
+        self:ClearBindings()
+    end
+]]
+
+-- Назначает тачпад при показе стандартной дополнительной кнопки
+local extraActionShowSnippet = [[
+    if owner:GetAttribute("enabled") == 1 then
+        owner:SetBinding(true, "PAD6", "EXTRAACTIONBUTTON1")
+        owner:SetBinding(true, "PADBACK", "EXTRAACTIONBUTTON1")
+    end
+]]
+
+-- Снимает назначение тачпада при скрытии стандартной дополнительной кнопки
+local extraActionHideSnippet = [[
+    owner:ClearBindings()
+]]
 
 -- Создаёт защищённый фрейм переназначения тачпада на дополнительную кнопку
 function ConsoleMenu:InitExtraActionBindingFrame()
     if not self.ExtraActionBindingFrame then
         self.ExtraActionBindingFrame = CreateFrame("Frame", nil, nil, "SecureHandlerStateTemplate")
         -- В бою обычное переопределение недоступно, поэтому состояние задаёт клиент
-        self.ExtraActionBindingFrame:SetAttribute("_onstate-extrabar", [[
-            if newstate == "1" then
-                self:SetBinding(true, "PAD6", "EXTRAACTIONBUTTON1")
-                self:SetBinding(true, "PADBACK", "EXTRAACTIONBUTTON1")
-            else
-                self:ClearBindings()
-            end
-        ]])
+        self.ExtraActionBindingFrame:SetAttribute("_onstate-extrabar", extraActionSecureSnippet)
+        self.ExtraActionBindingFrame:SetAttribute("enabled", 1)
+
+        if ExtraActionBarFrame then
+            pcall(function()
+                self.ExtraActionBindingFrame:WrapScript(ExtraActionBarFrame, "OnShow", extraActionShowSnippet)
+                self.ExtraActionBindingFrame:WrapScript(ExtraActionBarFrame, "OnHide", extraActionHideSnippet)
+            end)
+        end
     end
 
     self.ExtraActionBindingFrame:RegisterEvent("UPDATE_EXTRA_ACTIONBAR")
@@ -575,11 +602,8 @@ function ConsoleMenu:InitExtraActionBindingFrame()
             ConsoleMenu:UpdateExtraActionKeyHint()
         end
 
-        if event == "UPDATE_EXTRA_ACTIONBAR"
-            and C_ActionBar
-            and not C_ActionBar.HasExtraActionBar()
-            and ConsoleMenu.SetBindingsZoneAbility
-        then
+        -- При появлении дополнительной кнопки сразу освобождаем тачпад способности области
+        if ConsoleMenu.SetBindingsZoneAbility then
             ConsoleMenu:SetBindingsZoneAbility()
         end
     end)
@@ -587,65 +611,205 @@ function ConsoleMenu:InitExtraActionBindingFrame()
     self:SetBindingsExtraAction()
 end
 
--- Модуль для отслеживания способности зоны PAD6 и PADBACK
+-- Проверяет, включено ли переназначение тачпада на способность области
+local function IsZoneAbilityOverrideEnabled()
+    return not ConsoleMenuDB or ConsoleMenuDB.overrideZoneAbilityKey ~= 2
+end
+
+-- Проверяет, стоит ли заклинание на активной панели команд игрока
+local function IsZoneAbilityOnActiveActionBar(spellID)
+    if not spellID then
+        return false
+    end
+
+    if ActionButtonUtil and ActionButtonUtil.IsSpellOnAnyActiveActionBar then
+        return ActionButtonUtil.IsSpellOnAnyActiveActionBar(spellID, true, true)
+    end
+
+    local slots = C_ActionBar and C_ActionBar.FindSpellActionButtons and C_ActionBar.FindSpellActionButtons(spellID)
+    return slots and #slots > 0
+end
+
+-- Возвращает способность области, которую показал бы стандартный интерфейс
+local function GetDisplayedZoneAbility()
+    if PlayerIsTimerunning and PlayerIsTimerunning() and C_ActionBar and C_ActionBar.HasVehicleActionBar() then
+        return nil
+    end
+
+    if not C_ZoneAbility or not C_ZoneAbility.GetActiveAbilities then
+        return nil
+    end
+
+    local zoneAbilities = C_ZoneAbility.GetActiveAbilities()
+    if not zoneAbilities or #zoneAbilities == 0 then
+        return nil
+    end
+
+    table.sort(zoneAbilities, function(lhs, rhs)
+        return lhs.uiPriority < rhs.uiPriority
+    end)
+
+    for i = 1, #zoneAbilities do
+        local ability = zoneAbilities[i]
+        local spellID = ability and ability.spellID
+        if spellID and not IsZoneAbilityOnActiveActionBar(spellID) then
+            return ability
+        end
+    end
+
+    return nil
+end
+
+-- Возвращает идентификатор и имя заклинания для привязки тачпада
+local function GetZoneAbilityBindSpell(ability)
+    local spellID = ability and ability.spellID
+    if not spellID then
+        return nil, nil
+    end
+
+    local bindSpellID = spellID
+    if C_SpellBook and C_SpellBook.FindSpellOverrideByID then
+        bindSpellID = C_SpellBook.FindSpellOverrideByID(spellID) or spellID
+    end
+
+    local spellName
+    if C_Spell and C_Spell.GetSpellName then
+        spellName = C_Spell.GetSpellName(bindSpellID)
+    end
+    if (not spellName or spellName == "") and C_Spell and C_Spell.GetSpellInfo then
+        local spellInfo = C_Spell.GetSpellInfo(bindSpellID)
+        spellName = spellInfo and spellInfo.name
+    end
+
+    if not spellName or spellName == "" then
+        return nil, nil
+    end
+
+    return bindSpellID, spellName
+end
+
+-- Последнее назначенное заклинание и подсказка способности области
+local boundZoneAbilitySpellID
+local boundZoneAbilitySpellName
+local zoneAbilityHintTitle
+local zoneAbilityUpdatePending
+
+-- Обновляет подсказку тачпада для способности области
+function ConsoleMenu:UpdateZoneAbilityKeyHint(newTitle)
+    if zoneAbilityHintTitle and zoneAbilityHintTitle ~= newTitle then
+        ConsoleMenu:DeleteKeysFrameItem("PAD6", zoneAbilityHintTitle)
+        ConsoleMenu:DeleteKeysFrameItem("PADBACK", zoneAbilityHintTitle)
+        zoneAbilityHintTitle = nil
+    end
+
+    if newTitle then
+        ConsoleMenu:AddKeysFrameItem("PAD6", newTitle)
+        ConsoleMenu:AddKeysFrameItem("PADBACK", newTitle)
+        zoneAbilityHintTitle = newTitle
+    end
+
+    ConsoleMenu:UpdateKeysFrame()
+end
+
+-- Снимает переназначение тачпада и подсказку способности области
+function ConsoleMenu:ClearZoneAbilityOverride()
+    local frame = self.ZoneAbilityBindingFrame
+    if frame and not InCombatLockdown() then
+        ClearOverrideBindings(frame)
+    end
+
+    boundZoneAbilitySpellID = nil
+    boundZoneAbilitySpellName = nil
+    self:UpdateZoneAbilityKeyHint(nil)
+end
+
+-- Откладывает пересчёт привязки на следующий кадр
+local function ScheduleZoneAbilityBindingUpdate()
+    if zoneAbilityUpdatePending then
+        return
+    end
+
+    zoneAbilityUpdatePending = true
+    C_Timer.After(0, function()
+        zoneAbilityUpdatePending = false
+        if ConsoleMenu and ConsoleMenu.SetBindingsZoneAbility then
+            ConsoleMenu:SetBindingsZoneAbility()
+        end
+    end)
+end
+
+-- Назначает тачпад на способность области, которую показывает стандартный интерфейс
+function ConsoleMenu:SetBindingsZoneAbility()
+    local frame = self.ZoneAbilityBindingFrame
+    if not frame then
+        return
+    end
+
+    if not IsZoneAbilityOverrideEnabled() then
+        self:ClearZoneAbilityOverride()
+        return
+    end
+
+    -- Пока активна дополнительная кнопка, тачпад принадлежит ей
+    if self:HasActiveExtraActionOverride() then
+        self:ClearZoneAbilityOverride()
+        return
+    end
+
+    local spellID, spellName = GetZoneAbilityBindSpell(GetDisplayedZoneAbility())
+    if not spellID or not spellName then
+        self:ClearZoneAbilityOverride()
+        return
+    end
+
+    if InCombatLockdown() then
+        return
+    end
+
+    if boundZoneAbilitySpellID == spellID and boundZoneAbilitySpellName == spellName then
+        self:UpdateZoneAbilityKeyHint(spellName)
+        return
+    end
+
+    ClearOverrideBindings(frame)
+    SetOverrideBindingSpell(frame, true, "PAD6", spellName)
+    SetOverrideBindingSpell(frame, true, "PADBACK", spellName)
+    boundZoneAbilitySpellID = spellID
+    boundZoneAbilitySpellName = spellName
+    self:UpdateZoneAbilityKeyHint(spellName)
+end
+
+-- Создаёт фрейм слежения за способностью области
 function ConsoleMenu:InitZoneAbilityBindingFrame()
     if not self.ZoneAbilityBindingFrame then
         self.ZoneAbilityBindingFrame = CreateFrame("Frame")
     end
-    
+
+    self.ZoneAbilityBindingFrame:RegisterUnitEvent("UNIT_AURA", "player")
+    self.ZoneAbilityBindingFrame:RegisterEvent("SPELLS_CHANGED")
+    self.ZoneAbilityBindingFrame:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
+    self.ZoneAbilityBindingFrame:RegisterEvent("UNIT_ENTERED_VEHICLE")
+    self.ZoneAbilityBindingFrame:RegisterEvent("UNIT_EXITED_VEHICLE")
+    self.ZoneAbilityBindingFrame:RegisterEvent("UPDATE_EXTRA_ACTIONBAR")
     self.ZoneAbilityBindingFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
-    self.ZoneAbilityBindingFrame:RegisterEvent("PLAYER_LOSES_VEHICLE_DATA")
-    self.ZoneAbilityBindingFrame:RegisterEvent("PLAYER_GAINS_VEHICLE_DATA")
-    self.ZoneAbilityBindingFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
-    self.ZoneAbilityBindingFrame:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED")
     self.ZoneAbilityBindingFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 
-    self.ZoneAbilityBindingFrame:SetScript("OnEvent", function(self, event, ...)
-        if not ConsoleMenu or not ConsoleMenu.SetBindingsZoneAbility then
+    self.ZoneAbilityBindingFrame:SetScript("OnEvent", function(_, event)
+        if not ConsoleMenu then
             return
         end
-        
-        ConsoleMenu:SetBindingsZoneAbility()
-    end)
-end
 
-function ConsoleMenu:SetBindingsZoneAbility()
-    
-    if ConsoleMenuDB.overrideZoneAbilityKey == 2 then
-        if InCombatLockdown() then return end
-        ClearOverrideBindings(self.ZoneAbilityBindingFrame)
-        return
-    end
-
-    if InCombatLockdown() then return end
-
-    -- Пока активна дополнительная кнопка, тачпад принадлежит ей
-    if ConsoleMenu:HasActiveExtraActionOverride() then
-        return
-    end
-
-    -- Получаем активные зоновые способности
-    local zoneAbilities = C_ZoneAbility.GetActiveAbilities()
-    
-    if zoneAbilities and #zoneAbilities > 0 then
-        local firstAbility = zoneAbilities[1]
-        if firstAbility and firstAbility.spellID then
-            local spellID = firstAbility.spellID
-            local spellInfo = spellID and C_Spell.GetSpellInfo(spellID)
-            if spellInfo and spellInfo.name then
-                
-                ClearOverrideBindings(self.ZoneAbilityBindingFrame)
-                SetOverrideBindingSpell(self.ZoneAbilityBindingFrame, true, "PAD6", spellInfo.name)
-                SetOverrideBindingSpell(self.ZoneAbilityBindingFrame, true, "PADBACK", spellInfo.name)
-            else
-                ClearOverrideBindings(self.ZoneAbilityBindingFrame)
+        if event == "PLAYER_REGEN_ENABLED" then
+            if ConsoleMenu.SetBindingsZoneAbility then
+                ConsoleMenu:SetBindingsZoneAbility()
             end
-        else
-            ClearOverrideBindings(self.ZoneAbilityBindingFrame)
+            return
         end
-    else
-        ClearOverrideBindings(self.ZoneAbilityBindingFrame)
-    end
+
+        ScheduleZoneAbilityBindingUpdate()
+    end)
+
+    self:SetBindingsZoneAbility()
 end
 
 -- Модуль для отслеживания прерывания заклинания
