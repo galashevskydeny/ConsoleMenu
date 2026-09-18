@@ -17,9 +17,6 @@ BlizzardFrames/ChatFrame.lua
 BlizzardFrames/PaperDollFrame.lua
 BlizzardFrames/ReputationFrame.lua
 BlizzardFrames/TokenFrame.lua
-BlizzardFrames/MailFrame.lua
-BlizzardFrames/OpenMailFrame.lua
-BlizzardFrames/MerchantFrame.lua
 BlizzardFrames/QuestFrame.lua
 BlizzardFrames/GossipFrame.lua
 BlizzardFrames/PVEFrame.lua

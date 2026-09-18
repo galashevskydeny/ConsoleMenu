@@ -49,9 +49,9 @@ local function Initialize()
     ConsoleMenu:SetPaperDollFrame()
     ConsoleMenu:SetReputationFrame()
     ConsoleMenu:SetTokenFrame()
-    ConsoleMenu:SetMailFrame()
-    ConsoleMenu.Merchant.CreateFrame()
-    ConsoleMenu:SetOpenMailFrame()
+    if ConsoleMenuDB.merchantWindowStyle ~= 2 then
+        ConsoleMenu.Merchant.CreateFrame()
+    end
     ConsoleMenu:SetQuestFrame()
     ConsoleMenu:SetStatusTrackingFrame()
     ConsoleMenu:SetCompassFrame()

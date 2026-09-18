@@ -203,11 +203,18 @@ end
 
 -- Создание окна торговца.
 function ConsoleMenu:SetItemListFrame()
+    if ConsoleMenuDB.merchantWindowStyle == 2 then
+        return
+    end
     Merchant.CreateFrame()
 end
 
 -- Создание окна торговца.
 function Merchant.CreateFrame()
+    if ConsoleMenuDB.merchantWindowStyle == 2 then
+        return
+    end
+
     if ConsoleMenuFrame.ItemListFrame and ConsoleMenuFrame.ItemListFrame.IsMerchantFrameInitialized then
         return ConsoleMenuFrame.ItemListFrame
     end

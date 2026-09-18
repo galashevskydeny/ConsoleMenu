@@ -90,7 +90,6 @@ local minimapSettings = {
 -- Игровые окна
 local standardUISettings = {
     { name = "Окно персонажа", variable = "characterWindowStyle", default = 2, tooltip = "Выберите стиль окна персонажа: обновленную версию или стандартную.", options = windowStyleOptions },
-    { name = "Окно почты", variable = "mailWindowStyle", default = 2, tooltip = "Выберите стиль окна почты: обновленную версию или стандартную.", options = windowStyleOptions },
     { name = "Окно торговца", variable = "merchantWindowStyle", default = 2, tooltip = "Выберите стиль окна торговца: обновленную версию или стандартную.", options = windowStyleOptions },
     { name = "Окна диалогов и квестов", variable = "dialogQuestWindowStyle", default = 2, tooltip = "Выберите стиль окна диалогов и квестов: обновленную (более имерсивную) версию или стандартную.", options = windowStyleOptions },
 }

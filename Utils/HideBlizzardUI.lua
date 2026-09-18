@@ -396,7 +396,9 @@ function ConsoleMenu:HideBlizzardUI()
     ConsoleMenu:InitFadeAnimations(CompactRaidFrameContainer, 0.2)
     ConsoleMenu:InitFadeAnimations(Minimap, 0.2)
     ConsoleMenu:InitFadeAnimations(PersonalResourceDisplayFrame, 0.1)
-    DisableMerchantFrame()
+    if ConsoleMenuDB.merchantWindowStyle ~= 2 then
+        DisableMerchantFrame()
+    end
     DisablePlayerFrame()
 
 end
