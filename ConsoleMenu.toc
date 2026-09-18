@@ -72,7 +72,17 @@ Frames/StatusTrackingFrame.lua
 Frames/MainActionBar.lua
 Frames/PanelFrame.lua
 Frames/PlayerChoice.lua
-Frames/MerchantFrame.lua
+Frames/ExpandableList/Shared.lua
+Frames/ExpandableList/Row.lua
+Frames/ExpandableList/Focus.lua
+Frames/ExpandableList/Manager.lua
+Frames/Merchant/Shared.lua
+Frames/Merchant/Data.lua
+Frames/Merchant/Tooltip.lua
+Frames/Merchant/Currencies.lua
+Frames/Merchant/Actions.lua
+Frames/Merchant/Controller.lua
+Frames/Merchant/Manager.lua
 
 Utils/Contexts.lua
 Utils/HideBlizzardUI.lua

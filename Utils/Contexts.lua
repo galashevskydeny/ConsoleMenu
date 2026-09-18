@@ -494,13 +494,13 @@ local function ApplyWindowKeys(contextData)
         C_Timer.After(0.1, function()
             local current = GetPlayerContextData()
             if current and current.window and interactionType and current.window[interactionType.Merchant] then
-                ConsoleMenu:ShowItemListFrame()
+                ConsoleMenu.Merchant.Show()
             end
         end)
 
         ConsoleMenu:AddKeysFrameItem("PAD2", "Выйти")
         ConsoleMenu:AddKeysFrameItem("PADDLEFTRIGHT", "Переключение вкладок")
-        ConsoleMenu:UpdateItemListFrameKeysFrame()
+        ConsoleMenu.Merchant.UpdateKeysFrame()
 
         ConsoleMenu:PlayFadeOut(ObjectiveTrackerFrame)
         ConsoleMenu:AnimatedHide(Minimap)
@@ -650,7 +650,7 @@ function ConsoleMenu:ApplyContextUIChanges()
             return
         end
 
-        ConsoleMenu:HideItemListFrame()
+        ConsoleMenu.Merchant.Hide()
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.CombatFrame)
         ConsoleMenu:AnimatedHide(PersonalResourceDisplayFrame)
@@ -678,7 +678,7 @@ function ConsoleMenu:ApplyContextUIChanges()
             return
         end
 
-        ConsoleMenu:HideItemListFrame()
+        ConsoleMenu.Merchant.Hide()
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.CombatFrame)
         ConsoleMenu:AnimatedHide(PersonalResourceDisplayFrame)
@@ -702,7 +702,7 @@ function ConsoleMenu:ApplyContextUIChanges()
             ConsoleMenu.Compass:SetContextHidden(context == "combat" or IsEncounterTimelineShown())
         end
 
-        ConsoleMenu:HideItemListFrame()
+        ConsoleMenu.Merchant.Hide()
         ConsoleMenu:AnimatedShow(ConsoleMenuFrame.ActionBarFrame)
         ConsoleMenu:AnimatedShow(ConsoleMenuFrame.CombatFrame)
     elseif context == "housing" then
@@ -713,7 +713,7 @@ function ConsoleMenu:ApplyContextUIChanges()
             return
         end
 
-        ConsoleMenu:HideItemListFrame()
+        ConsoleMenu.Merchant.Hide()
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.CombatFrame)
         ConsoleMenu:AnimatedHide(PersonalResourceDisplayFrame)
@@ -729,7 +729,7 @@ function ConsoleMenu:ApplyContextUIChanges()
             return
         end
 
-        ConsoleMenu:HideItemListFrame()
+        ConsoleMenu.Merchant.Hide()
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.CombatFrame)
         ConsoleMenu:AnimatedHide(PersonalResourceDisplayFrame)
