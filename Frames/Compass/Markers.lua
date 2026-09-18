@@ -1439,37 +1439,22 @@ function Compass:ApplyArrivalBlend(selection, facing)
                 marker.projectedAlpha = (marker.projectedAlpha or 1) * (1 - ease)
             end
         end
-        local width = (self.artworkLayout and self.artworkLayout.contentWidth) or Compass.Constants.WIDTH
         for index = 1, #foci do
             local focus = foci[index]
             if not self.selectionKeys[focus.key] and not self:ShouldHideNavigationMarker(focus) then
-                local x, _, delta
-                if focus.bearing and facing then
-                    x, _, delta = self:Project(focus.bearing, facing, self.viewAngle, width, Compass.Constants.EDGE_CLIP_FRACTION)
-                    if not x then
-                        -- За краем полосы: уезжаем к краю, а не гаснем в центре.
-                        delta = self:WrapDegrees(facing - focus.bearing)
-                        local hideAt = 1 - Compass.Constants.EDGE_CLIP_FRACTION
-                        local fraction = delta / (self.viewAngle / 2)
-                        if fraction > hideAt then
-                            fraction = hideAt
-                        elseif fraction < -hideAt then
-                            fraction = -hideAt
-                        end
-                        x = fraction * width / 2
-                    end
-                else
-                    x = focus.nearbyX or focus.projectedX or 0
-                    delta = focus.projectedDelta or focus.nearbyDelta or 0
-                end
-                focus.projectedX = x
+                -- Вне обзора: гасим на месте, не сводим к краю полосы.
+                local held = NearbyVisualX(self, focus)
+                self:QueueNearbyFade(focus)
+                focus.nearbyHoldX = held
+                focus.projectedX = held
                 focus.projectedAlpha = 1
-                focus.projectedDelta = delta or 0
+                focus.projectedDelta = focus.nearbyDelta or focus.projectedDelta or 0
                 selection[#selection + 1] = focus
                 self.selectionKeys[focus.key] = true
                 self.markerSlotsDirty = true
             end
         end
+        AppendNearbyFading(self, selection)
         return selection
     end
     self:LayoutNearby(facing)
