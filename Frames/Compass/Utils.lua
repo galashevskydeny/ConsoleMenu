@@ -143,13 +143,9 @@ function Compass:IsNearbyCandidate(marker, limit)
     return self:IsInsideQuestArea(marker)
 end
 
--- Проверяет, что точку не следует рисовать из-за игрового указателя.
-function Compass:ShouldHideNavigationMarker(marker)
-    if self.hideNavigationOnBar ~= true or not self:IsTrackedPoint(marker, self.navigationTarget) then
-        return false
-    end
-    -- Не прячем выбранное задание, если персонаж уже в области его выполнения.
-    return not self:IsInsideQuestArea(marker)
+-- Точку выбранной цели больше не прячем: игровой указатель её не заменяет.
+function Compass:ShouldHideNavigationMarker()
+    return false
 end
 
 -- Обновляет признак скрытия выбранной цели и помечает полосу к перерисовке.

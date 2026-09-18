@@ -1043,6 +1043,57 @@ local function AppendNearbyFading(self, selection)
     end
 end
 
+-- Держит выбранную цель на азимуте, если её нет в ближнем ряду.
+local function SyncTrackedNavigation(self, selection, facing, width)
+    local target = self.navigationTarget
+    if not target or self:IsNearbyFocus(target) then
+        return
+    end
+    local x, alpha, delta
+    if facing and target.bearing then
+        x, alpha, delta = self:Project(
+            target.bearing,
+            facing,
+            self.viewAngle,
+            width,
+            Compass.Constants.EDGE_CLIP_FRACTION
+        )
+    end
+    local visible = x and alpha and alpha > 0
+    if self.selectionKeys[target.key] then
+        if visible then
+            target.projectedX, target.projectedAlpha, target.projectedDelta = x, alpha, delta
+            return
+        end
+        for index = #selection, 1, -1 do
+            if selection[index].key == target.key then
+                table.remove(selection, index)
+                break
+            end
+        end
+        self.selectionKeys[target.key] = nil
+        self.markerSlotsDirty = true
+        return
+    end
+    if not visible then
+        return
+    end
+    selection[#selection + 1] = target
+    self.selectionKeys[target.key] = true
+    target.projectedX, target.projectedAlpha, target.projectedDelta = x, alpha, delta
+    self.markerSlotsDirty = true
+end
+
+-- Сколько точек сверх ближнего ряда уже стоит в отборе.
+local function NearbySelectionExtra(self)
+    local extra = #self.nearbyFading
+    local tracked = self.navigationTarget
+    if tracked and self.selectionKeys[tracked.key] and not self:IsNearbyFocus(tracked) then
+        extra = extra + 1
+    end
+    return extra
+end
+
 -- Оставляет значки, вышедшие из отбора, на последнем месте, пока не доиграет скрытие.
 function Compass:HoldLeavingMarkers(selection)
     local leaving = self.rangeLeaving
@@ -1133,10 +1184,10 @@ function Compass:SelectMarkers(facing, width, live)
     local foci = self:GetNearbyFoci()
     local blend = self.arrivalBlend or 0
     local arrived = #self.arrivalMarkers > 0
-    -- В открытом ряде «поблизости» веер не держим. На выходе снова берём азимуты, чтобы значки уехали.
+    -- В открытом ряде «поблизости» веер не держим, но цель слежения оставляем на азимуте.
     local lock = #foci > 0 and arrived and blend >= 1
     if lock then
-        local extra = #self.nearbyFading
+        local extra = NearbySelectionExtra(self)
         local skip = self.nearbyReflowPhase == "hide" and self.nearbyDeferredKeys or nil
         if not (
             live
@@ -1158,11 +1209,14 @@ function Compass:SelectMarkers(facing, width, live)
         self:LayoutNearby(facing)
         for index = 1, #selection do
             local marker = selection[index]
-            marker.projectedX = marker.nearbyX or 0
-            marker.projectedAlpha = 1
-            marker.projectedDelta = marker.nearbyDelta or 0
+            if self:IsNearbyFocus(marker) then
+                marker.projectedX = marker.nearbyX or 0
+                marker.projectedAlpha = 1
+                marker.projectedDelta = marker.nearbyDelta or 0
+            end
         end
         AppendNearbyFading(self, selection)
+        SyncTrackedNavigation(self, selection, facing, width)
         self.selectionFacing, self.selectionTurnMin, self.selectionTurnMax = facing, -C.HALF_TURN, C.HALF_TURN
         self.selectionDirty = false
         return selection
@@ -1369,7 +1423,7 @@ function Compass:UpdateNearbyMotion(elapsed)
     self.nearbyMotionPending = pending
 end
 
--- Сдвигает близкие точки к указателю по сторонам и гасит остальные значки.
+-- Сдвигает близкие точки к указателю по сторонам и гасит остальные значки, кроме выбранной цели.
 function Compass:ApplyArrivalBlend(selection, facing)
     local ease = self.arrivalEase or 0
     local foci = self:GetNearbyFoci()
@@ -1379,7 +1433,7 @@ function Compass:ApplyArrivalBlend(selection, facing)
     if #self.arrivalMarkers == 0 then
         -- Выход: бывшие близкие точки едут к азимуту, остальные веера проявляются на месте.
         for _, marker in ipairs(selection) do
-            if self:IsNearbyFocus(marker) then
+            if self:IsNearbyFocus(marker) or self:IsTrackedPoint(marker, self.navigationTarget) then
                 marker.projectedAlpha = 1
             else
                 marker.projectedAlpha = (marker.projectedAlpha or 1) * (1 - ease)
@@ -1419,12 +1473,15 @@ function Compass:ApplyArrivalBlend(selection, facing)
         return selection
     end
     self:LayoutNearby(facing)
+    local width = (self.artworkLayout and self.artworkLayout.contentWidth) or Compass.Constants.WIDTH
     for _, marker in ipairs(selection) do
         if marker.nearbyHoldX and not self.arrivalKeys[marker.key] then
             marker.projectedX = marker.nearbyHoldX or marker.projectedX or 0
             marker.projectedAlpha = 1
         elseif self.arrivalKeys[marker.key] then
             marker.projectedX = marker.nearbyX or 0
+            marker.projectedAlpha = 1
+        elseif self:IsTrackedPoint(marker, self.navigationTarget) then
             marker.projectedAlpha = 1
         else
             marker.projectedAlpha = (marker.projectedAlpha or 1) * (1 - ease)
@@ -1449,6 +1506,7 @@ function Compass:ApplyArrivalBlend(selection, facing)
         end
     end
     AppendNearbyFading(self, selection)
+    SyncTrackedNavigation(self, selection, facing, width)
     return selection
 end
 
@@ -1680,6 +1738,8 @@ function Compass:AssignMarkerSlots(selection, live)
             if self.arrivalFanReveal then
                 RevealSlot(true, true)
             elseif self:IsNearbyFocus(marker) then
+                RevealSlot(true, false)
+            elseif (self.arrivalBlend or 0) > 0 and self:IsTrackedPoint(marker, self.navigationTarget) then
                 RevealSlot(true, false)
             elseif (self.arrivalBlend or 0) > 0 then
                 slot.revealAt = nil
