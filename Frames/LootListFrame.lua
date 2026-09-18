@@ -74,6 +74,124 @@ local CraftingQualityOffset = {
     [3] = {4, 4},
 }
 
+-- Сохранённые сведения о слотах текущего окна добычи
+local lootSlots = {}
+
+local UpdateLootList
+
+-- Номер предмета из ссылки, если игра его уже знает
+local function GetItemIDFromLink(itemLink)
+    if not itemLink then
+        return nil
+    end
+
+    return C_Item.GetItemInfoInstant(itemLink)
+end
+
+-- Одинаковы ли две записи добычи
+local function IsSameLootItem(left, right)
+    if not left or not right then
+        return false
+    end
+
+    if (left.quantity or 1) ~= (right.quantity or 1) then
+        return false
+    end
+
+    if left.craftingQuality ~= right.craftingQuality then
+        return false
+    end
+
+    if left.itemID and right.itemID then
+        return left.itemID == right.itemID
+    end
+
+    return left.itemName == right.itemName
+        and left.itemQuality == right.itemQuality
+        and left.itemTexture == right.itemTexture
+end
+
+-- Уже есть такой предмет в очереди или на экране
+local function HasDuplicateLootItem(itemData)
+    local lootFrame = ConsoleMenuFrame and ConsoleMenuFrame.LootListFrame
+    if not lootFrame then
+        return false
+    end
+
+    local displayed = lootFrame.DisplayedItems
+    if displayed then
+        for i = 1, #displayed do
+            if IsSameLootItem(displayed[i], itemData) then
+                return true
+            end
+        end
+    end
+
+    local queue = lootFrame.Queue
+    if queue then
+        for i = 1, #queue do
+            if IsSameLootItem(queue[i], itemData) then
+                return true
+            end
+        end
+    end
+
+    return false
+end
+
+-- Собирает данные слота, если это предмет, а не валюта
+local function BuildLootSlotData(slotIndex)
+    local itemTexture, itemName, quantity, currencyID, itemQuality, _, _, _, _, isCoin = GetLootSlotInfo(slotIndex)
+    if not itemName or itemName == "" or currencyID or isCoin then
+        return nil
+    end
+
+    local itemLink = GetLootSlotLink(slotIndex)
+    local craftingQuality
+    if itemLink then
+        craftingQuality = C_TradeSkillUI.GetItemReagentQualityByItemInfo(itemLink)
+    end
+
+    return {
+        quantity = quantity,
+        itemName = itemName,
+        itemQuality = itemQuality,
+        itemTexture = itemTexture,
+        craftingQuality = craftingQuality,
+        itemID = GetItemIDFromLink(itemLink),
+    }
+end
+
+-- Запоминает содержимое окна добычи, не показывая список
+local function CacheLootSlots(replaceAll)
+    if replaceAll then
+        wipe(lootSlots)
+    end
+
+    for slotIndex = 1, GetNumLootItems() do
+        local slotData = BuildLootSlotData(slotIndex)
+        if slotData then
+            lootSlots[slotIndex] = slotData
+        elseif replaceAll then
+            lootSlots[slotIndex] = nil
+        end
+    end
+end
+
+-- Обновляет один слот, если состав окна изменился
+local function UpdateCachedLootSlot(slotIndex)
+    if not slotIndex then
+        return
+    end
+
+    lootSlots[slotIndex] = BuildLootSlotData(slotIndex)
+end
+
+-- Забывает слоты, которые не успели взять
+local function ClearLootSlots()
+    wipe(lootSlots)
+end
+
 -- Свободные строки: только полностью скрытые, уходящие не забираем
 local function FindItemFrames()
     if not ConsoleMenuFrame.LootListFrame or not ConsoleMenuFrame.LootListFrame.Items then
@@ -97,35 +215,31 @@ local function FindItemFrames()
     return frames
 end
 
--- Функция для добавления предмета в список
+-- Добавляет предмет в очередь показа, если это не повтор
 local function AddItem(itemData)
     if not itemData then
         return
     end
 
+    local itemName = itemData.itemName
+    if not itemName or itemName == "" then
+        return
+    end
+
     local normalizedData = {
         quantity = itemData.quantity or 1,
-        itemName = itemData.itemName or UNKNOWN,
+        itemName = itemName,
         itemQuality = itemData.itemQuality or 0,
         itemTexture = itemData.itemTexture,
         craftingQuality = itemData.craftingQuality,
         isCraftingReagent = itemData.isCraftingReagent,
+        itemID = itemData.itemID,
     }
 
-    -- Проверяем, не является ли добавляемый предмет дубликатом
-    for i = #ConsoleMenuFrame.LootListFrame.DisplayedItems, 1, -1 do
-        local item = ConsoleMenuFrame.LootListFrame.DisplayedItems[i]
-        if item.itemName == normalizedData.itemName
-        and item.itemQuality == normalizedData.itemQuality
-        and item.craftingQuality == normalizedData.craftingQuality
-        and item.quantity == normalizedData.quantity
-        and item.itemTexture == normalizedData.itemTexture
-        then
-            return
-        end
+    if HasDuplicateLootItem(normalizedData) then
+        return
     end
 
-    -- Добавляем предмет в очередь
     local lootFrame = ConsoleMenuFrame.LootListFrame
     lootFrame.nextAddSequence = (lootFrame.nextAddSequence or 0) + 1
     table.insert(lootFrame.Queue, {
@@ -135,10 +249,53 @@ local function AddItem(itemData)
         itemTexture = normalizedData.itemTexture,
         craftingQuality = normalizedData.craftingQuality,
         isCraftingReagent = normalizedData.isCraftingReagent,
+        itemID = normalizedData.itemID,
         startTime = GetTime(),
         addSequence = lootFrame.nextAddSequence,
     })
-    
+end
+
+-- Добавляет предмет по ссылке, когда известны имя и значок
+local function AddItemFromLink(itemLink, quantity, craftingQuality)
+    if not itemLink then
+        return
+    end
+
+    local itemID, _, _, _, instantTexture = C_Item.GetItemInfoInstant(itemLink)
+    if craftingQuality == nil then
+        craftingQuality = C_TradeSkillUI.GetItemReagentQualityByItemInfo(itemLink)
+    end
+
+    local function FinishItem(itemName, itemQuality, itemTexture)
+        if not itemName or itemName == "" then
+            return
+        end
+
+        AddItem({
+            quantity = quantity,
+            itemName = itemName,
+            itemQuality = itemQuality,
+            itemTexture = itemTexture or instantTexture,
+            craftingQuality = craftingQuality,
+            itemID = itemID,
+        })
+        UpdateLootList()
+    end
+
+    local itemName, _, itemQuality, _, _, _, _, _, _, itemTexture = C_Item.GetItemInfo(itemLink)
+    if itemName then
+        FinishItem(itemName, itemQuality, itemTexture)
+        return
+    end
+
+    local item = Item:CreateFromItemLink(itemLink)
+    if not item or item:IsItemEmpty() then
+        return
+    end
+
+    item:ContinueOnItemLoad(function()
+        FinishItem(item:GetItemName(), item:GetItemQuality(), item:GetItemIcon())
+    end)
 end
 
 -- Функция для удаления старых предметов из очереди
@@ -406,7 +563,6 @@ end
 
 -- Нижняя граница фона задаётся ниже и следует за последней строкой с предметом
 local ReanchorLootListBackground
-local UpdateLootList
 
 -- Продвигает одно движение на прошедшее время; возвращает, едет ли рамка ещё
 local function AdvanceMotion(itemFrame, elapsed)
@@ -1122,6 +1278,10 @@ function ConsoleMenu:SetLootList()
     end
 
     frame:RegisterEvent("LOOT_OPENED")
+    frame:RegisterEvent("LOOT_READY")
+    frame:RegisterEvent("LOOT_SLOT_CHANGED")
+    frame:RegisterEvent("LOOT_SLOT_CLEARED")
+    frame:RegisterEvent("LOOT_CLOSED")
     frame:RegisterEvent("TRADE_SKILL_ITEM_CRAFTED_RESULT")
     frame:RegisterEvent("QUEST_LOOT_RECEIVED")
     frame:RegisterEvent("SHOW_LOOT_TOAST")
@@ -1139,71 +1299,45 @@ function ConsoleMenu:SetLootList()
             end
             return
         elseif event == "LOOT_OPENED" then
-            -- Отображение предметов из окна добычи
-            for slotIndex = 1, GetNumLootItems() do
-                local itemTexture, itemName, quantity, currencyID, itemQuality, _, isQuestItem, _, _, isCoin = GetLootSlotInfo(slotIndex)
-        
-                if not (currencyID or isCoin) then
-                    local itemLink = GetLootSlotLink(slotIndex)
-                    local craftingQuality = C_TradeSkillUI.GetItemReagentQualityByItemInfo(itemLink)
-
-                    AddItem({
-                        quantity = quantity,
-                        itemName = itemName,
-                        itemQuality = itemQuality,
-                        itemTexture = itemTexture,
-                        craftingQuality = craftingQuality,
-                    })
-                end
-
+            CacheLootSlots(true)
+            return
+        elseif event == "LOOT_READY" then
+            CacheLootSlots(false)
+            return
+        elseif event == "LOOT_SLOT_CHANGED" then
+            UpdateCachedLootSlot(...)
+            return
+        elseif event == "LOOT_CLOSED" then
+            ClearLootSlots()
+            return
+        elseif event == "LOOT_SLOT_CLEARED" then
+            -- Слот забрали: показываем только фактически полученный предмет
+            local slotIndex = ...
+            local slotData = lootSlots[slotIndex]
+            lootSlots[slotIndex] = nil
+            if slotData then
+                AddItem(slotData)
             end
         elseif event == "TRADE_SKILL_ITEM_CRAFTED_RESULT" then
-            -- Отображение изготовленных предметов
             local data = ...
+            if not data then
+                return
+            end
 
-            if not data then return end
-            
-            local quantity = data.quantity
-            local craftingQuality = data.craftingQuality
-            local itemName, _, itemQuality, _, _, _, _, _, _, itemTexture, _, _, _, _, _, _, _, _ = C_Item.GetItemInfo(data.hyperlink)
-            
-            AddItem({
-                quantity = quantity,
-                craftingQuality = craftingQuality,
-                itemName = itemName,
-                itemQuality = itemQuality,
-                itemTexture = itemTexture,
-            })
+            AddItemFromLink(data.hyperlink, data.quantity, data.craftingQuality)
+            return
         elseif event == "QUEST_LOOT_RECEIVED" then
-            -- Отображение награды за задание
             local _, itemLink, quantity = ...
-
-            local craftingQuality = C_TradeSkillUI.GetItemReagentQualityByItemInfo(itemLink)
-            local itemName, _, itemQuality, _, _, _, _, _, _, itemTexture, _, _, _, _, _, _, _, _ = C_Item.GetItemInfo(itemLink)
-
-            AddItem({
-                quantity = quantity,
-                itemName = itemName,
-                itemQuality = itemQuality,
-                itemTexture = itemTexture,
-                craftingQuality = craftingQuality,
-            })
+            AddItemFromLink(itemLink, quantity)
+            return
         elseif event == "SHOW_LOOT_TOAST" then
-            local typeIdentifier, itemLink, quantity, _, _, _, _, _, _, _ = ...
+            local typeIdentifier, itemLink, quantity = ...
+            if typeIdentifier ~= "item" then
+                return
+            end
 
-            if typeIdentifier ~= "item" then return end
-
-            local craftingQuality = C_TradeSkillUI.GetItemReagentQualityByItemInfo(itemLink)
-            local itemName, _, itemQuality, _, _, _, _, _, _, itemTexture, _, _, _, _, _, _, _, _ = C_Item.GetItemInfo(itemLink)
-
-            -- TODO:Тут иногда дублируются (c LOOT_OPENED) предметы при получении добычи с босса
-            AddItem({
-                quantity = quantity,
-                itemName = itemName,
-                itemQuality = itemQuality,
-                itemTexture = itemTexture,
-                craftingQuality = craftingQuality,
-            })
+            AddItemFromLink(itemLink, quantity)
+            return
         end
 
         UpdateLootList()

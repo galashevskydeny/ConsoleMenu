@@ -65,6 +65,32 @@ local function GetTagInner(tag)
     return tag:match("^<%s*(.-)%s*>$") or tag
 end
 
+-- Длина завершающего знака препинания в байтах, если он стоит в этой позиции.
+local function GetEndingPunctuationLength(str, index)
+    if str:sub(index, index + 2) == "..." then
+        return 3
+    end
+
+    local char, charLen = Subtitle.GetUtf8Char(str, index)
+    if char == "…" or char == "." or char == "!" or char == "?" then
+        return charLen
+    end
+end
+
+-- Сдвигает позицию за все подряд идущие завершающие знаки.
+local function SkipEndingPunctuationRun(str, index)
+    local pos = index
+    local len = #str
+    while pos <= len do
+        local punctLen = GetEndingPunctuationLength(str, pos)
+        if not punctLen then
+            break
+        end
+        pos = pos + punctLen
+    end
+    return pos
+end
+
 -- Разбивает обычный текст на предложения, сохраняя знак в конце.
 local function SplitPlainTextIntoSentences(str)
     local sentences = {}
@@ -81,24 +107,16 @@ local function SplitPlainTextIntoSentences(str)
     end
 
     while i <= len do
-        local threeChars = str:sub(i, i + 2)
-        if threeChars == "..." or threeChars == "…" then
-            emit(i + 2)
-            startPos = i + 3
-            i = i + 3
+        local punctLen = GetEndingPunctuationLength(str, i)
+        if not punctLen then
+            i = i + 1
+        elseif punctLen == 1 and str:sub(i, i) == "." and IsAbbreviationPeriod(str, i) then
+            i = i + 1
         else
-            local ch = str:sub(i, i)
-            if ch == "." or ch == "!" or ch == "?" then
-                if ch == "." and IsAbbreviationPeriod(str, i) then
-                    i = i + 1
-                else
-                    emit(i)
-                    startPos = i + 1
-                    i = i + 1
-                end
-            else
-                i = i + 1
-            end
+            local nextPos = SkipEndingPunctuationRun(str, i)
+            emit(nextPos - 1)
+            startPos = nextPos
+            i = nextPos
         end
     end
 

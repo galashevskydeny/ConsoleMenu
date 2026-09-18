@@ -9,6 +9,8 @@ local ReadPosition = Compass.ReadPosition
 local POI_RETRY_INTERVAL = 30
 local QUEST_COMPLETE_ATLAS = "UI-QuestIcon-TurnIn-Normal"
 local WORLD_QUEST_ATLAS = "Worldquest-icon"
+local PREY_ATLAS = "worldquest-prey-crystal"
+local PREY_TAG = Enum.QuestTagType and Enum.QuestTagType.Prey
 local BONUS_OBJECTIVE_ATLAS = "Bonus-Objective-Star"
 local THREAT_ATLAS = "worldquest-icon-nzoth"
 local DIRECTIONS_ATLAS = "poi-traveldirections-arrow"
@@ -51,6 +53,82 @@ local COMPLETE_ATLASES = {
     [Enum.QuestClassification.Important] = "UI-QuestPoiImportant-QuestBangTurnIn",
     [Enum.QuestClassification.Meta] = "UI-QuestPoiWrapper-QuestBangTurnIn",
 }
+
+-- Текущее задание охоты, если игра его сообщает.
+local function ActivePreyQuest()
+    local getter = C_QuestLog.GetActivePreyQuest
+    return getter and Number(getter())
+end
+
+-- Тип мирового задания из метки журнала или точки на карте.
+local function WorldQuestType(questID, position)
+    local tagInfo = Readable(C_QuestLog.GetQuestTagInfo(questID))
+    local fromTag = tagInfo and Number(tagInfo.worldQuestType)
+    if fromTag then
+        return fromTag, tagInfo
+    end
+    return position and Number(position.questTagType), tagInfo
+end
+
+-- Мировое задание или охота, которые на карте рисуются особым символом.
+local function IsWorldQuestPin(questID, worldQuestType)
+    if Readable(C_QuestLog.IsWorldQuest(questID)) == true or worldQuestType then
+        return true
+    end
+    local preyID = ActivePreyQuest()
+    if preyID and preyID == questID then
+        return true
+    end
+    return Number(C_QuestInfoSystem.GetQuestClassification(questID)) == Enum.QuestClassification.WorldQuest
+end
+
+-- Показатель карты пропускаем, кроме охоты и прочих мировых заданий.
+local function SkipMapIndicator(info)
+    if Readable(info.isMapIndicatorQuest) ~= true then
+        return false
+    end
+    local id = Number(info.questID)
+    if not id then
+        return true
+    end
+    local worldQuestType = WorldQuestType(id, info)
+    return not IsWorldQuestPin(id, worldQuestType)
+end
+
+-- Символ мирового задания, в том числе кристалл охоты.
+local function WorldQuestPinArt(self, questID, tagInfo, worldQuestType)
+    local atlas, innerWidth, innerHeight, underlayAtlas = WORLD_QUEST_ATLAS
+    if not worldQuestType and PREY_TAG and ActivePreyQuest() == questID then
+        worldQuestType = PREY_TAG
+    end
+    local info = tagInfo
+    if worldQuestType and (not info or Number(info.worldQuestType) ~= worldQuestType) then
+        info = {
+            worldQuestType = worldQuestType,
+            isElite = info and info.isElite,
+            tradeskillLineID = info and info.tradeskillLineID,
+            quality = info and info.quality,
+        }
+    end
+    if info and QuestUtil and QuestUtil.GetWorldQuestAtlasInfo then
+        local worldAtlas, worldWidth, worldHeight = QuestUtil.GetWorldQuestAtlasInfo(questID, info, false)
+        worldAtlas = Readable(worldAtlas)
+        if type(worldAtlas) == "string" and worldAtlas ~= "" then
+            atlas = worldAtlas
+        end
+        worldWidth, worldHeight = Number(worldWidth), Number(worldHeight)
+        if worldWidth and worldHeight and worldWidth > 0 and worldHeight > 0 then
+            innerWidth, innerHeight = worldWidth, worldHeight
+        end
+        if Readable(info.isElite) == true then
+            underlayAtlas = self.Constants.ELITE_WORLD_QUEST_UNDERLAY
+        end
+    elseif PREY_TAG and worldQuestType == PREY_TAG then
+        atlas = PREY_ATLAS
+        innerWidth, innerHeight = self.AtlasSize(PREY_ATLAS)
+    end
+    return atlas, innerWidth, innerHeight, underlayAtlas
+end
 
 -- Интервал повторного опроса точки интереса.
 local function POIRefreshInterval(id)
@@ -222,32 +300,20 @@ local function AddQuest(self, markers, questID, position, watched, seen, taskOnl
     if not x or not y then
         return
     end
-    local isWorld = Readable(C_QuestLog.IsWorldQuest(questID))
+    local worldQuestType, tagInfo = WorldQuestType(questID, position)
+    local isWorldPin = IsWorldQuestPin(questID, worldQuestType)
+    local isActiveTask = Readable(C_TaskQuest.IsActive(questID)) == true
+    local onQuest = Readable(C_QuestLog.IsOnQuest(questID)) == true
     local title, atlas, priority, kind
     local backgroundAtlas, focusedBackground, underlayAtlas, innerWidth, innerHeight
     local markerProgress, markerComplete, markerClassification
-    if isWorld == true and Readable(C_TaskQuest.IsActive(questID)) == true then
-        title = C_TaskQuest.GetQuestInfoByQuestID(questID)
-        atlas, priority = WORLD_QUEST_ATLAS, C.WORLD_QUEST_PRIORITY
-        kind = "worldQuest"
+    if isWorldPin and (isActiveTask or (not taskOnly and onQuest)) then
+        title = C_TaskQuest.GetQuestInfoByQuestID(questID) or C_QuestLog.GetTitleForQuestID(questID)
+        atlas, innerWidth, innerHeight, underlayAtlas = WorldQuestPinArt(self, questID, tagInfo, worldQuestType)
+        priority, kind = C.WORLD_QUEST_PRIORITY, "worldQuest"
         backgroundAtlas = C.QUEST_PIN_BACKGROUND
         focusedBackground = C.QUEST_PIN_BACKGROUND_FOCUSED
-        local tagInfo = Readable(C_QuestLog.GetQuestTagInfo(questID))
-        if tagInfo and QuestUtil and QuestUtil.GetWorldQuestAtlasInfo then
-            local worldAtlas, worldWidth, worldHeight = QuestUtil.GetWorldQuestAtlasInfo(questID, tagInfo, false)
-            worldAtlas = Readable(worldAtlas)
-            if type(worldAtlas) == "string" and worldAtlas ~= "" then
-                atlas = worldAtlas
-            end
-            worldWidth, worldHeight = Number(worldWidth), Number(worldHeight)
-            if worldWidth and worldHeight and worldWidth > 0 and worldHeight > 0 then
-                innerWidth, innerHeight = worldWidth, worldHeight
-            end
-            if Readable(tagInfo.isElite) == true then
-                underlayAtlas = C.ELITE_WORLD_QUEST_UNDERLAY
-            end
-        end
-    elseif isWorld == false then
+    elseif not isWorldPin then
         local classification = Number(C_QuestInfoSystem.GetQuestClassification(questID))
         if
             classification == Enum.QuestClassification.BonusObjective
@@ -348,7 +414,7 @@ function Compass:CollectQuests(markers)
     self:DiscoveryCheckpoint()
     for _, info in ipairs(quests or {}) do
         info = Readable(info)
-        if info and Readable(info.isQuestStart) == false and Readable(info.isMapIndicatorQuest) == false then
+        if info and Readable(info.isQuestStart) == false and not SkipMapIndicator(info) then
             AddQuest(self, markers, Number(info.questID), info, watched, seen)
         end
         self:DiscoveryCheckpoint()
@@ -374,7 +440,7 @@ local function CollectQuestPathFallback(self, markers, questID, watched, seen)
             info
             and Number(info.questID) == questID
             and Readable(info.isQuestStart) == false
-            and Readable(info.isMapIndicatorQuest) == false
+            and not SkipMapIndicator(info)
         then
             AddQuest(self, markers, questID, info, watched, seen)
             if seen[questID] then

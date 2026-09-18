@@ -249,16 +249,14 @@ local function ParseZoneExploredMessage(messageType, message)
     return zoneText, caption
 end
 
--- Собирает текст о получении валюты
+-- Собирает текст о получении валюты в том же виде, что и список добычи
 local function FormatCurrencyReceived(name, amount)
     local quantity = math.floor(amount)
-    if type(CURRENCY_GAINED_MULTIPLE) == "string" then
-        local ok, result = pcall(string.format, CURRENCY_GAINED_MULTIPLE, name, quantity)
-        if ok then
-            return result
-        end
+    if quantity > 1 then
+        -- Неразрывный пробел удерживает количество рядом с названием и не даёт переносу склеить их
+        return name .. "\194\160x" .. quantity
     end
-    return string.format("%s x%d", name, quantity)
+    return name
 end
 
 -- Отсекает служебные и запрещённые валюты
@@ -574,6 +572,8 @@ local function ApplyNotificationContent(notification)
 
     local event = notification.event
     local isZone = IsZoneChangeEvent(event) or (event == "UI_INFO_MESSAGE" and IsZoneExploredMessage(notification.identifier))
+    -- Для валюты перенос только по пробелам, иначе количество прилипает к названию
+    frame.Text:SetNonSpaceWrap(not IsCurrencyNotification(event))
     if isZone then
         frame.Text:SetFont("Fonts\\FRIZQT___CYR.TTF", titleFontSize, "")
         if notification.text then
