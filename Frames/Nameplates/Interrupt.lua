@@ -19,6 +19,10 @@ local interruptSlot = nil
 local interruptBinding = nil
 -- Слот, для которого включена проверка дальности.
 local rangeCheckSlot = nil
+-- Признак общего восстановления, достоверный только после SPELL_UPDATE_COOLDOWN.
+local cachedIsOnGCD = false
+-- Не обновлять подсказки из OnHide, пока кадр перезарядки пересобирается.
+local cooldownUpdateLocked = false
 
 -- Скрытый кадр перезарядки: в бою длительность секретна, видимость кадра — нет.
 local cooldownTrackerHost = CreateFrame("Frame", nil, UIParent)
@@ -126,6 +130,7 @@ end
 function Nameplates.RefreshInterruptSlot()
     local foundSlot = nil
     local foundBinding = nil
+    local previousSlot = interruptSlot
 
     if C_ActionBar and C_ActionBar.IsInterruptAction then
         for _, range in ipairs(interruptSlotRanges) do
@@ -151,38 +156,84 @@ function Nameplates.RefreshInterruptSlot()
 
     interruptSlot = foundSlot
     interruptBinding = foundBinding
+    if previousSlot ~= interruptSlot then
+        cachedIsOnGCD = false
+    end
     UpdateRangeCheck(interruptSlot)
     Nameplates.UpdateInterruptCooldown()
 end
 
--- Разбирает таблицу изменений доступности так же, как панель действий.
-local function ParseUsableChange(changeData)
-    if type(changeData) == "table" then
-        local isUsable = changeData.isUsable
-        if isUsable == nil then
-            isUsable = changeData[1]
-        end
-        return isUsable
-    end
-
-    return changeData
-end
-
--- Передаёт длительность слота в скрытый кадр, не читая секретные числа.
-function Nameplates.UpdateInterruptCooldown()
-    if not interruptSlot or not C_ActionBar or not C_ActionBar.GetActionCooldownDuration then
-        cooldownTracker:Clear()
-        cooldownTracker:Hide()
+-- Сохраняет признак общего восстановления только из SPELL_UPDATE_COOLDOWN.
+local function CacheInterruptGcdFromSpellUpdate()
+    cachedIsOnGCD = false
+    if not interruptSlot or not C_ActionBar or not C_ActionBar.GetActionCooldown then
         return
     end
 
-    local duration = C_ActionBar.GetActionCooldownDuration(interruptSlot)
-    if duration then
-        cooldownTracker:SetCooldownFromDurationObject(duration)
+    local cooldownInfo = C_ActionBar.GetActionCooldown(interruptSlot)
+    if cooldownInfo and cooldownInfo.isOnGCD then
+        cachedIsOnGCD = true
+    end
+end
+
+-- Показывает или скрывает кадр перезарядки без чтения секретных чисел.
+local function TrackerHasCooldown()
+    local start, durationMs
+    if cooldownTracker.GetCooldownTimes then
+        start, durationMs = cooldownTracker:GetCooldownTimes()
+    end
+
+    if issecretvalue and (issecretvalue(start) or issecretvalue(durationMs)) then
+        return true
+    end
+
+    return durationMs and durationMs > 0
+end
+
+local function SyncCooldownTrackerVisibility()
+    if TrackerHasCooldown() then
+        cooldownTracker:Show()
     else
         cooldownTracker:Clear()
         cooldownTracker:Hide()
     end
+end
+
+-- Передаёт длительность слота в скрытый кадр, не читая секретные числа.
+function Nameplates.UpdateInterruptCooldown()
+    cooldownUpdateLocked = true
+
+    if not interruptSlot or not C_ActionBar then
+        cooldownTracker:Clear()
+        cooldownTracker:Hide()
+        cooldownUpdateLocked = false
+        return
+    end
+
+    if C_ActionBar.GetActionCooldownDuration then
+        local duration = C_ActionBar.GetActionCooldownDuration(interruptSlot)
+        if duration then
+            pcall(cooldownTracker.SetCooldownFromDurationObject, cooldownTracker, duration, true)
+        end
+    end
+
+    -- Если объект длительности не заполнил кадр, используем числа слота:
+    -- SetCooldown принимает секретные аргументы и из заражённого кода.
+    if not TrackerHasCooldown() and C_ActionBar.GetActionCooldown then
+        local cooldownInfo = C_ActionBar.GetActionCooldown(interruptSlot)
+        if cooldownInfo then
+            pcall(
+                cooldownTracker.SetCooldown,
+                cooldownTracker,
+                cooldownInfo.startTime,
+                cooldownInfo.duration,
+                cooldownInfo.modRate
+            )
+        end
+    end
+
+    SyncCooldownTrackerVisibility()
+    cooldownUpdateLocked = false
 end
 
 -- Возвращает истину, если слот на собственной перезарядке, а не на общем восстановлении.
@@ -191,12 +242,7 @@ local function IsInterruptOnOwnCooldown()
         return false
     end
 
-    if not C_ActionBar or not C_ActionBar.GetActionCooldown then
-        return true
-    end
-
-    local cooldownInfo = C_ActionBar.GetActionCooldown(interruptSlot)
-    if cooldownInfo and cooldownInfo.isOnGCD then
+    if cachedIsOnGCD then
         return false
     end
 
@@ -204,11 +250,7 @@ local function IsInterruptOnOwnCooldown()
 end
 
 -- Возвращает, можно ли сейчас применить прерывание в слоте.
-local function IsInterruptUsable(usableOverride)
-    if usableOverride ~= nil then
-        return usableOverride and true or false
-    end
-
+local function IsInterruptUsable()
     if not interruptSlot or not C_ActionBar or not C_ActionBar.IsUsableAction then
         return false
     end
@@ -240,6 +282,63 @@ function Nameplates.IsInterruptHintUnit(unit)
     local isTarget = UnitExists("target") and UnitIsUnit(unit, "target")
     local isSoftEnemy = UnitExists("softenemy") and UnitIsUnit(unit, "softenemy")
     return isTarget or isSoftEnemy
+end
+
+-- Проверяет наличие чтения, не ветвясь по секретному имени.
+local function GetCastPresence(unit)
+    if not unit then
+        return false, nil
+    end
+
+    local ok, info = pcall(function()
+        return { UnitCastingInfo(unit) }
+    end)
+    if ok and info then
+        local name = info[1]
+        if issecretvalue and issecretvalue(name) then
+            return true, info[8]
+        end
+        if name and name ~= "" then
+            return true, info[8]
+        end
+    end
+
+    ok, info = pcall(function()
+        return { UnitChannelInfo(unit) }
+    end)
+    if ok and info then
+        local name = info[1]
+        if issecretvalue and issecretvalue(name) then
+            return true, info[7]
+        end
+        if name and name ~= "" then
+            return true, info[7]
+        end
+    end
+
+    return false, nil
+end
+
+-- Прячет подсказку на непрерываемом чтении без ветвления по секретному признаку.
+local function ApplyHintInterruptibleAlpha(hint, notInterruptible)
+    if not hint then
+        return
+    end
+
+    if hint.SetAlphaFromBoolean then
+        pcall(hint.SetAlphaFromBoolean, hint, notInterruptible, 0, 255)
+        return
+    end
+
+    if issecretvalue and issecretvalue(notInterruptible) then
+        return
+    end
+
+    if notInterruptible then
+        hint:SetAlpha(0)
+    else
+        hint:SetAlpha(1)
+    end
 end
 
 -- Раскладывает значок кнопки или сочетания кнопок на подсказке.
@@ -332,14 +431,24 @@ function Nameplates.CreateInterruptHint(parent)
 end
 
 -- Показывает или скрывает подсказку прерывания на полосе чтения.
--- Непрерываемость читается прозрачностью родительской полосы, а не ветвлением.
-function Nameplates.UpdateInterruptHint(large, unit, _, usableOverride)
+-- Непрерываемость задаётся прозрачностью подсказки, а не ветвлением.
+function Nameplates.UpdateInterruptHint(large, unit, notInterruptible)
     local hint = large and large.interruptHint
     if not hint then
         return
     end
 
-    if not unit or not interruptSlot then
+    local hasCast, queriedNotInterruptible = GetCastPresence(unit)
+    local rawNotInterruptible = queriedNotInterruptible
+    if issecretvalue and issecretvalue(notInterruptible) then
+        hasCast = true
+        rawNotInterruptible = notInterruptible
+    elseif notInterruptible ~= nil then
+        hasCast = true
+        rawNotInterruptible = notInterruptible
+    end
+
+    if not unit or not interruptSlot or not hasCast then
         hint:Hide()
         return
     end
@@ -349,7 +458,7 @@ function Nameplates.UpdateInterruptHint(large, unit, _, usableOverride)
         return
     end
 
-    if not IsInterruptUsable(usableOverride) then
+    if not IsInterruptUsable() then
         hint:Hide()
         return
     end
@@ -370,39 +479,26 @@ function Nameplates.UpdateInterruptHint(large, unit, _, usableOverride)
     end
 
     hint:Show()
+    ApplyHintInterruptibleAlpha(hint, rawNotInterruptible)
 end
 
 -- Обновляет подсказки на всех показанных индикаторах.
-function Nameplates.RefreshInterruptHints(usableOverride)
+function Nameplates.RefreshInterruptHints()
     if not Nameplates.ForEachActiveDisplay then
         return
     end
 
     Nameplates.ForEachActiveDisplay(function(display)
         if display.isEnemy and display.castLarge then
-            Nameplates.UpdateInterruptHint(display.castLarge, display.unit, nil, usableOverride)
+            Nameplates.UpdateInterruptHint(display.castLarge, display.unit)
         end
     end)
 end
 
 -- Заново ищет слот прерывания и обновляет подсказки.
-function Nameplates.RefreshInterruptState(usableOverride)
+function Nameplates.RefreshInterruptState()
     Nameplates.RefreshInterruptSlot()
-    Nameplates.RefreshInterruptHints(usableOverride)
-end
-
--- Берёт доступность из события панели, если оно относится к слоту прерывания.
-local function UsableOverrideFromChanges(changes)
-    if not changes or not interruptSlot then
-        return nil
-    end
-
-    local changeData = changes[interruptSlot]
-    if changeData == nil then
-        return nil
-    end
-
-    return ParseUsableChange(changeData)
+    Nameplates.RefreshInterruptHints()
 end
 
 -- Подписывается на события слотов, заклинаний, цели и дальности.
@@ -428,10 +524,14 @@ function Nameplates.RegisterInterruptEvents()
     frame:RegisterEvent("PLAYER_SOFT_ENEMY_CHANGED")
 
     cooldownTracker:SetScript("OnCooldownDone", function()
-        Nameplates.RefreshInterruptHints()
+        if not cooldownUpdateLocked then
+            Nameplates.RefreshInterruptHints()
+        end
     end)
     cooldownTracker:HookScript("OnHide", function()
-        Nameplates.RefreshInterruptHints()
+        if not cooldownUpdateLocked then
+            Nameplates.RefreshInterruptHints()
+        end
     end)
 
     frame:SetScript("OnEvent", function(_, event, ...)
@@ -442,10 +542,12 @@ function Nameplates.RegisterInterruptEvents()
         elseif event == "ACTIONBAR_UPDATE_STATE" or event == "SPELL_UPDATE_ICON" then
             Nameplates.RefreshInterruptState()
         elseif event == "ACTIONBAR_UPDATE_USABLE" then
-            local changes = ...
-            local usableOverride = UsableOverrideFromChanges(changes)
-            Nameplates.RefreshInterruptHints(usableOverride)
-        elseif event == "ACTIONBAR_UPDATE_COOLDOWN" or event == "SPELL_UPDATE_COOLDOWN" then
+            Nameplates.RefreshInterruptHints()
+        elseif event == "SPELL_UPDATE_COOLDOWN" then
+            CacheInterruptGcdFromSpellUpdate()
+            Nameplates.UpdateInterruptCooldown()
+            Nameplates.RefreshInterruptHints()
+        elseif event == "ACTIONBAR_UPDATE_COOLDOWN" then
             Nameplates.UpdateInterruptCooldown()
             Nameplates.RefreshInterruptHints()
         elseif event == "ACTION_RANGE_CHECK_UPDATE" then
