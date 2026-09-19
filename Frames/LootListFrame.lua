@@ -313,6 +313,11 @@ local function GetItemSlotOffset(index)
     return -(sectionHeight * (index - 1) + padding * (index - 1))
 end
 
+-- Округляет смещение до целого пикселя, чтобы в конце движения не дрожать
+local function RoundPixel(value)
+    return math.floor((value or 0) + 0.5)
+end
+
 -- Плавное замедление к концу перемещения
 local function EaseOutQuad(progress)
     return 1 - (1 - progress) * (1 - progress)
@@ -377,9 +382,14 @@ local function ApplyItemPoint(itemFrame, x, y)
         return
     end
 
+    x = RoundPixel(x)
+    y = RoundPixel(y)
+    if itemFrame.moveX == x and itemFrame.moveY == y then
+        return
+    end
+
     itemFrame.moveX = x
     itemFrame.moveY = y
-    itemFrame:ClearAllPoints()
     if itemFrame.moveStretchHorizontal then
         local leftPoint = itemFrame.moveLeftPoint or "TOPLEFT"
         local rightPoint = itemFrame.moveRightPoint or "TOPRIGHT"
@@ -390,7 +400,7 @@ local function ApplyItemPoint(itemFrame, x, y)
     end
 end
 
--- Сдвигает имя относительно значка
+-- Сдвигает имя целиком относительно значка, не меняя ширину поля
 local function ApplyLabelSlide(itemFrame, x)
     local label = itemFrame.Label
     local holder = itemFrame.IconHolder
@@ -398,10 +408,14 @@ local function ApplyLabelSlide(itemFrame, x)
         return
     end
 
+    x = RoundPixel(x)
+    if itemFrame.nameSlideX == x then
+        return
+    end
+
     itemFrame.nameSlideX = x
-    label:ClearAllPoints()
     label:SetPoint("LEFT", holder, "RIGHT", padding + x, 0)
-    label:SetPoint("RIGHT", itemFrame, "RIGHT", -padding, 0)
+    label:SetPoint("RIGHT", itemFrame, "RIGHT", -padding + x, 0)
     label:SetPoint("TOP", itemFrame, "TOP", 0, 0)
     label:SetPoint("BOTTOM", itemFrame, "BOTTOM", 0, 0)
 end
@@ -413,10 +427,16 @@ local function ApplyIconPose(itemFrame, scale, offsetY)
         return
     end
 
-    itemFrame.iconOffsetY = offsetY or 0
-    icon:SetScale(scale or 1)
-    icon:ClearAllPoints()
-    icon:SetPoint("CENTER", 0, itemFrame.iconOffsetY)
+    scale = scale or 1
+    offsetY = RoundPixel(offsetY)
+    if itemFrame.iconScale == scale and itemFrame.iconOffsetY == offsetY then
+        return
+    end
+
+    itemFrame.iconOffsetY = offsetY
+    itemFrame.iconScale = scale
+    icon:SetScale(scale)
+    icon:SetPoint("CENTER", 0, offsetY)
 end
 
 -- Возвращает значок и имя в исходное положение без движения
@@ -499,7 +519,16 @@ local function AdvanceContent(itemFrame, elapsed)
 
         if iconProgress >= 1 and nameTime >= nameMoveDuration then
             StopContent(itemFrame)
-            ResetContentVisuals(itemFrame, false)
+            if itemFrame.iconScale ~= 1 or itemFrame.nameSlideX ~= 0 then
+                ResetContentVisuals(itemFrame, false)
+            else
+                if itemFrame.Icon then
+                    itemFrame.Icon:SetAlpha(1)
+                end
+                if itemFrame.Label then
+                    itemFrame.Label:SetAlpha(1)
+                end
+            end
             return false
         end
         return true
@@ -658,6 +687,15 @@ end
 
 -- Направляет строку к новой точке, начиная с текущего или заданного положения
 local function StartItemMotion(itemFrame, targetX, targetY, fromX, fromY, moveDuration)
+    targetX = RoundPixel(targetX)
+    targetY = RoundPixel(targetY)
+    if fromX ~= nil then
+        fromX = RoundPixel(fromX)
+    end
+    if fromY ~= nil then
+        fromY = RoundPixel(fromY)
+    end
+
     if fromX == nil and fromY == nil
         and itemFrame.isMoving
         and itemFrame.moveToX == targetX
@@ -691,10 +729,21 @@ local function StartItemMotion(itemFrame, targetX, targetY, fromX, fromY, moveDu
     EnsureItemsOnUpdate()
 end
 
+-- Значок рисуется поверх имени, чтобы название выезжало из-за него
+local function RaiseIconAboveLabel(itemFrame)
+    local holder = itemFrame and itemFrame.IconHolder
+    local label = itemFrame and itemFrame.Label
+    if not holder or not label then
+        return
+    end
+    holder:SetFrameLevel(label:GetFrameLevel() + 1)
+end
+
 -- Поднимает уходящую строку над остальными, чтобы её не перекрывали
 local function RaiseDepartingItem(itemFrame)
     local baseLevel = itemFrame.baseFrameLevel or itemFrame:GetFrameLevel()
     itemFrame:SetFrameLevel(baseLevel + 20)
+    RaiseIconAboveLabel(itemFrame)
 end
 
 -- Возвращает строку на обычный слой после нового показа
@@ -702,10 +751,13 @@ local function RestoreItemLevel(itemFrame)
     if itemFrame.baseFrameLevel then
         itemFrame:SetFrameLevel(itemFrame.baseFrameLevel)
     end
+    RaiseIconAboveLabel(itemFrame)
 end
 
 -- Мгновенно ставит строку в точку и обрывает движение
 local function SnapItemMotion(itemFrame, x, y)
+    x = RoundPixel(x)
+    y = RoundPixel(y)
     itemFrame.isMoving = false
     itemFrame.moveElapsed = 0
     itemFrame.moveFromX = x
@@ -722,6 +774,7 @@ local function StartContentIn(itemFrame, delay)
     itemFrame:Show()
     itemFrame:SetAlpha(1)
     ResetContentVisuals(itemFrame, true)
+    RaiseIconAboveLabel(itemFrame)
     itemFrame.contentMode = "in"
     itemFrame.contentElapsed = 0
     itemFrame.contentDelay = delay or 0
@@ -1255,6 +1308,7 @@ function ConsoleMenu:SetLootList()
                 item.Label = CreateFrame("Frame", nil, item)
                 ApplyLabelSlide(item, 0)
             end
+            RaiseIconAboveLabel(item)
 
             if not item.Text then
                 item.Text = item.Label:CreateFontString(nil, "OVERLAY", "GameFontNormal")
