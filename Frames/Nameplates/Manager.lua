@@ -102,6 +102,18 @@ function Nameplates.Uninstall(unit)
     end
 end
 
+-- Обходит все показанные индикаторы.
+function Nameplates.ForEachActiveDisplay(callback)
+    if not callback then
+        return
+    end
+    for _, display in pairs(unitsToDisplay) do
+        if display and display.unit then
+            callback(display)
+        end
+    end
+end
+
 -- Обновляет прозрачность всех показанных индикаторов.
 function Nameplates.RefreshMountVisibility()
     for _, display in pairs(unitsToDisplay) do
@@ -142,6 +154,8 @@ function ConsoleMenu:InitializeNameplate()
     ConsoleMenu:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED", function()
         Nameplates.RefreshMountVisibility()
     end)
+
+    Nameplates.RegisterInterruptEvents()
 
     for _, nameplate in pairs(C_NamePlate.GetNamePlates()) do
         local unit = nameplate.UnitFrame and nameplate.UnitFrame.unit

@@ -170,6 +170,8 @@ function Nameplates.CreateCastLayers(parent)
     large.text:SetWordWrap(false)
     large.text:SetPoint("TOPLEFT", large, "BOTTOMLEFT", 0, -Nameplates.nameSpacing)
 
+    large.interruptHint = Nameplates.CreateInterruptHint(large)
+
     local small = CreateFrame("Frame", nil, parent)
     small:Hide()
 
@@ -200,6 +202,9 @@ function Nameplates.CreateCastLayers(parent)
 end
 
 function Nameplates.ClearCastLayers(large, small, healthBar, nameFrame)
+    if large and large.interruptHint then
+        large.interruptHint:Hide()
+    end
     large:Hide()
     small:Hide()
     if healthBar then
@@ -258,6 +263,7 @@ function Nameplates.UpdateCastLayers(large, small, healthBar, nameFrame, unit)
             small:SetAlphaFromBoolean(notInterruptible, 255, 0)
         end
     end)
+    Nameplates.UpdateInterruptHint(large, unit, notInterruptible)
     Nameplates.ApplyPlateAlpha(large:GetParent())
 end
 

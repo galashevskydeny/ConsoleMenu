@@ -15,6 +15,9 @@ Nameplates.healthInset = 36
 Nameplates.castExtraInset = 12
 Nameplates.nameSpacing = 8
 Nameplates.castIconSpacing = 8
+Nameplates.interruptHintSize = 24
+Nameplates.interruptHintPlusSize = 8
+Nameplates.interruptHintInnerPadding = 4
 Nameplates.maxAuras = 8
 
 Nameplates.npcNameColorR = 1.0

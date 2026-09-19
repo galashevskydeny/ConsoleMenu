@@ -908,6 +908,8 @@ function ConsoleMenu:SetBaseKeyBindings()
 
     SetCVar("GamePadTouchCursorEnable", 0)
     SetCVar("GamePadCursorAutoEnable", 0)
+    -- Нажатие правого рычага удерживает клавишу Shift
+    SetCVar("GamePadEmulateShift", "PADRSTICK")
     
     local baseBindings = {
         PAD1 = "JUMP",
@@ -920,7 +922,7 @@ function ConsoleMenu:SetBaseKeyBindings()
         PADDRIGHT = "ACTIONBUTTON7",
         PADLTRIGGER = "TARGETNEARESTENEMY",
         PADLSTICK = "ACTIONBUTTON5",
-        PADRSTICK = "ACTIONBUTTON4",
+        -- PADRSTICK = "ACTIONBUTTON4",
         PADFORWARD = "",
         PADRTRIGGER = "INTERACTTARGET",
         PADRSHOULDER = "ACTIONBUTTON11",
@@ -940,7 +942,7 @@ function ConsoleMenu:SetBaseKeyBindings()
         PADDLEFT = "MULTIACTIONBAR1BUTTON9",
         PADDRIGHT = "MULTIACTIONBAR1BUTTON7",
         PADLSTICK = "MULTIACTIONBAR1BUTTON5",
-        PADRSTICK = "MULTIACTIONBAR1BUTTON4",
+        -- PADRSTICK = "MULTIACTIONBAR1BUTTON4",
         PADFORWARD = "CAMERAZOOMOUT",
         PADRTRIGGER = "INTERACTTARGET",
         PADRSHOULDER = "MULTIACTIONBAR1BUTTON11",
@@ -960,7 +962,7 @@ function ConsoleMenu:SetBaseKeyBindings()
         PADDLEFT = "MULTIACTIONBAR2BUTTON9",
         PADDRIGHT = "MULTIACTIONBAR2BUTTON7",
         PADLSTICK = "MULTIACTIONBAR2BUTTON5",
-        PADRSTICK = "MULTIACTIONBAR2BUTTON4",
+        -- PADRSTICK = "MULTIACTIONBAR2BUTTON4",
         PADFORWARD = "CAMERAZOOMIN",
         PADRTRIGGER = "INTERACTTARGET",
         PADRSHOULDER = "MULTIACTIONBAR2BUTTON11",
@@ -976,6 +978,11 @@ function ConsoleMenu:SetBaseKeyBindings()
         SetBinding("SHIFT-" .. key)
         SetBinding("CTRL-" .. key)
     end
+
+    -- R3 больше не несёт действие: кнопка занята подменой Shift
+    SetBinding("PADRSTICK")
+    SetBinding("SHIFT-PADRSTICK")
+    SetBinding("CTRL-PADRSTICK")
 
     -- Установим основные биндинги
     SetBindingsForSet(baseBindings)
