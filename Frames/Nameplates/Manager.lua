@@ -156,6 +156,7 @@ function ConsoleMenu:InitializeNameplate()
     end)
 
     Nameplates.RegisterInterruptEvents()
+    Nameplates.RegisterAuraSettingEvents()
 
     for _, nameplate in pairs(C_NamePlate.GetNamePlates()) do
         local unit = nameplate.UnitFrame and nameplate.UnitFrame.unit
