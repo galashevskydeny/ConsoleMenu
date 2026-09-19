@@ -65,12 +65,7 @@ local slot12LabelRightPadding = slot12IconPadding + 12
 
 local ignoredSlot = {
     [8] = true,
-    [53] = true,
-    [65] = true,
-    [10] = true,
-    [11] = true,
     [20] = true,
-    [58] = true,
 }
 
 local stackCountChange = {}

@@ -11,7 +11,7 @@ local spellsNeedGliding = {
 }
 
 -- Слоты, скрытые на панели действий и показываемые в подсказках в бою.
-local combatSlots = { 8, 10, 11, 58 }
+local combatSlots = { 8, 20 }
 
 -- Окна, которые учитываются как открытый интерфейс, но не переключают общий режим.
 local windowsIgnoredByContext = {
