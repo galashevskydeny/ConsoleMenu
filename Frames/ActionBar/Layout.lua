@@ -19,6 +19,10 @@ end
 
 -- Нужно ли показывать кнопку при текущей дополнительной клавише.
 local function IsActionButtonVisible(slotID, btn, activeModifier)
+    if ActionBar.IsBoostSlot(slotID) then
+        return false
+    end
+
     if ActionBar.ignoredSlot[slotID] or not ActionBar.buttonPositions[btn.mainKey] then
         return false
     end
@@ -86,7 +90,7 @@ local function UpdateActionButtonShadows(activeModifier)
         end
     end
 
-    if PADcount > 0 then
+    if PADcount > 0 or ActionBar.HasVisibleBoosts() then
         ConsoleMenu:AnimatedShow(frame.PADshadow)
     else
         ConsoleMenu:AnimatedHide(frame.PADshadow)
@@ -168,6 +172,7 @@ local function UpdateModifierState()
         end
     end
 
+    ActionBar.SetBoostsExpanded(activeModifier == "SHIFT")
     UpdateActionButtonShadows(activeModifier)
 end
 

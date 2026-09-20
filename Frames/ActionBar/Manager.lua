@@ -77,6 +77,8 @@ function ConsoleMenu:InitializeMainActionBar()
         end
     end
 
+    ActionBar.CreateBoosts(frame)
+
     frame:RegisterEvent("PLAYER_ENTERING_WORLD")
     frame:RegisterEvent("PLAYER_LOGIN")
 
@@ -131,6 +133,7 @@ function ConsoleMenu:InitializeMainActionBar()
             end
             ActionBar.UpdateButtonPositions()
             ActionBar.UpdateCooldowns()
+            ActionBar.UpdateBoosts()
             ActionBar.UpdateModifierState()
         elseif event == "GAME_PAD_ACTIVE_CHANGED" then
             ConsoleMenu:SetGamePadActive(...)
@@ -154,6 +157,7 @@ function ConsoleMenu:InitializeMainActionBar()
                 ActionBar.UpdateGlow(slotID, nil, "ACTIONBAR_SLOT_CHANGED")
             end)
             ActionBar.UpdateUsable(slotID)
+            ActionBar.UpdateBoosts()
         elseif event == "ASSISTED_COMBAT_ACTION_SPELL_CAST" or event == "PLAYER_REGEN_ENABLED" or event == "PLAYER_REGEN_DISABLED" or event == "PLAYER_TARGET_CHANGED" or event == "PLAYER_FOCUS_CHANGED" or event == "PLAYER_SOFT_ENEMY_CHANGED" then
             -- Смена заклинания помощника или вход/выход из боя — обновляем иконки (в бою = следующее, вне боя = текущее)
             if C_ActionBar and C_ActionBar.FindAssistedCombatActionButtons then
@@ -167,13 +171,16 @@ function ConsoleMenu:InitializeMainActionBar()
                     end
                 end
             end
+            ActionBar.UpdateBoosts()
         elseif event == "ACTIONBAR_UPDATE_COOLDOWN" or event == "SPELL_UPDATE_COOLDOWN" or event == "ACTIONBAR_UPDATE_STATE" then
             ActionBar.UpdateCooldowns()
+            ActionBar.UpdateBoosts()
         elseif event == "ACTION_RANGE_CHECK_UPDATE" then
             local slotID = ...
             if slotID then
                 ActionBar.UpdateUsable(slotID)
             end
+            ActionBar.UpdateBoosts()
         elseif event == "MODIFIER_STATE_CHANGED" then
             ActionBar.UpdateModifierState()
         elseif event == "SPELL_ACTIVATION_OVERLAY_GLOW_SHOW" then
@@ -197,6 +204,7 @@ function ConsoleMenu:InitializeMainActionBar()
             for slotID in pairs(frame.actionButtons or {}) do
                 ActionBar.UpdateTexture(slotID)
             end
+            ActionBar.UpdateBoosts()
         elseif event == "ACTIONBAR_UPDATE_USABLE" then
             local changes = ...
             if changes then
@@ -222,6 +230,7 @@ function ConsoleMenu:InitializeMainActionBar()
             else
                 ActionBar.UpdateCooldowns()
             end
+            ActionBar.UpdateBoosts()
         elseif event == "SPELL_UPDATE_CHARGES" then
             for slotID = 1, 12 do
                 ActionBar.UpdateCount(slotID)
@@ -235,6 +244,7 @@ function ConsoleMenu:InitializeMainActionBar()
                 ActionBar.UpdateCount(slotID)
                 
             end
+            ActionBar.UpdateBoosts()
         end
     end
 

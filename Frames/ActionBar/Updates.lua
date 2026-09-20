@@ -343,6 +343,7 @@ local function UpdateActionBarPageVisibility()
     UpdateActionButtonCount(72)
     ActionBar.UpdateButtonPositions()
     ActionBar.UpdateModifierState()
+    ActionBar.UpdateBoosts()
 end
 
 ActionBar.UpdateIcon = UpdateActionButtonIcon

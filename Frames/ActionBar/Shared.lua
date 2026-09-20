@@ -72,7 +72,54 @@ ActionBar.ignoredSlot = {
     [20] = true,
 }
 
+-- Ячейки второй панели на крестовине: вверх, вправо, вниз, влево.
+ActionBar.boostSlots = {
+    { slotID = 66, key = "UP" },
+    { slotID = 67, key = "RIGHT" },
+    { slotID = 68, key = "DOWN" },
+    { slotID = 69, key = "LEFT" },
+}
+
+ActionBar.boostSlotLookup = {
+    [66] = true,
+    [67] = true,
+    [68] = true,
+    [69] = true,
+}
+
+-- Облако чуть крупнее обычного умения; после разворота значки садятся на PAD4, PAD2, PAD1 и PAD3.
+ActionBar.boostClusterSize = 200
+ActionBar.boostCloudSizes = { 34, 39.95, 28.05, 32.3 }
+ActionBar.boostExpandOffset = ActionBar.buttonVerticalPadding + ActionBar.buttonSize / 2
+-- Покой у правого рычага. Крупные ближе к центру, мелкие дальше, чтобы силуэт читался кругом.
+-- Стороны нарочно не совпадают с разворотом, чтобы значки перелетали крест-накрест.
+ActionBar.boostCloudOffsets = {
+    { x = -9.867, y = -5.6925 - ActionBar.boostExpandOffset },
+    { x = -3.795, y = 6.578 - ActionBar.boostExpandOffset },
+    { x = 13.156, y = 7.59 - ActionBar.boostExpandOffset },
+    { x = 6.325, y = -11.0055 - ActionBar.boostExpandOffset },
+}
+-- PAD4 сверху, PAD2 справа, PAD1 снизу, PAD3 слева.
+ActionBar.boostExpandPositions = {
+    { x = 0, y = ActionBar.boostExpandOffset },
+    { x = ActionBar.boostExpandOffset, y = 0 },
+    { x = 0, y = -ActionBar.boostExpandOffset },
+    { x = -ActionBar.boostExpandOffset, y = 0 },
+}
+ActionBar.boostFloatRadius = 1.784592
+ActionBar.boostFloatSpeeds = { 0.2992, 0.39168, 0.26112, 0.34272 }
+ActionBar.boostFloatPhases = { 0.2, 1.7, 3.4, 4.9 }
+ActionBar.boostExpandDuration = 0.4 * (2 / 3)
+ActionBar.boostCollapseDuration = ActionBar.boostExpandDuration
+ActionBar.boostArcBulge = 36
+ActionBar.boostCooldownProgress = 0.72
+
 ActionBar.stackCountChange = ActionBar.stackCountChange or {}
+
+-- Ячейка живёт в облаке усилений, а не на левой крестовине.
+function ActionBar.IsBoostSlot(slotID)
+    return ActionBar.boostSlotLookup[slotID] == true
+end
 
 -- Окно панели, если оно уже создано вместе с набором кнопок.
 function ActionBar.GetFrame()
