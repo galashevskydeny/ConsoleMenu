@@ -17,6 +17,11 @@ local function DisableActionBar()
         _G['ActionButton' .. i]:SetAttribute('statehidden', true)
     end
 
+    -- Скрытие стандартных кнопок выключает проверку дальности, возвращаем её панели.
+    if ConsoleMenu.ActionBar and ConsoleMenu.ActionBar.EnableAllRangeChecks then
+        RunNextFrame(ConsoleMenu.ActionBar.EnableAllRangeChecks)
+    end
+
 
 end
 

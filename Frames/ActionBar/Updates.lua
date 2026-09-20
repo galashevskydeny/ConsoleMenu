@@ -18,20 +18,72 @@ local function IsGlobalCooldown(slotID)
     return false;
 end
 
+-- Последняя известная недосягаемость ячейки по событию клиента.
+local actionOutOfRange = {}
+
+-- Значение скрыто, по нему нельзя принимать решение.
+local function IsSecretValue(value)
+    return value ~= nil and issecretvalue and issecretvalue(value)
+end
+
+-- Запоминает досягаемость только если клиент действительно проверил дальность.
+function ActionBar.SetRangeFromEvent(slotID, isInRange, checksRange)
+    if not slotID then
+        return
+    end
+    if IsSecretValue(checksRange) or IsSecretValue(isInRange) then
+        return
+    end
+
+    -- Без проверки (нет цели и т.п.) действие нельзя считать далёким.
+    actionOutOfRange[slotID] = checksRange == true and isInRange == false
+end
+
+-- Сбрасывает запомненную дальность, чтобы заново опросить клиент.
+function ActionBar.ClearRangeState()
+    wipe(actionOutOfRange)
+end
+
+-- Просит клиент сообщать о смене дальности для ячейки.
+function ActionBar.EnableRangeCheck(slotID, enable)
+    if not slotID or not C_ActionBar or not C_ActionBar.EnableActionRangeCheck then
+        return
+    end
+    pcall(C_ActionBar.EnableActionRangeCheck, slotID, enable ~= false)
+end
+
+-- Включает уведомления о дальности для всех ячеек панели.
+function ActionBar.EnableAllRangeChecks()
+    local frame = ActionBar.GetFrame()
+    if not frame then
+        return
+    end
+    for slotID in pairs(frame.actionButtons) do
+        ActionBar.EnableRangeCheck(slotID, true)
+    end
+end
+
 -- Действие вне зоны досягаемости текущей цели.
 local function IsActionOutOfRange(slotID)
-    if not slotID or not C_ActionBar or not C_ActionBar.IsActionInRange then
+    if not slotID then
+        return false
+    end
+
+    local known = actionOutOfRange[slotID]
+    if known ~= nil then
+        return known
+    end
+
+    if not C_ActionBar or not C_ActionBar.IsActionInRange then
         return false
     end
 
     local ok, isInRange = pcall(C_ActionBar.IsActionInRange, slotID)
-    if not ok then
-        return false
-    end
-    if isInRange ~= nil and issecretvalue and issecretvalue(isInRange) then
+    if not ok or IsSecretValue(isInRange) then
         return false
     end
 
+    -- Пустой ответ значит, что дальность сейчас нельзя определить.
     return isInRange == false
 end
 
@@ -358,6 +410,22 @@ local function UpdateActionButtonUsable(slotID, isUsable, isLackingResources)
     UpdateActionButtonTextureDesaturation(btn, slotID, isUsable, isLackingResources)
 end
 
+-- Обновление пригодности всех ячеек панели и значков облака.
+function ActionBar.UpdateAllUsable()
+    local frame = ActionBar.GetFrame()
+    if not frame then
+        return
+    end
+
+    for slotID in pairs(frame.actionButtons) do
+        UpdateActionButtonUsable(slotID)
+    end
+
+    if ActionBar.UpdateBoosts then
+        ActionBar.UpdateBoosts()
+    end
+end
+
 -- Обновление свечения готовности на кнопке.
 local function UpdateActionButtonGlow(slotID, spellID, event)
     local btn = ActionBar.GetButton(slotID)
@@ -499,9 +567,11 @@ local function UpdateActionBarPageVisibility()
     UpdateActionButtonCount(60)
     UpdateActionButtonTexture(72)
     UpdateActionButtonCount(72)
+    ActionBar.EnableAllRangeChecks()
     ActionBar.UpdateButtonPositions()
     ActionBar.UpdateModifierState()
     ActionBar.UpdateBoosts()
+    ActionBar.UpdateAllUsable()
 end
 
 ActionBar.UpdateIcon = UpdateActionButtonIcon

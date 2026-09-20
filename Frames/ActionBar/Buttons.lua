@@ -75,6 +75,7 @@ function ActionBar.CreateButton(parent, slotID)
 
     
     buttonFrame.cooldown = cooldown
+    ActionBar.EnableRangeCheck(slotID, true)
     
     buttonFrame.cooldown:HookScript("OnHide", function()
         -- Кулдаун исчез

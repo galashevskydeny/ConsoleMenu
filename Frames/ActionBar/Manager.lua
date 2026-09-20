@@ -78,6 +78,7 @@ function ConsoleMenu:InitializeMainActionBar()
     end
 
     ActionBar.CreateBoosts(frame)
+    ActionBar.EnableAllRangeChecks()
 
     frame:RegisterEvent("PLAYER_ENTERING_WORLD")
     frame:RegisterEvent("PLAYER_LOGIN")
@@ -131,10 +132,12 @@ function ConsoleMenu:InitializeMainActionBar()
                 ActionBar.UpdateCount(slotID)
                 
             end
+            ActionBar.EnableAllRangeChecks()
             ActionBar.UpdateButtonPositions()
             ActionBar.UpdateCooldowns()
             ActionBar.UpdateBoosts()
             ActionBar.UpdateModifierState()
+            ActionBar.UpdateAllUsable()
         elseif event == "GAME_PAD_ACTIVE_CHANGED" then
             ConsoleMenu:SetGamePadActive(...)
             ActionBar.UpdateButtonPositions()
@@ -156,6 +159,7 @@ function ConsoleMenu:InitializeMainActionBar()
             RunNextFrame(function()
                 ActionBar.UpdateGlow(slotID, nil, "ACTIONBAR_SLOT_CHANGED")
             end)
+            ActionBar.EnableRangeCheck(slotID, true)
             ActionBar.UpdateUsable(slotID)
             ActionBar.UpdateBoosts()
         elseif event == "ASSISTED_COMBAT_ACTION_SPELL_CAST" or event == "PLAYER_REGEN_ENABLED" or event == "PLAYER_REGEN_DISABLED" or event == "PLAYER_TARGET_CHANGED" or event == "PLAYER_FOCUS_CHANGED" or event == "PLAYER_SOFT_ENEMY_CHANGED" then
@@ -171,16 +175,26 @@ function ConsoleMenu:InitializeMainActionBar()
                     end
                 end
             end
-            ActionBar.UpdateBoosts()
+            if event == "PLAYER_TARGET_CHANGED" or event == "PLAYER_FOCUS_CHANGED" or event == "PLAYER_SOFT_ENEMY_CHANGED" then
+                -- Смена цели сбрасывает старую дальность: иначе значок остаётся серым.
+                ActionBar.ClearRangeState()
+                ActionBar.EnableAllRangeChecks()
+                ActionBar.UpdateAllUsable()
+            else
+                ActionBar.UpdateBoosts()
+            end
         elseif event == "ACTIONBAR_UPDATE_COOLDOWN" or event == "SPELL_UPDATE_COOLDOWN" or event == "ACTIONBAR_UPDATE_STATE" then
             ActionBar.UpdateCooldowns()
             ActionBar.UpdateBoosts()
         elseif event == "ACTION_RANGE_CHECK_UPDATE" then
-            local slotID = ...
+            local slotID, isInRange, checksRange = ...
+            ActionBar.SetRangeFromEvent(slotID, isInRange, checksRange)
             if slotID then
                 ActionBar.UpdateUsable(slotID)
+                if ActionBar.IsBoostSlot(slotID) then
+                    ActionBar.UpdateBoosts()
+                end
             end
-            ActionBar.UpdateBoosts()
         elseif event == "MODIFIER_STATE_CHANGED" then
             ActionBar.UpdateModifierState()
         elseif event == "SPELL_ACTIVATION_OVERLAY_GLOW_SHOW" then
