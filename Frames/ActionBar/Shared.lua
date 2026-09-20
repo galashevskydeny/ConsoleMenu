@@ -74,6 +74,28 @@ ActionBar.ignoredSlot = {
 
 ActionBar.stackCountChange = ActionBar.stackCountChange or {}
 
+-- Окно панели, если оно уже создано вместе с набором кнопок.
+function ActionBar.GetFrame()
+    local root = _G.ConsoleMenuFrame
+    if not root then
+        return nil
+    end
+    local frame = root.ActionBarFrame
+    if not frame or not frame.actionButtons then
+        return nil
+    end
+    return frame
+end
+
+-- Кнопка ячейки, если окно панели и сама кнопка существуют.
+function ActionBar.GetButton(slotID)
+    local frame = ActionBar.GetFrame()
+    if not frame or not slotID then
+        return nil
+    end
+    return frame.actionButtons[slotID]
+end
+
 -- Компенсация смещения под соотношение сторон экрана,
 -- чтобы свечение модели оставалось по центру кнопки.
 function ActionBar.GetGlowTransformOffset()

@@ -5,8 +5,9 @@ local ActionBar = ConsoleMenu.ActionBar
 
 -- Создание рамки кнопки для ячейки панели.
 function ActionBar.CreateButton(parent, slotID)
-    local buttonFrame = CreateFrame("Frame", "ActionButton" .. slotID, parent)
-    parent["ActionButton" .. slotID] = buttonFrame
+    local buttonName = "ConsoleMenuActionButton" .. slotID
+    local buttonFrame = CreateFrame("Frame", buttonName, parent)
+    parent[buttonName] = buttonFrame
 
     local isSlot12 = ActionBar.slot12Slots[slotID]
 
@@ -108,7 +109,7 @@ function ActionBar.CreateButton(parent, slotID)
 
     -- Счетчик стаков
     if not buttonFrame.StackCount then
-        buttonFrame.StackCount = CreateFrame("Frame", "ActionButtonStackCount" .. slotID, buttonFrame)
+        buttonFrame.StackCount = CreateFrame("Frame", "ConsoleMenuActionButtonStackCount" .. slotID, buttonFrame)
         buttonFrame.StackCount:SetSize(ActionBar.stackCountSize, ActionBar.stackCountSize)
         buttonFrame.StackCount:SetPoint("BOTTOMRIGHT", buttonFrame.texture, "BOTTOMRIGHT", ActionBar.stackCountOffset, -ActionBar.stackCountOffset)
         ConsoleMenu:InitFadeAnimations(buttonFrame.StackCount, ActionBar.animationDuration)
@@ -148,7 +149,7 @@ function ActionBar.CreateButton(parent, slotID)
 
     -- Иконка клавиши
     if not buttonFrame.Icon then
-        buttonFrame.Icon = CreateFrame("Frame", "ActionButtonIcon" .. slotID, buttonFrame)
+        buttonFrame.Icon = CreateFrame("Frame", "ConsoleMenuActionButtonIcon" .. slotID, buttonFrame)
         buttonFrame.Icon:SetSize(ActionBar.iconSize, ActionBar.iconSize)
         buttonFrame.Icon:SetPoint("TOPRIGHT", buttonFrame.texture, "TOPRIGHT", ActionBar.stackCountOffset, ActionBar.stackCountOffset)
         ConsoleMenu:InitFadeAnimations(buttonFrame.Icon, ActionBar.animationDuration)

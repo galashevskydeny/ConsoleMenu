@@ -167,8 +167,13 @@ function ConsoleMenu:InitializeMainActionBar()
                     end
                 end
             end
-        elseif event == "ACTIONBAR_UPDATE_COOLDOWN" or event == "ACTIONBAR_UPDATE_STATE" then
+        elseif event == "ACTIONBAR_UPDATE_COOLDOWN" or event == "SPELL_UPDATE_COOLDOWN" or event == "ACTIONBAR_UPDATE_STATE" then
             ActionBar.UpdateCooldowns()
+        elseif event == "ACTION_RANGE_CHECK_UPDATE" then
+            local slotID = ...
+            if slotID then
+                ActionBar.UpdateUsable(slotID)
+            end
         elseif event == "MODIFIER_STATE_CHANGED" then
             ActionBar.UpdateModifierState()
         elseif event == "SPELL_ACTIVATION_OVERLAY_GLOW_SHOW" then
@@ -189,7 +194,7 @@ function ConsoleMenu:InitializeMainActionBar()
             end
         elseif event == "SPELL_UPDATE_ICON" then
             -- Иконка может смениться позже свечения, в том числе при окончании прока.
-            for slotID in pairs(frame.actionButtons) do
+            for slotID in pairs(frame.actionButtons or {}) do
                 ActionBar.UpdateTexture(slotID)
             end
         elseif event == "ACTIONBAR_UPDATE_USABLE" then

@@ -42,8 +42,14 @@ function ConsoleMenu:GetSlotTitle(actionType, id, subType, slotID)
     end
 
     if actionType == "outfit" then
+        if not C_TransmogOutfitInfo or not C_TransmogOutfitInfo.GetOutfitInfo then
+            return nil
+        end
         local info = C_TransmogOutfitInfo.GetOutfitInfo(id)
-        return info.name
+        if info and info.name then
+            return info.name
+        end
+        return nil
     end
 
 end

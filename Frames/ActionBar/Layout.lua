@@ -67,7 +67,10 @@ end
 
 -- Показ и скрытие теней левой и правой групп кнопок.
 local function UpdateActionButtonShadows(activeModifier)
-    local frame = ConsoleMenuFrame.ActionBarFrame
+    local frame = ActionBar.GetFrame()
+    if not frame then
+        return
+    end
 
     local PADcount = 0
     local PADDcount = 0
@@ -98,7 +101,10 @@ end
 
 -- Привязка кнопок к положениям по назначению клавиш.
 local function UpdateButtonPositions(slotID)
-    local frame = ConsoleMenuFrame.ActionBarFrame
+    local frame = ActionBar.GetFrame()
+    if not frame then
+        return
+    end
 
     -- Обновление позиции конкретной кнопки (если передан slotID)
     if slotID then
@@ -147,7 +153,11 @@ end
 
 -- Смена набора кнопок при удержании дополнительной клавиши.
 local function UpdateModifierState()
-    local frame = ConsoleMenuFrame.ActionBarFrame
+    local frame = ActionBar.GetFrame()
+    if not frame then
+        return
+    end
+
     local activeModifier = GetActiveModifier()
 
     for slotID, btn in pairs(frame.actionButtons) do

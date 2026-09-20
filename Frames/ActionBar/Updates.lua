@@ -18,10 +18,26 @@ local function IsGlobalCooldown(slotID)
     return false;
 end
 
+-- Действие вне зоны досягаемости текущей цели.
+local function IsActionOutOfRange(slotID)
+    if not slotID or not C_ActionBar or not C_ActionBar.IsActionInRange then
+        return false
+    end
+
+    local ok, isInRange = pcall(C_ActionBar.IsActionInRange, slotID)
+    if not ok then
+        return false
+    end
+    if isInRange ~= nil and issecretvalue and issecretvalue(isInRange) then
+        return false
+    end
+
+    return isInRange == false
+end
+
 -- Обновление значка клавиши на заполненной ячейке.
 local function UpdateActionButtonIcon(slotID)
-    local frame = ConsoleMenuFrame.ActionBarFrame
-    local btn = frame.actionButtons[slotID]
+    local btn = ActionBar.GetButton(slotID)
     if not btn or not btn.Icon or not btn.Icon.Texture or not btn.mainKey then return end
     local mainKey = btn.mainKey
 
@@ -66,8 +82,7 @@ local function UpdateSlot12Label(slotID)
         return
     end
 
-    local frame = ConsoleMenuFrame.ActionBarFrame
-    local btn = frame and frame.actionButtons and frame.actionButtons[slotID]
+    local btn = ActionBar.GetButton(slotID)
     if not btn or not btn.Label then
         return
     end
@@ -84,10 +99,7 @@ end
 
 -- Обновление текстуры умения на кнопке.
 local function UpdateActionButtonTexture(slotID)
-    
-    local frame = ConsoleMenuFrame.ActionBarFrame
-
-    local btn = frame.actionButtons[slotID]
+    local btn = ActionBar.GetButton(slotID)
     if not btn or not btn.texture then return end
 
     local textureFileID = nil
@@ -144,6 +156,10 @@ end
 
 -- Обновление обесцвечивания значка по пригодности, восстановлению и блокировке.
 local function UpdateActionButtonTextureDesaturation(btn, slotID, isUsable, isLackingResources)
+    if not btn or not btn.texture then
+        return
+    end
+
     -- Получаем значения пригодности и недостатка маны если не заданы
     if isUsable == nil or isLackingResources == nil then
         if C_ActionBar and C_ActionBar.IsUsableAction then
@@ -153,11 +169,12 @@ local function UpdateActionButtonTextureDesaturation(btn, slotID, isUsable, isLa
         end
     end
 
-    if isUsable and (not btn.cooldown:IsShown() or btn.cooldown:IsShown() and IsGlobalCooldown(slotID)) then
+    local cooldownShown = btn.cooldown and btn.cooldown:IsShown()
+    if isUsable and not IsActionOutOfRange(slotID) and (not cooldownShown or cooldownShown and IsGlobalCooldown(slotID)) then
         btn.texture:SetDesaturated(false)
     elseif isLackingResources then
         btn.texture:SetDesaturated(true)
-    elseif btn.cooldown:IsShown() and not IsGlobalCooldown(slotID) then
+    elseif cooldownShown and not IsGlobalCooldown(slotID) then
         btn.texture:SetDesaturated(true)
     else
         btn.texture:SetDesaturated(true)
@@ -177,8 +194,7 @@ end
 
 -- Обновление пригодности кнопки к применению.
 local function UpdateActionButtonUsable(slotID, isUsable, isLackingResources)
-    local frame = ConsoleMenuFrame.ActionBarFrame
-    local btn = frame.actionButtons[slotID]
+    local btn = ActionBar.GetButton(slotID)
     if not btn or not btn.texture then return end
     
     UpdateActionButtonTextureDesaturation(btn, slotID, isUsable, isLackingResources)
@@ -186,9 +202,7 @@ end
 
 -- Обновление свечения готовности на кнопке.
 local function UpdateActionButtonGlow(slotID, spellID, event)
-
-    local frame = ConsoleMenuFrame.ActionBarFrame
-    local btn = frame.actionButtons[slotID]
+    local btn = ActionBar.GetButton(slotID)
     if not btn then return end
 
     -- Фрейм для отображения M2 модели
@@ -262,7 +276,10 @@ end
 
 -- Обновление восстановления и пригодности всех кнопок.
 local function UpdateActionButtonCooldowns()
-    local frame = ConsoleMenuFrame.ActionBarFrame
+    local frame = ActionBar.GetFrame()
+    if not frame then
+        return
+    end
 
     for slotID, btn in pairs(frame.actionButtons) do
         if btn.cooldown then
@@ -286,8 +303,7 @@ end
 
 -- Обновление счётчика зарядов на кнопке.
 local function UpdateActionButtonCount(slotID)
-    local frame = ConsoleMenuFrame.ActionBarFrame
-    local btn = frame.actionButtons[slotID]
+    local btn = ActionBar.GetButton(slotID)
     if not btn or not btn.StackCount or not btn.StackCount.Text then return end
 
     local count = C_ActionBar.GetActionDisplayCount(slotID)
@@ -312,6 +328,10 @@ end
 
 -- Обновление значков при смене страницы панели.
 local function UpdateActionBarPageVisibility()
+    if not ActionBar.GetFrame() then
+        return
+    end
+
     for slotID = 1, 24 do
         UpdateActionButtonTexture(slotID)
         UpdateActionButtonCount(slotID)
