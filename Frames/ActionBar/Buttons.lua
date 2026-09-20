@@ -118,20 +118,20 @@ function ActionBar.CreateButton(parent, slotID)
         buttonFrame.StackCount:Hide()
 
         -- Фон счетчика
-        if not buttonFrame.StackCount.Background then
-            buttonFrame.StackCount.Background = buttonFrame.StackCount:CreateTexture(nil, "ARTWORK")
-            buttonFrame.StackCount.Background:SetAllPoints()
-            buttonFrame.StackCount.Background:SetAlpha(0.5)
+        -- if not buttonFrame.StackCount.Background then
+        --     buttonFrame.StackCount.Background = buttonFrame.StackCount:CreateTexture(nil, "ARTWORK")
+        --     buttonFrame.StackCount.Background:SetAllPoints()
+        --     buttonFrame.StackCount.Background:SetAlpha(0.5)
 
-            local texture = ConsoleMenu.Backgrounds["PAD"]
-            buttonFrame.StackCount.Background:SetTexture(texture)
-        end
+        --     local texture = ConsoleMenu.Backgrounds["PAD"]
+        --     buttonFrame.StackCount.Background:SetTexture(texture)
+        -- end
 
         -- Тень счетчика
         if not buttonFrame.StackCount.Shadow then
             buttonFrame.StackCount.Shadow = buttonFrame.StackCount:CreateTexture(nil, "BACKGROUND")
-            buttonFrame.StackCount.Shadow:SetPoint("TOPLEFT", buttonFrame.StackCount.Background, "TOPLEFT", -ActionBar.stackCountShadowOffsef, ActionBar.stackCountShadowOffsef)
-            buttonFrame.StackCount.Shadow:SetPoint("BOTTOMRIGHT", buttonFrame.StackCount.Background, "BOTTOMRIGHT", ActionBar.stackCountShadowOffsef, -ActionBar.stackCountShadowOffsef)
+            buttonFrame.StackCount.Shadow:SetPoint("TOPLEFT", buttonFrame.StackCount, "TOPLEFT", -ActionBar.stackCountShadowOffsef, ActionBar.stackCountShadowOffsef)
+            buttonFrame.StackCount.Shadow:SetPoint("BOTTOMRIGHT", buttonFrame.StackCount, "BOTTOMRIGHT", ActionBar.stackCountShadowOffsef, -ActionBar.stackCountShadowOffsef)
 
             local texture = "Interface\\AddOns\\ConsoleMenu\\Assets\\CrossBackgorund.png"
             buttonFrame.StackCount.Shadow:SetTexture(texture)

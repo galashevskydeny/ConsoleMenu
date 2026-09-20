@@ -431,20 +431,20 @@ function ConsoleMenu:SetKeysFrame()
                 item.Icon.StackCount:Hide()
 
                 -- Фон счётчика
-                if not item.Icon.StackCount.Background then
-                    item.Icon.StackCount.Background = item.Icon.StackCount:CreateTexture(nil, "ARTWORK")
-                    item.Icon.StackCount.Background:SetAllPoints()
-                    item.Icon.StackCount.Background:SetAlpha(0)
-
-                    local texture = ConsoleMenu.Backgrounds["PAD"]
-                    item.Icon.StackCount.Background:SetTexture(texture)
-                end
+                -- if not item.Icon.StackCount.Background then
+                --     item.Icon.StackCount.Background = item.Icon.StackCount:CreateTexture(nil, "ARTWORK")
+                --     item.Icon.StackCount.Background:SetAllPoints()
+                --     item.Icon.StackCount.Background:SetAlpha(0)
+                --
+                --     local texture = ConsoleMenu.Backgrounds["PAD"]
+                --     item.Icon.StackCount.Background:SetTexture(texture)
+                -- end
 
                 -- Тень счётчика
                 if not item.Icon.StackCount.Shadow then
                     item.Icon.StackCount.Shadow = item.Icon.StackCount:CreateTexture(nil, "BACKGROUND")
-                    item.Icon.StackCount.Shadow:SetPoint("TOPLEFT", item.Icon.StackCount.Background, "TOPLEFT", -stackCountShadowOffsef, stackCountShadowOffsef)
-                    item.Icon.StackCount.Shadow:SetPoint("BOTTOMRIGHT", item.Icon.StackCount.Background, "BOTTOMRIGHT", stackCountShadowOffsef, -stackCountShadowOffsef)
+                    item.Icon.StackCount.Shadow:SetPoint("TOPLEFT", item.Icon.StackCount, "TOPLEFT", -stackCountShadowOffsef, stackCountShadowOffsef)
+                    item.Icon.StackCount.Shadow:SetPoint("BOTTOMRIGHT", item.Icon.StackCount, "BOTTOMRIGHT", stackCountShadowOffsef, -stackCountShadowOffsef)
                     item.Icon.StackCount.Shadow:SetAlpha(0.75)
                     local texture = "Interface\\AddOns\\ConsoleMenu\\Assets\\CrossBackgorund.png"
                     item.Icon.StackCount.Shadow:SetTexture(texture)

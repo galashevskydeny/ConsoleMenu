@@ -157,16 +157,16 @@ local function CreateBoostIcon(parent, index, spec)
     stackCount:Hide()
     DisablePixelSnap(stackCount)
 
-    local countBackground = stackCount:CreateTexture(nil, "ARTWORK")
-    countBackground:SetAllPoints()
-    countBackground:SetAlpha(0.5)
-    countBackground:SetTexture(ConsoleMenu.Backgrounds and ConsoleMenu.Backgrounds.PAD)
-    DisablePixelSnap(countBackground)
-    stackCount.Background = countBackground
+    -- local countBackground = stackCount:CreateTexture(nil, "ARTWORK")
+    -- countBackground:SetAllPoints()
+    -- countBackground:SetAlpha(0.5)
+    -- countBackground:SetTexture(ConsoleMenu.Backgrounds and ConsoleMenu.Backgrounds.PAD)
+    -- DisablePixelSnap(countBackground)
+    -- stackCount.Background = countBackground
 
     local countShadow = stackCount:CreateTexture(nil, "BACKGROUND")
-    countShadow:SetPoint("TOPLEFT", countBackground, "TOPLEFT", -ActionBar.stackCountShadowOffsef, ActionBar.stackCountShadowOffsef)
-    countShadow:SetPoint("BOTTOMRIGHT", countBackground, "BOTTOMRIGHT", ActionBar.stackCountShadowOffsef, -ActionBar.stackCountShadowOffsef)
+    countShadow:SetPoint("TOPLEFT", stackCount, "TOPLEFT", -ActionBar.stackCountShadowOffsef, ActionBar.stackCountShadowOffsef)
+    countShadow:SetPoint("BOTTOMRIGHT", stackCount, "BOTTOMRIGHT", ActionBar.stackCountShadowOffsef, -ActionBar.stackCountShadowOffsef)
     countShadow:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\CrossBackgorund.png")
     DisablePixelSnap(countShadow)
     stackCount.Shadow = countShadow
