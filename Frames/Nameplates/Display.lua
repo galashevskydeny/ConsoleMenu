@@ -6,11 +6,20 @@ function Nameplates.CreateDisplay(parent)
     local display = CreateFrame("Frame", nil, parent)
     display:SetAllPoints(parent)
     pcall(display.SetFlattensRenderLayers, display, true)
+    pcall(display.SetClipsChildren, display, false)
+    pcall(parent.SetClipsChildren, parent, false)
     display:Hide()
 
     display.healthBar = Nameplates.CreateHealthBar(display)
     display.healthBar:SetPoint("BOTTOMLEFT", display, "LEFT", Nameplates.healthInset, 4)
     display.healthBar:SetPoint("BOTTOMRIGHT", display, "RIGHT", -Nameplates.healthInset, 4)
+
+    display.shadow = display:CreateTexture(nil, "BACKGROUND")
+    display.shadow:SetTexture(Nameplates.shadowTexturePath)
+    display.shadow:SetVertexColor(0, 0, 0, Nameplates.shadowAlpha)
+    display.shadow:SetPoint("TOPLEFT", display.healthBar, "TOPLEFT", -Nameplates.shadowPadding, Nameplates.shadowPadding)
+    display.shadow:SetPoint("BOTTOMRIGHT", display.healthBar, "BOTTOMRIGHT", Nameplates.shadowPadding, -Nameplates.shadowPadding)
+    display.shadow:Hide()
 
     display.nameFrame = CreateFrame("Frame", nil, display)
     display.nameFrame:SetSize(10, 10)
@@ -65,6 +74,33 @@ function Nameplates.CreateDisplay(parent)
     return display
 end
 
+-- Показывает тень только у увеличенного индикатора противника.
+function Nameplates.ApplyFocusShadow(display)
+    local shadow = display.shadow
+    if not shadow then
+        return
+    end
+    local shouldShow = display.unit and display.isEnemy and Nameplates.ShouldShowEnemyName(display.unit)
+    shadow:SetShown(shouldShow)
+end
+
+-- Показывает имя противника только на увеличенном индикаторе цели.
+function Nameplates.ApplyNameVisibility(display)
+    local shouldShow = false
+    if display.unit then
+        if display.isEnemy then
+            shouldShow = Nameplates.ShouldShowEnemyName(display.unit)
+        else
+            shouldShow = true
+        end
+    end
+    display.name:SetShown(shouldShow)
+    if display.castLarge and display.castLarge.unitName then
+        display.castLarge.unitName:SetShown(shouldShow)
+    end
+    Nameplates.ApplyFocusShadow(display)
+end
+
 -- Обновляет имя (у игрока — со званием) на индикаторе и на крупном слое заклинания.
 function Nameplates.UpdateName(display)
     local name = Nameplates.GetUnitDisplayName(display.unit)
@@ -72,6 +108,17 @@ function Nameplates.UpdateName(display)
     if display.castLarge and display.castLarge.unitName then
         display.castLarge.unitName:SetText(name)
     end
+    Nameplates.ApplyNameVisibility(display)
+end
+
+-- Обновляет видимость имён на всех показанных индикаторах.
+function Nameplates.RefreshNameVisibility()
+    if not Nameplates.ForEachActiveDisplay then
+        return
+    end
+    Nameplates.ForEachActiveDisplay(function(display)
+        Nameplates.ApplyNameVisibility(display)
+    end)
 end
 
 -- Раскладка союзника: только имя и звание по центру.
@@ -84,9 +131,10 @@ function Nameplates.ApplyFriendLayout(display)
     display.nameFrame:SetPoint("CENTER", display, "CENTER", 0, -12)
     display.name:SetFont(Nameplates.fontName, Nameplates.friendNameFontSize, "SLUG")
     display.nameFrame:SetAlpha(1)
+    Nameplates.ApplyNameVisibility(display)
 end
 
--- Раскладка противника: полоса здоровья, имя и звание сверху.
+-- Раскладка противника: полоса здоровья, имя и звание сверху у цели.
 function Nameplates.ApplyEnemyLayout(display)
     display.healthBar:Show()
     display.nameFrame:ClearAllPoints()
@@ -94,6 +142,7 @@ function Nameplates.ApplyEnemyLayout(display)
     display.name:SetFont(Nameplates.fontName, Nameplates.enemyNameFontSize, "SLUG")
     display.healthBar:SetAlpha(1)
     display.nameFrame:SetAlpha(1)
+    Nameplates.ApplyNameVisibility(display)
 end
 
 -- Скрывает индикатор сразу после смерти существа.

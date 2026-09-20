@@ -155,6 +155,14 @@ function ConsoleMenu:InitializeNameplate()
         Nameplates.RefreshMountVisibility()
     end)
 
+    ConsoleMenu:RegisterEvent("PLAYER_TARGET_CHANGED", function()
+        Nameplates.RefreshNameVisibility()
+    end)
+
+    ConsoleMenu:RegisterEvent("PLAYER_SOFT_ENEMY_CHANGED", function()
+        Nameplates.RefreshNameVisibility()
+    end)
+
     Nameplates.RegisterInterruptEvents()
     Nameplates.RegisterAuraSettingEvents()
 

@@ -32,6 +32,9 @@ Nameplates.healthBarColorB = 0.556863
 Nameplates.barTexturePath = "Interface\\AddOns\\ConsoleMenu\\Assets\\EnemyHealthBar.png"
 Nameplates.maskTexturePath = "Interface\\AddOns\\ConsoleMenu\\Assets\\Mask.png"
 Nameplates.circleMaskPath = "Interface\\AddOns\\ConsoleMenu\\Assets\\MaskCircle.png"
+Nameplates.shadowTexturePath = "Interface\\AddOns\\ConsoleMenu\\Assets\\CrossBackgorund.png"
+Nameplates.shadowPadding = 64
+Nameplates.shadowAlpha = 0.55
 Nameplates.fontName = "Fonts\\FRIZQT___CYR.TTF"
 
 function Nameplates.Call(object, methodName, ...)
@@ -122,6 +125,52 @@ function Nameplates.IsEnemyUnit(unit)
     local attackOk, canAttack = pcall(UnitCanAttack, "player", unit)
     local deadOk, isDead = pcall(UnitIsDead, unit)
     return attackOk and canAttack and deadOk and not isDead
+end
+
+-- Возвращает истину, если существо — выбранная цель или софт-цель.
+function Nameplates.IsFocusedUnit(unit)
+    if not unit then
+        return false
+    end
+    local isTarget = UnitExists("target") and UnitIsUnit(unit, "target")
+    local isSoftEnemy = UnitExists("softenemy") and UnitIsUnit(unit, "softenemy")
+    return isTarget or isSoftEnemy
+end
+
+-- Возвращает видимую ширину индикатора существа.
+local function GetNamePlateVisualSize(unit)
+    local nameplate = Nameplates.GetNamePlate(unit)
+    if not nameplate then
+        return 0
+    end
+    return nameplate:GetWidth() * nameplate:GetScale()
+end
+
+-- Возвращает истину, если на индикаторе противника нужно показать имя.
+-- Если цель и софт-цель разные, имя остаётся только у увеличенного индикатора.
+function Nameplates.ShouldShowEnemyName(unit)
+    if not unit then
+        return false
+    end
+
+    local hasTarget = UnitExists("target")
+    local hasSoftEnemy = UnitExists("softenemy")
+    local isTarget = hasTarget and UnitIsUnit(unit, "target")
+    local isSoftEnemy = hasSoftEnemy and UnitIsUnit(unit, "softenemy")
+    if not isTarget and not isSoftEnemy then
+        return false
+    end
+
+    if hasTarget and hasSoftEnemy and not UnitIsUnit("target", "softenemy") then
+        local targetSize = GetNamePlateVisualSize("target")
+        local softSize = GetNamePlateVisualSize("softenemy")
+        if targetSize > softSize + 0.5 then
+            return isTarget
+        end
+        return isSoftEnemy
+    end
+
+    return true
 end
 
 -- Возвращает истину, если существо мертво и его индикатор нужно скрыть.

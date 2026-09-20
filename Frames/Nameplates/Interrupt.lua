@@ -115,10 +115,7 @@ local function UpdateRangeCheck(slotID)
         return
     end
 
-    if rangeCheckSlot and rangeCheckSlot ~= slotID then
-        pcall(C_ActionBar.EnableActionRangeCheck, rangeCheckSlot, false)
-    end
-
+    -- Предыдущую ячейку не выключаем: панель команд держит проверку на всех слотах.
     if slotID then
         pcall(C_ActionBar.EnableActionRangeCheck, slotID, true)
     end
@@ -273,15 +270,9 @@ local function IsInterruptInRange(unit)
     return ok and isInRange == true
 end
 
--- Возвращает истину, если индикатор принадлежит цели или софт-цели.
+-- Возвращает истину, если подсказку прерывания нужно показать на этом индикаторе.
 function Nameplates.IsInterruptHintUnit(unit)
-    if not unit then
-        return false
-    end
-
-    local isTarget = UnitExists("target") and UnitIsUnit(unit, "target")
-    local isSoftEnemy = UnitExists("softenemy") and UnitIsUnit(unit, "softenemy")
-    return isTarget or isSoftEnemy
+    return Nameplates.IsFocusedUnit(unit)
 end
 
 -- Проверяет наличие чтения, не ветвясь по секретному имени.
