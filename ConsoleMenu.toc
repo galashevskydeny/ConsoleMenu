@@ -67,7 +67,12 @@ Frames/QueueStatusToastFrame.lua
 Frames/LootListFrame.lua
 Frames/KeysFrame.lua
 Frames/StatusTrackingFrame.lua
-Frames/MainActionBar.lua
+Frames/ActionBar/Shared.lua
+Frames/ActionBar/Titles.lua
+Frames/ActionBar/Updates.lua
+Frames/ActionBar/Layout.lua
+Frames/ActionBar/Buttons.lua
+Frames/ActionBar/Manager.lua
 Frames/PanelFrame.lua
 Frames/PlayerChoice.lua
 Frames/ExpandableList/Shared.lua
