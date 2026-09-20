@@ -113,6 +113,7 @@ ActionBar.boostExpandDuration = 0.4 * (2 / 3)
 ActionBar.boostCollapseDuration = ActionBar.boostExpandDuration
 ActionBar.boostArcBulge = 36
 ActionBar.boostCooldownProgress = 0.72
+ActionBar.boostHintFadeProgress = 0.35
 
 ActionBar.stackCountChange = ActionBar.stackCountChange or {}
 

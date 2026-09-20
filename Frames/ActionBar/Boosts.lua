@@ -153,6 +153,81 @@ local function CreateBoostIcon(parent, index, spec)
     return icon
 end
 
+-- Значок нажатия правого рычага поверх облака, как L на кнопке левого рычага.
+local function CreateBoostStickHint(parent)
+    local hint = CreateFrame("Frame", "ConsoleMenuActionBarBoostStickHint", parent)
+    hint:SetSize(ActionBar.iconSize, ActionBar.iconSize)
+    hint:SetPoint(
+        "TOPRIGHT",
+        parent,
+        "CENTER",
+        ActionBar.buttonSize / 2 + ActionBar.stackCountOffset,
+        -ActionBar.boostExpandOffset + ActionBar.buttonSize / 2 + ActionBar.stackCountOffset
+    )
+    hint:SetFrameLevel(parent:GetFrameLevel() + 12)
+    DisablePixelSnap(hint)
+
+    hint.Texture = hint:CreateTexture(nil, "ARTWORK")
+    hint.Texture:SetAllPoints()
+    hint.Texture:SetAlpha(1)
+    DisablePixelSnap(hint.Texture)
+    local stickInfo = ConsoleMenu.Textures and ConsoleMenu.Textures.PADRSTICK
+    local stickTexture = stickInfo and stickInfo.texture
+    if stickTexture and stickTexture ~= "" then
+        hint.Texture:SetTexture(stickTexture)
+    else
+        hint.Texture:SetTexture(ConsoleMenu.Backgrounds and ConsoleMenu.Backgrounds.PAD)
+    end
+
+    hint.Background = hint:CreateTexture(nil, "BACKGROUND")
+    hint.Background:SetAllPoints()
+    hint.Background:SetAlpha(0.75)
+    DisablePixelSnap(hint.Background)
+    local stickBackground = ConsoleMenu.Backgrounds and ConsoleMenu.Backgrounds.STICK
+    if stickBackground then
+        hint.Background:SetTexture(stickBackground)
+    end
+
+    hint.Shadow = hint:CreateTexture(nil, "BACKGROUND")
+    hint.Shadow:SetPoint("TOPLEFT", hint.Background, "TOPLEFT", -ActionBar.stackCountShadowOffsef, ActionBar.stackCountShadowOffsef)
+    hint.Shadow:SetPoint("BOTTOMRIGHT", hint.Background, "BOTTOMRIGHT", ActionBar.stackCountShadowOffsef, -ActionBar.stackCountShadowOffsef)
+    hint.Shadow:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\CrossBackgorund.png")
+    DisablePixelSnap(hint.Shadow)
+
+    return hint
+end
+
+-- Значок рычага гаснет в начале разлёта и появляется лишь к концу сбора.
+local function ApplyBoostStickHint(boosts)
+    local hint = boosts.stickHint
+    if not hint then
+        return
+    end
+
+    local fadeSpan = ActionBar.boostHintFadeProgress
+    if fadeSpan <= 0 then
+        fadeSpan = 0.35
+    end
+    local alpha = 1 - boosts.progress / fadeSpan
+    if alpha < 0 then
+        alpha = 0
+    elseif alpha > 1 then
+        alpha = 1
+    end
+    if alpha <= 0.001 then
+        hint:SetAlpha(0)
+        if hint:IsShown() then
+            hint:Hide()
+        end
+        return
+    end
+
+    if not hint:IsShown() then
+        hint:Show()
+    end
+    hint:SetAlpha(alpha)
+end
+
 -- Положение и размер значка на текущем ходе дуги и при плавании.
 local function ApplyBoostIconPose(boosts, icon, progress, elapsedTime)
     local x, y = BezierPoint(
@@ -223,6 +298,8 @@ function ActionBar.OnBoostsUpdate(elapsed)
             ApplyBoostIconPose(boosts, icon, boosts.progress, boosts.time)
         end
     end
+
+    ApplyBoostStickHint(boosts)
 end
 
 -- Запуск или остановка цикла, пока облако на экране.
@@ -373,6 +450,7 @@ function ActionBar.CreateBoosts(parent)
         elapsed = 0,
         duration = 0,
         time = 0,
+        stickHint = CreateBoostStickHint(cluster),
     }
 
     for index = 1, #ActionBar.boostSlots do
