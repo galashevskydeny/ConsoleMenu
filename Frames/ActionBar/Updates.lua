@@ -35,6 +35,158 @@ local function IsActionOutOfRange(slotID)
     return isInRange == false
 end
 
+-- Безопасный вызов API ячейки.
+local function CallSlotApi(fn, ...)
+    if not fn then
+        return nil
+    end
+    local ok, result, extra = pcall(fn, ...)
+    if not ok then
+        return nil
+    end
+    return result, extra
+end
+
+-- Настоящий идентификатор заклинания, а не пустое или скрытое значение.
+local function IsValidSpellID(spellID)
+    if not spellID or spellID == 0 then
+        return false
+    end
+    if issecretvalue and issecretvalue(spellID) then
+        return false
+    end
+    return true
+end
+
+-- Пассивное заклинание нельзя применить с панели.
+local function IsPassiveSpellID(spellID)
+    if not IsValidSpellID(spellID) or not C_Spell or not C_Spell.IsSpellPassive then
+        return false
+    end
+    return CallSlotApi(C_Spell.IsSpellPassive, spellID) == true
+end
+
+-- Идентификатор предмета по названию, если клиент его знает.
+local function GetItemIDByName(name)
+    if not name or name == "" or not C_Item or not C_Item.GetItemInfoInstant then
+        return nil
+    end
+    local itemID = CallSlotApi(C_Item.GetItemInfoInstant, name)
+    if itemID and not (issecretvalue and issecretvalue(itemID)) then
+        return itemID
+    end
+    return nil
+end
+
+-- Предмет экипировки с той же текстурой, что у ячейки.
+local function GetEquippedItemIDForAction(slotID)
+    local actionTexture = CallSlotApi(C_ActionBar.GetActionTexture, slotID)
+    if not actionTexture or (issecretvalue and issecretvalue(actionTexture)) then
+        return nil
+    end
+
+    for inventorySlot = 1, 30 do
+        local itemID = GetInventoryItemID("player", inventorySlot)
+        local itemTexture = GetInventoryItemTexture("player", inventorySlot)
+        if itemID and itemTexture == actionTexture then
+            return itemID
+        end
+    end
+    return nil
+end
+
+-- Имя предмета внутри макроса ячейки.
+local function GetMacroItemNameForSlot(slotID, actionType)
+    if actionType ~= "macro" then
+        return nil
+    end
+
+    local macroName = CallSlotApi(GetActionText, slotID)
+    if not macroName or macroName == "" then
+        macroName = CallSlotApi(C_ActionBar.GetActionText, slotID)
+    end
+    if not macroName or macroName == "" then
+        return nil
+    end
+
+    local itemName = CallSlotApi(GetMacroItem, macroName)
+    if itemName == "" then
+        return nil
+    end
+    return itemName
+end
+
+-- Заклинание «Использование» предмета или макроса на предмет.
+local function GetUseSpellForAction(slotID, actionType, actionID, subType)
+    local _, spellID = CallSlotApi(C_Item.GetItemSpell, actionID)
+    if IsValidSpellID(spellID) then
+        return spellID, actionID
+    end
+
+    local title = ConsoleMenu.GetSlotTitle and ConsoleMenu:GetSlotTitle(actionType, actionID, subType, slotID)
+    local macroItemName = GetMacroItemNameForSlot(slotID, actionType)
+    local resolvedItemID = GetItemIDByName(macroItemName)
+        or GetItemIDByName(title)
+        or GetEquippedItemIDForAction(slotID)
+
+    if resolvedItemID then
+        _, spellID = CallSlotApi(C_Item.GetItemSpell, resolvedItemID)
+        return spellID, resolvedItemID
+    end
+
+    if macroItemName then
+        _, spellID = CallSlotApi(C_Item.GetItemSpell, macroItemName)
+        return spellID, nil
+    end
+
+    return nil, nil
+end
+
+-- Есть ли у ячейки действие применения. Для заклинаний всегда да.
+function ActionBar.SlotHasUseAction(slotID)
+    if not slotID or not C_ActionBar or not C_ActionBar.HasAction then
+        return true
+    end
+    if not C_ActionBar.HasAction(slotID) then
+        return true
+    end
+
+    local infoOk, actionType, actionID, subType = pcall(GetActionInfo, slotID)
+    if not infoOk then
+        return true
+    end
+
+    local isItem = actionType == "item" or (actionType == "macro" and subType == "item")
+    if not isItem and C_ActionBar.IsItemAction then
+        isItem = C_ActionBar.IsItemAction(slotID) == true
+    end
+    if not isItem then
+        return true
+    end
+
+    local itemSpellID, resolvedItemID = GetUseSpellForAction(slotID, actionType, actionID, subType)
+    if IsValidSpellID(itemSpellID) and not IsPassiveSpellID(itemSpellID) then
+        return true
+    end
+    if resolvedItemID then
+        return false
+    end
+
+    local spellID = CallSlotApi(C_ActionBar.GetSpell, slotID)
+    if not IsValidSpellID(spellID) then
+        return false
+    end
+
+    local onEquipSpellID = CallSlotApi(C_ActionBar.GetItemActionOnEquipSpellID, slotID)
+    if IsValidSpellID(onEquipSpellID) and spellID == onEquipSpellID then
+        return false
+    end
+    if IsPassiveSpellID(spellID) then
+        return false
+    end
+    return true
+end
+
 -- Обновление значка клавиши на заполненной ячейке.
 local function UpdateActionButtonIcon(slotID)
     local btn = ActionBar.GetButton(slotID)
@@ -157,6 +309,12 @@ end
 -- Обновление обесцвечивания значка по пригодности, восстановлению и блокировке.
 local function UpdateActionButtonTextureDesaturation(btn, slotID, isUsable, isLackingResources)
     if not btn or not btn.texture then
+        return
+    end
+
+    -- Предмет без применения всегда обесцвечен.
+    if not ActionBar.SlotHasUseAction(slotID) then
+        btn.texture:SetDesaturated(true)
         return
     end
 

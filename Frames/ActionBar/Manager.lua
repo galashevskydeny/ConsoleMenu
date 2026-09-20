@@ -251,3 +251,4 @@ function ConsoleMenu:InitializeMainActionBar()
     frame:SetScript("OnEvent", OnActionBarEvent)
 
 end
+

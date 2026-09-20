@@ -70,6 +70,7 @@ ActionBar.slot12LabelRightPadding = ActionBar.slot12IconPadding + 12
 ActionBar.ignoredSlot = {
     [8] = true,
     [20] = true,
+    [53] = true,
 }
 
 -- Ячейки второй панели на крестовине: вверх, вправо, вниз, влево.

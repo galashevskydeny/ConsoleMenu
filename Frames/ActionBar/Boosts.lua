@@ -108,6 +108,7 @@ local function CreateBoostIcon(parent, index, spec)
         ActionBar.boostArcBulge
     )
     icon.filled = false
+    icon.index = index
 
     icon:SetSize(icon.restSize, icon.restSize)
     icon:SetPoint("CENTER", parent, "CENTER", icon.restX, icon.restY)
@@ -139,15 +140,48 @@ local function CreateBoostIcon(parent, index, spec)
     local cooldown = CreateFrame("Cooldown", nil, icon, "CooldownFrameTemplate")
     cooldown:SetAllPoints(texture)
     cooldown:SetDrawBling(false)
-    cooldown:SetDrawSwipe(true)
+    cooldown:SetDrawSwipe(false)
     cooldown:SetDrawEdge(false)
     cooldown:SetHideCountdownNumbers(true)
-    if cooldown.SetUseCircularEdge then
-        cooldown:SetUseCircularEdge(true)
-    end
     cooldown:SetAlpha(0)
     DisablePixelSnap(cooldown)
     icon.cooldown = cooldown
+    icon.timerShown = false
+
+    -- Счётчик зарядов в углу значка, как у обычных кнопок.
+    local stackCount = CreateFrame("Frame", icon:GetName() .. "StackCount", icon)
+    stackCount:SetSize(ActionBar.stackCountSize, ActionBar.stackCountSize)
+    stackCount:SetPoint("BOTTOMRIGHT", texture, "BOTTOMRIGHT", ActionBar.stackCountOffset, -ActionBar.stackCountOffset)
+    stackCount:SetFrameLevel(icon:GetFrameLevel() + 8)
+    ConsoleMenu:InitFadeAnimations(stackCount, ActionBar.animationDuration)
+    stackCount:Hide()
+    DisablePixelSnap(stackCount)
+
+    local countBackground = stackCount:CreateTexture(nil, "ARTWORK")
+    countBackground:SetAllPoints()
+    countBackground:SetAlpha(0.5)
+    countBackground:SetTexture(ConsoleMenu.Backgrounds and ConsoleMenu.Backgrounds.PAD)
+    DisablePixelSnap(countBackground)
+    stackCount.Background = countBackground
+
+    local countShadow = stackCount:CreateTexture(nil, "BACKGROUND")
+    countShadow:SetPoint("TOPLEFT", countBackground, "TOPLEFT", -ActionBar.stackCountShadowOffsef, ActionBar.stackCountShadowOffsef)
+    countShadow:SetPoint("BOTTOMRIGHT", countBackground, "BOTTOMRIGHT", ActionBar.stackCountShadowOffsef, -ActionBar.stackCountShadowOffsef)
+    countShadow:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\CrossBackgorund.png")
+    DisablePixelSnap(countShadow)
+    stackCount.Shadow = countShadow
+
+    local countText = stackCount:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    countText:SetAllPoints()
+    countText:SetJustifyH("CENTER")
+    countText:SetTextColor(1.0, 0.960784, 0.772549, 1)
+    countText:SetFont("Fonts\\FRIZQT___CYR.TTF", ActionBar.fontSize, "")
+    countText:SetText("")
+    stackCount.Text = countText
+
+    icon.StackCount = stackCount
+    icon.hasCount = false
+    icon.countShown = false
 
     icon:Hide()
     return icon
@@ -229,6 +263,7 @@ local function ApplyBoostStickHint(boosts)
 end
 
 -- Положение и размер значка на текущем ходе дуги и при плавании.
+local ApplyBoostIconLayer
 local function ApplyBoostIconPose(boosts, icon, progress, elapsedTime)
     local x, y = BezierPoint(
         icon.restX,
@@ -256,11 +291,26 @@ local function ApplyBoostIconPose(boosts, icon, progress, elapsedTime)
         icon.lastSize = size
     end
 
-    if progress >= ActionBar.boostCooldownProgress then
-        icon.cooldown:SetAlpha(1)
-    else
-        icon.cooldown:SetAlpha(0)
+    -- Цифры восстановления только в развороте, без кольца отката.
+    local showTimer = progress >= ActionBar.boostCooldownProgress
+    if icon.timerShown ~= showTimer then
+        icon.timerShown = showTimer
+        icon.cooldown:SetHideCountdownNumbers(not showTimer)
+        icon.cooldown:SetAlpha(showTimer and 1 or 0)
     end
+
+    -- Счётчик зарядов появляется вместе с цифрами восстановления.
+    local showCount = icon.hasCount and showTimer
+    if icon.countShown ~= showCount then
+        icon.countShown = showCount
+        if showCount then
+            ConsoleMenu:AnimatedShow(icon.StackCount)
+        else
+            ConsoleMenu:AnimatedHide(icon.StackCount)
+        end
+    end
+
+    ApplyBoostIconLayer(icon, progress)
 end
 
 -- Ход разлёта или сбора без скачка при смене направления.
@@ -327,6 +377,25 @@ function ActionBar.HasVisibleBoosts()
     return false
 end
 
+-- Слой значка: в покое обесцвеченные уходят вниз, готовые остаются сверху.
+function ApplyBoostIconLayer(icon, progress)
+    if not icon.filled then
+        return
+    end
+
+    local clusterLevel = icon:GetParent():GetFrameLevel()
+    local atRest = progress < ActionBar.boostCooldownProgress
+    if atRest and icon.texture and icon.texture:IsDesaturated() then
+        icon:SetFrameLevel(clusterLevel + 1)
+    else
+        icon:SetFrameLevel(clusterLevel + icon.index + 1)
+    end
+
+    if icon.StackCount then
+        icon.StackCount:SetFrameLevel(icon:GetFrameLevel() + 2)
+    end
+end
+
 -- Обесцвечивание значка облака по пригодности и восстановлению.
 local function UpdateBoostIconUsable(icon)
     if not icon.filled or not icon.texture then
@@ -335,7 +404,44 @@ local function UpdateBoostIconUsable(icon)
     ActionBar.UpdateTextureDesaturation(icon, icon.slotID)
 end
 
--- Кольцо восстановления значка, только когда крест уже почти собран.
+-- Число зарядов на значке облака.
+local function UpdateBoostIconCount(icon)
+    local stackCount = icon.StackCount
+    if not stackCount or not stackCount.Text then
+        return
+    end
+
+    if not icon.filled then
+        icon.hasCount = false
+        stackCount.Text:SetText("")
+        if icon.countShown then
+            icon.countShown = false
+            ConsoleMenu:AnimatedHide(stackCount)
+        end
+        return
+    end
+
+    local count = C_ActionBar.GetActionDisplayCount(icon.slotID)
+    if count and issecretvalue and issecretvalue(count) then
+        stackCount.Text:SetText(count)
+        return
+    end
+
+    if (count and count ~= "" and count ~= "0" and count ~= 0) or ActionBar.stackCountChange[icon.slotID] then
+        stackCount.Text:SetText(count)
+        ActionBar.stackCountChange[icon.slotID] = true
+        icon.hasCount = true
+    else
+        stackCount.Text:SetText("")
+        icon.hasCount = false
+        if icon.countShown then
+            icon.countShown = false
+            ConsoleMenu:AnimatedHide(stackCount)
+        end
+    end
+end
+
+-- Время восстановления значка. Кольцо отката не рисуем.
 local function UpdateBoostIconCooldown(icon)
     if not icon.cooldown then
         return
@@ -367,6 +473,7 @@ local function UpdateBoostIcon(icon)
         end
         icon.filled = false
         icon.texture:SetTexture(nil)
+        UpdateBoostIconCount(icon)
         icon:Hide()
         return
     end
@@ -376,6 +483,11 @@ local function UpdateBoostIcon(icon)
     icon:Show()
     UpdateBoostIconCooldown(icon)
     UpdateBoostIconUsable(icon)
+    UpdateBoostIconCount(icon)
+
+    local boosts = GetBoosts()
+    local progress = boosts and boosts.progress or 0
+    ApplyBoostIconLayer(icon, progress)
 end
 
 -- Подтянуть все значки облака и скрыть рамку, если ячеек нет.
