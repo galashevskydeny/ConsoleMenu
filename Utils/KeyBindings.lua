@@ -941,7 +941,7 @@ function ConsoleMenu:SetBaseKeyBindings()
         PADDDOWN = "MULTIACTIONBAR1BUTTON8",
         PADDLEFT = "MULTIACTIONBAR1BUTTON9",
         PADDRIGHT = "MULTIACTIONBAR1BUTTON7",
-        PADLSTICK = "MULTIACTIONBAR1BUTTON5",
+        PADLSTICK = "EXTRAACTIONBUTTON1",
         -- PADRSTICK = "MULTIACTIONBAR1BUTTON4",
         PADFORWARD = "CAMERAZOOMOUT",
         PADRTRIGGER = "INTERACTTARGET",
@@ -1003,6 +1003,11 @@ end
 function ConsoleMenu:GetBindingCommandBySlotID(slotID)
     local NUM_ACTIONBAR_BUTTONS = 12
 
+    local extraSlotID = ConsoleMenu.ActionBar and ConsoleMenu.ActionBar.GetExtraActionSlotID and ConsoleMenu.ActionBar.GetExtraActionSlotID()
+    if slotID == extraSlotID or slotID == 139 or slotID == 217 then
+        return "EXTRAACTIONBUTTON1"
+    end
+
     local abnormal = {
         [133] = "ACTIONBUTTON1",
         [134] = "ACTIONBUTTON2",
@@ -1010,7 +1015,6 @@ function ConsoleMenu:GetBindingCommandBySlotID(slotID)
         [136] = "ACTIONBUTTON4",
         [137] = "ACTIONBUTTON5",
         [138] = "ACTIONBUTTON6",
-        [139] = "EXTRAACTIONBUTTON1", -- только если CPAPI.ExtraActionButtonID == 139
     }
 
     -- Приоритет: абнормальные ID

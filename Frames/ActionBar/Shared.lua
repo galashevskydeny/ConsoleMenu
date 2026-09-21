@@ -40,6 +40,8 @@ ActionBar.slot12LabelRightPadding = ActionBar.slot12IconPadding + 12
 ActionBar.topRowOffsetY = ActionBar.buttonVerticalPadding + ActionBar.buttonSize / 2 + ActionBar.slot12IconPadding
 
 ActionBar.shadowSize = 320
+-- Ареол правой группы чуть крупнее, пока в свёрнутом облаке есть дополнительное действие.
+ActionBar.shadowSizeWithExtra = 384
 
 ActionBar.animationDuration = 0.05
 
@@ -102,6 +104,16 @@ ActionBar.boostCloudOffsets = {
     { x = 13.156, y = 7.59 - ActionBar.boostExpandOffset },
     { x = 6.325, y = -11.0055 - ActionBar.boostExpandOffset },
 }
+-- Точки покоя четырёх значков, когда в центре облака дополнительное действие.
+-- На 15% ближе к центру, чтобы облако было кучнее.
+ActionBar.boostCloudOffsetsWithExtra = {
+    { x = -20.968, y = -12.096 - ActionBar.boostExpandOffset },
+    { x = -8.065, y = 13.978 - ActionBar.boostExpandOffset },
+    { x = 21.25, y = 12.257 - ActionBar.boostExpandOffset },
+    { x = 13.441, y = -23.387 - ActionBar.boostExpandOffset },
+}
+-- В присутствии дополнительного действия остальные значки чуть мельче, но ближе к его размеру.
+ActionBar.boostCloudSizesWithExtra = { 27.88, 32.76, 23.0, 26.49 }
 -- PAD4 сверху, PAD2 справа, PAD1 снизу, PAD3 слева.
 ActionBar.boostExpandPositions = {
     { x = 0, y = ActionBar.boostExpandOffset },
@@ -109,20 +121,110 @@ ActionBar.boostExpandPositions = {
     { x = 0, y = -ActionBar.boostExpandOffset },
     { x = -ActionBar.boostExpandOffset, y = 0 },
 }
+-- Дополнительная кнопка действия: самый крупный значок в центре облака.
+ActionBar.boostExtraCloudSize = 46
+-- Покой у правого рычага, посадка в центре панели — в координатах самой панели.
+ActionBar.boostExtraRestX = ActionBar.frameWidth / 2 - ActionBar.paddingPAD
+ActionBar.boostExtraRestY = -ActionBar.boostExpandOffset
+ActionBar.boostExtraExpandX = 0
+ActionBar.boostExtraExpandY = 0
+ActionBar.boostExtraFloatSpeed = 0.33
+ActionBar.boostExtraFloatPhase = 2.55
 ActionBar.boostFloatRadius = 1.784592
 ActionBar.boostFloatSpeeds = { 0.2992, 0.39168, 0.26112, 0.34272 }
 ActionBar.boostFloatPhases = { 0.2, 1.7, 3.4, 4.9 }
 ActionBar.boostExpandDuration = 0.4 * (2 / 3)
 ActionBar.boostCollapseDuration = ActionBar.boostExpandDuration
+ActionBar.boostLayoutDuration = 0.4
 ActionBar.boostArcBulge = 36
 ActionBar.boostCooldownProgress = 0.72
+-- Подпись и буква L у дополнительного действия появляются чуть раньше полной посадки.
+ActionBar.boostExtraCaptionProgress = 0.78
 ActionBar.boostHintFadeProgress = 0.35
+-- Подсказка правого рычага на краю более широкого облака: чуть правее и выше, но не слишком далеко вправо.
+ActionBar.boostHintExtraOffsetX = 6
+ActionBar.boostHintExtraOffsetY = 8
+-- Буква L на дополнительной кнопке действия: чуть дальше от центра, но ближе исходного угла.
+ActionBar.boostExtraKeyOffsetX = 5
+ActionBar.boostExtraKeyOffsetY = 5
 
 ActionBar.stackCountChange = ActionBar.stackCountChange or {}
+
+-- Пиктограмма клавиши поверх умения: тень как у счётчика зарядов, без подложки стика.
+function ActionBar.ApplyKeyGlyphStyle(iconFrame, size)
+    if not iconFrame then
+        return
+    end
+
+    local glyphSize = size or ActionBar.stackCountSize
+    iconFrame:SetSize(glyphSize, glyphSize)
+    if iconFrame.Background then
+        iconFrame.Background:Hide()
+    end
+    if iconFrame.Shadow then
+        iconFrame.Shadow:ClearAllPoints()
+        iconFrame.Shadow:SetPoint("TOPLEFT", iconFrame, "TOPLEFT", -ActionBar.stackCountShadowOffsef, ActionBar.stackCountShadowOffsef)
+        iconFrame.Shadow:SetPoint("BOTTOMRIGHT", iconFrame, "BOTTOMRIGHT", ActionBar.stackCountShadowOffsef, -ActionBar.stackCountShadowOffsef)
+        iconFrame.Shadow:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\CrossBackgorund.png")
+        iconFrame.Shadow:Show()
+    end
+end
 
 -- Ячейка живёт в облаке усилений, а не на левой крестовине.
 function ActionBar.IsBoostSlot(slotID)
     return ActionBar.boostSlotLookup[slotID] == true
+end
+
+-- Номер ячейки стандартной дополнительной кнопки действия.
+function ActionBar.GetExtraActionSlotID()
+    local button = _G.ExtraActionButton1
+    if button then
+        if button.action and button.action ~= 0 then
+            return button.action
+        end
+        if button.CalculateAction then
+            local action = button:CalculateAction()
+            if action and action ~= 0 then
+                return action
+            end
+        end
+    end
+    return 217
+end
+
+-- Ячейка относится к дополнительной кнопке действия.
+function ActionBar.IsExtraActionSlot(slotID)
+    if not slotID then
+        return false
+    end
+    return slotID == ActionBar.GetExtraActionSlotID() or slotID == 139 or slotID == 217
+end
+
+-- Дополнительная кнопка действия сейчас заполнена и должна быть на панели.
+function ActionBar.HasExtraAction()
+    if not C_ActionBar then
+        return false
+    end
+
+    -- Показ стандартной дополнительной кнопки — надёжный признак, в том числе в бою.
+    if C_ActionBar.HasExtraActionBar then
+        return C_ActionBar.HasExtraActionBar() == true
+    end
+
+    local slotID = ActionBar.GetExtraActionSlotID()
+    if not C_ActionBar.HasAction then
+        return false
+    end
+
+    local ok, hasAction = pcall(C_ActionBar.HasAction, slotID)
+    if not ok then
+        return false
+    end
+    -- Скрытое значение нельзя считать пустой ячейкой.
+    if hasAction ~= nil and issecretvalue and issecretvalue(hasAction) then
+        return true
+    end
+    return hasAction == true
 end
 
 -- Окно панели, если оно уже создано вместе с набором кнопок.

@@ -22,6 +22,9 @@ function ConsoleMenu:InitializeMainActionBar()
     frame:SetSize(ActionBar.frameWidth, ActionBar.frameHeight)
     frame:SetPoint("BOTTOM", ConsoleMenuFrame, "BOTTOM", 0, 48)
     ConsoleMenu:InitFadeAnimations(frame, ActionBar.animationDuration)
+    if frame.SetClipsChildren then
+        frame:SetClipsChildren(false)
+    end
 
     if not frame.PADCenter then
         frame.PADCenter = CreateFrame("Frame", "PADCenter", frame)
@@ -110,6 +113,7 @@ function ConsoleMenu:InitializeMainActionBar()
     frame:RegisterEvent("PLAYER_TARGET_CHANGED")
     frame:RegisterEvent("PLAYER_FOCUS_CHANGED")
     frame:RegisterEvent("PLAYER_SOFT_ENEMY_CHANGED")
+    frame:RegisterEvent("UPDATE_EXTRA_ACTIONBAR")
 
     -- Обработка событий панели: значки, восстановление, свечение и видимость.
     local function OnActionBarEvent(self, event, ...)
@@ -191,7 +195,7 @@ function ConsoleMenu:InitializeMainActionBar()
             ActionBar.SetRangeFromEvent(slotID, isInRange, checksRange)
             if slotID then
                 ActionBar.UpdateUsable(slotID)
-                if ActionBar.IsBoostSlot(slotID) then
+                if ActionBar.IsBoostSlot(slotID) or ActionBar.IsExtraActionSlot(slotID) then
                     ActionBar.UpdateBoosts()
                 end
             end
@@ -259,6 +263,9 @@ function ConsoleMenu:InitializeMainActionBar()
                 
             end
             ActionBar.UpdateBoosts()
+        elseif event == "UPDATE_EXTRA_ACTIONBAR" then
+            ActionBar.UpdateBoosts()
+            ActionBar.UpdateModifierState()
         end
     end
 

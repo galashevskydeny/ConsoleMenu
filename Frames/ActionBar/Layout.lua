@@ -23,6 +23,15 @@ local function IsActionButtonVisible(slotID, btn, activeModifier)
         return false
     end
 
+    if ActionBar.IsExtraActionSlot(slotID) then
+        return false
+    end
+
+    -- В исследовании без удержания клавиш обычные кнопки скрыты: видно только облако.
+    if ConsoleMenu.GetPlayerContext and ConsoleMenu:GetPlayerContext() == "exploring" and not activeModifier then
+        return false
+    end
+
     if ActionBar.ignoredSlot[slotID] or not ActionBar.buttonPositions[btn.mainKey] then
         return false
     end
@@ -157,7 +166,7 @@ local function UpdateButtonPositions(slotID)
     end
 end
 
--- В исследовании панель видна только при удержании Ctrl или Shift.
+-- В исследовании панель видна при Ctrl, Shift или при заполненной дополнительной кнопке действия.
 local function UpdateExploringFrameVisibility(activeModifier)
     local contextData = ConsoleMenuFrame and ConsoleMenuFrame.PlayerContext
     if not contextData then
@@ -172,7 +181,11 @@ local function UpdateExploringFrameVisibility(activeModifier)
         return
     end
 
-    if activeModifier == "CTRL" or activeModifier == "SHIFT" then
+    if ActionBar.IsExploringCloudHiding and ActionBar.IsExploringCloudHiding() then
+        return
+    end
+
+    if activeModifier == "CTRL" or activeModifier == "SHIFT" or ActionBar.HasVisibleExtraAction() then
         ConsoleMenu:AnimatedShow(frame)
     else
         ConsoleMenu:AnimatedHide(frame)

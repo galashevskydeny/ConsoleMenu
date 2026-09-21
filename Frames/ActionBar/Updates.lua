@@ -277,6 +277,12 @@ local function UpdateActionButtonIcon(slotID)
     end
 
     btn.Icon.Texture:SetTexture(texture)
+    if mainKey == "PADLSTICK" then
+        ActionBar.ApplyKeyGlyphStyle(btn.Icon)
+    elseif btn.Icon.Background then
+        btn.Icon:SetSize(ActionBar.iconSize, ActionBar.iconSize)
+        btn.Icon.Background:Show()
+    end
     ConsoleMenu:AnimatedShow(btn.Icon)
 end
 

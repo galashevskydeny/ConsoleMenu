@@ -186,6 +186,11 @@ function ActionBar.CreateButton(parent, slotID)
             local texture = "Interface\\AddOns\\ConsoleMenu\\Assets\\CrossBackgorund.png"
             buttonFrame.Icon.Shadow:SetTexture(texture)
         end
+
+        -- На тачпаде пиктограмма клавиши без подложки, с тенью как у счётчика.
+        if isSlot12 then
+            ActionBar.ApplyKeyGlyphStyle(buttonFrame.Icon)
+        end
     end
 
     return buttonFrame
