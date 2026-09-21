@@ -260,6 +260,9 @@ local function ApplyBoostStickHint(boosts)
         hint:Show()
     end
     hint:SetAlpha(alpha)
+    if hint.Texture and hint.Texture.SetDesaturated then
+        hint.Texture:SetDesaturated(IsControlKeyDown())
+    end
 end
 
 -- Положение и размер значка на текущем ходе дуги и при плавании.
@@ -396,9 +399,13 @@ function ApplyBoostIconLayer(icon, progress)
     end
 end
 
--- Обесцвечивание значка облака по пригодности и восстановлению.
+-- Обесцвечивание значка облака: при CTRL все значки серые, иначе по пригодности.
 local function UpdateBoostIconUsable(icon)
     if not icon.filled or not icon.texture then
+        return
+    end
+    if IsControlKeyDown() then
+        icon.texture:SetDesaturated(true)
         return
     end
     ActionBar.UpdateTextureDesaturation(icon, icon.slotID)

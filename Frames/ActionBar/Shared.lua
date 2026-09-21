@@ -28,6 +28,17 @@ ActionBar.paddingPADD = ActionBar.buttonSize * 1.5
 ActionBar.buttonVerticalPadding = ActionBar.buttonSize * 0.6
 ActionBar.buttonHorizontalPadding = ActionBar.buttonSize * 0.6
 
+ActionBar.slot12ContainerWidth = 190
+ActionBar.slot12ContainerHeight = 70
+ActionBar.slot12LabelFontSize = 16
+-- Отступ иконки от края фона = вертикальный зазор (фон круга 60 при высоте 70)
+ActionBar.slot12IconPadding = (ActionBar.slot12ContainerHeight - (ActionBar.buttonSize + 8)) / 2
+ActionBar.slot12LabelGap = ActionBar.slot12IconPadding + 6
+ActionBar.slot12LabelEdgePadding = ActionBar.slot12IconPadding
+ActionBar.slot12LabelRightPadding = ActionBar.slot12IconPadding + 12
+-- Высота верхнего ряда значков с учётом внутреннего отступа панельки тачпада.
+ActionBar.topRowOffsetY = ActionBar.buttonVerticalPadding + ActionBar.buttonSize / 2 + ActionBar.slot12IconPadding
+
 ActionBar.shadowSize = 320
 
 ActionBar.animationDuration = 0.05
@@ -45,9 +56,9 @@ ActionBar.buttonPositions = {
     PADDLEFT = { "RIGHT", "PADDCenter", "LEFT", -ActionBar.buttonHorizontalPadding, 0 },
     PADDDOWN = { "TOP", "PADDCenter", "BOTTOM", 0, -ActionBar.buttonVerticalPadding },
 
-    -- Тачпад DualSense: слот 12 и эквиваленты на других страницах / модификаторах
-    PAD6 = { "BOTTOM", "ActionBarFrame", "BOTTOM", 0, 0 },
-    PADBACK = { "BOTTOM", "ActionBarFrame", "BOTTOM", 0, 0 },
+    -- Сенсорная панель DualSense: по центру, на высоте верхнего ряда крестовины и лицевых кнопок
+    PAD6 = { "CENTER", "ActionBarFrame", "CENTER", 0, ActionBar.topRowOffsetY },
+    PADBACK = { "CENTER", "ActionBarFrame", "CENTER", 0, ActionBar.topRowOffsetY },
 }
 
 -- Слоты ACTIONBUTTON12 / MULTIACTIONBAR*BUTTON12
@@ -57,15 +68,6 @@ ActionBar.slot12Slots = {
     [60] = true,
     [72] = true,
 }
-
-ActionBar.slot12ContainerWidth = 190
-ActionBar.slot12ContainerHeight = 70
-ActionBar.slot12LabelFontSize = 16
--- Отступ иконки от края фона = вертикальный зазор (фон круга 60 при высоте 70)
-ActionBar.slot12IconPadding = (ActionBar.slot12ContainerHeight - (ActionBar.buttonSize + 8)) / 2
-ActionBar.slot12LabelGap = ActionBar.slot12IconPadding + 6
-ActionBar.slot12LabelEdgePadding = ActionBar.slot12IconPadding
-ActionBar.slot12LabelRightPadding = ActionBar.slot12IconPadding + 12
 
 ActionBar.ignoredSlot = {
     [8] = true,

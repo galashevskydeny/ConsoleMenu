@@ -116,7 +116,8 @@ local function UpdateButtonPositions(slotID)
         if not btn then return end
         
         local command = ConsoleMenu:GetBindingCommandBySlotID(slotID)
-        local binding = ConsoleMenu:GetCommandBinding(command, ConsoleMenu:IsGamePadActive())
+        -- Раскладка панели всегда по клавишам контроллера, даже без подключённого геймпада.
+        local binding = ConsoleMenu:GetCommandBinding(command, true)
         btn.binding = binding
 
         local mainKey, modifierKey = ConsoleMenu:ParseBindingKey(binding)
@@ -138,7 +139,8 @@ local function UpdateButtonPositions(slotID)
     -- Обновление всех кнопок (если не передан slotID)
     for slotID, btn in pairs(frame.actionButtons) do
         local command = ConsoleMenu:GetBindingCommandBySlotID(slotID)
-        local binding = ConsoleMenu:GetCommandBinding(command, ConsoleMenu:IsGamePadActive())
+        -- Раскладка панели всегда по клавишам контроллера, даже без подключённого геймпада.
+        local binding = ConsoleMenu:GetCommandBinding(command, true)
         btn.binding = binding
 
         local mainKey, modifierKey = ConsoleMenu:ParseBindingKey(binding)
@@ -173,6 +175,7 @@ local function UpdateModifierState()
     end
 
     ActionBar.SetBoostsExpanded(activeModifier == "SHIFT")
+    ActionBar.UpdateBoosts()
     UpdateActionButtonShadows(activeModifier)
 end
 
