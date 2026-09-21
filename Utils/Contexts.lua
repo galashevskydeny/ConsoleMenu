@@ -651,7 +651,12 @@ function ConsoleMenu:ApplyContextUIChanges()
         end
 
         ConsoleMenu.Merchant.Hide()
-        ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
+        -- Вне боя панель скрыта, пока не удерживают Ctrl или Shift.
+        if ConsoleMenu.ActionBar and ConsoleMenu.ActionBar.UpdateModifierState then
+            ConsoleMenu.ActionBar.UpdateModifierState()
+        else
+            ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
+        end
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.CombatFrame)
         ConsoleMenu:AnimatedHide(PersonalResourceDisplayFrame)
         ConsoleMenu:PlayFadeIn(ObjectiveTrackerFrame)

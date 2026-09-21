@@ -157,6 +157,28 @@ local function UpdateButtonPositions(slotID)
     end
 end
 
+-- В исследовании панель видна только при удержании Ctrl или Shift.
+local function UpdateExploringFrameVisibility(activeModifier)
+    local contextData = ConsoleMenuFrame and ConsoleMenuFrame.PlayerContext
+    if not contextData then
+        return
+    end
+    if ConsoleMenu:GetPlayerContext() ~= "exploring" then
+        return
+    end
+
+    local frame = ActionBar.GetFrame()
+    if not frame then
+        return
+    end
+
+    if activeModifier == "CTRL" or activeModifier == "SHIFT" then
+        ConsoleMenu:AnimatedShow(frame)
+    else
+        ConsoleMenu:AnimatedHide(frame)
+    end
+end
+
 -- Смена набора кнопок при удержании дополнительной клавиши.
 local function UpdateModifierState()
     local frame = ActionBar.GetFrame()
@@ -177,6 +199,7 @@ local function UpdateModifierState()
     ActionBar.SetBoostsExpanded(activeModifier == "SHIFT")
     ActionBar.UpdateBoosts()
     UpdateActionButtonShadows(activeModifier)
+    UpdateExploringFrameVisibility(activeModifier)
 end
 
 ActionBar.UpdateButtonPositions = UpdateButtonPositions
