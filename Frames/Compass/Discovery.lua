@@ -50,6 +50,7 @@ local EVENT_SOURCES = {
     MINIMAP_UPDATE_TRACKING = { "offers", "map" },
     QUEST_ACCEPTED = { "quests", "offers" },
     QUEST_TURNED_IN = { "quests", "offers" },
+    QUEST_REMOVED = { "quests", "offers" },
     PLAYER_DEAD = "corpse",
     PLAYER_ALIVE = "corpse",
     PLAYER_UNGHOST = "corpse",
@@ -129,6 +130,99 @@ function Compass:InitializeDiscovery()
     self.compassSources = {}
     for _, definition in ipairs(SOURCES) do
         self.compassSources[definition.key] = { markers = {}, dirty = true, nextAllowed = 0, nextRefresh = 0 }
+    end
+end
+
+-- Убирает сданные и отменённые задания из готового списка точек.
+function Compass:StripRetiredQuestMarkers(markers)
+    if not markers then
+        return false
+    end
+    local retired = self.retiredQuests
+    local removed = false
+    for index = #markers, 1, -1 do
+        local questID = markers[index].questID
+        if questID and retired[questID] then
+            table.remove(markers, index)
+            removed = true
+        end
+    end
+    return removed
+end
+
+-- Собирает копию списка без сданных и отменённых заданий.
+local function WithoutRetiredQuests(self, markers)
+    local retired = self.retiredQuests
+    local kept, removed = {}, false
+    for _, marker in ipairs(markers) do
+        local questID = marker.questID
+        if questID and retired[questID] then
+            removed = true
+        else
+            kept[#kept + 1] = marker
+        end
+    end
+    return kept, removed
+end
+
+-- Сразу снимает значок с полосы и из ещё не законченного сбора заданий.
+function Compass:DropRetiredQuestMarker()
+    local quests = self.compassSources and self.compassSources.quests
+    if not quests then
+        return
+    end
+    -- Новый список, чтобы незавершённый обход прежнего не пропустил соседнюю точку.
+    local kept, removed = WithoutRetiredQuests(self, quests.markers)
+    if removed then
+        quests.markers = kept
+        if self.markers then
+            self:RebuildMarkers()
+        end
+    end
+    local job = self.discoveryJob
+    if job and job.definition and job.definition.key == "quests" then
+        self:StripRetiredQuestMarkers(job.markers)
+    end
+end
+
+-- Запоминает сданное или отменённое задание, чтобы устаревшая карта не вернула значок.
+function Compass:RememberRetiredQuest(questID)
+    questID = Number(questID)
+    if not questID or questID <= 0 then
+        return
+    end
+    self.retiredQuests[questID] = true
+    self:DropRetiredQuestMarker()
+end
+
+-- Разрешает снова показать задание, если его взяли заново.
+function Compass:ForgetRetiredQuest(questID)
+    questID = Number(questID)
+    if not questID then
+        return
+    end
+    self.retiredQuests[questID] = nil
+end
+
+-- Проверяет, что задание недавно сдано или отменено и его рано возвращать на полосу.
+function Compass:IsQuestRetired(questID)
+    return questID ~= nil and self.retiredQuests[questID] == true
+end
+
+-- Забывает задание, когда журнал, местные цели и карта его больше не сообщают.
+function Compass:ReleaseRetiredQuests(onMap)
+    if not onMap then
+        return
+    end
+    local retired = self.retiredQuests
+    for questID in pairs(retired) do
+        local stillReported = onMap[questID] == true
+            or Readable(C_QuestLog.IsOnQuest(questID)) == true
+            or Readable(C_TaskQuest.IsActive(questID)) == true
+        if not stillReported then
+            retired[questID] = nil
+        end
+        self:DiscoveryCheckpoint()
     end
 end
 
@@ -368,6 +462,10 @@ function Compass:DiscoverMarkers()
         end
         if coroutine.status(job.thread) ~= "dead" then
             break
+        end
+        -- Сбор мог начаться раньше сдачи и ещё держать значок в готовом списке.
+        if job.definition.key == "quests" and self:StripRetiredQuestMarkers(job.markers) then
+            result = true
         end
         if result then
             job.source.markers = job.markers

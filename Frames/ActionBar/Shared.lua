@@ -202,13 +202,26 @@ end
 
 -- Дополнительная кнопка действия сейчас заполнена и должна быть на панели.
 function ActionBar.HasExtraAction()
+    -- Показ стандартной рамки — самый устойчивый признак, в том числе при скрытых значениях.
+    if ExtraActionBarFrame and ExtraActionBarFrame.IsShown and ExtraActionBarFrame:IsShown() then
+        return true
+    end
+
     if not C_ActionBar then
         return false
     end
 
-    -- Показ стандартной дополнительной кнопки — надёжный признак, в том числе в бою.
     if C_ActionBar.HasExtraActionBar then
-        return C_ActionBar.HasExtraActionBar() == true
+        local ok, shown = pcall(C_ActionBar.HasExtraActionBar)
+        if ok then
+            -- Скрытое значение нельзя считать отсутствием кнопки.
+            if shown ~= nil and issecretvalue and issecretvalue(shown) then
+                return true
+            end
+            if shown == true then
+                return true
+            end
+        end
     end
 
     local slotID = ActionBar.GetExtraActionSlotID()

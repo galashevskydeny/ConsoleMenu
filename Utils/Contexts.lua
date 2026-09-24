@@ -708,6 +708,10 @@ function ConsoleMenu:ApplyContextUIChanges()
         end
 
         ConsoleMenu.Merchant.Hide()
+        -- Кнопки и облако могли остаться скрытыми после исследования: сначала восстанавливаем раскладку.
+        if ConsoleMenu.ActionBar and ConsoleMenu.ActionBar.UpdateModifierState then
+            ConsoleMenu.ActionBar.UpdateModifierState()
+        end
         ConsoleMenu:AnimatedShow(ConsoleMenuFrame.ActionBarFrame)
         ConsoleMenu:AnimatedShow(ConsoleMenuFrame.CombatFrame)
     elseif context == "housing" then

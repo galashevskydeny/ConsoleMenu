@@ -95,4 +95,5 @@ Utils/CameraControl.lua
 Utils/GamePad.lua
 Utils/KeyBindings.lua
 Utils/SuperTrackManager.lua
+Utils/Waypoint.lua
 Utils/Macro.lua

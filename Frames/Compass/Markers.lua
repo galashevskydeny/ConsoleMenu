@@ -1553,6 +1553,10 @@ local function MarkerDisplayArt(marker)
             atlas = C.QUEST_PROGRESS_ATLAS
         end
     end
+    if marker.navigation and marker.kind == "waypoint" then
+        atlas = C.WAYPOINT_TRACKED_ATLAS
+        iconWidth, iconHeight = Compass.AtlasSize(atlas)
+    end
     if marker.navigation and marker.backgroundAtlasFocused then
         background = marker.backgroundAtlasFocused
         backgroundWidth, backgroundHeight = marker.backgroundWidthFocused, marker.backgroundHeightFocused

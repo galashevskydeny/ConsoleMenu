@@ -293,7 +293,7 @@ end
 -- Добавляет одно задание на полосу.
 local function AddQuest(self, markers, questID, position, watched, seen, taskOnly)
     local C = self.Constants
-    if not questID or questID <= 0 or seen[questID] then
+    if not questID or questID <= 0 or seen[questID] or self:IsQuestRetired(questID) then
         return
     end
     local x, y = ReadPosition(position)
@@ -410,12 +410,17 @@ function Compass:CollectQuests(markers)
         AddQuestWaypoint(self, markers, id, watched, seen)
         self:DiscoveryCheckpoint()
     end
+    local onMap = {}
     local quests = Readable(C_QuestLog.GetQuestsOnMap(self.mapID))
     self:DiscoveryCheckpoint()
     for _, info in ipairs(quests or {}) do
         info = Readable(info)
+        local questID = info and Number(info.questID)
+        if questID then
+            onMap[questID] = true
+        end
         if info and Readable(info.isQuestStart) == false and not SkipMapIndicator(info) then
-            AddQuest(self, markers, Number(info.questID), info, watched, seen)
+            AddQuest(self, markers, questID, info, watched, seen)
         end
         self:DiscoveryCheckpoint()
     end
@@ -423,11 +428,16 @@ function Compass:CollectQuests(markers)
     self:DiscoveryCheckpoint()
     for _, info in ipairs(quests or {}) do
         info = Readable(info)
+        local questID = info and Number(info.questID)
+        if questID then
+            onMap[questID] = true
+        end
         if info then
-            AddQuest(self, markers, Number(info.questID), info, watched, seen, true)
+            AddQuest(self, markers, questID, info, watched, seen, true)
         end
         self:DiscoveryCheckpoint()
     end
+    self:ReleaseRetiredQuests(onMap)
 end
 
 -- Запасной поиск пути выбранного задания на карте.
@@ -1005,7 +1015,11 @@ function Compass:SelectNavigation()
         local rank
         if marker.kind == "corpse" then
             rank = NAVIGATION_RANK.corpse
-        elseif marker.key == "waypoint" and not keys then
+        elseif
+            marker.key == "waypoint"
+            and not keys
+            and Readable(C_SuperTrack.IsSuperTrackingUserWaypoint()) == true
+        then
             rank = NAVIGATION_RANK.selected
         elseif keys then
             for _, key in ipairs(keys) do

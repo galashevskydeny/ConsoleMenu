@@ -36,6 +36,7 @@ local EVENTS = {
     "MINIMAP_UPDATE_TRACKING",
     "QUEST_ACCEPTED",
     "QUEST_TURNED_IN",
+    "QUEST_REMOVED",
     "PLAYER_DEAD",
     "PLAYER_ALIVE",
     "PLAYER_UNGHOST",
@@ -254,6 +255,12 @@ function Compass:OnEvent(event, payload)
     end
     if event == "PLAYER_ENTERING_WORLD" then
         self:RefreshInstanceState()
+    end
+    -- Сдача и отмена сразу снимают значок, повторное принятие снова его разрешает.
+    if event == "QUEST_ACCEPTED" then
+        self:ForgetRetiredQuest(payload)
+    elseif event == "QUEST_TURNED_IN" or event == "QUEST_REMOVED" or event == "WORLD_QUEST_COMPLETED_BY_SPELL" then
+        self:RememberRetiredQuest(payload)
     end
     if event == "UI_SCALE_CHANGED" or event == "DISPLAY_SIZE_CHANGED" then
         self.headingsDirty = true

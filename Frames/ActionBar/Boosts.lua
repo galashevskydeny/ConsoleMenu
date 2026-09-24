@@ -86,8 +86,11 @@ local function GetBoostTexture(slotID)
         end
     end
 
-    if not textureFileID then
-        textureFileID = C_ActionBar.GetActionTexture(slotID)
+    if not textureFileID and C_ActionBar and C_ActionBar.GetActionTexture then
+        local ok, result = pcall(C_ActionBar.GetActionTexture, slotID)
+        if ok then
+            textureFileID = result
+        end
     end
 
     if textureFileID and issecretvalue and issecretvalue(textureFileID) then
@@ -346,9 +349,29 @@ end
 
 -- Значок рычага гаснет в начале разлёта и появляется лишь к концу сбора.
 -- Подсказка всегда сидит на облаке и плавно сдвигается вместе с раскладкой, без скачка на значок дополнительного действия.
+-- Прячет подсказку правого рычага.
+local function HideBoostStickHint(boosts)
+    local hint = boosts and boosts.stickHint
+    if not hint then
+        return
+    end
+    hint:SetAlpha(0)
+    if hint:IsShown() then
+        hint:Hide()
+    end
+end
+
+-- Значок рычага гаснет в начале разлёта и появляется лишь к концу сбора.
+-- Подсказка всегда сидит на облаке и плавно сдвигается вместе с раскладкой, без скачка на значок дополнительного действия.
 local function ApplyBoostStickHint(boosts)
     local hint = boosts.stickHint
     if not hint then
+        return
+    end
+
+    -- В исследовании при исчезновении облака букву R не показываем.
+    if boosts.exploringHidePending then
+        HideBoostStickHint(boosts)
         return
     end
 
@@ -527,9 +550,65 @@ end
 
 local HideFrameThen
 
+-- Длительность гашения в исследовании: пока значки летят по дуге, панель гаснет вместе с ними.
+local function GetExploringHideDuration(boosts)
+    if boosts and (boosts.target or 0) == 0 and (boosts.duration or 0) > 0 then
+        local remaining = boosts.duration - (boosts.elapsed or 0)
+        if remaining > 0.16 then
+            return remaining
+        end
+    end
+    return 0.16
+end
+
+-- Возвращает длительность затухания панели к обычной.
+local function RestoreActionBarFadeDuration()
+    local frame = ActionBar.GetFrame()
+    if frame and frame.fadeOut and frame.fadeOut.alpha then
+        frame.fadeOut.alpha:SetDuration(ActionBar.animationDuration or 0.05)
+    end
+    local boosts = GetBoosts()
+    if boosts and boosts.frame and boosts.frame.fadeOut and boosts.frame.fadeOut.alpha then
+        boosts.frame.fadeOut.alpha:SetDuration(0.16)
+    end
+end
+
+-- Останавливает затухание рамки, чтобы отменённое гашение не довело её до скрытия.
+local function StopFade(frame)
+    if not frame or not frame.fadeOut then
+        return
+    end
+    frame.fadeOut:Stop()
+    frame.fadeOut:SetScript("OnFinished", nil)
+end
+
+-- Прерывает гашение облака, если действие вернулось или режим уже не исследование.
+local function CancelExploringCloudHide(boosts)
+    if not boosts or not boosts.exploringHidePending then
+        return false
+    end
+    boosts.exploringHidePending = nil
+    boosts.exploringHideToken = (boosts.exploringHideToken or 0) + 1
+    RestoreActionBarFadeDuration()
+    local barFrame = ActionBar.GetFrame()
+    StopFade(barFrame)
+    StopFade(boosts.frame)
+    if barFrame then
+        ConsoleMenu:AnimatedShow(barFrame)
+    end
+    return true
+end
+
 -- После общего затухания в исследовании сбрасываем дополнительное действие.
-local function ClearExtraAfterExploringHide(boosts)
+local function ClearExtraAfterExploringHide(boosts, token)
     if not boosts then
+        return
+    end
+    -- Старый обратный вызов не должен стереть облако, если гашение уже отменили.
+    if token and boosts.exploringHideToken ~= token then
+        return
+    end
+    if not boosts.exploringHidePending then
         return
     end
     boosts.exploringHidePending = nil
@@ -537,6 +616,12 @@ local function ClearExtraAfterExploringHide(boosts)
     boosts.layoutTarget = 0
     boosts.layoutDuration = 0
     boosts.layoutElapsed = 0
+    boosts.progress = 0
+    boosts.target = 0
+    boosts.startProgress = 0
+    boosts.elapsed = 0
+    boosts.duration = 0
+    boosts.captionHidePending = nil
     local extra = boosts.extraIcon
     if extra then
         extra.wanted = false
@@ -551,34 +636,35 @@ local function ClearExtraAfterExploringHide(boosts)
     end
 end
 
--- В исследовании облако и дополнительная кнопка гаснут вместе, без отдельного сжатия значка.
+-- В исследовании облако и дополнительная кнопка гаснут вместе со сбором по дуге.
 local function BeginExploringCloudHide(boosts)
     if not boosts or boosts.exploringHidePending then
         return
     end
     boosts.exploringHidePending = true
-    if boosts.frame then
-        boosts.frame:SetScript("OnUpdate", nil)
-    end
+    boosts.exploringHideToken = (boosts.exploringHideToken or 0) + 1
+    local token = boosts.exploringHideToken
+    HideBoostStickHint(boosts)
+    -- Цикл не останавливаем: значки должны долететь по дуге, пока панель уже гаснет.
 
     local frame = ActionBar.GetFrame()
+    local fadeDuration = GetExploringHideDuration(boosts)
     local function onDone()
-        ClearExtraAfterExploringHide(boosts)
+        RestoreActionBarFadeDuration()
+        ClearExtraAfterExploringHide(boosts, token)
     end
 
     if frame and frame:IsShown() then
         if frame.fadeOut and frame.fadeOut.alpha then
-            frame.fadeOut.alpha:SetDuration(0.16)
+            frame.fadeOut.alpha:SetDuration(fadeDuration)
         end
-        HideFrameThen(frame, function()
-            if frame.fadeOut and frame.fadeOut.alpha then
-                frame.fadeOut.alpha:SetDuration(ActionBar.animationDuration or 0.05)
-            end
-            onDone()
-        end)
+        HideFrameThen(frame, onDone)
         return
     end
     if boosts.frame and boosts.frame:IsShown() then
+        if boosts.frame.fadeOut and boosts.frame.fadeOut.alpha then
+            boosts.frame.fadeOut.alpha:SetDuration(fadeDuration)
+        end
         HideFrameThen(boosts.frame, onDone)
         return
     end
@@ -747,6 +833,17 @@ function ActionBar.OnBoostsUpdate(elapsed)
     ApplyBoostStickHint(boosts)
     ApplyCloudHalo(boosts)
 
+    if boosts.exploringHidePending then
+        return
+    end
+
+    -- В исследовании гасим панель сразу, пока значки ещё летят обратно по дуге.
+    local extraWanted = extra and extra.wanted
+    if IsExploringWithoutShift() and not extraWanted then
+        BeginExploringCloudHide(boosts)
+        return
+    end
+
     if not ActionBar.HasVisibleBoosts() then
         boosts.frame:SetScript("OnUpdate", nil)
         ConsoleMenu:AnimatedHide(boosts.frame)
@@ -766,16 +863,41 @@ local function SetBoostsUpdating(boosts, enabled)
     end
 end
 
+-- Значки ещё летят по дуге или ждут гашения подписей перед сбором.
+function ActionBar.IsBoostMotionActive()
+    local boosts = GetBoosts()
+    if not boosts then
+        return false
+    end
+    if boosts.captionHidePending then
+        return true
+    end
+    if (boosts.duration or 0) > 0 then
+        return true
+    end
+    if (boosts.target or 0) == 1 then
+        return true
+    end
+    if (boosts.progress or 0) > 0.001 then
+        return true
+    end
+    return false
+end
+
 -- Есть ли в облаке хотя бы один заполненный значок.
 function ActionBar.HasVisibleBoosts()
     local boosts = GetBoosts()
     if not boosts then
         return false
     end
-    if boosts.exploringHidePending then
+    -- Пока облако гаснет в исследовании, его считаем скрытым. В бою это уже не должно его прятать.
+    if boosts.exploringHidePending and IsExploringWithoutShift() then
         return false
     end
     if boosts.extraIcon and (boosts.extraIcon.filled or boosts.extraIcon.wanted or (boosts.layoutMix or 0) > 0.001) then
+        return true
+    end
+    if ActionBar.IsBoostMotionActive() then
         return true
     end
     if IsExploringWithoutShift() then
@@ -795,7 +917,7 @@ function ActionBar.HasVisibleExtraAction()
     if not boosts or not boosts.extraIcon then
         return false
     end
-    if boosts.exploringHidePending then
+    if boosts.exploringHidePending and IsExploringWithoutShift() then
         return false
     end
     return boosts.extraIcon.wanted == true or boosts.extraIcon.filled == true or (boosts.layoutMix or 0) > 0.001
@@ -901,6 +1023,26 @@ local function UpdateBoostIconCooldown(icon)
     end
 end
 
+-- Значение скрыто, по нему нельзя решать, пуста ли ячейка.
+local function IsSecretValue(value)
+    return value ~= nil and issecretvalue and issecretvalue(value)
+end
+
+-- Есть ли действие в ячейке облака. Пустой ответ оставляем без изменений.
+local function SlotHasAction(slotID)
+    if not slotID or not C_ActionBar or not C_ActionBar.HasAction then
+        return false
+    end
+    local ok, hasAction = pcall(C_ActionBar.HasAction, slotID)
+    if not ok then
+        return nil
+    end
+    if IsSecretValue(hasAction) then
+        return true
+    end
+    return hasAction == true
+end
+
 -- Текстура, видимость и пригодность одного значка облака.
 local function UpdateBoostIcon(icon)
     local slotID = icon.slotID
@@ -908,7 +1050,10 @@ local function UpdateBoostIcon(icon)
     if icon.isExtra then
         hasAction = ActionBar.HasExtraAction()
     else
-        hasAction = C_ActionBar.HasAction(slotID)
+        hasAction = SlotHasAction(slotID)
+        if hasAction == nil then
+            return
+        end
     end
     local textureFileID, isSecret = GetBoostTexture(slotID)
 
@@ -917,7 +1062,11 @@ local function UpdateBoostIcon(icon)
     end
 
     if not hasAction or not textureFileID then
-        if InCombatLockdown and InCombatLockdown() and hasAction then
+        -- Ячейка заполнена, а значок ещё не готов: оставляем прошлую картинку, иначе облако мигает.
+        if hasAction then
+            if icon.isExtra then
+                icon.wanted = true
+            end
             return
         end
         if icon.isExtra then
@@ -976,17 +1125,19 @@ function ActionBar.UpdateBoosts()
         end
         UpdateBoostIcon(extra)
         if extra.wanted then
-            if boosts.exploringHidePending then
-                boosts.exploringHidePending = nil
+            CancelExploringCloudHide(boosts)
+            BeginLayoutMotion(boosts, 1)
+            -- Показываем панель только если её ещё нет на экране, иначе сбивается затухание.
+            if IsExploringWithoutShift() then
                 local barFrame = ActionBar.GetFrame()
-                if barFrame and barFrame.fadeOut and barFrame.fadeOut.alpha then
-                    barFrame.fadeOut.alpha:SetDuration(ActionBar.animationDuration or 0.05)
+                if barFrame and not barFrame:IsShown() then
+                    ConsoleMenu:AnimatedShow(barFrame)
                 end
             end
-            BeginLayoutMotion(boosts, 1)
         elseif IsExploringWithoutShift() then
             BeginExploringCloudHide(boosts)
         else
+            CancelExploringCloudHide(boosts)
             BeginLayoutMotion(boosts, 0)
         end
     end
@@ -999,8 +1150,13 @@ function ActionBar.UpdateBoosts()
 
     local layoutBusy = (boosts.layoutDuration or 0) > 0
         or math.abs((boosts.layoutMix or 0) - (boosts.layoutTarget or 0)) > 0.001
-    if boosts.exploringHidePending then
+    if boosts.exploringHidePending and IsExploringWithoutShift() then
+        -- Гашение уже идёт: значки продолжают лететь по дуге, пока панель затухает.
+        SetBoostsUpdating(boosts, true)
         return
+    end
+    if boosts.exploringHidePending then
+        CancelExploringCloudHide(boosts)
     end
     if ActionBar.HasVisibleBoosts() or layoutBusy then
         ConsoleMenu:AnimatedShow(boosts.frame)

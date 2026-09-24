@@ -14,6 +14,8 @@ Compass.nearbyFrozenPositions, Compass.nearbyDeferredKeys, Compass.nearbyLiveKey
 Compass.hideNavigationOnBar = false
 -- Устойчивый признак области задания: не меняется от разового сбоя на границе.
 Compass.questAreaState = {}
+-- Сданные и отменённые задания: значок скрыт, пока карта и журнал ещё сообщают о них.
+Compass.retiredQuests = {}
 
 -- Числа внешнего вида и работы полосы.
 Compass.Constants = {
@@ -128,6 +130,7 @@ Compass.Constants = {
     WORLD_QUEST_PRIORITY = 5,
     POI_PRIORITY = 6,
     FALLBACK_ATLAS = "Waypoint-MapPin-Untracked",
+    WAYPOINT_TRACKED_ATLAS = "Waypoint-MapPin-Tracked", -- Жёлтый значок выбранной путевой точки, как на карте.
     SHADOW_OFFSET = 1,
     WAYPOINT_MATCH_EPSILON = 0.00001,
     PEEK_DESTINATION_EPSILON = 0.00001,
