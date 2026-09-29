@@ -97,13 +97,22 @@ local standardUISettings = {
 local keyBindingSettings = {
     { name = "Способность области", variable = "overrideZoneAbilityKey", default = 2, tooltip = "Если включено, выбранная кнопка автоматически использует способность области, если она доступна.", options = toggleOptions },
     { name = "Схема привязки контроллера", variable = "keyBindingScheme", default = 2, tooltip = "Выберите схему привязки игровых клавиш контроллера к действиям в игре.", options = { "Авторская", "Вручную" } },
-    { name = "Вибрация контроллера", variable = "controllerVibration", default = 2, tooltip = "Управляет вибрацией контроллера при использовании способностей.", options = { "Нет", "При усилении активной способности" } },
     { name = "Макросы панели исследования", variable = "actionBarPageExploring", default = 2, tooltip = "Устанавливает фиксированный набор преднастроенных макросов для панели исследования открытого мира.", options = toggleOptions },  
     { name = "Макросы панели общения с игроком", variable = "actionBarPagePlayerInteraction", default = 2, tooltip = "Устанавливает фиксированный набор преднастроенных макросов для панели общения с игроком.", options = toggleOptions },
     { name = "Макросы панели верховой езды", variable = "actionBarPageMount", default = 2, tooltip = "Устанавливает фиксированный набор преднастроенных макросов для панели верховой езды.", options = toggleOptions },
     { name = "Способности и макросы панели полета на драконе", variable = "actionBarPageDragonriding", default = 2, tooltip = "Устанавливает фиксированный набор преднастроенных способностей и макросов для панели полета на драконе.", options = toggleOptions }, 
     { name = "Переопределять кнопку при произнесении заклинания", variable = "overrideStopCastingKey", default = 1, tooltip = "Если включено, выбранная кнопка автоматически используется для остановки заклинания (действует только вне боя).", options = toggleOptions },
     { name = "Дополнительная кнопка действия", variable = "overrideExtraActionKey", default = 1, tooltip = "Если включено, выбранная кнопка автоматически использует дополнительную кнопку действия, когда она появляется на экране.", options = toggleOptions },
+}
+
+-- Как персонаж смотрит во время движения: по ходу, по камере, как в игре или без вмешательства.
+local faceMovementOptions = { "По умолчанию", "Разворачивается и бежит", "Идёт боком и пятится", "Не влиять" }
+
+-- Настройки геймпада
+local gamepadSettings = {
+    { name = "Движение вне боя", variable = "gamePadFaceMovement", default = 4, tooltip = "«Разворачивается и бежит» поворачивает персонажа в любую сторону движения, в том числе назад. «Идёт боком и пятится» оставляет взгляд по камере: в стороны он идёт боком, назад отступает.", options = faceMovementOptions },
+    { name = "Движение в бою", variable = "gamePadFaceMovementCombat", default = 4, tooltip = "То же поведение в бою. «Разворачивается и бежит» поворачивает персонажа в любую сторону. «Идёт боком и пятится» оставляет взгляд по камере.", options = faceMovementOptions },
+    { name = "Вибрация", variable = "controllerVibration", default = 2, tooltip = "Короткая вибрация геймпада, когда способность вспыхивает и её можно применить.", options = { "Нет", "При вспышке способности" } },
 }
 
 -- Настройки контекстов
@@ -117,6 +126,71 @@ local contextsSettings = {
 -- Настройки камеры
 local cameraSettings = {
     { name = "Автоматическая дистанция камеры", variable = "cameraControlEnable", default = 2, tooltip = "Камера сама подстраивается при входе в игру, посадке и спешивании.", options = toggleOptions },
+}
+
+-- Объём памяти для текстур внешности: первый пункт, 32 МБ, выбран по умолчанию.
+local textureCacheSizeOptions = { "32 МБ", "64 МБ", "128 МБ", "256 МБ", "512 МБ", "1024 МБ" }
+-- Первый пункт не меняет уже записанное значение клиента.
+local leaveClientOptions = { "Не влиять", "Выключено", "Включено" }
+local shadowModeOptions = { "Не влиять", "Только пятно", "Рядом с персонажем", "Статичное окружение", "Полный пересчёт" }
+local shadowTextureSizeOptions = { "Не влиять", "1024", "2048" }
+local shadowCascadeOptions = { "Не влиять", "1", "2", "3", "4" }
+
+-- Настройки внешности на странице графики.
+local graphicsSettings = {
+    {
+        name = "Кэш текстур внешности",
+        variable = "componentTexCacheSize",
+        default = 1,
+        tooltip = "Объём памяти для собранных текстур внешности персонажей. Новый объём начинает действовать после полного перезапуска игры.",
+        options = textureCacheSizeOptions,
+    },
+    {
+        name = "Сборка внешности в отдельном потоке",
+        variable = "componentThread",
+        default = 1,
+        tooltip = "Собирает текстуры внешности персонажей отдельно от кадра. Выключенное значение делает это в самом кадре и может дёргать картинку в толпе.",
+        options = leaveClientOptions,
+    },
+}
+
+-- Настройки теней на той же странице, под отдельным заголовком.
+local shadowSettings = {
+    {
+        name = "Мягкие тени",
+        variable = "shadowSoft",
+        default = 1,
+        tooltip = "Размывает края теней.",
+        options = leaveClientOptions,
+    },
+    {
+        name = "Режим теней",
+        variable = "shadowMode",
+        default = 1,
+        tooltip = "Пятно под персонажем, тени только рядом с ним, статичные тени окружения или полный пересчёт теней у новых объектов.",
+        options = shadowModeOptions,
+    },
+    {
+        name = "Размер карты теней",
+        variable = "shadowTextureSize",
+        default = 1,
+        tooltip = "Размер карты, в которую рисуются тени. Больший размер даёт более чёткие края и сильнее нагружает кадр.",
+        options = shadowTextureSizeOptions,
+    },
+    {
+        name = "Слои теней",
+        variable = "shadowNumCascades",
+        default = 1,
+        tooltip = "Сколько слоёв тени покрывают дальнюю дистанцию. Меньше слоёв легче для быстрого полёта.",
+        options = shadowCascadeOptions,
+    },
+    {
+        name = "Сглаживание стыков теней",
+        variable = "shadowBlendCascades",
+        default = 1,
+        tooltip = "Сглаживает видимый стык между слоями теней.",
+        options = leaveClientOptions,
+    },
 }
 
 -- Настройки заданий
@@ -228,15 +302,15 @@ local function registerContextsOptions(category, layout)
 
     layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Исследование открытого мира"))
 
-    registerDropdown(category, keyBindingSettings[4], function(value)
-        ConsoleMenuDB[keyBindingSettings[4].variable] = value
+    registerDropdown(category, keyBindingSettings[3], function(value)
+        ConsoleMenuDB[keyBindingSettings[3].variable] = value
         if _G.ApplyMacroSettings then
             _G.ApplyMacroSettings()
         end
     end)
 
-    registerDropdown(category, keyBindingSettings[5], function(value)
-        ConsoleMenuDB[keyBindingSettings[5].variable] = value
+    registerDropdown(category, keyBindingSettings[4], function(value)
+        ConsoleMenuDB[keyBindingSettings[4].variable] = value
         if _G.ApplyMacroSettings then
             _G.ApplyMacroSettings()
         end
@@ -258,15 +332,15 @@ local function registerContextsOptions(category, layout)
         ConsoleMenuDB[contextsSettings[2].variable] = value
     end)
 
-    registerDropdown(category, keyBindingSettings[6], function(value)
-        ConsoleMenuDB[keyBindingSettings[6].variable] = value
+    registerDropdown(category, keyBindingSettings[5], function(value)
+        ConsoleMenuDB[keyBindingSettings[5].variable] = value
         if _G.ApplyMacroSettings then
             _G.ApplyMacroSettings()
         end
     end)
 
-    registerDropdown(category, keyBindingSettings[7], function(value)
-        ConsoleMenuDB[keyBindingSettings[7].variable] = value
+    registerDropdown(category, keyBindingSettings[6], function(value)
+        ConsoleMenuDB[keyBindingSettings[6].variable] = value
         if _G.ApplyMacroSettings then
             _G.ApplyMacroSettings()
         end
@@ -277,8 +351,8 @@ end
 local function registerKeyBindingOptions(category, layout)
     layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Прерывание заклинания (вне боя)"))
 
-    registerDropdown(category, keyBindingSettings[8], function(value)
-        ConsoleMenuDB[keyBindingSettings[8].variable] = value
+    registerDropdown(category, keyBindingSettings[7], function(value)
+        ConsoleMenuDB[keyBindingSettings[7].variable] = value
     end)
 
     registerKeyBindingPicker(
@@ -304,8 +378,8 @@ local function registerKeyBindingOptions(category, layout)
         end
     end)
 
-    registerDropdown(category, keyBindingSettings[9], function(value)
-        ConsoleMenuDB[keyBindingSettings[9].variable] = value
+    registerDropdown(category, keyBindingSettings[8], function(value)
+        ConsoleMenuDB[keyBindingSettings[8].variable] = value
         if ConsoleMenu and ConsoleMenu.SetBindingsExtraAction then
             ConsoleMenu:SetBindingsExtraAction()
         end
@@ -321,10 +395,6 @@ local function registerKeyBindingOptions(category, layout)
         if ConsoleMenu and ConsoleMenu.SetBaseKeyBindings then
             ConsoleMenu:SetBaseKeyBindings()
         end
-    end)
-
-    registerDropdown(category, keyBindingSettings[3], function(value)
-        ConsoleMenuDB[keyBindingSettings[3].variable] = value
     end)
 
     local clearBindingsInitializer = CreateSettingsButtonInitializer(
@@ -343,6 +413,13 @@ local function registerKeyBindingOptions(category, layout)
 
     layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Страницы и макросы"))
 
+    registerDropdown(category, keyBindingSettings[3], function(value)
+        ConsoleMenuDB[keyBindingSettings[3].variable] = value
+        if _G.ApplyMacroSettings then
+            _G.ApplyMacroSettings()
+        end
+    end)
+
     registerDropdown(category, keyBindingSettings[4], function(value)
         ConsoleMenuDB[keyBindingSettings[4].variable] = value
         if _G.ApplyMacroSettings then
@@ -359,13 +436,6 @@ local function registerKeyBindingOptions(category, layout)
 
     registerDropdown(category, keyBindingSettings[6], function(value)
         ConsoleMenuDB[keyBindingSettings[6].variable] = value
-        if _G.ApplyMacroSettings then
-            _G.ApplyMacroSettings()
-        end
-    end)
-
-    registerDropdown(category, keyBindingSettings[7], function(value)
-        ConsoleMenuDB[keyBindingSettings[7].variable] = value
         if _G.ApplyMacroSettings then
             _G.ApplyMacroSettings()
         end
@@ -412,6 +482,41 @@ local function registerCameraOptions(category, layout)
     end
 end
 
+-- Регистрирует раздел геймпада и сразу применяет выбранный разворот.
+local function registerGamepadOptions(category)
+    for _, setting in ipairs(gamepadSettings) do
+        local current = setting
+        registerDropdown(category, current, function(value)
+            ConsoleMenuDB[current.variable] = value
+            if current.variable ~= "controllerVibration" and _G.ApplyCVarSettings then
+                _G.ApplyCVarSettings()
+            end
+        end)
+    end
+end
+
+-- Записывает пункт графики и сразу применяет его к клиенту.
+local function registerGraphicsDropdown(category, setting)
+    registerDropdown(category, setting, function(value)
+        ConsoleMenuDB[setting.variable] = value
+        if _G.ApplyCVarSettings then
+            _G.ApplyCVarSettings()
+        end
+    end)
+end
+
+-- Регистрирует страницу графики: внешность сверху, тени отдельным блоком.
+local function registerGraphicsOptions(category, layout)
+    for _, setting in ipairs(graphicsSettings) do
+        registerGraphicsDropdown(category, setting)
+    end
+
+    layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Тени"))
+    for _, setting in ipairs(shadowSettings) do
+        registerGraphicsDropdown(category, setting)
+    end
+end
+
 local function RegisterOptions()
     if not Settings then
         return false
@@ -429,6 +534,9 @@ local function RegisterOptions()
     local keyBindingsCategory, keyBindingsLayout = Settings.RegisterVerticalLayoutSubcategory(mainCategory, "Настройка клавиш")
     registerKeyBindingOptions(keyBindingsCategory, keyBindingsLayout)
 
+    local gamepadCategory = Settings.RegisterVerticalLayoutSubcategory(mainCategory, "Геймпад")
+    registerGamepadOptions(gamepadCategory)
+
     local contextsCategory, contextsLayout = Settings.RegisterVerticalLayoutSubcategory(mainCategory, "Ситуации")
     registerContextsOptions(contextsCategory, contextsLayout)
 
@@ -437,6 +545,9 @@ local function RegisterOptions()
 
     local cameraCategory, cameraLayout = Settings.RegisterVerticalLayoutSubcategory(mainCategory, "Камера")
     registerCameraOptions(cameraCategory, cameraLayout)
+
+    local graphicsCategory, graphicsLayout = Settings.RegisterVerticalLayoutSubcategory(mainCategory, "Графика")
+    registerGraphicsOptions(graphicsCategory, graphicsLayout)
 
     Settings.RegisterAddOnCategory(mainCategory)
 

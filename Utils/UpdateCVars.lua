@@ -121,6 +121,37 @@ local function ResetUnitNameSettings()
     SetCVar("UnitNameInteractiveNPC", GetCVarDefault("UnitNameInteractiveNPC"))
 end
 
+-- Объёмы кэша текстур внешности в том же порядке, что и пункты настройки. Первый — 32 МБ.
+local TEXTURE_CACHE_SIZES = { 32, 64, 128, 256, 512, 1024 }
+
+-- Записывает выбранный объём памяти для текстур внешности персонажей.
+local function ApplyTextureCacheSize()
+    local choice = ConsoleMenuDB.componentTexCacheSize
+    local size = TEXTURE_CACHE_SIZES[choice] or TEXTURE_CACHE_SIZES[1]
+    SetCVar("componentTexCacheSize", size)
+end
+
+-- Значения пунктов графики. Первый пункт «Не влиять» в список не входит.
+local GRAPHICS_CHOICES = {
+    componentThread = { 0, 1 },
+    shadowSoft = { 0, 1 },
+    shadowMode = { 0, 1, 2, 3 },
+    shadowTextureSize = { 1024, 2048 },
+    shadowNumCascades = { 1, 2, 3, 4 },
+    shadowBlendCascades = { 0, 1 },
+}
+
+-- Записывает выбранные параметры теней и сборки внешности. «Не влиять» клиент не трогает.
+local function ApplyGraphicsChoices()
+    for name, values in pairs(GRAPHICS_CHOICES) do
+        local choice = ConsoleMenuDB[name]
+        local value = choice and values[choice - 1]
+        if value ~= nil then
+            SetCVar(name, value)
+        end
+    end
+end
+
 -- Отключает режим контуров графики
 local function SetGraphicsOutlineMode()
     SetCVar("graphicsOutlineMode", 0)
@@ -149,6 +180,22 @@ local function ResetMacBookSettings()
     SetCVar("NotchedDisplayMode", GetCVarDefault("NotchedDisplayMode"))
 end
 
+-- Угол, при котором персонаж всегда смотрит в сторону движения стика.
+local FACE_MOVEMENT_ANGLE = 0
+-- Угол, при котором персонаж пятится и идёт боком, не разворачиваясь.
+local BACKPEDAL_ANGLE = 180
+
+-- Записывает угол разворота по левому стику. Пункт «Не влиять» переменную не трогает.
+local function ApplyFaceMovementChoice(choice, cvarName)
+    if choice == 1 then
+        SafeSetCVar(cvarName, GetCVarDefault(cvarName))
+    elseif choice == 2 then
+        SafeSetCVar(cvarName, FACE_MOVEMENT_ANGLE)
+    elseif choice == 3 then
+        SafeSetCVar(cvarName, BACKPEDAL_ANGLE)
+    end
+end
+
 -- Применяет настройки GamePad CVars
 local function ApplyGamePadCVars()
     SafeSetCVar("GamePadEnable", "1")
@@ -157,6 +204,11 @@ local function ApplyGamePadCVars()
 
     SafeSetCVar("GamePadCursorLeftClick", "PAD1")
     SafeSetCVar("GamePadCursorRightClick", "PAD3")
+
+    if ConsoleMenuDB then
+        ApplyFaceMovementChoice(ConsoleMenuDB.gamePadFaceMovement, "GamePadFaceMovementMaxAngle")
+        ApplyFaceMovementChoice(ConsoleMenuDB.gamePadFaceMovementCombat, "GamePadFaceMovementMaxAngleCombat")
+    end
 end
 
 -- Применяет настройки CVars на основе значений в ConsoleMenuDB
@@ -206,7 +258,9 @@ local function ApplyCVarSettings()
     elseif ConsoleMenuDB.hideGraphicsOutlineMode == 2 then
         SetGraphicsOutlineMode()
     end
-    
+
+    ApplyTextureCacheSize()
+    ApplyGraphicsChoices()
 end
 
 -- Делаем функции доступными глобально
