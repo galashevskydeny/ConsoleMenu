@@ -2119,16 +2119,16 @@ function Compass:RenderMarker(button, marker, x, alpha, markerY, outline, scale)
     end
     if not button.contentPlaying then
         if arrived then
-            -- Пока проявляется полоса, подписи остаются на экране, прозрачность — в цвете текста.
+            -- Пока проявляется полоса, подпись гаснет вместе с ней. В цвете только тусклость второй строки.
             if self:IsFadeInPlaying() then
                 if wantLabels then
-                    StopLabelFade(button)
-                    if button.labelFrame then
-                        button.labelFrame:SetAlpha(1)
-                        button.labelFrame:Show()
+                    local frame = button.labelFrame
+                    if frame and not button.labelShown then
+                        StopLabelFade(button)
+                        frame:Show()
+                        button.labelShown = true
                     end
-                    ApplyNearbyLabelColors(button, MarkerFrameAlpha(self.frame))
-                    button.labelShown = true
+                    ApplyNearbyLabelColors(button)
                 else
                     SetNearbyLabelsShown(button, false)
                 end
