@@ -180,42 +180,51 @@ local function ResetMacBookSettings()
     SetCVar("NotchedDisplayMode", GetCVarDefault("NotchedDisplayMode"))
 end
 
--- Угол, при котором персонаж всегда смотрит в сторону движения стика.
-local FACE_MOVEMENT_ANGLE = 0
--- Угол, при котором персонаж пятится и идёт боком, не разворачиваясь.
-local BACKPEDAL_ANGLE = 180
-
--- Записывает угол разворота по левому стику. Пункт «Не влиять» переменную не трогает.
-local function ApplyFaceMovementChoice(choice, cvarName)
+-- Записывает, остаётся ли персонаж в центре кадра. Пункт «Не влиять» переменную не трогает.
+local function ApplyCharacterCenteredChoice(choice)
     if choice == 1 then
-        SafeSetCVar(cvarName, GetCVarDefault(cvarName))
+        SafeSetCVar("CameraKeepCharacterCentered", GetCVarDefault("CameraKeepCharacterCentered"))
     elseif choice == 2 then
-        SafeSetCVar(cvarName, FACE_MOVEMENT_ANGLE)
+        SafeSetCVar("CameraKeepCharacterCentered", 1)
     elseif choice == 3 then
-        SafeSetCVar(cvarName, BACKPEDAL_ANGLE)
+        SafeSetCVar("CameraKeepCharacterCentered", 0)
+    end
+end
+
+-- Записывает направление хода по левому рычагу. Пункт «Не влиять» переменную не трогает.
+local function ApplyAnalogMovementChoice(choice)
+    if choice == 1 then
+        SafeSetCVar("GamePadAnalogMovement", GetCVarDefault("GamePadAnalogMovement"))
+    elseif choice == 2 then
+        SafeSetCVar("GamePadAnalogMovement", 1)
+    elseif choice == 3 then
+        SafeSetCVar("GamePadAnalogMovement", 0)
     end
 end
 
 -- Применяет настройки GamePad CVars
 local function ApplyGamePadCVars()
     SafeSetCVar("GamePadEnable", "1")
-    -- SafeSetCVar("GamePadEmulateShift", "PADRSHOULDER")
     SafeSetCVar("GamePadEmulateCtrl", "PADLSHOULDER")
 
     SafeSetCVar("GamePadCursorLeftClick", "PAD1")
     SafeSetCVar("GamePadCursorRightClick", "PAD3")
 
     if ConsoleMenuDB then
-        ApplyFaceMovementChoice(ConsoleMenuDB.gamePadFaceMovement, "GamePadFaceMovementMaxAngle")
-        ApplyFaceMovementChoice(ConsoleMenuDB.gamePadFaceMovementCombat, "GamePadFaceMovementMaxAngleCombat")
+        ApplyAnalogMovementChoice(ConsoleMenuDB.gamePadAnalogMovement)
     end
 end
 
+-- Не даёт повторному применению из смены пункта зайти в ту же запись.
+local applyingCVarSettings = false
+
 -- Применяет настройки CVars на основе значений в ConsoleMenuDB
 local function ApplyCVarSettings()
-    if not ConsoleMenuDB then
+    if applyingCVarSettings or not ConsoleMenuDB then
         return
     end
+
+    applyingCVarSettings = true
 
     ApplyGamePadCVars()
     
@@ -261,6 +270,8 @@ local function ApplyCVarSettings()
 
     ApplyTextureCacheSize()
     ApplyGraphicsChoices()
+    ApplyCharacterCenteredChoice(ConsoleMenuDB.cameraKeepCharacterCentered)
+    applyingCVarSettings = false
 end
 
 -- Делаем функции доступными глобально
@@ -274,11 +285,6 @@ local function SetBaseSoftTargetSettings()
     SafeSetCVar("SoftTargetIconInteract", 0)
     SafeSetCVar("SoftTargetForce", 0)
     SafeSetCVar("SoftTargetEnemy", 1)
-
-    if ConsoleMenuDB.softTargetFriendRange == 1 then
-        SafeSetCVar("SoftTargetFriendRange", 5)
-        SafeSetCVar("SoftTargetInteractRange", 5)
-    end
 end
 
 -- Возвращает настройки soft target к значениям по умолчанию
@@ -288,7 +294,6 @@ local function ResetBaseSoftTargetSettings()
     SafeSetCVar("SoftTargetIconInteract", GetCVarDefault("SoftTargetIconInteract"))
     SafeSetCVar("SoftTargetForce", GetCVarDefault("SoftTargetForce"))
     SafeSetCVar("SoftTargetEnemy", GetCVarDefault("SoftTargetEnemy"))
-    SafeSetCVar("SoftTargetFriendRange", GetCVarDefault("SoftTargetFriendRange"))
 end
 
 local function ApplyGamePadAndSoftTargetCVars()

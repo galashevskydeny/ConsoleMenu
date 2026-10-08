@@ -105,26 +105,26 @@ local keyBindingSettings = {
     { name = "Дополнительная кнопка действия", variable = "overrideExtraActionKey", default = 1, tooltip = "Если включено, выбранная кнопка автоматически использует дополнительную кнопку действия, когда она появляется на экране.", options = toggleOptions },
 }
 
--- Как персонаж смотрит во время движения: по ходу, по камере, как в игре или без вмешательства.
-local faceMovementOptions = { "По умолчанию", "Разворачивается и бежит", "Идёт боком и пятится", "Не влиять" }
+-- Куда ведёт левый рычаг: в любую сторону, только по восьми направлениям, как в игре или без вмешательства.
+local analogMovementOptions = { "По умолчанию", "В любую сторону", "Только по восьми направлениям", "Не влиять" }
 
 -- Настройки геймпада
 local gamepadSettings = {
-    { name = "Движение вне боя", variable = "gamePadFaceMovement", default = 4, tooltip = "«Разворачивается и бежит» поворачивает персонажа в любую сторону движения, в том числе назад. «Идёт боком и пятится» оставляет взгляд по камере: в стороны он идёт боком, назад отступает.", options = faceMovementOptions },
-    { name = "Движение в бою", variable = "gamePadFaceMovementCombat", default = 4, tooltip = "То же поведение в бою. «Разворачивается и бежит» поворачивает персонажа в любую сторону. «Идёт боком и пятится» оставляет взгляд по камере.", options = faceMovementOptions },
+    { name = "Движение левым рычагом", variable = "gamePadAnalogMovement", default = 4, tooltip = "«В любую сторону» ведёт персонажа точно туда, куда отклонён рычаг. «Только по восьми направлениям» оставляет шаг вперёд, назад, в стороны и по диагоналям.", options = analogMovementOptions },
     { name = "Вибрация", variable = "controllerVibration", default = 2, tooltip = "Короткая вибрация геймпада, когда способность вспыхивает и её можно применить.", options = { "Нет", "При вспышке способности" } },
 }
 
 -- Настройки контекстов
 local contextsSettings = {
     { name = "Переключение страниц панели команд", variable = "actionBarPageSwitching", default = 2, tooltip = "Управляет переключением страниц панели команд автоматически в зависимости от контекста игрока (в бою, на транспорте, при рассмотрении дружественного игрока и другие).", options = toggleOptions },
-    { name = "Игнорировать противников при верховой езде", variable = "softTargetFlightSwitching", default = 2, tooltip = "Отключение Soft Target на противниках при верховой езде.", options = toggleOptions},
-    { name = "Игнорировать противников в зонах святилищ", variable = "softTargetSanctuarySwitching", default = 2, tooltip = "Отключение Soft Target на противниках в святилищах.", options = toggleOptions},
-    { name = "Малая дистанция обнаружения союзников", variable = "softTargetFriendRange", default = 2, tooltip = "Радиус фокусировки союзников (SoftTargetFriendRange).", options = toggleOptions},
 }
+
+-- Где в кадре стоит персонаж: в центре, со смещением, как в игре или без вмешательства.
+local characterCenteredOptions = { "По умолчанию", "В центре экрана", "Со смещением от центра", "Не влиять" }
 
 -- Настройки камеры
 local cameraSettings = {
+    { name = "Положение персонажа", variable = "cameraKeepCharacterCentered", default = 4, tooltip = "«В центре экрана» держит голову персонажа посередине. «Со смещением от центра» позволяет камере сдвинуть персонажа в сторону (CameraKeepCharacterCentered).", options = characterCenteredOptions },
     { name = "Автоматическая дистанция камеры", variable = "cameraControlEnable", default = 2, tooltip = "Камера сама подстраивается при входе в игру, посадке и спешивании.", options = toggleOptions },
 }
 
@@ -316,21 +316,7 @@ local function registerContextsOptions(category, layout)
         end
     end)
 
-    layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Исследование святилищ"))
-
-    registerDropdown(category, contextsSettings[3], function(value)
-        ConsoleMenuDB[contextsSettings[3].variable] = value
-    end)
-
-    registerDropdown(category, contextsSettings[4], function(value)
-        ConsoleMenuDB[contextsSettings[4].variable] = value
-    end)
-    
     layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Верховая езда"))
-    
-    registerDropdown(category, contextsSettings[2], function(value)
-        ConsoleMenuDB[contextsSettings[2].variable] = value
-    end)
 
     registerDropdown(category, keyBindingSettings[5], function(value)
         ConsoleMenuDB[keyBindingSettings[5].variable] = value
@@ -473,16 +459,19 @@ end
 
 local function registerCameraOptions(category, layout)
     for _, setting in ipairs(cameraSettings) do
-        registerDropdown(category, setting, function(value)
-            ConsoleMenuDB[setting.variable] = value
-            if setting.variable == "cameraControlEnable" and ConsoleMenu.OnCameraControlSettingChanged then
+        local current = setting
+        registerDropdown(category, current, function(value)
+            ConsoleMenuDB[current.variable] = value
+            if current.variable == "cameraControlEnable" and ConsoleMenu.OnCameraControlSettingChanged then
                 ConsoleMenu:OnCameraControlSettingChanged(value == 1)
+            elseif _G.ApplyCVarSettings then
+                _G.ApplyCVarSettings()
             end
         end)
     end
 end
 
--- Регистрирует раздел геймпада и сразу применяет выбранный разворот.
+-- Регистрирует раздел геймпада и сразу применяет выбранные переменные клиента.
 local function registerGamepadOptions(category)
     for _, setting in ipairs(gamepadSettings) do
         local current = setting

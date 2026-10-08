@@ -463,12 +463,12 @@ function ConsoleMenu:SetInteractBinding(newTarget)
     end
 end
 
--- Проверяет, включено ли переназначение тачпада на дополнительную кнопку действия
+-- Проверяет, включено ли переназначение сочетания R3 и L3 на дополнительную кнопку действия
 local function IsExtraActionOverrideEnabled()
     return not ConsoleMenuDB or ConsoleMenuDB.overrideExtraActionKey ~= 2
 end
 
--- Проверяет, что дополнительная кнопка сейчас должна занимать тачпад
+-- Проверяет, что дополнительная кнопка сейчас должна занимать сочетание R3 и L3
 function ConsoleMenu:HasActiveExtraActionOverride()
     return IsExtraActionOverrideEnabled() and C_ActionBar and C_ActionBar.HasExtraActionBar()
 end
@@ -495,27 +495,25 @@ local function GetExtraActionHintTitle()
     return "Дополнительное действие"
 end
 
--- Обновляет подсказку тачпада при появлении или скрытии дополнительной кнопки
+-- Обновляет подсказку сочетания R3 и L3 при появлении или скрытии дополнительной кнопки
 function ConsoleMenu:UpdateExtraActionKeyHint()
     local shouldShow = self:HasActiveExtraActionOverride()
     local newTitle = shouldShow and GetExtraActionHintTitle() or nil
 
     if extraActionHintTitle and extraActionHintTitle ~= newTitle then
-        ConsoleMenu:DeleteKeysFrameItem("PAD6", extraActionHintTitle)
-        ConsoleMenu:DeleteKeysFrameItem("PADBACK", extraActionHintTitle)
+        ConsoleMenu:DeleteKeysFrameItem("SHIFT-PADLSTICK", extraActionHintTitle)
         extraActionHintTitle = nil
     end
 
     if newTitle then
-        ConsoleMenu:AddKeysFrameItem("PAD6", newTitle)
-        ConsoleMenu:AddKeysFrameItem("PADBACK", newTitle)
+        ConsoleMenu:AddKeysFrameItem("SHIFT-PADLSTICK", newTitle)
         extraActionHintTitle = newTitle
     end
 
     ConsoleMenu:UpdateKeysFrame()
 end
 
--- Включает или выключает защищённое переназначение тачпада
+-- Включает или выключает защищённое переназначение сочетания R3 и L3
 function ConsoleMenu:SetBindingsExtraAction()
     local frame = self.ExtraActionBindingFrame
     if not frame then
@@ -540,30 +538,29 @@ function ConsoleMenu:SetBindingsExtraAction()
     self:UpdateExtraActionKeyHint()
 end
 
--- Назначает тачпад на дополнительную кнопку в защищённом обработчике
+-- Назначает сочетание R3 и L3 на дополнительную кнопку в защищённом обработчике.
+-- R3 удерживает Shift, поэтому сочетание записывается как Shift и нажатие левого рычага.
 local extraActionSecureSnippet = [[
     if self:GetAttribute("enabled") == 1 and newstate == "shown" then
-        self:SetBinding(true, "PAD6", "EXTRAACTIONBUTTON1")
-        self:SetBinding(true, "PADBACK", "EXTRAACTIONBUTTON1")
+        self:SetBinding(true, "SHIFT-PADLSTICK", "EXTRAACTIONBUTTON1")
     else
         self:ClearBindings()
     end
 ]]
 
--- Назначает тачпад при показе стандартной дополнительной кнопки
+-- Назначает сочетание R3 и L3 при показе стандартной дополнительной кнопки
 local extraActionShowSnippet = [[
     if owner:GetAttribute("enabled") == 1 then
-        owner:SetBinding(true, "PAD6", "EXTRAACTIONBUTTON1")
-        owner:SetBinding(true, "PADBACK", "EXTRAACTIONBUTTON1")
+        owner:SetBinding(true, "SHIFT-PADLSTICK", "EXTRAACTIONBUTTON1")
     end
 ]]
 
--- Снимает назначение тачпада при скрытии стандартной дополнительной кнопки
+-- Снимает назначение сочетания R3 и L3 при скрытии стандартной дополнительной кнопки
 local extraActionHideSnippet = [[
     owner:ClearBindings()
 ]]
 
--- Создаёт защищённый фрейм переназначения тачпада на дополнительную кнопку
+-- Создаёт защищённый фрейм переназначения сочетания R3 и L3 на дополнительную кнопку
 function ConsoleMenu:InitExtraActionBindingFrame()
     if not self.ExtraActionBindingFrame then
         self.ExtraActionBindingFrame = CreateFrame("Frame", nil, nil, "SecureHandlerStateTemplate")
@@ -602,7 +599,7 @@ function ConsoleMenu:InitExtraActionBindingFrame()
             ConsoleMenu:UpdateExtraActionKeyHint()
         end
 
-        -- При появлении дополнительной кнопки сразу освобождаем тачпад способности области
+        -- При появлении дополнительной кнопки сразу снимаем способность области
         if ConsoleMenu.SetBindingsZoneAbility then
             ConsoleMenu:SetBindingsZoneAbility()
         end
@@ -611,7 +608,7 @@ function ConsoleMenu:InitExtraActionBindingFrame()
     self:SetBindingsExtraAction()
 end
 
--- Проверяет, включено ли переназначение тачпада на способность области
+-- Проверяет, включено ли переназначение сочетания R3 и L3 на способность области
 local function IsZoneAbilityOverrideEnabled()
     return not ConsoleMenuDB or ConsoleMenuDB.overrideZoneAbilityKey ~= 2
 end
@@ -660,7 +657,7 @@ local function GetDisplayedZoneAbility()
     return nil
 end
 
--- Возвращает идентификатор и имя заклинания для привязки тачпада
+-- Возвращает идентификатор и имя заклинания для привязки сочетания R3 и L3
 local function GetZoneAbilityBindSpell(ability)
     local spellID = ability and ability.spellID
     if not spellID then
@@ -694,24 +691,22 @@ local boundZoneAbilitySpellName
 local zoneAbilityHintTitle
 local zoneAbilityUpdatePending
 
--- Обновляет подсказку тачпада для способности области
+-- Обновляет подсказку сочетания R3 и L3 для способности области
 function ConsoleMenu:UpdateZoneAbilityKeyHint(newTitle)
     if zoneAbilityHintTitle and zoneAbilityHintTitle ~= newTitle then
-        ConsoleMenu:DeleteKeysFrameItem("PAD6", zoneAbilityHintTitle)
-        ConsoleMenu:DeleteKeysFrameItem("PADBACK", zoneAbilityHintTitle)
+        ConsoleMenu:DeleteKeysFrameItem("SHIFT-PADLSTICK", zoneAbilityHintTitle)
         zoneAbilityHintTitle = nil
     end
 
     if newTitle then
-        ConsoleMenu:AddKeysFrameItem("PAD6", newTitle)
-        ConsoleMenu:AddKeysFrameItem("PADBACK", newTitle)
+        ConsoleMenu:AddKeysFrameItem("SHIFT-PADLSTICK", newTitle)
         zoneAbilityHintTitle = newTitle
     end
 
     ConsoleMenu:UpdateKeysFrame()
 end
 
--- Снимает переназначение тачпада и подсказку способности области
+-- Снимает переназначение сочетания R3 и L3 и подсказку способности области
 function ConsoleMenu:ClearZoneAbilityOverride()
     local frame = self.ZoneAbilityBindingFrame
     if frame and not InCombatLockdown() then
@@ -738,7 +733,7 @@ local function ScheduleZoneAbilityBindingUpdate()
     end)
 end
 
--- Назначает тачпад на способность области, которую показывает стандартный интерфейс
+-- Назначает сочетание R3 и L3 на способность области, которую показывает стандартный интерфейс
 function ConsoleMenu:SetBindingsZoneAbility()
     local frame = self.ZoneAbilityBindingFrame
     if not frame then
@@ -750,7 +745,7 @@ function ConsoleMenu:SetBindingsZoneAbility()
         return
     end
 
-    -- Пока активна дополнительная кнопка, тачпад принадлежит ей
+    -- Пока активна дополнительная кнопка, способность области не назначается
     if self:HasActiveExtraActionOverride() then
         self:ClearZoneAbilityOverride()
         return
@@ -772,8 +767,8 @@ function ConsoleMenu:SetBindingsZoneAbility()
     end
 
     ClearOverrideBindings(frame)
-    SetOverrideBindingSpell(frame, true, "PAD6", spellName)
-    SetOverrideBindingSpell(frame, true, "PADBACK", spellName)
+    -- R3 удерживает Shift, поэтому сочетание R3 и L3 записывается как Shift и нажатие левого рычага
+    SetOverrideBindingSpell(frame, true, "SHIFT-PADLSTICK", spellName)
     boundZoneAbilitySpellID = spellID
     boundZoneAbilitySpellName = spellName
     self:UpdateZoneAbilityKeyHint(spellName)
@@ -941,7 +936,7 @@ function ConsoleMenu:SetBaseKeyBindings()
         PADDDOWN = "MULTIACTIONBAR1BUTTON8",
         PADDLEFT = "MULTIACTIONBAR1BUTTON9",
         PADDRIGHT = "MULTIACTIONBAR1BUTTON7",
-        PADLSTICK = "EXTRAACTIONBUTTON1",
+        -- Пока дополнительной кнопки нет, сочетание R3 и L3 остаётся ячейкой второй панели
         PADLSTICK = "MULTIACTIONBAR1BUTTON5",
         -- PADRSTICK = "MULTIACTIONBAR1BUTTON4",
         PADFORWARD = "CAMERAZOOMOUT",
