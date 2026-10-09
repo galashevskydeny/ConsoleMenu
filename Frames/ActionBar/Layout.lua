@@ -36,6 +36,11 @@ local function IsActionButtonVisible(slotID, btn, activeModifier)
         return false
     end
 
+    -- В меню усилений на этом месте остаётся одна кнопка: она сама переворачивается.
+    if ActionBar.IsBoostHostKey and ActionBar.IsBoostHostKey(btn.mainKey) and ActionBar.BoostFlipOwnsHosts and ActionBar.BoostFlipOwnsHosts() then
+        return ActionBar.IsActiveBoostHostSlot and ActionBar.IsActiveBoostHostSlot(slotID)
+    end
+
     -- Подсказка тачпада (слот 12): только при наличии действия и названия
     if ActionBar.slot12Slots[slotID] then
         if not C_ActionBar.HasAction(slotID) then
@@ -45,6 +50,14 @@ local function IsActionButtonVisible(slotID, btn, activeModifier)
         if not ConsoleMenu:GetSlotTitle(actionType, id, subType, slotID) then
             return false
         end
+    end
+
+    -- При правом рычаге квадрат, треугольник и круг основной панели не сменяются второй панелью.
+    if activeModifier == "SHIFT" and ActionBar.IsMainFaceButtonKey(btn.mainKey) then
+        if not btn.modifierKey and slotID >= 1 and slotID <= 24 then
+            return IsSlotOnActiveActionBarPage(slotID)
+        end
+        return false
     end
 
     if slotID >= 1 and slotID <= 24 then
@@ -78,12 +91,27 @@ local function GetActiveModifier()
     return nil
 end
 
+-- Включает ареол группы один раз: повторный вызов не перезапускает проявление.
+local function SetGroupShadowShown(shadow, shown)
+    if not shadow or shadow.groupShown == shown then
+        return
+    end
+    shadow.groupShown = shown
+    if shown then
+        ConsoleMenu:AnimatedShow(shadow)
+    else
+        ConsoleMenu:AnimatedHide(shadow)
+    end
+end
+
 -- Показ и скрытие теней левой и правой групп кнопок.
-local function UpdateActionButtonShadows(activeModifier)
+local function UpdateActionButtonShadows()
     local frame = ActionBar.GetFrame()
     if not frame then
         return
     end
+
+    local activeModifier = GetActiveModifier()
 
     local PADcount = 0
     local PADDcount = 0
@@ -99,17 +127,9 @@ local function UpdateActionButtonShadows(activeModifier)
         end
     end
 
-    if PADcount > 0 or ActionBar.HasVisibleBoosts() then
-        ConsoleMenu:AnimatedShow(frame.PADshadow)
-    else
-        ConsoleMenu:AnimatedHide(frame.PADshadow)
-    end
-
-    if PADDcount > 0 then
-        ConsoleMenu:AnimatedShow(frame.PADDshadow)
-    else
-        ConsoleMenu:AnimatedHide(frame.PADDshadow)
-    end
+    local cloudVisible = ActionBar.HasVisibleBoosts and ActionBar.HasVisibleBoosts()
+    SetGroupShadowShown(frame.PADshadow, PADcount > 0 or cloudVisible)
+    SetGroupShadowShown(frame.PADDshadow, PADDcount > 0)
 end
 
 -- Привязка кнопок к положениям по назначению клавиш.
@@ -201,19 +221,29 @@ local function UpdateModifierState()
 
     local activeModifier = GetActiveModifier()
 
+    ActionBar.SetBoostsExpanded(activeModifier == "SHIFT")
+
     for slotID, btn in pairs(frame.actionButtons) do
-        if IsActionButtonVisible(slotID, btn, activeModifier) then
+        local keepCross = not btn.modifierKey
+            and ActionBar.IsBoostHostKey
+            and ActionBar.IsBoostHostKey(btn.mainKey)
+            and ActionBar.BoostFlipOwnsHosts
+            and ActionBar.BoostFlipOwnsHosts()
+        if IsActionButtonVisible(slotID, btn, activeModifier) or keepCross then
             ConsoleMenu:AnimatedShow(btn)
         else
             ConsoleMenu:AnimatedHide(btn)
         end
     end
 
-    ActionBar.SetBoostsExpanded(activeModifier == "SHIFT")
     ActionBar.UpdateBoosts()
-    UpdateActionButtonShadows(activeModifier)
+    UpdateActionButtonShadows()
     UpdateExploringFrameVisibility(activeModifier)
+    if ActionBar.RefreshFaceButtonDesaturation then
+        ActionBar.RefreshFaceButtonDesaturation()
+    end
 end
 
 ActionBar.UpdateButtonPositions = UpdateButtonPositions
 ActionBar.UpdateModifierState = UpdateModifierState
+ActionBar.UpdateActionButtonShadows = UpdateActionButtonShadows

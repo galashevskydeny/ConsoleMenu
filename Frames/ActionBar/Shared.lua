@@ -92,10 +92,14 @@ ActionBar.boostSlotLookup = {
     [69] = true,
 }
 
--- Облако чуть крупнее обычного умения; после разворота значки садятся на PAD4, PAD2, PAD1 и PAD3.
+-- Облако чуть крупнее обычного умения.
+-- После разворота значки садятся на крестовину: вверх, вправо, вниз и влево.
 ActionBar.boostClusterSize = 200
 ActionBar.boostCloudSizes = { 34, 39.95, 28.05, 32.3 }
 ActionBar.boostExpandOffset = ActionBar.buttonVerticalPadding + ActionBar.buttonSize / 2
+-- Смещение от центра лицевых кнопок до центра крестовины: туда садится разворот.
+ActionBar.boostExpandOriginX = ActionBar.paddingPADD + ActionBar.paddingPAD - ActionBar.frameWidth + 1
+ActionBar.boostExpandOriginY = 0
 -- Покой у правого рычага. Крупные ближе к центру, мелкие дальше, чтобы силуэт читался кругом.
 -- Стороны нарочно не совпадают с разворотом, чтобы значки перелетали крест-накрест.
 ActionBar.boostCloudOffsets = {
@@ -114,12 +118,18 @@ ActionBar.boostCloudOffsetsWithExtra = {
 }
 -- В присутствии дополнительного действия остальные значки чуть мельче, но ближе к его размеру.
 ActionBar.boostCloudSizesWithExtra = { 27.88, 32.76, 23.0, 26.49 }
--- PAD4 сверху, PAD2 справа, PAD1 снизу, PAD3 слева.
+-- Сверху крестовина вверх, справа вправо, снизу вниз, слева влево.
 ActionBar.boostExpandPositions = {
-    { x = 0, y = ActionBar.boostExpandOffset },
-    { x = ActionBar.boostExpandOffset, y = 0 },
-    { x = 0, y = -ActionBar.boostExpandOffset },
-    { x = -ActionBar.boostExpandOffset, y = 0 },
+    { x = ActionBar.boostExpandOriginX, y = ActionBar.boostExpandOriginY + ActionBar.boostExpandOffset },
+    { x = ActionBar.boostExpandOriginX + ActionBar.boostExpandOffset, y = ActionBar.boostExpandOriginY },
+    { x = ActionBar.boostExpandOriginX, y = ActionBar.boostExpandOriginY - ActionBar.boostExpandOffset },
+    { x = ActionBar.boostExpandOriginX - ActionBar.boostExpandOffset, y = ActionBar.boostExpandOriginY },
+}
+-- Квадрат, треугольник и круг основной панели: при правом рычаге остаются на экране серыми.
+ActionBar.mainFaceButtonKeys = {
+    PAD3 = true,
+    PAD4 = true,
+    PAD2 = true,
 }
 -- Дополнительная кнопка действия: самый крупный значок в центре облака.
 ActionBar.boostExtraCloudSize = 46
@@ -132,12 +142,24 @@ ActionBar.boostExtraFloatSpeed = 0.33
 ActionBar.boostExtraFloatPhase = 2.55
 ActionBar.boostFloatRadius = 1.784592
 ActionBar.boostFloatSpeeds = { 0.2992, 0.39168, 0.26112, 0.34272 }
+-- Разброс скорости перелёта: быстрые садятся заметно раньше медленных.
+ActionBar.boostFlightRates = { 0.72, 1.22, 0.86, 1.12 }
+ActionBar.boostExtraFlightRate = 0.96
 ActionBar.boostFloatPhases = { 0.2, 1.7, 3.4, 4.9 }
-ActionBar.boostExpandDuration = 0.4 * (2 / 3)
+ActionBar.boostExpandDuration = 0.48
 ActionBar.boostCollapseDuration = ActionBar.boostExpandDuration
 ActionBar.boostLayoutDuration = 0.4
-ActionBar.boostArcBulge = 36
 ActionBar.boostCooldownProgress = 0.72
+-- Переворот заканчивается к появлению цифр, чтобы лицо уже было ровным.
+ActionBar.boostFlipSettle = ActionBar.boostCooldownProgress
+-- Узкое ребро монеты в кувырке, доля полной ширины.
+ActionBar.boostFlipEdge = 0.07
+-- Высота подброса: короткий отрыв, без высокого прыжка.
+ActionBar.boostFlipLift = 26
+-- Боковой толчок щелчка, к посадке возвращается.
+ActionBar.boostFlipNudge = 6
+-- Сколько полуоборотов монета делает в воздухе. Нечётное число сажает её другой стороной.
+ActionBar.boostCoinTurns = 1
 -- Подпись и буква L у дополнительного действия появляются чуть раньше полной посадки.
 ActionBar.boostExtraCaptionProgress = 0.78
 ActionBar.boostHintFadeProgress = 0.35
@@ -170,6 +192,16 @@ function ActionBar.ApplyKeyGlyphStyle(iconFrame, size)
     end
 end
 
+-- Квадрат, треугольник или круг основной панели.
+function ActionBar.IsMainFaceButtonKey(mainKey)
+    return ActionBar.mainFaceButtonKeys[mainKey] == true
+end
+
+-- Правый рычаг удерживает Shift: квадрат, треугольник и круг основной панели остаются серыми.
+function ActionBar.ShouldGrayFaceButtons()
+    return IsShiftKeyDown() and not IsControlKeyDown() and not IsAltKeyDown()
+end
+
 -- Ячейка живёт в облаке усилений, а не на левой крестовине.
 function ActionBar.IsBoostSlot(slotID)
     return ActionBar.boostSlotLookup[slotID] == true
@@ -200,44 +232,30 @@ function ActionBar.IsExtraActionSlot(slotID)
     return slotID == ActionBar.GetExtraActionSlotID() or slotID == 139 or slotID == 217
 end
 
--- Дополнительная кнопка действия сейчас заполнена и должна быть на панели.
+-- Показана ли стандартная рамка дополнительной кнопки.
+local function IsExtraActionBarFrameShown()
+    return ExtraActionBarFrame and ExtraActionBarFrame.IsShown and ExtraActionBarFrame:IsShown() or false
+end
+
+-- Дополнительная кнопка действия сейчас есть и должна быть в облаке.
 function ActionBar.HasExtraAction()
-    -- Показ стандартной рамки — самый устойчивый признак, в том числе при скрытых значениях.
-    if ExtraActionBarFrame and ExtraActionBarFrame.IsShown and ExtraActionBarFrame:IsShown() then
-        return true
+    if not C_ActionBar or not C_ActionBar.HasExtraActionBar then
+        return IsExtraActionBarFrameShown()
     end
 
-    if not C_ActionBar then
-        return false
-    end
-
-    if C_ActionBar.HasExtraActionBar then
-        local ok, shown = pcall(C_ActionBar.HasExtraActionBar)
-        if ok then
-            -- Скрытое значение нельзя считать отсутствием кнопки.
-            if shown ~= nil and issecretvalue and issecretvalue(shown) then
-                return true
-            end
-            if shown == true then
-                return true
-            end
-        end
-    end
-
-    local slotID = ActionBar.GetExtraActionSlotID()
-    if not C_ActionBar.HasAction then
-        return false
-    end
-
-    local ok, hasAction = pcall(C_ActionBar.HasAction, slotID)
+    local ok, shown = pcall(C_ActionBar.HasExtraActionBar)
     if not ok then
-        return false
+        return IsExtraActionBarFrameShown()
     end
-    -- Скрытое значение нельзя считать пустой ячейкой.
-    if hasAction ~= nil and issecretvalue and issecretvalue(hasAction) then
-        return true
+
+    -- В бою ответ бывает скрыт: тогда ориентируемся на саму рамку.
+    if shown ~= nil and issecretvalue and issecretvalue(shown) then
+        return IsExtraActionBarFrameShown()
     end
-    return hasAction == true
+
+    -- Явный ответ важнее рамки и ячейки.
+    -- После исчезновения кнопки рамка ещё гаснет, а в ячейке остаётся старая способность.
+    return shown == true
 end
 
 -- Окно панели, если оно уже создано вместе с набором кнопок.

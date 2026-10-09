@@ -83,6 +83,17 @@ function ConsoleMenu:InitializeMainActionBar()
     ActionBar.CreateBoosts(frame)
     ActionBar.EnableAllRangeChecks()
 
+    -- Стандартная рамка скрывается с задержкой: облако обновляем, когда кнопка реально исчезла.
+    if ExtraActionBarFrame and not ExtraActionBarFrame.consoleMenuBoostHooked then
+        ExtraActionBarFrame.consoleMenuBoostHooked = true
+        ExtraActionBarFrame:HookScript("OnShow", function()
+            ActionBar.UpdateBoosts()
+        end)
+        ExtraActionBarFrame:HookScript("OnHide", function()
+            ActionBar.UpdateBoosts()
+        end)
+    end
+
     frame:RegisterEvent("PLAYER_ENTERING_WORLD")
     frame:RegisterEvent("PLAYER_LOGIN")
 

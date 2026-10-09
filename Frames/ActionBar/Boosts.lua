@@ -1,4 +1,4 @@
--- Облако усилений на месте правого рычага: плавание, разлёт по дугам и сбор.
+-- Облако усилений на месте правого рычага: плавание в покое, на крестовине взлёт и переворот без переноса.
 
 local ConsoleMenu = _G.ConsoleMenu
 local ActionBar = ConsoleMenu.ActionBar
@@ -33,31 +33,6 @@ local function EaseOutCubic(t)
     end
     local rest = 1 - t
     return 1 - rest * rest * rest
-end
-
--- Точка на квадратичной дуге от облака к кресту.
-local function BezierPoint(startX, startY, controlX, controlY, endX, endY, t)
-    local rest = 1 - t
-    local restSquare = rest * rest
-    local tSquare = t * t
-    local mix = 2 * rest * t
-    local x = restSquare * startX + mix * controlX + tSquare * endX
-    local y = restSquare * startY + mix * controlY + tSquare * endY
-    return x, y
-end
-
--- Контрольная точка дуги: середина пути со сдвигом по часовой стрелке.
-local function ArcControl(startX, startY, endX, endY, bulge)
-    local midX = (startX + endX) / 2
-    local midY = (startY + endY) / 2
-    local dx = endX - startX
-    local dy = endY - startY
-    local length = math.sqrt(dx * dx + dy * dy)
-    if length < 1 then
-        return midX, midY
-    end
-    local scaledBulge = math.min(bulge, length * 0.42)
-    return midX + (dy / length) * scaledBulge, midY + (-dx / length) * scaledBulge
 end
 
 -- Снимает привязку к пиксельной сетке, иначе медленное плавание прыгает по кадрам.
@@ -126,6 +101,7 @@ local function CreateBoostIcon(parent, index, spec)
         icon.expandY = ActionBar.boostExtraExpandY
         icon.phase = ActionBar.boostExtraFloatPhase
         icon.speed = ActionBar.boostExtraFloatSpeed
+        icon.flightRate = ActionBar.boostExtraFlightRate or 1
         icon:SetAlpha(0)
         icon:Hide()
     else
@@ -136,16 +112,10 @@ local function CreateBoostIcon(parent, index, spec)
         icon.expandY = ActionBar.boostExpandPositions[index].y
         icon.phase = ActionBar.boostFloatPhases[index]
         icon.speed = ActionBar.boostFloatSpeeds[index]
+        icon.flightRate = ActionBar.boostFlightRates[index] or 1
     end
 
     icon.expandSize = ActionBar.buttonSize
-    icon.controlX, icon.controlY = ArcControl(
-        icon.restX,
-        icon.restY,
-        icon.expandX,
-        icon.expandY,
-        ActionBar.boostArcBulge
-    )
 
     icon:SetSize(icon.restSize, icon.restSize)
     icon:SetPoint("CENTER", parent, "CENTER", icon.restX, icon.restY)
@@ -415,23 +385,13 @@ local function ApplyBoostStickHint(boosts)
     end
 end
 
--- Пересчёт контрольной точки дуги после смены покоя или посадки.
-local function RefreshBoostArc(icon)
-    icon.controlX, icon.controlY = ArcControl(
-        icon.restX,
-        icon.restY,
-        icon.expandX,
-        icon.expandY,
-        ActionBar.boostArcBulge
-    )
-end
-
 -- Запуск плавной смены раскладки облака при появлении или исчезновении дополнительного действия.
 local function BeginLayoutMotion(boosts, target)
     if not boosts then
         return
     end
-    if boosts.layoutTarget == target and (boosts.layoutMix or 0) == target then
+    -- Повторный вызов в ту же сторону не сбрасывает ход, иначе значок не успевает уйти из облака.
+    if boosts.layoutTarget == target then
         return
     end
 
@@ -508,7 +468,6 @@ local function SyncIconRestFromLayout(boosts, icon)
         icon.expandX = ActionBar.boostExtraExpandX
         icon.expandY = ActionBar.boostExtraExpandY
         icon:SetAlpha(mix)
-        RefreshBoostArc(icon)
         return
     end
 
@@ -520,7 +479,6 @@ local function SyncIconRestFromLayout(boosts, icon)
     icon.restX = Lerp(from.x, to.x, mix)
     icon.restY = Lerp(from.y, to.y, mix)
     icon.restSize = Lerp(sizeFrom, sizeTo, mix)
-    RefreshBoostArc(icon)
 end
 
 -- В исследовании без Shift облако живёт только вместе с дополнительным действием.
@@ -550,7 +508,7 @@ end
 
 local HideFrameThen
 
--- Длительность гашения в исследовании: пока значки летят по дуге, панель гаснет вместе с ними.
+-- Длительность гашения в исследовании: пока значки летят обратно, панель гаснет вместе с ними.
 local function GetExploringHideDuration(boosts)
     if boosts and (boosts.target or 0) == 0 and (boosts.duration or 0) > 0 then
         local remaining = boosts.duration - (boosts.elapsed or 0)
@@ -636,7 +594,7 @@ local function ClearExtraAfterExploringHide(boosts, token)
     end
 end
 
--- В исследовании облако и дополнительная кнопка гаснут вместе со сбором по дуге.
+-- В исследовании облако и дополнительная кнопка гаснут вместе с обратным перелётом.
 local function BeginExploringCloudHide(boosts)
     if not boosts or boosts.exploringHidePending then
         return
@@ -645,7 +603,7 @@ local function BeginExploringCloudHide(boosts)
     boosts.exploringHideToken = (boosts.exploringHideToken or 0) + 1
     local token = boosts.exploringHideToken
     HideBoostStickHint(boosts)
-    -- Цикл не останавливаем: значки должны долететь по дуге, пока панель уже гаснет.
+    -- Цикл не останавливаем: значки должны долететь, пока панель уже гаснет.
 
     local frame = ActionBar.GetFrame()
     local fadeDuration = GetExploringHideDuration(boosts)
@@ -709,7 +667,11 @@ local function ApplyExtraCaptions(boosts)
     end
 
     local captionProgress = ActionBar.boostExtraCaptionProgress or 0.78
-    local show = extra.filled and extra:IsShown() and boosts.progress >= captionProgress and boosts.target == 1 and not boosts.captionHidePending
+    local flightProgress = extra.flightProgress
+    if flightProgress == nil then
+        flightProgress = boosts.progress
+    end
+    local show = extra.filled and extra:IsShown() and flightProgress >= captionProgress and boosts.target == 1 and not boosts.captionHidePending
     if extra.captionsShown == show then
         return
     end
@@ -723,26 +685,400 @@ local function ApplyExtraCaptions(boosts)
     end
 end
 
--- Положение и размер значка на текущем ходе дуги и при плавании.
+-- Ход одного значка: чуть быстрее или чуть медленнее общего перелёта.
+local function IconFlightProgress(boosts, icon)
+    local target = boosts.target or 0
+    if not boosts.duration or boosts.duration <= 0 or boosts.progress == target then
+        icon.flightProgress = target
+        return target
+    end
+
+    local rate = icon.flightRate or 1
+    local slowest = boosts.flightRateFloor or 1
+    if slowest < 0.05 then
+        slowest = 1
+    end
+    local amount = boosts.elapsed / boosts.duration
+    if amount < 0 then
+        amount = 0
+    elseif amount > 1 then
+        amount = 1
+    end
+    local travelled = amount * (rate / slowest)
+    if travelled > 1 then
+        travelled = 1
+    end
+
+    local startProgress = icon.flightStart
+    if startProgress == nil then
+        startProgress = boosts.startProgress or 0
+    end
+    local progress = startProgress + (target - startProgress) * EaseOutCubic(travelled)
+    icon.flightProgress = progress
+    return progress
+end
+
+-- Крестовина: на этих кнопках подбрасывается умение усиления.
+-- Снизу слева стоит левый рычаг, а не отдельная нижняя кнопка креста.
+local hostKeys = {
+    UP = "PADDUP",
+    RIGHT = "PADDRIGHT",
+    DOWN = "PADLSTICK",
+    LEFT = "PADDLEFT",
+}
+
+-- Наклон оси кувырка, у каждой кнопки свой, чтобы ребро не было вертикальной щелью.
+local hostTilts = { 0.72, -0.86, 0.58, -1.05 }
+
+-- Основная кнопка этой стороны креста, с текущей страницы панели.
+local function FindHostButton(mainKey)
+    local frame = ActionBar.GetFrame()
+    if not frame or not frame.actionButtons or not mainKey then
+        return nil
+    end
+
+    local page = 1
+    if C_ActionBar and C_ActionBar.GetActionBarPage then
+        page = C_ActionBar.GetActionBarPage() or 1
+    end
+    local pageStart = 12 * (page - 1) + 1
+    local onCross
+    for slotID, btn in pairs(frame.actionButtons) do
+        if btn.mainKey == mainKey and not btn.modifierKey and not ActionBar.IsBoostSlot(slotID) and not ActionBar.ignoredSlot[slotID] then
+            local position = ActionBar.buttonPositions[btn.mainKey]
+            if position and (position[2] == "PADDCenter" or mainKey == "PADLSTICK") then
+                if slotID >= pageStart and slotID < pageStart + 12 then
+                    return btn
+                end
+                onCross = btn
+            end
+        end
+    end
+    return onCross
+end
+
+-- Скрывает остальные кнопки на том же месте, иначе под подбросом остаётся вторая иконка.
+local function HideHostTwins(host)
+    local frame = ActionBar.GetFrame()
+    if not frame or not host then
+        return
+    end
+
+    for _, btn in pairs(frame.actionButtons) do
+        if btn ~= host and btn:IsShown() then
+            local sameKey = btn.mainKey == host.mainKey
+            local sameBottom = host.mainKey == "PADLSTICK" and btn.mainKey == "PADDDOWN"
+            if sameKey or sameBottom then
+                if btn.fadeIn then
+                    btn.fadeIn:Stop()
+                end
+                if btn.fadeOut then
+                    btn.fadeOut:Stop()
+                    btn.fadeOut:SetScript("OnFinished", nil)
+                end
+                btn:SetAlpha(0)
+                btn:Hide()
+            end
+        end
+    end
+end
+
+-- Видимой остаётся только та кнопка, которая сама переворачивается.
+function ActionBar.IsActiveBoostHostSlot(slotID)
+    if not ActionBar.BoostFlipOwnsHosts or not ActionBar.BoostFlipOwnsHosts() then
+        return false
+    end
+    local btn = ActionBar.GetButton(slotID)
+    if not btn or btn.modifierKey or not ActionBar.IsBoostHostKey(btn.mainKey) then
+        return false
+    end
+    return FindHostButton(btn.mainKey) == btn
+end
+
+-- Эти клавиши крестовины принимают умение из облака усилений.
+function ActionBar.IsBoostHostKey(mainKey)
+    return mainKey == "PADDUP" or mainKey == "PADDRIGHT" or mainKey == "PADDLEFT" or mainKey == "PADLSTICK"
+end
+
+-- Пока меню усилений раскрыто или ещё складывается, кнопки крестовины остаются на экране.
+function ActionBar.BoostFlipOwnsHosts()
+    local boosts = GetBoosts()
+    if not boosts then
+        return false
+    end
+    return (boosts.target or 0) == 1 or (boosts.progress or 0) > 0.001
+end
+
+-- Ход подброса: от нуля до единицы, пока монета в воздухе.
+local function CoinTossAmount(progress)
+    local settle = ActionBar.boostFlipSettle or ActionBar.boostCooldownProgress or 0.72
+    if settle < 0.05 then
+        settle = 0.72
+    end
+    if progress <= 0 then
+        return 0
+    end
+    if progress >= settle then
+        return 1
+    end
+    return progress / settle
+end
+
+-- Крутит текстуру, если клиент это умеет.
+local function SetPieceRotation(piece, angle)
+    if piece and piece.SetRotation then
+        piece:SetRotation(angle or 0)
+    end
+end
+
+-- Возвращает рисунок и подложку кнопки на место после подброса.
+local function ResetHostCoin(btn)
+    if not btn or not btn.coinActive then
+        return
+    end
+
+    btn.coinActive = nil
+    btn.boostFlipLock = nil
+    btn.boostShowingAlt = nil
+    btn.boostFlipSlot = nil
+    btn.boostHostSaved = nil
+    if btn.coinBaseLevel then
+        btn:SetFrameLevel(btn.coinBaseLevel)
+        btn.coinBaseLevel = nil
+    end
+
+    local texture = btn.texture
+    if texture then
+        texture:ClearAllPoints()
+        texture:SetAllPoints(btn)
+        texture:SetVertexColor(1, 1, 1)
+        SetPieceRotation(texture, 0)
+    end
+    SetPieceRotation(btn.mask, 0)
+    if btn.background then
+        btn.background:ClearAllPoints()
+        btn.background:SetPoint("CENTER", btn, "CENTER", 0, 0)
+        btn.background:SetSize(ActionBar.buttonSize + 8, ActionBar.buttonSize + 8)
+        SetPieceRotation(btn.background, 0)
+    end
+
+    if btn.slotID and ActionBar.UpdateTexture then
+        ActionBar.UpdateTexture(btn.slotID)
+    end
+    if btn.slotID and ActionBar.UpdateIcon then
+        ActionBar.UpdateIcon(btn.slotID)
+    end
+    if btn.slotID and ActionBar.UpdateUsable then
+        ActionBar.UpdateUsable(btn.slotID)
+    end
+end
+
+-- Подбрасывает кружок как монету: быстрый взлёт, несколько кувырков и мягкая посадка.
+local function ApplyCoinToss(texture, background, mask, parent, size, amount, tilt)
+    local turns = ActionBar.boostCoinTurns or 3
+    if turns < 1 then
+        turns = 1
+    end
+
+    local edge = ActionBar.boostFlipEdge or 0.07
+    if edge < 0.02 then
+        edge = 0.02
+    elseif edge > 0.4 then
+        edge = 0.4
+    end
+
+    local thin = 1
+    local axis = 0
+    local slide = 0
+    local lift = 0
+    local shade = 1
+    local scale = 1
+    local showAlt = amount >= 1
+
+    if amount > 0 and amount < 1 then
+        -- Взлёт быстрее падения: пик раньше середины, как после щелчка пальцем.
+        local rise = amount ^ 0.62
+        local hop = math.sin(rise * math.pi)
+        local bounce = 0
+        if amount > 0.88 then
+            local settle = (amount - 0.88) / 0.12
+            if settle > 1 then
+                settle = 1
+            end
+            bounce = math.sin(settle * math.pi) * 0.16
+        end
+
+        -- В середине кувырки чаще, у старта и посадки монета спокойнее.
+        local spun = amount * amount * (3 - 2 * amount)
+        local spin = spun * turns * math.pi
+        thin = math.abs(math.cos(spin))
+        if thin < edge then
+            thin = edge
+        end
+        -- Отрицательный косинус — оборотная сторона. На ребре смена почти не видна.
+        showAlt = math.cos(spin) < 0
+
+        local tiltAmount = tilt or 0.7
+        local direction = tiltAmount >= 0 and 1 or -1
+        -- Ось качается на каждом обороте и гаснет к посадке.
+        axis = tiltAmount * hop * 0.85 + math.sin(spin) * 0.7 * hop
+        slide = math.sin(amount * math.pi) * direction * (ActionBar.boostFlipNudge or 6) + math.sin(spin) * 2 * hop
+        lift = (hop * 0.92 + bounce) * (ActionBar.boostFlipLift or 58)
+        scale = 1 + hop * 0.36
+        shade = 0.16 + 0.84 * thin + hop * 0.14 * thin
+        if shade > 1 then
+            shade = 1
+        end
+    end
+
+    local height = size * scale
+    if height < 0.01 then
+        height = 0.01
+    end
+    local width = height * thin
+    if width < 0.01 then
+        width = 0.01
+    end
+    local pad = 8 * scale
+
+    if texture then
+        texture:ClearAllPoints()
+        texture:SetPoint("CENTER", parent, "CENTER", slide, lift)
+        texture:SetSize(width, height)
+        texture:SetVertexColor(shade, shade, shade)
+        SetPieceRotation(texture, axis)
+    end
+    SetPieceRotation(mask, axis)
+    if background then
+        background:ClearAllPoints()
+        background:SetPoint("CENTER", parent, "CENTER", slide, lift)
+        background:SetSize(math.max(width + pad * thin, 0.01), height + pad)
+        SetPieceRotation(background, axis)
+    end
+
+    return showAlt
+end
+
+-- Запоминает обычное лицо кнопки и в середине подброса показывает умение усиления.
+local function ApplyHostFace(btn, boostSlot, showAlt)
+    if not btn or not btn.texture then
+        return
+    end
+    if not btn.boostHostSaved then
+        btn.boostHostSaved = true
+        local ok, current = pcall(function()
+            return btn.texture:GetTexture()
+        end)
+        if ok then
+            btn.boostHostTexture = current
+        end
+    end
+    if btn.boostShowingAlt == showAlt then
+        return
+    end
+    btn.boostShowingAlt = showAlt
+    if showAlt then
+        local textureFileID = GetBoostTexture(boostSlot)
+        if textureFileID then
+            btn.texture:SetTexture(textureFileID)
+        end
+        return
+    end
+    if btn.boostHostTexture then
+        btn.texture:SetTexture(btn.boostHostTexture)
+    end
+end
+
+-- В покое значок лежит в облаке. Кнопка крестовины подбрасывается на месте, как монета.
 local ApplyBoostIconLayer
 local function ApplyBoostIconPose(boosts, icon, progress, elapsedTime)
     SyncIconRestFromLayout(boosts, icon)
-    local x, y = BezierPoint(
-        icon.restX,
-        icon.restY,
-        icon.controlX,
-        icon.controlY,
-        icon.expandX,
-        icon.expandY,
-        progress
-    )
-    local size = icon.restSize + (icon.expandSize - icon.restSize) * progress
+    progress = IconFlightProgress(boosts, icon)
+
+    local host
+    local tilt = hostTilts[icon.index] or 0.7
+    if not icon.isExtra then
+        local spec = ActionBar.boostSlots[icon.index]
+        local hostKey = spec and hostKeys[spec.key]
+        host = FindHostButton(hostKey)
+    end
+
+    if host then
+        if progress <= 0 then
+            ResetHostCoin(host)
+            icon:SetAlpha(1)
+        else
+            local amount = CoinTossAmount(progress)
+            icon:SetAlpha(0)
+            host.coinActive = true
+            host.boostFlipLock = true
+            host.boostFlipSlot = icon.slotID
+            if not host.coinBaseLevel then
+                host.coinBaseLevel = host:GetFrameLevel()
+            end
+            host:SetFrameLevel(host.coinBaseLevel + 20)
+            if host.fadeOut then
+                host.fadeOut:Stop()
+                host.fadeOut:SetScript("OnFinished", nil)
+            end
+            if host.fadeIn then
+                host.fadeIn:Stop()
+            end
+            if not host:IsShown() then
+                host:Show()
+            end
+            host:SetAlpha(1)
+            if host.Icon then
+                host.Icon:Hide()
+            end
+            HideHostTwins(host)
+            local showAlt = ApplyCoinToss(host.texture, host.background, host.mask, host, ActionBar.buttonSize, amount, tilt)
+            ApplyHostFace(host, icon.slotID, showAlt)
+            if amount >= 1 and ActionBar.UpdateTextureDesaturation then
+                ActionBar.UpdateTextureDesaturation(host, icon.slotID)
+            end
+        end
+    end
+
+    local x, y, size
+    local floatX, floatY = 0, 0
+    local tossingOwnFace = (not host) and progress > 0
+    if tossingOwnFace then
+        local amount = CoinTossAmount(progress)
+        x = icon.restX
+        y = icon.restY
+        size = icon.restSize
+        icon.coinSpinning = true
+        ApplyCoinToss(icon.texture, icon.background, icon.mask, icon, math.max(size, 0.01), amount, tilt)
+    else
+        x = icon.restX
+        y = icon.restY
+        size = icon.restSize
+        if progress <= 0 then
+            floatX = math.sin(elapsedTime * icon.speed * pi2 + icon.phase) * ActionBar.boostFloatRadius
+            floatY = math.cos(elapsedTime * icon.speed * 0.85 * pi2 + icon.phase) * ActionBar.boostFloatRadius
+        end
+        if icon.coinSpinning then
+            SetPieceRotation(icon.texture, 0)
+            SetPieceRotation(icon.mask, 0)
+            SetPieceRotation(icon.background, 0)
+            if icon.texture then
+                icon.texture:SetVertexColor(1, 1, 1)
+                icon.texture:ClearAllPoints()
+                icon.texture:SetAllPoints(icon)
+            end
+            if icon.background then
+                icon.background:ClearAllPoints()
+                icon.background:SetPoint("CENTER", icon, "CENTER", 0, 0)
+            end
+            icon.coinSpinning = nil
+            icon.lastWidth = nil
+            icon.lastHeight = nil
+        end
+    end
     if size < 0.01 then
         size = 0.01
     end
-    local floatStrength = 1 - progress
-    local floatX = math.sin(elapsedTime * icon.speed * pi2 + icon.phase) * ActionBar.boostFloatRadius * floatStrength
-    local floatY = math.cos(elapsedTime * icon.speed * 0.85 * pi2 + icon.phase) * ActionBar.boostFloatRadius * floatStrength
 
     local poseX = x + floatX
     local poseY = y + floatY
@@ -752,11 +1088,17 @@ local function ApplyBoostIconPose(boosts, icon, progress, elapsedTime)
     end
     icon:SetPoint("CENTER", poseParent, "CENTER", poseX, poseY)
 
-    if icon.lastSize ~= size then
+    if not tossingOwnFace and (icon.lastWidth ~= size or icon.lastHeight ~= size) then
         icon:SetSize(size, size)
-        icon.background:SetSize(size + 8, size + 8)
-        local edge = 3 / math.max(size, 1)
-        icon.texture:SetTexCoord(edge, 1 - edge, edge, 1 - edge)
+        if icon.background and not icon.coinSpinning then
+            icon.background:SetSize(size + 8, size + 8)
+        end
+        icon.lastWidth = size
+        icon.lastHeight = size
+    end
+    if icon.lastSize ~= size then
+        local crop = 3 / math.max(size, 1)
+        icon.texture:SetTexCoord(crop, 1 - crop, crop, 1 - crop)
         icon.lastSize = size
     end
 
@@ -804,7 +1146,7 @@ local function AdvanceBoostProgress(boosts, elapsed)
     boosts.progress = boosts.startProgress + (boosts.target - boosts.startProgress) * eased
 end
 
--- Цикл облака: плавание в покое и полёт по дуге.
+-- Цикл облака: плавание в покое, подброс кнопок крестовины как монет.
 function ActionBar.OnBoostsUpdate(elapsed)
     local boosts = GetBoosts()
     if not boosts then
@@ -817,7 +1159,7 @@ function ActionBar.OnBoostsUpdate(elapsed)
 
     for index = 1, #boosts.icons do
         local icon = boosts.icons[index]
-        if icon:IsShown() then
+        if icon:IsShown() or (boosts.progress or 0) <= 0 then
             ApplyBoostIconPose(boosts, icon, boosts.progress, boosts.time)
         end
     end
@@ -832,12 +1174,15 @@ function ActionBar.OnBoostsUpdate(elapsed)
     FinishExtraLayoutExit(boosts)
     ApplyBoostStickHint(boosts)
     ApplyCloudHalo(boosts)
+    if ActionBar.UpdateActionButtonShadows then
+        ActionBar.UpdateActionButtonShadows()
+    end
 
     if boosts.exploringHidePending then
         return
     end
 
-    -- В исследовании гасим панель сразу, пока значки ещё летят обратно по дуге.
+    -- В исследовании гасим панель сразу, пока значки ещё летят обратно.
     local extraWanted = extra and extra.wanted
     if IsExploringWithoutShift() and not extraWanted then
         BeginExploringCloudHide(boosts)
@@ -863,7 +1208,7 @@ local function SetBoostsUpdating(boosts, enabled)
     end
 end
 
--- Значки ещё летят по дуге или ждут гашения подписей перед сбором.
+-- Значки ещё летят или ждут гашения подписей перед сбором.
 function ActionBar.IsBoostMotionActive()
     local boosts = GetBoosts()
     if not boosts then
@@ -882,6 +1227,12 @@ function ActionBar.IsBoostMotionActive()
         return true
     end
     return false
+end
+
+-- Текущий ход разворота: ноль у рычага, единица на крестовине.
+function ActionBar.GetBoostProgress()
+    local boosts = GetBoosts()
+    return boosts and boosts.progress or 0
 end
 
 -- Есть ли в облаке хотя бы один заполненный значок.
@@ -1057,7 +1408,8 @@ local function UpdateBoostIcon(icon)
     end
     local textureFileID, isSecret = GetBoostTexture(slotID)
 
-    if isSecret then
+    -- Скрытая текстура не должна оставлять в облаке уже исчезнувшую дополнительную кнопку.
+    if isSecret and hasAction ~= false then
         return
     end
 
@@ -1151,7 +1503,7 @@ function ActionBar.UpdateBoosts()
     local layoutBusy = (boosts.layoutDuration or 0) > 0
         or math.abs((boosts.layoutMix or 0) - (boosts.layoutTarget or 0)) > 0.001
     if boosts.exploringHidePending and IsExploringWithoutShift() then
-        -- Гашение уже идёт: значки продолжают лететь по дуге, пока панель затухает.
+        -- Гашение уже идёт: значки продолжают лететь, пока панель затухает.
         SetBoostsUpdating(boosts, true)
         return
     end
@@ -1170,6 +1522,48 @@ function ActionBar.UpdateBoosts()
     end
 end
 
+-- Запоминает, откуда каждый значок продолжает полёт при смене направления.
+local function CaptureFlightStarts(boosts)
+    local function capture(icon)
+        if not icon then
+            return
+        end
+        if icon.flightProgress == nil then
+            icon.flightStart = boosts.progress or 0
+        else
+            icon.flightStart = icon.flightProgress
+        end
+    end
+
+    for index = 1, #boosts.icons do
+        capture(boosts.icons[index])
+    end
+    capture(boosts.extraIcon)
+end
+
+-- Самая маленькая скорость: по ней длится общий перелёт, чтобы медленный значок успел сесть.
+local function SlowestFlightRate(boosts)
+    local slowest = 1
+    local function consider(icon)
+        if not icon then
+            return
+        end
+        local rate = icon.flightRate or 1
+        if rate < slowest then
+            slowest = rate
+        end
+    end
+
+    for index = 1, #boosts.icons do
+        consider(boosts.icons[index])
+    end
+    consider(boosts.extraIcon)
+    if slowest < 0.05 then
+        return 1
+    end
+    return slowest
+end
+
 -- Разворот в крест или сбор обратно в облако с текущей точки.
 local function BeginBoostMotion(boosts, target)
     if boosts.target == target and boosts.progress == target then
@@ -1181,15 +1575,18 @@ local function BeginBoostMotion(boosts, target)
         boosts.progress = target
         boosts.target = target
         boosts.duration = 0
+        CaptureFlightStarts(boosts)
         ActionBar.OnBoostsUpdate(0)
         return
     end
 
+    CaptureFlightStarts(boosts)
+    boosts.flightRateFloor = SlowestFlightRate(boosts)
     local fullDuration = target == 1 and ActionBar.boostExpandDuration or ActionBar.boostCollapseDuration
     boosts.target = target
     boosts.startProgress = boosts.progress
     boosts.elapsed = 0
-    boosts.duration = fullDuration * span
+    boosts.duration = fullDuration * span / boosts.flightRateFloor
 end
 
 -- Прячет рамку и вызывает продолжение после затухания.

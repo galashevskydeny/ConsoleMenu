@@ -62,6 +62,7 @@ function ActionBar.CreateButton(parent, slotID)
     mask:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\MaskCircle.png")
     mask:SetAllPoints(texture)
     texture:AddMaskTexture(mask)
+    buttonFrame.mask = mask
     
     -- Сохраняем ссылку на текстуру в buttonFrame
     buttonFrame.texture = texture

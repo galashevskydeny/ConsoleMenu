@@ -243,6 +243,12 @@ end
 local function UpdateActionButtonIcon(slotID)
     local btn = ActionBar.GetButton(slotID)
     if not btn or not btn.Icon or not btn.Icon.Texture or not btn.mainKey then return end
+
+    -- Пока кнопка переворачивается в умение усиления, значок рычага не должен оставаться на фоне.
+    if btn.boostFlipLock then
+        btn.Icon:Hide()
+        return
+    end
     local mainKey = btn.mainKey
 
     -- Для пустых слотов иконку бинда не показываем.
@@ -311,6 +317,10 @@ end
 local function UpdateActionButtonTexture(slotID)
     local btn = ActionBar.GetButton(slotID)
     if not btn or not btn.texture then return end
+    -- Во время подброса лицо кнопки задаёт переворот, обычное обновление его не затирает.
+    if btn.boostFlipLock then
+        return
+    end
 
     local textureFileID = nil
 
@@ -406,14 +416,39 @@ local function UpdateActionButtonTextureDesaturation(btn, slotID, isUsable, isLa
     if not btn.texture:IsDesaturated() then
         btn.texture:SetDesaturated(isLevelLinkLocked)
     end
+
+    -- Правый рычаг раскрывает облако на крестовине: квадрат, треугольник и круг основной панели остаются серыми.
+    -- Пока основная иконка сама переворачивается в умение усиления, её не обесцвечиваем.
+    if not btn.boostFlipLock and btn.mainKey and ActionBar.IsMainFaceButtonKey(btn.mainKey) and not btn.modifierKey and ActionBar.ShouldGrayFaceButtons() then
+        btn.texture:SetDesaturated(true)
+    end
 end
 
 -- Обновление пригодности кнопки к применению.
 local function UpdateActionButtonUsable(slotID, isUsable, isLackingResources)
     local btn = ActionBar.GetButton(slotID)
     if not btn or not btn.texture then return end
-    
+
+    if btn.boostShowingAlt and btn.boostFlipSlot then
+        UpdateActionButtonTextureDesaturation(btn, btn.boostFlipSlot)
+        return
+    end
+
     UpdateActionButtonTextureDesaturation(btn, slotID, isUsable, isLackingResources)
+end
+
+-- Заново красит или обесцвечивает квадрат, треугольник и круг после нажатия и отпускания правого рычага.
+function ActionBar.RefreshFaceButtonDesaturation()
+    local frame = ActionBar.GetFrame()
+    if not frame then
+        return
+    end
+
+    for slotID, btn in pairs(frame.actionButtons) do
+        if ActionBar.IsMainFaceButtonKey(btn.mainKey) and not btn.modifierKey then
+            UpdateActionButtonUsable(slotID)
+        end
+    end
 end
 
 -- Обновление пригодности всех ячеек панели и значков облака.
@@ -515,10 +550,11 @@ local function UpdateActionButtonCooldowns()
 
     for slotID, btn in pairs(frame.actionButtons) do
         if btn.cooldown then
-            local info = C_ActionBar.GetActionCooldown(slotID)
+            local cooldownSlot = btn.boostShowingAlt and btn.boostFlipSlot or slotID
+            local info = C_ActionBar.GetActionCooldown(cooldownSlot)
 
             if info and info.isActive then
-                local duration = C_ActionBar.GetActionCooldownDuration(slotID)
+                local duration = C_ActionBar.GetActionCooldownDuration(cooldownSlot)
 
                 btn.cooldown:SetCooldownFromDurationObject(duration)
                 btn.cooldown:Show()
@@ -527,7 +563,8 @@ local function UpdateActionButtonCooldowns()
             end
 
             RunNextFrame(function()
-                UpdateActionButtonTextureDesaturation(btn, slotID)
+                local paintSlot = btn.boostShowingAlt and btn.boostFlipSlot or slotID
+                UpdateActionButtonTextureDesaturation(btn, paintSlot)
             end)
         end
     end
