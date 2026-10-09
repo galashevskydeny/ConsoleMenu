@@ -149,6 +149,10 @@ ActionBar.boostFloatPhases = { 0.2, 1.7, 3.4, 4.9 }
 ActionBar.boostExpandDuration = 0.48
 ActionBar.boostCollapseDuration = ActionBar.boostExpandDuration
 ActionBar.boostLayoutDuration = 0.4
+-- Рост и спад значка облака: появляется увеличением, исчезает уменьшением.
+ActionBar.boostBubbleDuration = 0.16
+-- К концу сбора пузырёк снова надувается, не раньше посадки монеты.
+ActionBar.boostBubbleReturn = 0.12
 ActionBar.boostCooldownProgress = 0.72
 -- Переворот заканчивается к появлению цифр, чтобы лицо уже было ровным.
 ActionBar.boostFlipSettle = ActionBar.boostCooldownProgress

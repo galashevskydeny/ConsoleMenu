@@ -41,6 +41,16 @@ local function IsActionButtonVisible(slotID, btn, activeModifier)
         return ActionBar.IsActiveBoostHostSlot and ActionBar.IsActiveBoostHostSlot(slotID)
     end
 
+    -- Панель Ctrl не подменяет кнопку второй копией: та же иконка переворачивается.
+    if ActionBar.CtrlFlipOwnsHosts and ActionBar.CtrlFlipOwnsHosts() then
+        if ActionBar.IsActiveCtrlHostSlot and ActionBar.IsActiveCtrlHostSlot(slotID) then
+            return true
+        end
+        if ActionBar.CtrlFlipHidesSlot and ActionBar.CtrlFlipHidesSlot(slotID) then
+            return false
+        end
+    end
+
     -- Подсказка тачпада (слот 12): только при наличии действия и названия
     if ActionBar.slot12Slots[slotID] then
         if not C_ActionBar.HasAction(slotID) then
@@ -118,7 +128,11 @@ local function UpdateActionButtonShadows()
 
     for slotID, btn in pairs(frame.actionButtons) do
         local position = ActionBar.buttonPositions[btn.mainKey]
-        if position and C_ActionBar.HasAction(slotID) and IsActionButtonVisible(slotID, btn, activeModifier) then
+        local shownSlot = slotID
+        if btn.boostShowingAlt and btn.boostFlipSlot then
+            shownSlot = btn.boostFlipSlot
+        end
+        if position and C_ActionBar.HasAction(shownSlot) and IsActionButtonVisible(slotID, btn, activeModifier) then
             if position[2] == "PADCenter" then
                 PADcount = PADcount + 1
             elseif position[2] == "PADDCenter" then
@@ -221,6 +235,9 @@ local function UpdateModifierState()
 
     local activeModifier = GetActiveModifier()
 
+    if ActionBar.SetCtrlFlip then
+        ActionBar.SetCtrlFlip(activeModifier == "CTRL")
+    end
     ActionBar.SetBoostsExpanded(activeModifier == "SHIFT")
 
     for slotID, btn in pairs(frame.actionButtons) do

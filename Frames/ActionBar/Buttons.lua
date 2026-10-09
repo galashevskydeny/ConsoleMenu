@@ -77,19 +77,25 @@ function ActionBar.CreateButton(parent, slotID)
     
     buttonFrame.cooldown = cooldown
     ActionBar.EnableRangeCheck(slotID, true)
-    
+
+    -- После таймера красим ту сторону, которая сейчас на кнопке, а не ячейку, с которой кнопка создана.
+    local function RefreshCooldownPaint()
+        if buttonFrame.coinInAir or (buttonFrame.ctrlFlipOwned and not buttonFrame.ctrlFaceSettled) then
+            return
+        end
+        local paintSlot = buttonFrame.slotID
+        if buttonFrame.boostShowingAlt and buttonFrame.boostFlipSlot then
+            paintSlot = buttonFrame.boostFlipSlot
+        end
+        ActionBar.UpdateTextureDesaturation(buttonFrame, paintSlot)
+    end
+
     buttonFrame.cooldown:HookScript("OnHide", function()
-        -- Кулдаун исчез
-        RunNextFrame(function()
-            ActionBar.UpdateTextureDesaturation(buttonFrame, slotID)
-        end)
+        RunNextFrame(RefreshCooldownPaint)
     end)
 
     buttonFrame.cooldown:SetScript("OnCooldownDone", function()
-        -- Кулдаун закончился
-        RunNextFrame(function()
-            ActionBar.UpdateTextureDesaturation(buttonFrame, slotID)
-        end)
+        RunNextFrame(RefreshCooldownPaint)
     end)
 
     -- Название действия справа от иконки (слот 12)

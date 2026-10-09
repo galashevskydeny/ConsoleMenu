@@ -451,13 +451,18 @@ local function SyncIconRestFromLayout(boosts, icon)
         mix = 1
     end
 
-    local appearing = (boosts.layoutTarget or 0) >= 1
-    local amount = GetLayoutAmount(boosts)
-
     if icon.isExtra then
         local extraScale = mix
-        if appearing and (boosts.layoutStartMix or 0) < 0.05 then
-            extraScale = EaseOutBack(amount)
+        if (boosts.layoutDuration or 0) > 0 then
+            local from = boosts.layoutStartMix or 0
+            local to = boosts.layoutTarget or mix
+            local amount = GetLayoutAmount(boosts)
+            if to >= from then
+                extraScale = from + (to - from) * EaseOutBack(amount)
+            else
+                -- Та же кривая назад: сначала чуть вспухнуть, потом сдуться.
+                extraScale = to + (from - to) * EaseOutBack(1 - amount)
+            end
         end
         if extraScale < 0 then
             extraScale = 0
@@ -467,7 +472,7 @@ local function SyncIconRestFromLayout(boosts, icon)
         icon.restSize = ActionBar.boostExtraCloudSize * extraScale
         icon.expandX = ActionBar.boostExtraExpandX
         icon.expandY = ActionBar.boostExtraExpandY
-        icon:SetAlpha(mix)
+        icon:SetAlpha(extraScale > 0.001 and 1 or 0)
         return
     end
 
@@ -591,6 +596,7 @@ local function ClearExtraAfterExploringHide(boosts, token)
     end
     if boosts.frame then
         boosts.frame:SetScript("OnUpdate", nil)
+        boosts.updating = false
     end
 end
 
@@ -824,6 +830,50 @@ local function CoinTossAmount(progress)
     return progress / settle
 end
 
+-- Прячет цифры восстановления на время переворота, чтобы они не застыли на тонком ребре.
+local function HoldCoinCooldown(owner)
+    if not owner or owner.coinInAir then
+        return
+    end
+    owner.coinInAir = true
+    local cooldown = owner.cooldown
+    if not cooldown then
+        return
+    end
+    cooldown:SetAlpha(0)
+    cooldown:Hide()
+end
+
+-- Счётчик и таймер должны остаться над иконкой, когда кнопка поднимается для подброса.
+local function RaiseCoinLayers(host)
+    if not host then
+        return
+    end
+    local level = host:GetFrameLevel()
+    if host.cooldown then
+        host.cooldown:SetFrameLevel(level + 1)
+    end
+    if host.StackCount then
+        host.StackCount:SetFrameLevel(level + 2)
+    end
+end
+
+-- Прячет число зарядов на время переворота и гасит незаконченное исчезновение.
+local function HoldCoinCount(host)
+    local stack = host and host.StackCount
+    if not stack or not stack:IsShown() then
+        return
+    end
+    if stack.fadeIn then
+        stack.fadeIn:Stop()
+    end
+    if stack.fadeOut then
+        stack.fadeOut:Stop()
+        stack.fadeOut:SetScript("OnFinished", nil)
+    end
+    stack:Hide()
+end
+
 -- Крутит текстуру, если клиент это умеет.
 local function SetPieceRotation(piece, angle)
     if piece and piece.SetRotation then
@@ -838,14 +888,21 @@ local function ResetHostCoin(btn)
     end
 
     btn.coinActive = nil
+    btn.coinInAir = nil
+    btn.coinFaceReady = nil
     btn.boostFlipLock = nil
     btn.boostShowingAlt = nil
     btn.boostFlipSlot = nil
     btn.boostHostSaved = nil
+    btn.ctrlFlipOwned = nil
+    btn.ctrlFaceSettled = nil
+    btn.ctrlMotionTarget = nil
+    btn.ctrlStartProgress = nil
     if btn.coinBaseLevel then
         btn:SetFrameLevel(btn.coinBaseLevel)
         btn.coinBaseLevel = nil
     end
+    RaiseCoinLayers(btn)
 
     local texture = btn.texture
     if texture then
@@ -867,6 +924,12 @@ local function ResetHostCoin(btn)
     end
     if btn.slotID and ActionBar.UpdateIcon then
         ActionBar.UpdateIcon(btn.slotID)
+    end
+    if ActionBar.SyncButtonCooldown then
+        ActionBar.SyncButtonCooldown(btn, true)
+    end
+    if btn.slotID and ActionBar.UpdateCount then
+        ActionBar.UpdateCount(btn.slotID)
     end
     if btn.slotID and ActionBar.UpdateUsable then
         ActionBar.UpdateUsable(btn.slotID)
@@ -989,8 +1052,90 @@ local function ApplyHostFace(btn, boostSlot, showAlt)
     end
 end
 
+-- Размер пузырька: растёт с лёгким перелётом и так же сдувается обратно.
+local function BubbleScale(life)
+    if life <= 0 then
+        return 0
+    end
+    if life >= 1 then
+        return 1
+    end
+    local scale = EaseOutBack(life)
+    if scale < 0 then
+        return 0
+    end
+    return scale
+end
+
+-- Значок должен быть виден в облаке. В развороте он сдувается сразу, а надувается лишь к концу сбора.
+local function IconInCloud(boosts, icon)
+    if icon.isExtra or not icon.filled then
+        return false
+    end
+    local spec = ActionBar.boostSlots[icon.index]
+    local hostKey = spec and hostKeys[spec.key]
+    if not FindHostButton(hostKey) then
+        return true
+    end
+    if (boosts.target or 0) >= 1 then
+        return false
+    end
+    local progress = icon.flightProgress
+    if progress == nil then
+        progress = boosts.progress or 0
+    end
+    local back = ActionBar.boostBubbleReturn or 0.12
+    return progress <= back
+end
+
+-- Доводит рост или спад пузырька до нужной доли.
+local function AdvanceIconBubble(boosts, icon, elapsed)
+    if icon.isExtra then
+        return
+    end
+    local target = IconInCloud(boosts, icon) and 1 or 0
+    icon.bubbleTarget = target
+    if icon.bubble == nil then
+        icon.bubble = 0
+    end
+    if icon.bubble == target or not elapsed or elapsed <= 0 then
+        return
+    end
+
+    local duration = ActionBar.boostBubbleDuration or 0.16
+    local rate = icon.flightRate or 1
+    if rate < 0.05 then
+        rate = 1
+    end
+    duration = duration / rate
+    local step = elapsed / duration
+    if target > icon.bubble then
+        icon.bubble = math.min(target, icon.bubble + step)
+    else
+        icon.bubble = math.max(target, icon.bubble - step)
+    end
+end
+
+-- Пузырёк ещё растёт или сдувается, рамку облака рано прятать.
+local function BoostBubblesBusy(boosts)
+    for index = 1, #boosts.icons do
+        local icon = boosts.icons[index]
+        local life = icon.bubble or 0
+        local target = icon.bubbleTarget
+        if target == nil then
+            target = IconInCloud(boosts, icon) and 1 or 0
+        end
+        if math.abs(life - target) > 0.001 then
+            return true
+        end
+    end
+    return false
+end
+
 -- В покое значок лежит в облаке. Кнопка крестовины подбрасывается на месте, как монета.
 local ApplyBoostIconLayer
+local UpdateBoostIconCooldown
+local UpdateBoostIconUsable
 local function ApplyBoostIconPose(boosts, icon, progress, elapsedTime)
     SyncIconRestFromLayout(boosts, icon)
     progress = IconFlightProgress(boosts, icon)
@@ -1003,13 +1148,12 @@ local function ApplyBoostIconPose(boosts, icon, progress, elapsedTime)
         host = FindHostButton(hostKey)
     end
 
-    if host then
+    -- Пока панель Ctrl крутит эту кнопку, облако не подменяет её рисунок.
+    if host and not host.ctrlFlipOwned then
         if progress <= 0 then
             ResetHostCoin(host)
-            icon:SetAlpha(1)
         else
             local amount = CoinTossAmount(progress)
-            icon:SetAlpha(0)
             host.coinActive = true
             host.boostFlipLock = true
             host.boostFlipSlot = icon.slotID
@@ -1017,6 +1161,7 @@ local function ApplyBoostIconPose(boosts, icon, progress, elapsedTime)
                 host.coinBaseLevel = host:GetFrameLevel()
             end
             host:SetFrameLevel(host.coinBaseLevel + 20)
+            RaiseCoinLayers(host)
             if host.fadeOut then
                 host.fadeOut:Stop()
                 host.fadeOut:SetScript("OnFinished", nil)
@@ -1031,30 +1176,65 @@ local function ApplyBoostIconPose(boosts, icon, progress, elapsedTime)
             if host.Icon then
                 host.Icon:Hide()
             end
+            if amount < 1 then
+                HoldCoinCooldown(host)
+                HoldCoinCount(host)
+                host.coinFaceReady = nil
+            end
             HideHostTwins(host)
             local showAlt = ApplyCoinToss(host.texture, host.background, host.mask, host, ActionBar.buttonSize, amount, tilt)
             ApplyHostFace(host, icon.slotID, showAlt)
-            if amount >= 1 and ActionBar.UpdateTextureDesaturation then
-                ActionBar.UpdateTextureDesaturation(host, icon.slotID)
+            if amount >= 1 then
+                if not host.coinFaceReady then
+                    host.coinInAir = nil
+                    host.coinFaceReady = true
+                    if ActionBar.SyncButtonCooldown then
+                        ActionBar.SyncButtonCooldown(host, true)
+                    end
+                    if ActionBar.UpdateCount then
+                        ActionBar.UpdateCount(host.slotID)
+                    end
+                end
+                if ActionBar.UpdateTextureDesaturation then
+                    ActionBar.UpdateTextureDesaturation(host, icon.slotID)
+                end
             end
         end
     end
 
     local x, y, size
     local floatX, floatY = 0, 0
+    local restartCooldown = false
     local tossingOwnFace = (not host) and progress > 0
     if tossingOwnFace then
         local amount = CoinTossAmount(progress)
         x = icon.restX
         y = icon.restY
         size = icon.restSize
+        if amount < 1 then
+            HoldCoinCooldown(icon)
+            icon.coinFaceReady = nil
+        end
         icon.coinSpinning = true
         ApplyCoinToss(icon.texture, icon.background, icon.mask, icon, math.max(size, 0.01), amount, tilt)
+        if amount >= 1 and not icon.coinFaceReady then
+            icon.coinInAir = nil
+            icon.coinFaceReady = true
+            restartCooldown = true
+        end
     else
         x = icon.restX
         y = icon.restY
         size = icon.restSize
-        if progress <= 0 then
+        local life = icon.bubble
+        if life == nil then
+            life = icon.isExtra and 1 or 0
+        end
+        if not icon.isExtra then
+            size = icon.restSize * BubbleScale(life)
+        end
+        -- В облаке значок чуть покачивается, пока пузырёк ещё виден.
+        if progress <= 0 or (not icon.isExtra and life > 0.001) then
             floatX = math.sin(elapsedTime * icon.speed * pi2 + icon.phase) * ActionBar.boostFloatRadius
             floatY = math.cos(elapsedTime * icon.speed * 0.85 * pi2 + icon.phase) * ActionBar.boostFloatRadius
         end
@@ -1074,6 +1254,9 @@ local function ApplyBoostIconPose(boosts, icon, progress, elapsedTime)
             icon.coinSpinning = nil
             icon.lastWidth = nil
             icon.lastHeight = nil
+            icon.coinInAir = nil
+            icon.coinFaceReady = nil
+            restartCooldown = true
         end
     end
     if size < 0.01 then
@@ -1091,15 +1274,36 @@ local function ApplyBoostIconPose(boosts, icon, progress, elapsedTime)
     if not tossingOwnFace and (icon.lastWidth ~= size or icon.lastHeight ~= size) then
         icon:SetSize(size, size)
         if icon.background and not icon.coinSpinning then
-            icon.background:SetSize(size + 8, size + 8)
+            local pad = 8
+            if not icon.isExtra then
+                pad = 8 * BubbleScale(icon.bubble or 0)
+            end
+            icon.background:SetSize(size + pad, size + pad)
         end
         icon.lastWidth = size
         icon.lastHeight = size
     end
     if icon.lastSize ~= size then
-        local crop = 3 / math.max(size, 1)
+        local crop = 0
+        if size > 8 then
+            crop = 3 / size
+        end
         icon.texture:SetTexCoord(crop, 1 - crop, crop, 1 - crop)
         icon.lastSize = size
+    end
+    if not icon.isExtra then
+        local life = icon.bubble or 0
+        icon:SetAlpha(life > 0.001 and 1 or 0)
+    end
+
+    if restartCooldown then
+        if icon.cooldown and icon.texture then
+            icon.cooldown:ClearAllPoints()
+            icon.cooldown:SetAllPoints(icon.texture)
+            icon.cooldown:Show()
+        end
+        UpdateBoostIconCooldown(icon)
+        UpdateBoostIconUsable(icon)
     end
 
     -- Цифры восстановления только в развороте, без кольца отката.
@@ -1146,6 +1350,10 @@ local function AdvanceBoostProgress(boosts, elapsed)
     boosts.progress = boosts.startProgress + (boosts.target - boosts.startProgress) * eased
 end
 
+-- Показ или скрытие рамки облака. Значки сами растут и сдуваются, рамка только держит их.
+local SyncCloudFrame
+local SetBoostsUpdating
+
 -- Цикл облака: плавание в покое, подброс кнопок крестовины как монет.
 function ActionBar.OnBoostsUpdate(elapsed)
     local boosts = GetBoosts()
@@ -1159,8 +1367,15 @@ function ActionBar.OnBoostsUpdate(elapsed)
 
     for index = 1, #boosts.icons do
         local icon = boosts.icons[index]
-        if icon:IsShown() or (boosts.progress or 0) <= 0 then
+        IconFlightProgress(boosts, icon)
+        AdvanceIconBubble(boosts, icon, elapsed)
+        if icon:IsShown() or (boosts.progress or 0) <= 0 or (icon.bubble or 0) > 0 then
             ApplyBoostIconPose(boosts, icon, boosts.progress, boosts.time)
+        end
+        if not icon.filled and (icon.bubble or 0) <= 0.001 and icon:IsShown() then
+            icon.texture:SetTexture(nil)
+            icon:SetAlpha(0)
+            icon:Hide()
         end
     end
 
@@ -1189,21 +1404,58 @@ function ActionBar.OnBoostsUpdate(elapsed)
         return
     end
 
-    if not ActionBar.HasVisibleBoosts() then
-        boosts.frame:SetScript("OnUpdate", nil)
-        ConsoleMenu:AnimatedHide(boosts.frame)
-        ApplyCloudHalo(boosts)
-        HideExploringBarIfIdle()
+    SyncCloudFrame(boosts)
+end
+
+-- Рамка видна, пока в облаке есть значки или они ещё доигрывают рост и спад.
+SyncCloudFrame = function(boosts)
+    if not boosts or boosts.exploringHidePending then
+        return
     end
+
+    local layoutBusy = (boosts.layoutDuration or 0) > 0
+        or math.abs((boosts.layoutMix or 0) - (boosts.layoutTarget or 0)) > 0.001
+    local frame = boosts.frame
+    if ActionBar.HasVisibleBoosts() or layoutBusy or BoostBubblesBusy(boosts) then
+        local fadingOut = frame.fadeOut and frame.fadeOut:IsPlaying()
+        local fadingIn = frame.fadeIn and frame.fadeIn:IsPlaying()
+        if not frame:IsShown() then
+            StopFade(frame)
+            if frame.fadeIn then
+                frame.fadeIn:Stop()
+            end
+            frame:Show()
+            frame:SetAlpha(1)
+        elseif not fadingOut and not fadingIn and (frame:GetAlpha() or 1) < 0.99 then
+            -- Оборванное затухание не должно оставлять облако невидимым.
+            frame:SetAlpha(1)
+        end
+        SetBoostsUpdating(boosts, true)
+        return
+    end
+
+    SetBoostsUpdating(boosts, false)
+    frame:Hide()
+    frame:SetAlpha(1)
+    ApplyCloudHalo(boosts)
+    HideExploringBarIfIdle()
 end
 
 -- Запуск или остановка цикла, пока облако на экране.
-local function SetBoostsUpdating(boosts, enabled)
+SetBoostsUpdating = function(boosts, enabled)
     if enabled then
+        if boosts.frame:GetScript("OnUpdate") then
+            boosts.updating = true
+            return
+        end
+        boosts.updating = true
         boosts.frame:SetScript("OnUpdate", function(_, elapsed)
             ActionBar.OnBoostsUpdate(elapsed)
         end)
-    else
+        return
+    end
+    boosts.updating = false
+    if boosts.frame:GetScript("OnUpdate") then
         boosts.frame:SetScript("OnUpdate", nil)
     end
 end
@@ -1310,7 +1562,7 @@ function ApplyBoostIconLayer(icon, progress)
 end
 
 -- Обесцвечивание значка облака: при CTRL все значки серые, иначе по пригодности.
-local function UpdateBoostIconUsable(icon)
+function UpdateBoostIconUsable(icon)
     if not icon.filled or not icon.texture then
         return
     end
@@ -1359,8 +1611,8 @@ local function UpdateBoostIconCount(icon)
 end
 
 -- Время восстановления значка. Кольцо отката не рисуем.
-local function UpdateBoostIconCooldown(icon)
-    if not icon.cooldown then
+function UpdateBoostIconCooldown(icon)
+    if not icon.cooldown or icon.coinInAir then
         return
     end
 
@@ -1434,9 +1686,14 @@ local function UpdateBoostIcon(icon)
             return
         end
         icon.filled = false
-        icon.texture:SetTexture(nil)
+        icon.bubbleTarget = 0
         UpdateBoostIconCount(icon)
-        icon:Hide()
+        -- Картинку оставляем, пока пузырёк не сдуется.
+        if (icon.bubble or 0) <= 0.001 then
+            icon.texture:SetTexture(nil)
+            icon:SetAlpha(0)
+            icon:Hide()
+        end
         return
     end
 
@@ -1445,6 +1702,9 @@ local function UpdateBoostIcon(icon)
         if not icon:IsShown() then
             icon:SetAlpha(0)
         end
+    elseif not icon:IsShown() then
+        icon.bubble = 0
+        icon:SetAlpha(0)
     end
     icon.filled = true
     icon.texture:SetTexture(textureFileID)
@@ -1500,8 +1760,6 @@ function ActionBar.UpdateBoosts()
 
     ApplyExtraCaptions(boosts)
 
-    local layoutBusy = (boosts.layoutDuration or 0) > 0
-        or math.abs((boosts.layoutMix or 0) - (boosts.layoutTarget or 0)) > 0.001
     if boosts.exploringHidePending and IsExploringWithoutShift() then
         -- Гашение уже идёт: значки продолжают лететь, пока панель затухает.
         SetBoostsUpdating(boosts, true)
@@ -1510,15 +1768,9 @@ function ActionBar.UpdateBoosts()
     if boosts.exploringHidePending then
         CancelExploringCloudHide(boosts)
     end
-    if ActionBar.HasVisibleBoosts() or layoutBusy then
-        ConsoleMenu:AnimatedShow(boosts.frame)
-        SetBoostsUpdating(boosts, true)
+    SyncCloudFrame(boosts)
+    if boosts.updating then
         ActionBar.OnBoostsUpdate(0)
-    else
-        SetBoostsUpdating(boosts, false)
-        ConsoleMenu:AnimatedHide(boosts.frame)
-        ApplyCloudHalo(boosts)
-        HideExploringBarIfIdle()
     end
 end
 
@@ -1747,4 +1999,599 @@ function ActionBar.CreateBoosts(parent)
     parent.boosts = boosts
     ActionBar.UpdateBoosts()
     return boosts
+end
+
+-- Переворот панели Ctrl: та же кнопка подбрасывается монетой и садится умением другой панели.
+-- Наклон у каждой свой, чтобы ребро не вставало одинаковой щелью.
+local ctrlSpinTilts = {
+    PAD3 = 0.74,
+    PAD4 = -0.62,
+    PAD2 = 0.9,
+    PADDUP = 0.72,
+    PADDRIGHT = -0.86,
+    PADDLEFT = -1.05,
+    PADLSTICK = 0.58,
+    PADDDOWN = -0.58,
+}
+
+-- Разброс скорости, как у облака: часть значков садится раньше остальных.
+local ctrlSpinRates = {
+    PAD3 = 0.72,
+    PAD4 = 1.22,
+    PAD2 = 0.86,
+    PADDUP = 1.12,
+    PADDRIGHT = 0.78,
+    PADDLEFT = 0.96,
+    PADLSTICK = 1.08,
+    PADDDOWN = 0.9,
+}
+
+-- Место кнопки на панели. Соседи с одной точкой, например рычаг и низ креста, совпадают.
+local function PositionToken(mainKey)
+    local position = mainKey and ActionBar.buttonPositions[mainKey]
+    if not position then
+        return nil
+    end
+    return position[1]
+        .. ":" .. position[2]
+        .. ":" .. position[3]
+        .. ":" .. tostring(position[4])
+        .. ":" .. tostring(position[5])
+end
+
+-- Снизу виден левый рычаг, отдельная нижняя кнопка креста ему уступает.
+local function HostRank(mainKey)
+    if mainKey == "PADLSTICK" then
+        return 2
+    end
+    if mainKey == "PADDDOWN" then
+        return 0
+    end
+    return 1
+end
+
+-- Кнопка основной страницы, а не запасной панели.
+local function IsHostOnCurrentPage(slotID)
+    if not slotID or slotID < 1 or slotID > 24 then
+        return false
+    end
+
+    local page = 1
+    if C_ActionBar and C_ActionBar.GetActionBarPage then
+        page = C_ActionBar.GetActionBarPage() or 1
+    end
+
+    local startSlot = 12 * (page - 1) + 1
+    return slotID >= startSlot and slotID < startSlot + 12
+end
+
+-- Рисунок, который сейчас виден на кнопке.
+local function ReadButtonTexture(texture)
+    if not texture or not texture.GetTexture then
+        return nil
+    end
+
+    local ok, current = pcall(texture.GetTexture, texture)
+    if not ok or not current or IsSecretValue(current) then
+        return nil
+    end
+    return current
+end
+
+-- Умение Ctrl на том же месте, что и кнопка. Своя клавиша важнее соседней.
+local function PickCtrlButton(list, hostKey)
+    local fallback
+    for index = 1, #list do
+        local candidate = list[index]
+        if candidate.mainKey == hostKey then
+            return candidate
+        end
+        if not fallback then
+            fallback = candidate
+        end
+    end
+    return fallback
+end
+
+-- Пары: кнопка текущей страницы и заполненное умение Ctrl на том же месте.
+local function CollectCtrlPairs(frame)
+    local ctrlByToken = {}
+    local entries = {}
+    local tokens = {}
+    local rateFloor = 1
+    if not frame or not frame.actionButtons then
+        return entries, tokens, rateFloor
+    end
+
+    for slotID, btn in pairs(frame.actionButtons) do
+        if btn.modifierKey == "CTRL"
+            and not ActionBar.ignoredSlot[slotID]
+            and not ActionBar.slot12Slots[slotID]
+            and not ActionBar.IsBoostSlot(slotID)
+            and SlotHasAction(slotID) == true
+        then
+            local token = PositionToken(btn.mainKey)
+            if token then
+                local list = ctrlByToken[token]
+                if not list then
+                    list = {}
+                    ctrlByToken[token] = list
+                end
+                list[#list + 1] = btn
+            end
+        end
+    end
+
+    local bestHost = {}
+    for slotID, btn in pairs(frame.actionButtons) do
+        if not btn.modifierKey
+            and IsHostOnCurrentPage(slotID)
+            and not ActionBar.ignoredSlot[slotID]
+            and not ActionBar.slot12Slots[slotID]
+            and not ActionBar.IsBoostSlot(slotID)
+            and not ActionBar.IsExtraActionSlot(slotID)
+        then
+            local token = PositionToken(btn.mainKey)
+            if token and ctrlByToken[token] then
+                local current = bestHost[token]
+                if not current or HostRank(btn.mainKey) > HostRank(current.mainKey) then
+                    bestHost[token] = btn
+                end
+            end
+        end
+    end
+
+    for token, host in pairs(bestHost) do
+        local alt = PickCtrlButton(ctrlByToken[token], host.mainKey)
+        if alt then
+            local rate = ctrlSpinRates[host.mainKey] or 1
+            if rate < rateFloor then
+                rateFloor = rate
+            end
+            entries[#entries + 1] = {
+                host = host,
+                altSlot = alt.slotID,
+                tilt = ctrlSpinTilts[host.mainKey] or 0.7,
+                rate = rate,
+            }
+            tokens[token] = true
+        end
+    end
+
+    if rateFloor < 0.05 then
+        rateFloor = 1
+    end
+    return entries, tokens, rateFloor
+end
+
+-- Правый рычаг забирает крестовину обратно в облако усилений.
+local function ShiftTakesHost(host)
+    if not host or IsControlKeyDown() or not IsShiftKeyDown() then
+        return false
+    end
+    return ActionBar.IsBoostHostKey and ActionBar.IsBoostHostKey(host.mainKey) or false
+end
+
+-- Лицевая сторона: своё умение, а если кнопка уже показывает усиление — оно и остаётся до оборота.
+local function PrepareCtrlFront(host, target)
+    if target == 0 then
+        local textureFileID = GetBoostTexture(host.slotID)
+        if textureFileID and not IsSecretValue(textureFileID) then
+            host.boostHostSaved = true
+            host.boostHostTexture = textureFileID
+        end
+        return
+    end
+
+    if host.boostShowingAlt and host.boostFlipSlot and ActionBar.IsBoostSlot(host.boostFlipSlot) then
+        local current = ReadButtonTexture(host.texture)
+        if current then
+            host.boostHostSaved = true
+            host.boostHostTexture = current
+            return
+        end
+    end
+
+    if host.boostHostSaved then
+        return
+    end
+
+    host.boostHostSaved = true
+    local textureFileID = GetBoostTexture(host.slotID)
+    if textureFileID and not IsSecretValue(textureFileID) then
+        host.boostHostTexture = textureFileID
+        return
+    end
+    host.boostHostTexture = ReadButtonTexture(host.texture)
+end
+
+-- Запоминает лицевую сторону один раз на направление подброса.
+local function BindCtrlMotion(host, flip)
+    if host.ctrlMotionTarget == flip.target and host.ctrlStartProgress ~= nil then
+        return
+    end
+    PrepareCtrlFront(host, flip.target)
+    host.ctrlMotionTarget = flip.target
+    host.ctrlStartProgress = flip.progress or 0
+    host.ctrlFaceSettled = nil
+end
+
+-- Ход одной монеты: быстрые доходят до оборота раньше общего конца.
+local function CtrlEntryProgress(flip, entry)
+    local target = flip.target or 0
+    if not flip.duration or flip.duration <= 0 or flip.progress == target then
+        return target
+    end
+
+    local rate = entry.rate or 1
+    local slowest = flip.rateFloor or 1
+    if slowest < 0.05 then
+        slowest = 1
+    end
+
+    local amount = (flip.elapsed or 0) / flip.duration
+    if amount < 0 then
+        amount = 0
+    elseif amount > 1 then
+        amount = 1
+    end
+
+    local travelled = amount * (rate / slowest)
+    if travelled > 1 then
+        travelled = 1
+    end
+
+    local startProgress = entry.host.ctrlStartProgress
+    if startProgress == nil then
+        startProgress = flip.startProgress or 0
+    end
+    return startProgress + (target - startProgress) * EaseOutCubic(travelled)
+end
+
+-- Возвращает кнопку к своему умению после переворота.
+local function ReleaseCtrlHost(host)
+    if not host then
+        return
+    end
+
+    local tossed = host.coinActive or host.boostFlipLock or host.ctrlFlipOwned
+    host.ctrlFlipOwned = nil
+    if host.cooldown then
+        host.cooldown:SetAlpha(1)
+    end
+    if tossed then
+        host.coinActive = true
+        ResetHostCoin(host)
+    else
+        host.ctrlFaceSettled = nil
+        host.ctrlMotionTarget = nil
+        host.ctrlStartProgress = nil
+    end
+    if host.Glow and ActionBar.UpdateGlow then
+        ActionBar.UpdateGlow(host.slotID)
+    end
+end
+
+-- Снимает переворот со всех кнопок, которые он держал.
+local function CloseCtrlFlip(flip)
+    local frame = ActionBar.GetFrame()
+    if frame and frame.actionButtons then
+        for _, btn in pairs(frame.actionButtons) do
+            if btn.ctrlFlipOwned or btn.ctrlMotionTarget ~= nil then
+                ReleaseCtrlHost(btn)
+            end
+        end
+    end
+    flip.entries = nil
+    flip.hostSlots = nil
+    flip.ownedTokens = nil
+end
+
+-- Один кадр подброса: кнопка остаётся на месте и меняет рисунок на ребре.
+local function PoseCtrlHost(flip, entry)
+    local host = entry.host
+    if not host then
+        return
+    end
+
+    -- Крестовину отдаём облаку один раз, иначе каждый кадр стирает её подброс.
+    if flip.target == 0 and ShiftTakesHost(host) then
+        if host.ctrlFlipOwned or host.ctrlMotionTarget ~= nil then
+            ReleaseCtrlHost(host)
+        end
+        return false
+    end
+
+    BindCtrlMotion(host, flip)
+    local amount = CoinTossAmount(CtrlEntryProgress(flip, entry))
+    if amount < 1 then
+        HoldCoinCooldown(host)
+    end
+    host.ctrlFlipOwned = true
+    host.coinActive = true
+    host.boostFlipLock = true
+    host.boostFlipSlot = entry.altSlot
+    if not host.coinBaseLevel then
+        host.coinBaseLevel = host:GetFrameLevel()
+    end
+    host:SetFrameLevel(host.coinBaseLevel + 20)
+    RaiseCoinLayers(host)
+    if host.fadeOut then
+        host.fadeOut:Stop()
+        host.fadeOut:SetScript("OnFinished", nil)
+    end
+    if host.fadeIn then
+        host.fadeIn:Stop()
+    end
+    if not host:IsShown() then
+        host:Show()
+    end
+    host:SetAlpha(1)
+    if host.Icon then
+        host.Icon:Hide()
+    end
+    if host.background then
+        host.background:Show()
+    end
+    HideHostTwins(host)
+
+    local showAlt = ApplyCoinToss(host.texture, host.background, host.mask, host, ActionBar.buttonSize, amount, entry.tilt)
+    if not showAlt and host.boostHostTexture then
+        local current = ReadButtonTexture(host.texture)
+        if current ~= host.boostHostTexture then
+            host.boostShowingAlt = true
+        end
+    end
+    ApplyHostFace(host, entry.altSlot, showAlt)
+
+    if amount < 1 then
+        host.ctrlFaceSettled = nil
+        HoldCoinCount(host)
+        if host.Glow then
+            host.Glow:Hide()
+        end
+        return true
+    end
+
+    if not host.ctrlFaceSettled then
+        host.coinInAir = nil
+        host.ctrlFaceSettled = true
+        if ActionBar.UpdateCount then
+            ActionBar.UpdateCount(host.slotID)
+        end
+        if ActionBar.SyncButtonCooldown then
+            ActionBar.SyncButtonCooldown(host, true)
+        elseif ActionBar.UpdateTextureDesaturation then
+            ActionBar.UpdateTextureDesaturation(host, entry.altSlot)
+        end
+        if ActionBar.UpdateGlow then
+            ActionBar.UpdateGlow(host.slotID)
+        end
+    end
+    return true
+end
+
+-- Обновляет набор монет и рисует текущий кадр.
+local function ApplyCtrlFaces(flip)
+    local frame = ActionBar.GetFrame()
+    local entries, tokens, rateFloor = CollectCtrlPairs(frame)
+    local keep = {}
+    for index = 1, #entries do
+        keep[entries[index].host] = true
+    end
+
+    if flip.entries then
+        for index = 1, #flip.entries do
+            local previous = flip.entries[index].host
+            if previous and not keep[previous] then
+                ReleaseCtrlHost(previous)
+            end
+        end
+    end
+
+    flip.entries = entries
+    flip.ownedTokens = tokens
+    flip.rateFloor = rateFloor
+    flip.hostSlots = {}
+    for index = 1, #entries do
+        local entry = entries[index]
+        if PoseCtrlHost(flip, entry) then
+            flip.hostSlots[entry.host.slotID] = true
+        end
+    end
+end
+
+-- Общий ход подброса без скачка при смене направления.
+local function AdvanceCtrlProgress(flip, elapsed)
+    if not flip.duration or flip.duration <= 0 or flip.progress == flip.target then
+        flip.progress = flip.target
+        return true
+    end
+
+    flip.elapsed = (flip.elapsed or 0) + (elapsed or 0)
+    local amount = flip.elapsed / flip.duration
+    if amount >= 1 then
+        flip.progress = flip.target
+        flip.duration = 0
+        return true
+    end
+
+    flip.progress = flip.startProgress + (flip.target - flip.startProgress) * EaseOutCubic(amount)
+    return false
+end
+
+-- Кадр переворота. Пока он скрыт, анимация стоит.
+local function EnsureCtrlFlip(frame)
+    if frame.ctrlFlip then
+        return frame.ctrlFlip
+    end
+
+    local driver = CreateFrame("Frame", nil, frame)
+    driver:Hide()
+    local flip = {
+        progress = 0,
+        target = 0,
+        startProgress = 0,
+        elapsed = 0,
+        duration = 0,
+        driver = driver,
+    }
+    driver:SetScript("OnUpdate", function(_, elapsed)
+        ActionBar.OnCtrlFlipUpdate(elapsed)
+    end)
+    frame.ctrlFlip = flip
+    return flip
+end
+
+-- Шаг переворота всех кнопок панели Ctrl.
+function ActionBar.OnCtrlFlipUpdate(elapsed)
+    local frame = ActionBar.GetFrame()
+    local flip = frame and frame.ctrlFlip
+    if not flip or flip.ticking then
+        return
+    end
+
+    flip.ticking = true
+    local settled = AdvanceCtrlProgress(flip, elapsed or 0)
+    ApplyCtrlFaces(flip)
+
+    local empty = not flip.entries or #flip.entries == 0
+    if empty then
+        settled = true
+        flip.progress = flip.target
+        flip.duration = 0
+    end
+
+    if ActionBar.UpdateActionButtonShadows then
+        ActionBar.UpdateActionButtonShadows()
+    end
+
+    if settled then
+        flip.duration = 0
+        if flip.driver then
+            flip.driver:Hide()
+        end
+        if flip.target == 0 then
+            CloseCtrlFlip(flip)
+            flip.progress = 0
+            flip.ticking = false
+            if ActionBar.UpdateModifierState then
+                ActionBar.UpdateModifierState()
+            end
+            return
+        end
+    end
+
+    flip.ticking = false
+end
+
+-- Запускает подброс к цели. Короткий остаток не растягивается на полную длительность.
+local function BeginCtrlMotion(flip, target)
+    flip.startProgress = flip.progress or 0
+    local span = math.abs(target - flip.startProgress)
+    flip.target = target
+    flip.elapsed = 0
+    if span < 0.001 then
+        flip.progress = target
+        flip.duration = 0
+        ActionBar.OnCtrlFlipUpdate(0)
+        return
+    end
+
+    local _, _, rateFloor = CollectCtrlPairs(ActionBar.GetFrame())
+    if not rateFloor or rateFloor < 0.05 then
+        rateFloor = 1
+    end
+    flip.rateFloor = rateFloor
+    local full = target == 1 and (ActionBar.boostExpandDuration or 0.48) or (ActionBar.boostCollapseDuration or 0.48)
+    flip.duration = full * span / rateFloor
+    flip.driver:Show()
+    ActionBar.OnCtrlFlipUpdate(0)
+end
+
+-- В исследовании панель гаснет сразу, поэтому обратный подброс не показывается.
+local function ExploringHidesCtrlFlip()
+    if IsControlKeyDown() then
+        return false
+    end
+    if not ConsoleMenu.GetPlayerContext or ConsoleMenu:GetPlayerContext() ~= "exploring" then
+        return false
+    end
+    return true
+end
+
+-- Панель Ctrl ещё держит кнопки, пока монеты не вернулись.
+function ActionBar.CtrlFlipOwnsHosts()
+    local frame = ActionBar.GetFrame()
+    local flip = frame and frame.ctrlFlip
+    if not flip then
+        return false
+    end
+    return (flip.target or 0) == 1 or (flip.progress or 0) > 0.001
+end
+
+-- Эта кнопка сама показывает умение Ctrl.
+function ActionBar.IsActiveCtrlHostSlot(slotID)
+    local frame = ActionBar.GetFrame()
+    local flip = frame and frame.ctrlFlip
+    if not flip or not flip.hostSlots or not ActionBar.CtrlFlipOwnsHosts() then
+        return false
+    end
+    return flip.hostSlots[slotID] == true
+end
+
+-- Вторая копия на том же месте скрыта: рисунок уже на переворачиваемой кнопке.
+function ActionBar.CtrlFlipHidesSlot(slotID)
+    local frame = ActionBar.GetFrame()
+    local flip = frame and frame.ctrlFlip
+    local btn = ActionBar.GetButton(slotID)
+    if not flip or not btn or btn.modifierKey ~= "CTRL" or not ActionBar.CtrlFlipOwnsHosts() then
+        return false
+    end
+    if ActionBar.slot12Slots[slotID] then
+        return false
+    end
+    local token = PositionToken(btn.mainKey)
+    return token and flip.ownedTokens and flip.ownedTokens[token] == true or false
+end
+
+-- Включает переворот при удержании Ctrl и сажает монеты обратно, когда клавишу отпускают.
+function ActionBar.SetCtrlFlip(active)
+    local frame = ActionBar.GetFrame()
+    if not frame then
+        return
+    end
+
+    local flip = EnsureCtrlFlip(frame)
+    if not active then
+        if ExploringHidesCtrlFlip() then
+            if (flip.progress or 0) > 0.001 or (flip.target or 0) ~= 0 or flip.hostSlots then
+                flip.target = 0
+                flip.progress = 0
+                flip.duration = 0
+                flip.elapsed = 0
+                if flip.driver then
+                    flip.driver:Hide()
+                end
+                CloseCtrlFlip(flip)
+            end
+            return
+        end
+        if (flip.target or 0) == 0 and (flip.progress or 0) <= 0.001 and (flip.duration or 0) <= 0 then
+            return
+        end
+        BeginCtrlMotion(flip, 0)
+        return
+    end
+
+    if flip.target == 1 and (flip.duration or 0) <= 0 and (flip.progress or 0) >= 0.999 then
+        ApplyCtrlFaces(flip)
+        return
+    end
+
+    if flip.target == 1 and (flip.duration or 0) > 0 then
+        return
+    end
+
+    BeginCtrlMotion(flip, 1)
 end
