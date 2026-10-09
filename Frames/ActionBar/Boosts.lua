@@ -380,8 +380,12 @@ local function ApplyBoostStickHint(boosts)
         hint:Show()
     end
     hint:SetAlpha(alpha)
-    if hint.Texture and hint.Texture.SetDesaturated then
-        hint.Texture:SetDesaturated(IsControlKeyDown())
+    if hint.Texture then
+        if ActionBar.SetIconGray then
+            ActionBar.SetIconGray(hint.Texture, IsControlKeyDown())
+        elseif hint.Texture.SetDesaturated then
+            hint.Texture:SetDesaturated(IsControlKeyDown())
+        end
     end
 end
 
@@ -858,6 +862,44 @@ local function RaiseCoinLayers(host)
     end
 end
 
+-- Доля подброса, после которой число зарядов уже можно показать.
+local function CountRevealAmount()
+    local reveal = ActionBar.boostCountReveal or 0.28
+    if reveal < 0.05 then
+        reveal = 0.28
+    elseif reveal > 0.95 then
+        reveal = 0.95
+    end
+    return reveal
+end
+
+-- Ставит счётчик в угол кнопки, чтобы он не ехал за кувыркающейся иконкой.
+local function SeatCoinCount(host)
+    local stack = host and host.StackCount
+    if not stack then
+        return
+    end
+    stack:ClearAllPoints()
+    stack:SetPoint("BOTTOMRIGHT", host, "BOTTOMRIGHT", ActionBar.stackCountOffset, -ActionBar.stackCountOffset)
+end
+
+-- Показывает число зарядов сразу, без плавного проявления.
+local function ShowCoinCount(host)
+    if not host then
+        return
+    end
+    local face = host.boostShowingAlt and host.boostFlipSlot or host.slotID
+    if host.coinCountReady and host.coinCountFace == face then
+        return
+    end
+    host.coinCountReady = true
+    host.coinCountFace = face
+    SeatCoinCount(host)
+    if host.slotID and ActionBar.UpdateCount then
+        ActionBar.UpdateCount(host.slotID)
+    end
+end
+
 -- Прячет число зарядов на время переворота и гасит незаконченное исчезновение.
 local function HoldCoinCount(host)
     local stack = host and host.StackCount
@@ -872,6 +914,24 @@ local function HoldCoinCount(host)
         stack.fadeOut:SetScript("OnFinished", nil)
     end
     stack:Hide()
+end
+
+-- Одно появление числа: на оборотной стороне, без вспышки старых зарядов и без второго показа на посадке.
+local function SyncCoinCount(host, showAlt, amount)
+    if not host then
+        return
+    end
+    if showAlt or amount >= 1 then
+        host.coinCountLatched = true
+        ShowCoinCount(host)
+        return
+    end
+    if amount < CountRevealAmount() then
+        host.coinCountLatched = nil
+        host.coinCountReady = nil
+        host.coinCountFace = nil
+        HoldCoinCount(host)
+    end
 end
 
 -- Крутит текстуру, если клиент это умеет.
@@ -890,6 +950,13 @@ local function ResetHostCoin(btn)
     btn.coinActive = nil
     btn.coinInAir = nil
     btn.coinFaceReady = nil
+    btn.coinCountReady = nil
+    btn.coinCountFace = nil
+    btn.coinCountLatched = nil
+    btn.coinTimerReady = nil
+    btn.coinTimerFace = nil
+    btn.coinTimerSlot = nil
+    btn.coinTimerAnchor = nil
     btn.boostFlipLock = nil
     btn.boostShowingAlt = nil
     btn.boostFlipSlot = nil
@@ -898,6 +965,7 @@ local function ResetHostCoin(btn)
     btn.ctrlFaceSettled = nil
     btn.ctrlMotionTarget = nil
     btn.ctrlStartProgress = nil
+    btn.ctrlShownProgress = nil
     if btn.coinBaseLevel then
         btn:SetFrameLevel(btn.coinBaseLevel)
         btn.coinBaseLevel = nil
@@ -912,6 +980,10 @@ local function ResetHostCoin(btn)
         SetPieceRotation(texture, 0)
     end
     SetPieceRotation(btn.mask, 0)
+    if btn.StackCount and texture then
+        btn.StackCount:ClearAllPoints()
+        btn.StackCount:SetPoint("BOTTOMRIGHT", texture, "BOTTOMRIGHT", ActionBar.stackCountOffset, -ActionBar.stackCountOffset)
+    end
     if btn.background then
         btn.background:ClearAllPoints()
         btn.background:SetPoint("CENTER", btn, "CENTER", 0, 0)
@@ -1009,6 +1081,9 @@ local function ApplyCoinToss(texture, background, mask, parent, size, amount, ti
         texture:SetPoint("CENTER", parent, "CENTER", slide, lift)
         texture:SetSize(width, height)
         texture:SetVertexColor(shade, shade, shade)
+        if texture.iconGray and texture.SetDesaturated then
+            texture:SetDesaturated(true)
+        end
         SetPieceRotation(texture, axis)
     end
     SetPieceRotation(mask, axis)
@@ -1178,12 +1253,23 @@ local function ApplyBoostIconPose(boosts, icon, progress, elapsedTime)
             end
             if amount < 1 then
                 HoldCoinCooldown(host)
-                HoldCoinCount(host)
                 host.coinFaceReady = nil
             end
             HideHostTwins(host)
             local showAlt = ApplyCoinToss(host.texture, host.background, host.mask, host, ActionBar.buttonSize, amount, tilt)
             ApplyHostFace(host, icon.slotID, showAlt)
+            if ActionBar.UpdateTextureDesaturation then
+                ActionBar.UpdateTextureDesaturation(host, showAlt and icon.slotID or host.slotID)
+            end
+            local timerFace = showAlt and true or false
+            if (showAlt or amount >= 1) and (not host.coinTimerReady or host.coinTimerFace ~= timerFace) then
+                host.coinTimerReady = true
+                host.coinTimerFace = timerFace
+                if amount < 1 and ActionBar.SyncButtonCooldown then
+                    ActionBar.SyncButtonCooldown(host, true)
+                end
+            end
+            SyncCoinCount(host, showAlt, amount)
             if amount >= 1 then
                 if not host.coinFaceReady then
                     host.coinInAir = nil
@@ -1191,12 +1277,13 @@ local function ApplyBoostIconPose(boosts, icon, progress, elapsedTime)
                     if ActionBar.SyncButtonCooldown then
                         ActionBar.SyncButtonCooldown(host, true)
                     end
-                    if ActionBar.UpdateCount then
-                        ActionBar.UpdateCount(host.slotID)
-                    end
+                    SyncCoinCount(host, true, amount)
                 end
                 if ActionBar.UpdateTextureDesaturation then
                     ActionBar.UpdateTextureDesaturation(host, icon.slotID)
+                end
+                if ActionBar.RepaintButtonColors then
+                    ActionBar.RepaintButtonColors()
                 end
             end
         end
@@ -1216,7 +1303,12 @@ local function ApplyBoostIconPose(boosts, icon, progress, elapsedTime)
             icon.coinFaceReady = nil
         end
         icon.coinSpinning = true
-        ApplyCoinToss(icon.texture, icon.background, icon.mask, icon, math.max(size, 0.01), amount, tilt)
+        local showAlt = ApplyCoinToss(icon.texture, icon.background, icon.mask, icon, math.max(size, 0.01), amount, tilt)
+        if showAlt or amount >= 1 then
+            icon.countLatched = true
+        elseif amount < CountRevealAmount() then
+            icon.countLatched = nil
+        end
         if amount >= 1 and not icon.coinFaceReady then
             icon.coinInAir = nil
             icon.coinFaceReady = true
@@ -1256,6 +1348,7 @@ local function ApplyBoostIconPose(boosts, icon, progress, elapsedTime)
             icon.lastHeight = nil
             icon.coinInAir = nil
             icon.coinFaceReady = nil
+            icon.countLatched = nil
             restartCooldown = true
         end
     end
@@ -1314,12 +1407,27 @@ local function ApplyBoostIconPose(boosts, icon, progress, elapsedTime)
         icon.cooldown:SetAlpha(showTimer and 1 or 0)
     end
 
-    -- Счётчик зарядов появляется вместе с цифрами восстановления.
-    local showCount = icon.hasCount and showTimer
+    -- У кнопки крестовины число своё. На значке облака оно не вспыхивает посреди передачи.
+    local showCount = false
+    if icon.hasCount and not host then
+        if tossingOwnFace then
+            showCount = icon.countLatched == true
+        else
+            showCount = progress >= ActionBar.boostCooldownProgress
+        end
+    end
     if icon.countShown ~= showCount then
         icon.countShown = showCount
         if showCount then
-            ConsoleMenu:AnimatedShow(icon.StackCount)
+            if icon.StackCount.fadeOut then
+                icon.StackCount.fadeOut:Stop()
+                icon.StackCount.fadeOut:SetScript("OnFinished", nil)
+            end
+            if icon.StackCount.fadeIn then
+                icon.StackCount.fadeIn:Stop()
+            end
+            icon.StackCount:SetAlpha(1)
+            icon.StackCount:Show()
         else
             ConsoleMenu:AnimatedHide(icon.StackCount)
         end
@@ -1543,7 +1651,7 @@ function ApplyBoostIconLayer(icon, progress)
         icon:SetFrameLevel(clusterLevel + 10)
     else
         local atRest = progress < ActionBar.boostCooldownProgress
-        if atRest and icon.texture and icon.texture:IsDesaturated() then
+        if atRest and icon.texture and icon.texture.iconGray then
             icon:SetFrameLevel(clusterLevel + 1)
         else
             icon:SetFrameLevel(clusterLevel + icon.index + 1)
@@ -1567,7 +1675,11 @@ function UpdateBoostIconUsable(icon)
         return
     end
     if IsControlKeyDown() then
-        icon.texture:SetDesaturated(true)
+        if ActionBar.SetIconGray then
+            ActionBar.SetIconGray(icon.texture, true)
+        else
+            icon.texture:SetDesaturated(true)
+        end
         return
     end
     ActionBar.UpdateTextureDesaturation(icon, icon.slotID)
@@ -2206,13 +2318,18 @@ local function PrepareCtrlFront(host, target)
 end
 
 -- Запоминает лицевую сторону один раз на направление подброса.
+-- Обратный ход начинается с уже показанного оборота, а не с общего, более раннего.
 local function BindCtrlMotion(host, flip)
     if host.ctrlMotionTarget == flip.target and host.ctrlStartProgress ~= nil then
         return
     end
     PrepareCtrlFront(host, flip.target)
     host.ctrlMotionTarget = flip.target
-    host.ctrlStartProgress = flip.progress or 0
+    local from = host.ctrlShownProgress
+    if from == nil then
+        from = flip.progress or 0
+    end
+    host.ctrlStartProgress = from
     host.ctrlFaceSettled = nil
 end
 
@@ -2266,6 +2383,7 @@ local function ReleaseCtrlHost(host)
         host.ctrlFaceSettled = nil
         host.ctrlMotionTarget = nil
         host.ctrlStartProgress = nil
+        host.ctrlShownProgress = nil
     end
     if host.Glow and ActionBar.UpdateGlow then
         ActionBar.UpdateGlow(host.slotID)
@@ -2303,7 +2421,9 @@ local function PoseCtrlHost(flip, entry)
     end
 
     BindCtrlMotion(host, flip)
-    local amount = CoinTossAmount(CtrlEntryProgress(flip, entry))
+    local shown = CtrlEntryProgress(flip, entry)
+    host.ctrlShownProgress = shown
+    local amount = CoinTossAmount(shown)
     if amount < 1 then
         HoldCoinCooldown(host)
     end
@@ -2343,10 +2463,22 @@ local function PoseCtrlHost(flip, entry)
         end
     end
     ApplyHostFace(host, entry.altSlot, showAlt)
+    if ActionBar.UpdateTextureDesaturation then
+        ActionBar.UpdateTextureDesaturation(host, showAlt and entry.altSlot or host.slotID)
+    end
+    local timerFace = showAlt and true or false
+    if (showAlt or amount >= 1) and (not host.coinTimerReady or host.coinTimerFace ~= timerFace) then
+        host.coinTimerReady = true
+        host.coinTimerFace = timerFace
+        if amount < 1 and ActionBar.SyncButtonCooldown then
+            ActionBar.SyncButtonCooldown(host, true)
+        end
+    end
+
+    SyncCoinCount(host, showAlt, amount)
 
     if amount < 1 then
         host.ctrlFaceSettled = nil
-        HoldCoinCount(host)
         if host.Glow then
             host.Glow:Hide()
         end
@@ -2356,17 +2488,19 @@ local function PoseCtrlHost(flip, entry)
     if not host.ctrlFaceSettled then
         host.coinInAir = nil
         host.ctrlFaceSettled = true
-        if ActionBar.UpdateCount then
-            ActionBar.UpdateCount(host.slotID)
-        end
+        ShowCoinCount(host)
         if ActionBar.SyncButtonCooldown then
             ActionBar.SyncButtonCooldown(host, true)
-        elseif ActionBar.UpdateTextureDesaturation then
-            ActionBar.UpdateTextureDesaturation(host, entry.altSlot)
         end
         if ActionBar.UpdateGlow then
             ActionBar.UpdateGlow(host.slotID)
         end
+        if ActionBar.RepaintButtonColors then
+            ActionBar.RepaintButtonColors()
+        end
+    end
+    if ActionBar.UpdateTextureDesaturation then
+        ActionBar.UpdateTextureDesaturation(host, entry.altSlot)
     end
     return true
 end
@@ -2489,6 +2623,18 @@ end
 local function BeginCtrlMotion(flip, target)
     flip.startProgress = flip.progress or 0
     local span = math.abs(target - flip.startProgress)
+    if flip.entries then
+        for index = 1, #flip.entries do
+            local host = flip.entries[index].host
+            local shown = host and host.ctrlShownProgress
+            if shown then
+                local gap = math.abs(target - shown)
+                if gap > span then
+                    span = gap
+                end
+            end
+        end
+    end
     flip.target = target
     flip.elapsed = 0
     if span < 0.001 then
@@ -2578,6 +2724,10 @@ function ActionBar.SetCtrlFlip(active)
             return
         end
         if (flip.target or 0) == 0 and (flip.progress or 0) <= 0.001 and (flip.duration or 0) <= 0 then
+            return
+        end
+        -- Повторное отпускание не перезапускает уже идущий возврат.
+        if (flip.target or 0) == 0 and (flip.duration or 0) > 0 then
             return
         end
         BeginCtrlMotion(flip, 0)

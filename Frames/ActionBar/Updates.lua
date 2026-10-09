@@ -381,20 +381,57 @@ local function UpdateActionButtonTexture(slotID)
 
 end
 
+-- Красит одну картинку: серый рисунок у недоступного умения и обычный цвет у готового.
+-- Пока монета в воздухе, оттенок ребра не меняем: серый включается отдельно, сразу на новом рисунке.
+local function SetIconGray(texture, gray, keepShade)
+    if not texture then
+        return
+    end
+    local wasGray = texture.iconGray and true or false
+    gray = gray and true or false
+    texture.iconGray = gray
+    if texture.SetDesaturated then
+        texture:SetDesaturated(gray)
+    end
+    if texture.SetDesaturation then
+        texture:SetDesaturation(gray and 1 or 0)
+    end
+    if keepShade then
+        return
+    end
+    texture:SetVertexColor(1, 1, 1)
+    if gray or not wasGray then
+        return
+    end
+    -- Серый иногда остаётся на самом рисунке. Повторная установка картинки снимает его с этой кнопки.
+    local file = texture.GetTexture and texture:GetTexture()
+    if not file or (issecretvalue and issecretvalue(file)) then
+        return
+    end
+    local coords = { texture:GetTexCoord() }
+    texture:SetTexture(file)
+    texture:SetTexCoord(unpack(coords))
+    if texture.SetDesaturated then
+        texture:SetDesaturated(false)
+    end
+    if texture.SetDesaturation then
+        texture:SetDesaturation(0)
+    end
+    texture:SetVertexColor(1, 1, 1)
+end
+
 -- Обновление обесцвечивания значка по пригодности, восстановлению и блокировке.
 local function UpdateActionButtonTextureDesaturation(btn, slotID, isUsable, isLackingResources)
     if not btn or not btn.texture then
         return
     end
 
-    -- В полёте монету красит сам подброс, обесцвечивание включится после посадки.
-    if btn.coinInAir or (btn.ctrlFlipOwned and not btn.ctrlFaceSettled) then
-        return
-    end
+    -- В полёте остаётся блик ребра, но серый рисунок уже соответствует видимой стороне.
+    local keepShade = btn.coinInAir or (btn.ctrlFlipOwned and not btn.ctrlFaceSettled)
 
     -- Предмет без применения всегда обесцвечен.
     if not ActionBar.SlotHasUseAction(slotID) then
-        btn.texture:SetDesaturated(true)
+        SetIconGray(btn.texture, true, keepShade)
         return
     end
 
@@ -416,28 +453,19 @@ local function UpdateActionButtonTextureDesaturation(btn, slotID, isUsable, isLa
         end
     end
 
-    if isUsable and not IsActionOutOfRange(slotID) and not onCooldown then
-        btn.texture:SetDesaturated(false)
-    else
-        btn.texture:SetDesaturated(true)
-    end
+    local gray = not (isUsable and not IsActionOutOfRange(slotID) and not onCooldown)
 
-    -- Проверка блокировки по уровню
-    local isLevelLinkLocked = false
-    if C_LevelLink and C_LevelLink.IsActionLocked then
-        isLevelLinkLocked = C_LevelLink.IsActionLocked(slotID)
-    end
-
-    -- Десатурация и иконка блокировки
-    if not btn.texture:IsDesaturated() then
-        btn.texture:SetDesaturated(isLevelLinkLocked)
+    if not gray and C_LevelLink and C_LevelLink.IsActionLocked then
+        gray = C_LevelLink.IsActionLocked(slotID) and true or false
     end
 
     -- Правый рычаг раскрывает облако на крестовине: квадрат, треугольник и круг основной панели остаются серыми.
     -- Пока основная иконка сама переворачивается в умение усиления, её не обесцвечиваем.
-    if not btn.boostFlipLock and btn.mainKey and ActionBar.IsMainFaceButtonKey(btn.mainKey) and not btn.modifierKey and ActionBar.ShouldGrayFaceButtons() then
-        btn.texture:SetDesaturated(true)
+    if not gray and not btn.boostFlipLock and btn.mainKey and ActionBar.IsMainFaceButtonKey(btn.mainKey) and not btn.modifierKey and ActionBar.ShouldGrayFaceButtons() then
+        gray = true
     end
+
+    SetIconGray(btn.texture, gray, keepShade)
 end
 
 -- Обновление пригодности кнопки к применению.
@@ -461,6 +489,17 @@ local function UpdateActionButtonUsable(slotID, isUsable, isLackingResources)
         if host ~= btn and host.boostShowingAlt and host.boostFlipSlot == slotID then
             UpdateActionButtonTextureDesaturation(host, slotID)
         end
+    end
+end
+
+-- Заново красит все кнопки панели, чтобы серый цвет одной не остался на соседней.
+local function RepaintButtonColors()
+    local frame = ActionBar.GetFrame()
+    if not frame or not frame.actionButtons then
+        return
+    end
+    for slotID in pairs(frame.actionButtons) do
+        UpdateActionButtonUsable(slotID)
     end
 end
 
@@ -609,13 +648,22 @@ local function VisibleCooldownSlot(btn, slotID)
     return slotID
 end
 
--- Ставит время восстановления на видимую сторону. Пока монета в воздухе, цифры скрыты.
+-- Ставит время восстановления на видимую сторону. На ребре цифры ещё скрыты, с новым рисунком они уже видны.
 local function SyncButtonCooldown(btn, rebuild)
     if not btn or not btn.cooldown then
         return
     end
 
-    if btn.coinInAir or (btn.ctrlFlipOwned and not btn.ctrlFaceSettled) then
+    -- Оборванный подброс не должен навсегда прятать цифры на панели.
+    if not btn.coinActive then
+        btn.coinInAir = nil
+        if btn.ctrlFlipOwned and not btn.ctrlFaceSettled then
+            btn.ctrlFlipOwned = nil
+        end
+    end
+
+    local inFlight = btn.coinInAir or (btn.ctrlFlipOwned and not btn.ctrlFaceSettled)
+    if inFlight and not btn.coinTimerReady then
         btn.cooldown:SetAlpha(0)
         if btn.cooldown:IsShown() then
             btn.cooldown:Hide()
@@ -624,13 +672,25 @@ local function SyncButtonCooldown(btn, rebuild)
     end
 
     local slotID = VisibleCooldownSlot(btn, btn.slotID)
-    local info = C_ActionBar and C_ActionBar.GetActionCooldown and C_ActionBar.GetActionCooldown(slotID)
-    if rebuild and btn.texture then
-        -- Кадр таймера сжимался вместе с ребром. Заново привязываем его к уже севшей иконке.
+    if inFlight then
+        -- Цифры стоят на кнопке, а не на тонком ребре, и появляются вместе с серым рисунком.
+        if btn.coinTimerAnchor ~= "button" then
+            btn.cooldown:ClearAllPoints()
+            btn.cooldown:SetPoint("CENTER", btn, "CENTER", 0, 0)
+            btn.cooldown:SetSize(ActionBar.buttonSize, ActionBar.buttonSize)
+            btn.coinTimerAnchor = "button"
+            rebuild = true
+        end
+    elseif btn.texture and (rebuild or btn.coinTimerAnchor == "button") then
         btn.cooldown:ClearAllPoints()
         btn.cooldown:SetAllPoints(btn.texture)
         btn.cooldown:Show()
+        btn.coinTimerAnchor = "texture"
+        rebuild = true
     end
+
+    local info = C_ActionBar and C_ActionBar.GetActionCooldown and C_ActionBar.GetActionCooldown(slotID)
+    btn.coinTimerSlot = slotID
 
     if info and info.isActive then
         local duration = C_ActionBar.GetActionCooldownDuration(slotID)
@@ -673,8 +733,8 @@ local function UpdateActionButtonCount(slotID)
         end
     end
 
-    -- Число зарядов появляется вместе с оборотной стороной, а не в полёте.
-    if btn.coinInAir or (btn.ctrlFlipOwned and not btn.ctrlFaceSettled) then
+    -- До открытия оборотной стороны число зарядов скрыто. Дальше оно уже на месте.
+    if not btn.coinCountReady and (btn.coinInAir or (btn.ctrlFlipOwned and not btn.ctrlFaceSettled)) then
         if btn.StackCount:IsShown() then
             if btn.StackCount.fadeOut then
                 btn.StackCount.fadeOut:Stop()
@@ -692,11 +752,27 @@ local function UpdateActionButtonCount(slotID)
 
     local count = C_ActionBar.GetActionDisplayCount(countSlot)
 
+    local function ShowStack()
+        if not btn.coinCountReady then
+            ConsoleMenu:AnimatedShow(btn.StackCount)
+            return
+        end
+        if btn.StackCount.fadeIn then
+            btn.StackCount.fadeIn:Stop()
+        end
+        if btn.StackCount.fadeOut then
+            btn.StackCount.fadeOut:Stop()
+            btn.StackCount.fadeOut:SetScript("OnFinished", nil)
+        end
+        btn.StackCount:SetAlpha(1)
+        btn.StackCount:Show()
+    end
+
     if count and issecretvalue(count) then
         -- В бою число скрыто. Если эта ячейка уже показывала заряды, возвращаем рамку после переворота.
         btn.StackCount.Text:SetText(count)
         if ActionBar.stackCountChange[countSlot] and not btn.StackCount:IsShown() then
-            ConsoleMenu:AnimatedShow(btn.StackCount)
+            ShowStack()
         end
         return
     end
@@ -704,7 +780,9 @@ local function UpdateActionButtonCount(slotID)
     if (count and count ~= "" and count ~= "0" and count ~= 0) or ActionBar.stackCountChange[countSlot] then
         btn.StackCount.Text:SetText(count)
         ActionBar.stackCountChange[countSlot] = true
-        ConsoleMenu:AnimatedShow(btn.StackCount)
+        ShowStack()
+    elseif btn.coinCountLatched and btn.StackCount:IsShown() then
+        -- Пустой ответ посреди кувырка не гасит уже показанное число.
     else
         btn.StackCount.Text:SetText("")
         ConsoleMenu:AnimatedHide(btn.StackCount)
@@ -736,6 +814,8 @@ end
 ActionBar.UpdateIcon = UpdateActionButtonIcon
 ActionBar.UpdateSlot12Label = UpdateSlot12Label
 ActionBar.UpdateTexture = UpdateActionButtonTexture
+ActionBar.SetIconGray = SetIconGray
+ActionBar.RepaintButtonColors = RepaintButtonColors
 ActionBar.UpdateTextureDesaturation = UpdateActionButtonTextureDesaturation
 ActionBar.SyncButtonCooldown = SyncButtonCooldown
 ActionBar.UpdateUsable = UpdateActionButtonUsable
