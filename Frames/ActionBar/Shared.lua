@@ -19,7 +19,7 @@ ActionBar.modelReferenceAspect = 16 / 10
 ActionBar.iconSize = 28
 ActionBar.stackCountSize = 24
 ActionBar.stackCountOffset = 8
-ActionBar.stackCountShadowOffsef = 12
+ActionBar.stackCountShadowOffset = 12
 ActionBar.fontSize = 14
 
 ActionBar.paddingPAD = ActionBar.buttonSize * 1.5
@@ -45,22 +45,23 @@ ActionBar.shadowSizeWithExtra = 384
 
 ActionBar.animationDuration = 0.05
 
+-- Второй элемент — ключ якоря: right — правая группа, left — левая, bar — сама панель.
 ActionBar.buttonPositions = {
-    PADRSTICK = { "TOP", "PADCenter", "BOTTOM", 0, -ActionBar.buttonVerticalPadding },
-    PADLSTICK = { "TOP", "PADDCenter", "BOTTOM", 0, -ActionBar.buttonVerticalPadding },
+    PADRSTICK = { "TOP", "right", "BOTTOM", 0, -ActionBar.buttonVerticalPadding },
+    PADLSTICK = { "TOP", "left", "BOTTOM", 0, -ActionBar.buttonVerticalPadding },
 
-    PAD2 = { "LEFT", "PADCenter", "RIGHT", ActionBar.buttonHorizontalPadding, 0 },
-    PAD3 = { "RIGHT", "PADCenter", "LEFT", -ActionBar.buttonHorizontalPadding, 0 },
-    PAD4 = { "BOTTOM", "PADCenter", "TOP", 0, ActionBar.buttonVerticalPadding },
+    PAD2 = { "LEFT", "right", "RIGHT", ActionBar.buttonHorizontalPadding, 0 },
+    PAD3 = { "RIGHT", "right", "LEFT", -ActionBar.buttonHorizontalPadding, 0 },
+    PAD4 = { "BOTTOM", "right", "TOP", 0, ActionBar.buttonVerticalPadding },
 
-    PADDUP = { "BOTTOM", "PADDCenter", "TOP", 0, ActionBar.buttonVerticalPadding },
-    PADDRIGHT = { "LEFT", "PADDCenter", "RIGHT", ActionBar.buttonHorizontalPadding, 0 },
-    PADDLEFT = { "RIGHT", "PADDCenter", "LEFT", -ActionBar.buttonHorizontalPadding, 0 },
-    PADDDOWN = { "TOP", "PADDCenter", "BOTTOM", 0, -ActionBar.buttonVerticalPadding },
+    PADDUP = { "BOTTOM", "left", "TOP", 0, ActionBar.buttonVerticalPadding },
+    PADDRIGHT = { "LEFT", "left", "RIGHT", ActionBar.buttonHorizontalPadding, 0 },
+    PADDLEFT = { "RIGHT", "left", "LEFT", -ActionBar.buttonHorizontalPadding, 0 },
+    PADDDOWN = { "TOP", "left", "BOTTOM", 0, -ActionBar.buttonVerticalPadding },
 
     -- Сенсорная панель DualSense: по центру, на высоте верхнего ряда крестовины и лицевых кнопок
-    PAD6 = { "CENTER", "ActionBarFrame", "CENTER", 0, ActionBar.topRowOffsetY },
-    PADBACK = { "CENTER", "ActionBarFrame", "CENTER", 0, ActionBar.topRowOffsetY },
+    PAD6 = { "CENTER", "bar", "CENTER", 0, ActionBar.topRowOffsetY },
+    PADBACK = { "CENTER", "bar", "CENTER", 0, ActionBar.topRowOffsetY },
 }
 
 -- Слоты ACTIONBUTTON12 / MULTIACTIONBAR*BUTTON12
@@ -156,8 +157,8 @@ ActionBar.boostBubbleReturn = 0.12
 ActionBar.boostCooldownProgress = 0.72
 -- Переворот заканчивается к появлению цифр восстановления, чтобы лицо уже было ровным.
 ActionBar.boostFlipSettle = ActionBar.boostCooldownProgress
--- Ниже этой доли подброса число зарядов снова прячется. Выше него, на оборотной стороне, оно уже не мигает.
-ActionBar.boostCountReveal = 0.28
+-- С этой доли подброса уже видно число зарядов входящего умения. Ниже неё число снова прячется.
+ActionBar.boostCountReveal = 0.12
 -- Узкое ребро монеты в кувырке, доля полной ширины.
 ActionBar.boostFlipEdge = 0.07
 -- Высота подброса: короткий отрыв, без высокого прыжка.
@@ -177,6 +178,228 @@ ActionBar.boostExtraKeyOffsetX = 5
 ActionBar.boostExtraKeyOffsetY = 5
 
 ActionBar.stackCountChange = ActionBar.stackCountChange or {}
+-- Ячейки, у которых заряды уже были видны. Скрытое боевое значение само по себе счётчик не включает.
+ActionBar.chargeSlots = ActionBar.chargeSlots or {}
+-- Последнее настоящее число. Пустой ответ после переворота не стирает его.
+ActionBar.chargeText = ActionBar.chargeText or {}
+-- Умение, которому принадлежало запомненное число. Чужое умение его не наследует.
+ActionBar.chargeAction = ActionBar.chargeAction or {}
+ActionBar.countReadRetries = ActionBar.countReadRetries or {}
+
+-- Сколько кадров подряд перечитывать ячейку, пока число зарядов не пришло.
+local countReadRetryLimit = 5
+local countRetryQueued = {}
+local countRetryPump = false
+
+-- Число зарядов видно игроку: оно есть и это не ноль. Скрытое боевое значение сравнивать нельзя.
+function ActionBar.HasVisibleChargeCount(count)
+    if ActionBar.IsSecretValue(count) then
+        return false
+    end
+    return count ~= nil and count ~= "" and count ~= "0" and count ~= 0
+end
+
+-- Идёт бой: пустой ответ нельзя принимать за исчезновение зарядов.
+function ActionBar.IsInCombat()
+    return InCombatLockdown and InCombatLockdown() and true or false
+end
+
+-- Вне боя пустая подпись прячет цифры. Ноль и пустой ответ числом не считаются, память о счётчике не стирают.
+function ActionBar.ShouldForgetChargeCount(count)
+    if ActionBar.IsSecretValue(count) or count == nil or ActionBar.IsInCombat() then
+        return false
+    end
+    return not ActionBar.HasVisibleChargeCount(count)
+end
+
+-- Запоминает, что у ячейки есть счётчик зарядов, и само число.
+function ActionBar.RememberChargeSlot(slotID, count)
+    if not slotID then
+        return
+    end
+    ActionBar.chargeSlots[slotID] = true
+    if not ActionBar.IsSecretValue(count) and ActionBar.HasVisibleChargeCount(count) then
+        ActionBar.chargeText[slotID] = count
+    end
+    local actionKey = ActionBar.ReadActionKey(slotID)
+    if actionKey and actionKey ~= "" then
+        ActionBar.chargeAction[slotID] = actionKey
+    end
+end
+
+-- У ячейки уже бывал настоящий счётчик, не пустая подпись.
+function ActionBar.SlotHasChargeCounter(slotID)
+    return slotID ~= nil and ActionBar.chargeSlots[slotID] == true
+end
+
+-- Последнее видимое число этой ячейки.
+function ActionBar.SavedChargeText(slotID)
+    if not slotID then
+        return nil
+    end
+    return ActionBar.chargeText[slotID]
+end
+
+-- Прячет цифры, но оставляет знание, что у ячейки бывает счётчик.
+function ActionBar.ClearChargeText(slotID)
+    if not slotID then
+        return
+    end
+    ActionBar.chargeText[slotID] = nil
+    ActionBar.stackCountChange[slotID] = nil
+end
+
+-- Смена действия: прежнее число относилось к другому умению.
+function ActionBar.ForgetChargeCount(slotID)
+    if not slotID then
+        return
+    end
+    ActionBar.stackCountChange[slotID] = nil
+    ActionBar.chargeSlots[slotID] = nil
+    ActionBar.chargeText[slotID] = nil
+    ActionBar.chargeAction[slotID] = nil
+    ActionBar.countReadRetries[slotID] = nil
+end
+
+-- Какое умение сейчас лежит в ячейке. Скрытый ответ не считается сменой.
+function ActionBar.ReadActionKey(slotID)
+    if not slotID or not GetActionInfo then
+        return nil
+    end
+    local ok, actionType, id, subType = pcall(GetActionInfo, slotID)
+    if not ok then
+        return nil
+    end
+    if ActionBar.IsSecretValue(actionType) or ActionBar.IsSecretValue(id) or ActionBar.IsSecretValue(subType) then
+        return nil
+    end
+    if not actionType then
+        return ""
+    end
+    return tostring(actionType) .. ":" .. tostring(id or "") .. ":" .. tostring(subType or "")
+end
+
+-- В ячейке уже другое умение, и это видно без скрытого ответа.
+function ActionBar.ChargeActionChanged(slotID)
+    local saved = slotID and ActionBar.chargeAction[slotID]
+    if not saved then
+        return false
+    end
+    local key = ActionBar.ReadActionKey(slotID)
+    if not key then
+        return false
+    end
+    return key ~= saved
+end
+
+-- Заряды самого умения, если подпись ячейки их не содержит.
+local function ReadChargeCount(slotID)
+    if not C_ActionBar.GetActionCharges then
+        return nil, nil
+    end
+
+    local ok, info, maxCharges = pcall(C_ActionBar.GetActionCharges, slotID)
+    if not ok then
+        return nil, nil
+    end
+    if ActionBar.IsSecretValue(info) then
+        return info, maxCharges
+    end
+    if info == nil then
+        return nil, nil
+    end
+
+    local current = info
+    if type(info) == "table" then
+        current = info.currentCharges
+        maxCharges = info.maxCharges
+    end
+    return current, maxCharges
+end
+
+-- Число зарядов с ячейки. Пустая подпись и скрытое боевое значение сами счётчик не создают.
+function ActionBar.ReadDisplayCount(slotID)
+    if not slotID or not C_ActionBar or not C_ActionBar.GetActionDisplayCount then
+        return nil
+    end
+
+    local count = C_ActionBar.GetActionDisplayCount(slotID)
+    if not ActionBar.IsSecretValue(count) and ActionBar.HasVisibleChargeCount(count) then
+        ActionBar.RememberChargeSlot(slotID, count)
+        return count
+    end
+
+    local current, maxCharges = ReadChargeCount(slotID)
+    local severalCharges = not ActionBar.IsSecretValue(maxCharges) and type(maxCharges) == "number" and maxCharges > 1
+    if severalCharges then
+        ActionBar.RememberChargeSlot(slotID, current)
+        if not ActionBar.IsSecretValue(current) and current ~= nil then
+            return current
+        end
+    end
+
+    -- Скрытое число рисует клиент только там, где счётчик уже известен.
+    if ActionBar.SlotHasChargeCounter(slotID) then
+        if ActionBar.IsSecretValue(count) then
+            return count
+        end
+        if ActionBar.IsSecretValue(current) then
+            return current
+        end
+    end
+
+    if not ActionBar.IsSecretValue(count) and (count == 0 or count == "0" or count == "") then
+        return count
+    end
+    return nil
+end
+
+-- Ещё одно чтение на следующем кадре. Число попыток ограничено, чтобы пустая ячейка не крутилась вечно.
+function ActionBar.ScheduleCountRetry(slotID)
+    if not slotID or not RunNextFrame then
+        return
+    end
+    if countRetryQueued[slotID] then
+        return
+    end
+
+    local tries = ActionBar.countReadRetries[slotID] or 0
+    if tries >= countReadRetryLimit then
+        return
+    end
+    ActionBar.countReadRetries[slotID] = tries + 1
+    countRetryQueued[slotID] = true
+    if countRetryPump then
+        return
+    end
+
+    countRetryPump = true
+    RunNextFrame(function()
+        countRetryPump = false
+        local slots = countRetryQueued
+        countRetryQueued = {}
+        for id in pairs(slots) do
+            if ActionBar.UpdateCount then
+                ActionBar.UpdateCount(id)
+            end
+        end
+        if ActionBar.UpdateBoosts then
+            ActionBar.UpdateBoosts()
+        end
+    end)
+end
+
+-- Ясный ответ сбрасывает попытки. Неизвестное число у занятой ячейки читаем ещё раз.
+function ActionBar.FinishCountRead(slotID, unknown)
+    if not slotID then
+        return
+    end
+    if not unknown or ActionBar.SlotHasAction(slotID) == false then
+        ActionBar.countReadRetries[slotID] = nil
+        return
+    end
+    ActionBar.ScheduleCountRetry(slotID)
+end
 
 -- Пиктограмма клавиши поверх умения: тень как у счётчика зарядов, без подложки стика.
 function ActionBar.ApplyKeyGlyphStyle(iconFrame, size)
@@ -191,8 +414,8 @@ function ActionBar.ApplyKeyGlyphStyle(iconFrame, size)
     end
     if iconFrame.Shadow then
         iconFrame.Shadow:ClearAllPoints()
-        iconFrame.Shadow:SetPoint("TOPLEFT", iconFrame, "TOPLEFT", -ActionBar.stackCountShadowOffsef, ActionBar.stackCountShadowOffsef)
-        iconFrame.Shadow:SetPoint("BOTTOMRIGHT", iconFrame, "BOTTOMRIGHT", ActionBar.stackCountShadowOffsef, -ActionBar.stackCountShadowOffsef)
+        iconFrame.Shadow:SetPoint("TOPLEFT", iconFrame, "TOPLEFT", -ActionBar.stackCountShadowOffset, ActionBar.stackCountShadowOffset)
+        iconFrame.Shadow:SetPoint("BOTTOMRIGHT", iconFrame, "BOTTOMRIGHT", ActionBar.stackCountShadowOffset, -ActionBar.stackCountShadowOffset)
         iconFrame.Shadow:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\CrossBackgorund.png")
         iconFrame.Shadow:Show()
     end
@@ -213,6 +436,10 @@ function ActionBar.IsBoostSlot(slotID)
     return ActionBar.boostSlotLookup[slotID] == true
 end
 
+-- Запасные номера дополнительной кнопки, если кадр ещё не сообщил свой.
+-- 217 — обычная ячейка, 139 — прежняя ячейка той же кнопки.
+ActionBar.extraActionFallbackSlots = { 217, 139 }
+
 -- Номер ячейки стандартной дополнительной кнопки действия.
 function ActionBar.GetExtraActionSlotID()
     local button = _G.ExtraActionButton1
@@ -227,7 +454,7 @@ function ActionBar.GetExtraActionSlotID()
             end
         end
     end
-    return 217
+    return ActionBar.extraActionFallbackSlots[1]
 end
 
 -- Ячейка относится к дополнительной кнопке действия.
@@ -235,7 +462,15 @@ function ActionBar.IsExtraActionSlot(slotID)
     if not slotID then
         return false
     end
-    return slotID == ActionBar.GetExtraActionSlotID() or slotID == 139 or slotID == 217
+    if slotID == ActionBar.GetExtraActionSlotID() then
+        return true
+    end
+    for index = 1, #ActionBar.extraActionFallbackSlots do
+        if slotID == ActionBar.extraActionFallbackSlots[index] then
+            return true
+        end
+    end
+    return false
 end
 
 -- Показана ли стандартная рамка дополнительной кнопки.
@@ -255,7 +490,7 @@ function ActionBar.HasExtraAction()
     end
 
     -- В бою ответ бывает скрыт: тогда ориентируемся на саму рамку.
-    if shown ~= nil and issecretvalue and issecretvalue(shown) then
+    if ActionBar.IsSecretValue(shown) then
         return IsExtraActionBarFrameShown()
     end
 
@@ -286,44 +521,114 @@ function ActionBar.GetButton(slotID)
     return frame.actionButtons[slotID]
 end
 
--- Компенсация смещения под соотношение сторон экрана,
--- чтобы свечение модели оставалось по центру кнопки.
-function ActionBar.GetGlowTransformOffset()
+-- Смещение и масштаб свечения за один замер экрана, чтобы модель оставалась по центру кнопки.
+function ActionBar.GetGlowTransform()
+    local offset = ActionBar.modelOffset
+    local scale = ActionBar.modelScale
     local width, height = GetPhysicalScreenSize()
     if not width or not height or height == 0 then
-        return ActionBar.modelOffset
+        return offset, scale
     end
 
     local currentAspect = width / height
     if currentAspect <= 0 then
-        return ActionBar.modelOffset
+        return offset, scale
     end
 
-    return ActionBar.modelOffset * (ActionBar.modelReferenceAspect / currentAspect)
+    local ratio = ActionBar.modelReferenceAspect / currentAspect
+    return offset * ratio, scale * ratio
 end
 
--- Масштаб свечения также нормализуем относительно эталонного соотношения сторон,
--- чтобы размер эффекта не плавал между экранами.
-function ActionBar.GetGlowTransformScale()
-    local width, height = GetPhysicalScreenSize()
-    if not width or not height or height == 0 then
-        return ActionBar.modelScale
-    end
-
-    local currentAspect = width / height
-    if currentAspect <= 0 then
-        return ActionBar.modelScale
-    end
-
-    return ActionBar.modelScale * (ActionBar.modelReferenceAspect / currentAspect)
+-- Значение скрыто клиентом, по нему нельзя принимать решение.
+function ActionBar.IsSecretValue(value)
+    return value ~= nil and issecretvalue and issecretvalue(value)
 end
 
--- Положения кнопок панели по клавишам контроллера.
-function ConsoleMenu:GetButtonPositions()
-    return ActionBar.buttonPositions
+-- Ячейка относится к текущей странице основной панели.
+function ActionBar.IsSlotOnActivePage(slotID)
+    if not slotID or slotID < 1 or slotID > 24 then
+        return false
+    end
+    if not C_ActionBar or not C_ActionBar.GetActionBarPage then
+        return true
+    end
+
+    local page = C_ActionBar.GetActionBarPage() or 1
+    local startSlot = 12 * (page - 1) + 1
+    return slotID >= startSlot and slotID < startSlot + 12
+end
+
+-- Кадр, к которому привязана кнопка: правая группа, левая группа или сама панель.
+function ActionBar.ResolveAnchor(frame, anchorKey)
+    if not frame then
+        return nil
+    end
+    if anchorKey == "right" then
+        return frame.PADCenter
+    end
+    if anchorKey == "left" then
+        return frame.PADDCenter
+    end
+    if anchorKey == "bar" then
+        return frame
+    end
+    return nil
+end
+
+-- Рисунок ячейки. У однокнопочного помощника берётся заклинание, которое будет применено.
+-- Второй результат истинен, если клиент скрыл рисунок и трогать кнопку нельзя.
+function ActionBar.GetSlotTexture(slotID)
+    local textureFileID = nil
+
+    if C_ActionBar and C_ActionBar.IsAssistedCombatAction and C_ActionBar.IsAssistedCombatAction(slotID) then
+        if C_AssistedCombat and C_Spell and C_AssistedCombat.GetNextCastSpell then
+            local spellID = C_AssistedCombat.GetNextCastSpell(true)
+            -- Скрытый номер нельзя подменять обычным рисунком ячейки: оставляем то, что уже нарисовано.
+            if ActionBar.IsSecretValue(spellID) then
+                return nil, true
+            end
+            if spellID then
+                textureFileID = C_Spell.GetSpellTexture(spellID)
+            end
+        end
+    end
+
+    if not textureFileID and C_ActionBar and C_ActionBar.GetActionTexture then
+        local ok, result = pcall(C_ActionBar.GetActionTexture, slotID)
+        if ok then
+            textureFileID = result
+        end
+    end
+
+    if ActionBar.IsSecretValue(textureFileID) then
+        return nil, true
+    end
+
+    return textureFileID, false
+end
+
+-- Есть ли действие в ячейке. Пустой скрытый ответ не считается пустой ячейкой.
+function ActionBar.SlotHasAction(slotID)
+    if not slotID or not C_ActionBar or not C_ActionBar.HasAction then
+        return false
+    end
+
+    local ok, hasAction = pcall(C_ActionBar.HasAction, slotID)
+    if not ok then
+        return nil
+    end
+    if ActionBar.IsSecretValue(hasAction) then
+        return true
+    end
+    return hasAction == true
 end
 
 -- Признак скрытой ячейки, которую панель не показывает.
+function ActionBar.IsSlotIgnored(slotID)
+    return ActionBar.ignoredSlot[slotID] == true
+end
+
+-- Признак скрытой ячейки для остальных частей аддона.
 function ConsoleMenu:IsSlotIgnored(slotID)
-    return ActionBar.ignoredSlot[slotID]
+    return ActionBar.IsSlotIgnored(slotID)
 end

@@ -5,16 +5,7 @@ local ActionBar = ConsoleMenu.ActionBar
 
 -- Ячейка относится к текущей странице основной панели.
 local function IsSlotOnActiveActionBarPage(slotID)
-    if slotID < 1 or slotID > 24 then
-        return false
-    end
-    if not C_ActionBar or not C_ActionBar.GetActionBarPage then
-        return true
-    end
-
-    local page = C_ActionBar.GetActionBarPage()
-    local startSlot = 12 * (page - 1) + 1
-    return slotID >= startSlot and slotID < startSlot + 12
+    return ActionBar.IsSlotOnActivePage(slotID)
 end
 
 -- Нужно ли показывать кнопку при текущей дополнительной клавише.
@@ -85,6 +76,7 @@ local function IsActionButtonVisible(slotID, btn, activeModifier)
 end
 
 -- Текущая удерживаемая дополнительная клавиша.
+-- Ctrl важнее Shift: вместе они оставляют переворот панели, а не облако усилений.
 local function GetActiveModifier()
     if not IsModifierKeyDown() then
         return nil
@@ -133,9 +125,9 @@ local function UpdateActionButtonShadows()
             shownSlot = btn.boostFlipSlot
         end
         if position and C_ActionBar.HasAction(shownSlot) and IsActionButtonVisible(slotID, btn, activeModifier) then
-            if position[2] == "PADCenter" then
+            if position[2] == "right" then
                 PADcount = PADcount + 1
-            elseif position[2] == "PADDCenter" then
+            elseif position[2] == "left" then
                 PADDcount = PADDcount + 1
             end
         end
@@ -144,6 +136,23 @@ local function UpdateActionButtonShadows()
     local cloudVisible = ActionBar.HasVisibleBoosts and ActionBar.HasVisibleBoosts()
     SetGroupShadowShown(frame.PADshadow, PADcount > 0 or cloudVisible)
     SetGroupShadowShown(frame.PADDshadow, PADDcount > 0)
+    frame.shadowCloudVisible = cloudVisible and true or false
+    ActionBar.shadowsDirty = nil
+end
+
+-- Пересчитывает тени, только если сменилась видимость облака или сторона монеты.
+local function UpdateActionButtonShadowsIfNeeded()
+    local frame = ActionBar.GetFrame()
+    if not frame then
+        return
+    end
+
+    local cloudVisible = ActionBar.HasVisibleBoosts and ActionBar.HasVisibleBoosts() or false
+    if not ActionBar.shadowsDirty and frame.shadowCloudVisible == cloudVisible then
+        return
+    end
+
+    UpdateActionButtonShadows()
 end
 
 -- Привязка кнопок к положениям по назначению клавиш.
@@ -169,9 +178,10 @@ local function UpdateButtonPositions(slotID)
 
         local position = ActionBar.buttonPositions[btn.mainKey]
 
-        if position and not (ActionBar.ignoredSlot[slotID] == true) then
+        local anchor = position and ActionBar.ResolveAnchor(frame, position[2])
+        if anchor and not (ActionBar.ignoredSlot[slotID] == true) then
             btn:ClearAllPoints()
-            btn:SetPoint(position[1], position[2], position[3], position[4], position[5])
+            btn:SetPoint(position[1], anchor, position[3], position[4], position[5])
         end
 
         ActionBar.UpdateIcon(slotID)
@@ -191,9 +201,10 @@ local function UpdateButtonPositions(slotID)
         btn.modifierKey = modifierKey
 
         local position = ActionBar.buttonPositions[btn.mainKey]
-        if position and not (ActionBar.ignoredSlot[slotID] == true) then
+        local anchor = position and ActionBar.ResolveAnchor(frame, position[2])
+        if anchor and not (ActionBar.ignoredSlot[slotID] == true) then
             btn:ClearAllPoints()
-            btn:SetPoint(position[1], position[2], position[3], position[4], position[5])
+            btn:SetPoint(position[1], anchor, position[3], position[4], position[5])
         end
 
         ActionBar.UpdateIcon(slotID)
@@ -264,3 +275,4 @@ end
 ActionBar.UpdateButtonPositions = UpdateButtonPositions
 ActionBar.UpdateModifierState = UpdateModifierState
 ActionBar.UpdateActionButtonShadows = UpdateActionButtonShadows
+ActionBar.UpdateActionButtonShadowsIfNeeded = UpdateActionButtonShadowsIfNeeded

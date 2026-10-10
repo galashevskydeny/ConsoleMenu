@@ -1,9 +1,10 @@
 -- Названия действий ячеек панели для подписей и подсказок клавиш.
 
 local ConsoleMenu = _G.ConsoleMenu
+local ActionBar = ConsoleMenu.ActionBar
 
 -- Название действия по типу ячейки: заклинание, предмет, макрос, скакун или наряд.
-function ConsoleMenu:GetSlotTitle(actionType, id, subType, slotID)
+function ActionBar.GetSlotTitle(actionType, id, subType, slotID)
     -- У макроса GetActionInfo кладёт в id spellID/itemID, если есть subType.
     -- Для item-макроса id часто невалиден — имя предмета берём через GetMacroItem.
     if actionType == "macro" then
@@ -52,4 +53,9 @@ function ConsoleMenu:GetSlotTitle(actionType, id, subType, slotID)
         return nil
     end
 
+end
+
+-- Прежнее имя для привязок клавиш и контекстов.
+function ConsoleMenu:GetSlotTitle(actionType, id, subType, slotID)
+    return ActionBar.GetSlotTitle(actionType, id, subType, slotID)
 end

@@ -8,7 +8,7 @@ local actionOutOfRange = {}
 
 -- Значение скрыто, по нему нельзя принимать решение.
 local function IsSecretValue(value)
-    return value ~= nil and issecretvalue and issecretvalue(value)
+    return ActionBar.IsSecretValue(value)
 end
 
 -- Запоминает досягаемость только если клиент действительно проверил дальность.
@@ -115,21 +115,48 @@ local function GetItemIDByName(name)
     return nil
 end
 
--- Предмет экипировки с той же текстурой, что у ячейки.
-local function GetEquippedItemIDForAction(slotID)
-    local actionTexture = CallSlotApi(C_ActionBar.GetActionTexture, slotID)
-    if not actionTexture or (issecretvalue and issecretvalue(actionTexture)) then
-        return nil
+-- Рисунок надетого предмета и его идентификатор. Сбрасывается при смене экипировки.
+local equippedItemByTexture = nil
+
+-- Забывает соответствие рисунка и надетого предмета.
+function ActionBar.InvalidateEquippedItemCache()
+    equippedItemByTexture = nil
+end
+
+-- Собирает рисунки надетых предметов один раз, пока набор не сменится.
+-- Если клиент ещё не отдал рисунок, набор не запоминаем и спросим снова.
+local function EnsureEquippedItemCache()
+    if equippedItemByTexture then
+        return equippedItemByTexture
     end
 
+    local cache = {}
+    local pending = false
     for inventorySlot = 1, 30 do
         local itemID = GetInventoryItemID("player", inventorySlot)
         local itemTexture = GetInventoryItemTexture("player", inventorySlot)
-        if itemID and itemTexture == actionTexture then
-            return itemID
+        if itemID and (not itemTexture or IsSecretValue(itemID) or IsSecretValue(itemTexture)) then
+            pending = true
+        elseif itemID and itemTexture and not cache[itemTexture] then
+            cache[itemTexture] = itemID
         end
     end
-    return nil
+
+    if not pending then
+        equippedItemByTexture = cache
+    end
+    return cache
+end
+
+-- Предмет экипировки с той же текстурой, что у ячейки.
+local function GetEquippedItemIDForAction(slotID)
+    local actionTexture = CallSlotApi(C_ActionBar.GetActionTexture, slotID)
+    if not actionTexture or IsSecretValue(actionTexture) then
+        return nil
+    end
+
+    local cache = EnsureEquippedItemCache()
+    return cache and cache[actionTexture]
 end
 
 -- Имя предмета внутри макроса ячейки.
@@ -179,13 +206,18 @@ local function GetUseSpellForAction(slotID, actionType, actionID, subType)
     return nil, nil
 end
 
--- Есть ли у ячейки действие применения. Для заклинаний всегда да.
+-- Есть ли у ячейки действие применения. Пустая ячейка и заклинание без предмета отвечают по-разному.
+-- Пустая ячейка — нет. Заклинание — да. Вызывающий сам решает, красить ли пустую кнопку.
 function ActionBar.SlotHasUseAction(slotID)
     if not slotID or not C_ActionBar or not C_ActionBar.HasAction then
+        return false
+    end
+    local hasAction = C_ActionBar.HasAction(slotID)
+    if IsSecretValue(hasAction) then
         return true
     end
-    if not C_ActionBar.HasAction(slotID) then
-        return true
+    if not hasAction then
+        return false
     end
 
     local infoOk, actionType, actionID, subType = pcall(GetActionInfo, slotID)
@@ -328,26 +360,9 @@ local function UpdateActionButtonTexture(slotID)
         return
     end
 
-    local textureFileID = nil
-
-    -- Однокнопочный помощник (Assisted Combat): иконка должна соответствовать заклинанию, которое будет применено
-    if C_ActionBar and C_ActionBar.IsAssistedCombatAction and C_ActionBar.IsAssistedCombatAction(slotID) then
-        if C_AssistedCombat and C_Spell then
-            -- В бою — следующее заклинание в ротации; вне боя — текущее заклинание помощника
-            local spellID = C_AssistedCombat.GetNextCastSpell and C_AssistedCombat.GetNextCastSpell(true)
-
-            if spellID then
-                textureFileID = C_Spell.GetSpellTexture(spellID)
-            end
-        end
-    end
-
-    if not textureFileID then
-        textureFileID = C_ActionBar.GetActionTexture(slotID)
-    end
-
-    if issecretvalue(textureFileID) then
-        -- Во время боя API может вернуть secret-значение.
+    local textureFileID, textureHidden = ActionBar.GetSlotTexture(slotID)
+    if textureHidden then
+        -- Во время боя API может вернуть скрытое значение.
         -- В этом случае не трогаем текущее состояние кнопки, чтобы не терять иконки.
         return
     end
@@ -358,9 +373,8 @@ local function UpdateActionButtonTexture(slotID)
         MirrorFlipFace(slotID, textureFileID)
         -- Кнопка будет показана/скрыта в UpdateButtonPositions на основе биндинга
     else
-        -- В бою API иногда временно возвращает nil даже для заполненного слота.
-        -- В этом случае сохраняем текущую иконку, чтобы она не исчезала визуально.
-        if InCombatLockdown and InCombatLockdown() and C_ActionBar.HasAction(slotID) then
+        -- В бою пустой рисунок не значит, что умение исчезло. Иконку и счётчик не трогаем.
+        if ActionBar.IsInCombat() then
             return
         end
 
@@ -408,9 +422,13 @@ local function SetIconGray(texture, gray, keepShade)
     if not file or (issecretvalue and issecretvalue(file)) then
         return
     end
-    local coords = { texture:GetTexCoord() }
+    local c1, c2, c3, c4, c5, c6, c7, c8 = texture:GetTexCoord()
     texture:SetTexture(file)
-    texture:SetTexCoord(unpack(coords))
+    if c5 ~= nil then
+        texture:SetTexCoord(c1, c2, c3, c4, c5, c6, c7, c8)
+    else
+        texture:SetTexCoord(c1, c2, c3, c4)
+    end
     if texture.SetDesaturated then
         texture:SetDesaturated(false)
     end
@@ -429,8 +447,9 @@ local function UpdateActionButtonTextureDesaturation(btn, slotID, isUsable, isLa
     -- В полёте остаётся блик ребра, но серый рисунок уже соответствует видимой стороне.
     local keepShade = btn.coinInAir or (btn.ctrlFlipOwned and not btn.ctrlFaceSettled)
 
-    -- Предмет без применения всегда обесцвечен.
-    if not ActionBar.SlotHasUseAction(slotID) then
+    -- Предмет без применения всегда обесцвечен. Пустую ячейку этим правилом не красим.
+    local hasAction = C_ActionBar and C_ActionBar.HasAction and C_ActionBar.HasAction(slotID)
+    if hasAction and not IsSecretValue(hasAction) and not ActionBar.SlotHasUseAction(slotID) then
         SetIconGray(btn.texture, true, keepShade)
         return
     end
@@ -527,10 +546,23 @@ function ActionBar.UpdateAllUsable()
     for slotID in pairs(frame.actionButtons) do
         UpdateActionButtonUsable(slotID)
     end
+end
 
-    if ActionBar.UpdateBoosts then
-        ActionBar.UpdateBoosts()
+-- Векторы свечения переиспользуются, пока смещение не изменилось.
+local glowOffsetVector
+local glowZeroVector
+local glowOffsetValue
+
+-- Возвращает уже созданные векторы смещения и нуля.
+local function GetGlowVectors(offset)
+    if not glowZeroVector then
+        glowZeroVector = CreateVector3D(0, 0, 0)
     end
+    if glowOffsetValue ~= offset then
+        glowOffsetValue = offset
+        glowOffsetVector = CreateVector3D(offset, offset, 0)
+    end
+    return glowOffsetVector, glowZeroVector
 end
 
 -- Обновление свечения готовности на кнопке.
@@ -598,12 +630,9 @@ local function UpdateActionButtonGlow(slotID, spellID, event)
 
     -- Переустанавливаем transform на каждом обновлении:
     -- это удерживает визуальный центр при разном соотношении сторон и смене разрешения.
-    local transformOffset = ActionBar.GetGlowTransformOffset()
-    btn.Glow:SetTransform(
-        CreateVector3D(transformOffset, transformOffset, 0),
-        CreateVector3D(0, 0, 0),
-        ActionBar.GetGlowTransformScale()
-    )
+    local transformOffset, transformScale = ActionBar.GetGlowTransform()
+    local offsetVector, zeroVector = GetGlowVectors(transformOffset)
+    btn.Glow:SetTransform(offsetVector, zeroVector, transformScale)
 
     -- Если spellID не передан, пытаемся получить его из слота
     if not spellID then
@@ -733,8 +762,18 @@ local function UpdateActionButtonCount(slotID)
         end
     end
 
-    -- До открытия оборотной стороны число зарядов скрыто. Дальше оно уже на месте.
-    if not btn.coinCountReady and (btn.coinInAir or (btn.ctrlFlipOwned and not btn.ctrlFaceSettled)) then
+    local countSlot = slotID
+    if btn.boostShowingAlt and btn.boostFlipSlot then
+        countSlot = btn.boostFlipSlot
+    end
+    if ActionBar.ChargeActionChanged(countSlot) then
+        ActionBar.ForgetChargeCount(countSlot)
+    end
+
+    -- В самом начале подброса число ещё скрыто. В бою уже известный счётчик не гасим.
+    local tossHidesCount = not btn.coinCountReady and (btn.coinInAir or (btn.ctrlFlipOwned and not btn.ctrlFaceSettled))
+    local knownDuringToss = ActionBar.SlotHasChargeCounter(countSlot) or ActionBar.SavedChargeText(countSlot) ~= nil
+    if tossHidesCount and not (ActionBar.IsInCombat() and knownDuringToss) then
         if btn.StackCount:IsShown() then
             if btn.StackCount.fadeOut then
                 btn.StackCount.fadeOut:Stop()
@@ -745,12 +784,7 @@ local function UpdateActionButtonCount(slotID)
         return
     end
 
-    local countSlot = slotID
-    if btn.boostShowingAlt and btn.boostFlipSlot then
-        countSlot = btn.boostFlipSlot
-    end
-
-    local count = C_ActionBar.GetActionDisplayCount(countSlot)
+    local count = ActionBar.ReadDisplayCount(countSlot)
 
     local function ShowStack()
         if not btn.coinCountReady then
@@ -768,24 +802,86 @@ local function UpdateActionButtonCount(slotID)
         btn.StackCount:Show()
     end
 
-    if count and issecretvalue(count) then
-        -- В бою число скрыто. Если эта ячейка уже показывала заряды, возвращаем рамку после переворота.
-        btn.StackCount.Text:SetText(count)
-        if ActionBar.stackCountChange[countSlot] and not btn.StackCount:IsShown() then
+    local flipping = btn.coinActive or btn.ctrlFlipOwned
+    local known = ActionBar.SlotHasChargeCounter(countSlot) or ActionBar.SavedChargeText(countSlot) ~= nil
+
+    local function HideStack(unknown)
+        if ActionBar.IsInCombat() and known then
+            local saved = ActionBar.SavedChargeText(countSlot)
+            if saved ~= nil then
+                btn.StackCount.Text:SetText(saved)
+            end
+            ActionBar.stackCountChange[countSlot] = true
+            btn.stackCountSlot = countSlot
             ShowStack()
+            ActionBar.FinishCountRead(countSlot)
+            return
         end
+        if btn.stackCountSlot == countSlot then
+            btn.stackCountSlot = nil
+        end
+        btn.StackCount.Text:SetText("")
+        ConsoleMenu:AnimatedHide(btn.StackCount)
+        ActionBar.FinishCountRead(countSlot, unknown)
+    end
+
+    -- В бою и на возврате с переворота оставляем последнее число, не затирая память о счётчике.
+    local function KeepKnownCount()
+        if not known then
+            return false
+        end
+        local saved = ActionBar.SavedChargeText(countSlot)
+        if saved ~= nil then
+            btn.StackCount.Text:SetText(saved)
+        elseif not (btn.stackCountSlot == countSlot and btn.StackCount:IsShown()) then
+            return false
+        end
+        ActionBar.stackCountChange[countSlot] = true
+        btn.stackCountSlot = countSlot
+        ShowStack()
+        ActionBar.FinishCountRead(countSlot, count == nil)
+        return true
+    end
+
+    if IsSecretValue(count) then
+        -- Скрытое число клиент рисует сам, поэтому в бою цифры продолжают меняться.
+        if not known then
+            HideStack(false)
+            return
+        end
+        btn.StackCount.Text:SetText(count)
+        ActionBar.stackCountChange[countSlot] = true
+        btn.stackCountSlot = countSlot
+        ShowStack()
+        ActionBar.FinishCountRead(countSlot)
         return
     end
 
-    if (count and count ~= "" and count ~= "0" and count ~= 0) or ActionBar.stackCountChange[countSlot] then
+    if ActionBar.HasVisibleChargeCount(count) then
+        ActionBar.RememberChargeSlot(countSlot, count)
         btn.StackCount.Text:SetText(count)
         ActionBar.stackCountChange[countSlot] = true
+        btn.stackCountSlot = countSlot
         ShowStack()
-    elseif btn.coinCountLatched and btn.StackCount:IsShown() then
-        -- Пустой ответ посреди кувырка не гасит уже показанное число.
+        ActionBar.FinishCountRead(countSlot)
+    elseif btn.coinCountLatched and btn.stackCountSlot == countSlot and btn.StackCount:IsShown() then
+        -- Пустой ответ посреди кувырка не гасит уже показанное число этого же умения.
+    elseif flipping and KeepKnownCount() then
+        -- Лицевая сторона после Ctrl снова показывает своё число.
+    elseif ActionBar.IsInCombat() and KeepKnownCount() then
+        -- В бою пустой или нулевой ответ не убирает уже видимый счётчик.
+    elseif not flipping and not ActionBar.IsInCombat() and (count == 0 or count == "0" or ActionBar.ShouldForgetChargeCount(count)) then
+        -- Цифры прячем, но ячейка по-прежнему умеет показывать заряды.
+        ActionBar.ClearChargeText(countSlot)
+        HideStack(false)
+    elseif not known then
+        HideStack(count == nil)
+    elseif ActionBar.stackCountChange[countSlot] then
+        ShowStack()
+    elseif count == nil then
+        HideStack(true)
     else
-        btn.StackCount.Text:SetText("")
-        ConsoleMenu:AnimatedHide(btn.StackCount)
+        HideStack(false)
     end
 end
 
@@ -807,7 +903,6 @@ local function UpdateActionBarPageVisibility()
     ActionBar.EnableAllRangeChecks()
     ActionBar.UpdateButtonPositions()
     ActionBar.UpdateModifierState()
-    ActionBar.UpdateBoosts()
     ActionBar.UpdateAllUsable()
 end
 

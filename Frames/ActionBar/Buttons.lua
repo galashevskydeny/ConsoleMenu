@@ -19,7 +19,7 @@ function ActionBar.CreateButton(parent, slotID)
     ConsoleMenu:InitFadeAnimations(buttonFrame, ActionBar.animationDuration)
 
     local textureFileID = C_ActionBar.GetActionTexture(slotID)
-    if issecretvalue(textureFileID) then
+    if ActionBar.IsSecretValue(textureFileID) then
         -- Не считаем слот пустым: просто отложим установку текстуры.
         textureFileID = nil
     end
@@ -124,21 +124,11 @@ function ActionBar.CreateButton(parent, slotID)
 
         buttonFrame.StackCount:Hide()
 
-        -- Фон счетчика
-        -- if not buttonFrame.StackCount.Background then
-        --     buttonFrame.StackCount.Background = buttonFrame.StackCount:CreateTexture(nil, "ARTWORK")
-        --     buttonFrame.StackCount.Background:SetAllPoints()
-        --     buttonFrame.StackCount.Background:SetAlpha(0.5)
-
-        --     local texture = ConsoleMenu.Backgrounds["PAD"]
-        --     buttonFrame.StackCount.Background:SetTexture(texture)
-        -- end
-
         -- Тень счетчика
         if not buttonFrame.StackCount.Shadow then
             buttonFrame.StackCount.Shadow = buttonFrame.StackCount:CreateTexture(nil, "BACKGROUND")
-            buttonFrame.StackCount.Shadow:SetPoint("TOPLEFT", buttonFrame.StackCount, "TOPLEFT", -ActionBar.stackCountShadowOffsef, ActionBar.stackCountShadowOffsef)
-            buttonFrame.StackCount.Shadow:SetPoint("BOTTOMRIGHT", buttonFrame.StackCount, "BOTTOMRIGHT", ActionBar.stackCountShadowOffsef, -ActionBar.stackCountShadowOffsef)
+            buttonFrame.StackCount.Shadow:SetPoint("TOPLEFT", buttonFrame.StackCount, "TOPLEFT", -ActionBar.stackCountShadowOffset, ActionBar.stackCountShadowOffset)
+            buttonFrame.StackCount.Shadow:SetPoint("BOTTOMRIGHT", buttonFrame.StackCount, "BOTTOMRIGHT", ActionBar.stackCountShadowOffset, -ActionBar.stackCountShadowOffset)
 
             local texture = "Interface\\AddOns\\ConsoleMenu\\Assets\\CrossBackgorund.png"
             buttonFrame.StackCount.Shadow:SetTexture(texture)
@@ -187,8 +177,8 @@ function ActionBar.CreateButton(parent, slotID)
         --Тень
         if not buttonFrame.Icon.Shadow then
             buttonFrame.Icon.Shadow = buttonFrame.Icon:CreateTexture(nil, "BACKGROUND")
-            buttonFrame.Icon.Shadow:SetPoint("TOPLEFT", buttonFrame.Icon.Background, "TOPLEFT", -ActionBar.stackCountShadowOffsef, ActionBar.stackCountShadowOffsef)
-            buttonFrame.Icon.Shadow:SetPoint("BOTTOMRIGHT", buttonFrame.Icon.Background, "BOTTOMRIGHT", ActionBar.stackCountShadowOffsef, -ActionBar.stackCountShadowOffsef)
+            buttonFrame.Icon.Shadow:SetPoint("TOPLEFT", buttonFrame.Icon.Background, "TOPLEFT", -ActionBar.stackCountShadowOffset, ActionBar.stackCountShadowOffset)
+            buttonFrame.Icon.Shadow:SetPoint("BOTTOMRIGHT", buttonFrame.Icon.Background, "BOTTOMRIGHT", ActionBar.stackCountShadowOffset, -ActionBar.stackCountShadowOffset)
 
             local texture = "Interface\\AddOns\\ConsoleMenu\\Assets\\CrossBackgorund.png"
             buttonFrame.Icon.Shadow:SetTexture(texture)

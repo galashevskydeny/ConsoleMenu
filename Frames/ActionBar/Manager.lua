@@ -3,18 +3,246 @@
 local ConsoleMenu = _G.ConsoleMenu
 local ActionBar = ConsoleMenu.ActionBar
 
+-- Промежутки ячеек: основная панель, её вторая страница и панели модификаторов.
+local slotRanges = {
+    { 1, 12 },
+    { 13, 24 },
+    { 49, 72 },
+}
+
+-- Обходит уже созданные кнопки панели.
+local function ForEachButton(callback)
+    local frame = ActionBar.GetFrame()
+    if not frame or not frame.actionButtons then
+        return
+    end
+    for slotID in pairs(frame.actionButtons) do
+        callback(slotID)
+    end
+end
+
+-- Полное обновление значков после входа в мир.
+-- Вход персонажа приходит раньше и часто ещё без ячеек, поэтому его не обрабатываем.
+local function RefreshEnteredWorld()
+    if ActionBar.InvalidateEquippedItemCache then
+        ActionBar.InvalidateEquippedItemCache()
+    end
+
+    ForEachButton(function(slotID)
+        ActionBar.UpdateTexture(slotID)
+        ActionBar.UpdateGlow(slotID, nil, "PLAYER_ENTERING_WORLD")
+        ActionBar.UpdateCount(slotID)
+    end)
+    ActionBar.EnableAllRangeChecks()
+    ActionBar.UpdateButtonPositions()
+    ActionBar.UpdateCooldowns()
+    ActionBar.UpdateModifierState()
+    ActionBar.UpdateAllUsable()
+end
+
+-- Смена геймпада: заново раскладываем кнопки.
+local function OnGamePadActive(_, _, ...)
+    ConsoleMenu:SetGamePadActive(...)
+    ActionBar.UpdateButtonPositions()
+    ActionBar.UpdateModifierState()
+end
+
+-- Сетка назначения клавиш показывает или прячет пустые кнопки.
+local function OnGridChanged()
+    ActionBar.UpdateButtonPositions()
+    ActionBar.UpdateModifierState()
+end
+
+-- Страница панели меняется на следующем кадре, когда клиент уже отдал новые ячейки.
+local function OnPageChanged()
+    RunNextFrame(ActionBar.UpdatePageVisibility)
+end
+
+-- В ячейке сменилось действие: старое число забываем и читаем заряды нового умения.
+-- В бою стираем память только если видно, что умение действительно другое.
+local function OnSlotChanged(_, _, slotID)
+    if not ActionBar.IsInCombat() or ActionBar.ChargeActionChanged(slotID) then
+        ActionBar.ForgetChargeCount(slotID)
+    end
+    ActionBar.UpdateTexture(slotID)
+    ActionBar.UpdateButtonPositions(slotID)
+    ActionBar.UpdateCooldowns()
+    ActionBar.UpdateCount(slotID)
+    ActionBar.UpdateModifierState()
+    -- Свечение проверяем кадром позже: оверлей ещё не успевает обновиться.
+    RunNextFrame(function()
+        ActionBar.UpdateGlow(slotID, nil, "ACTIONBAR_SLOT_CHANGED")
+    end)
+    ActionBar.EnableRangeCheck(slotID, true)
+    ActionBar.UpdateUsable(slotID)
+    ActionBar.UpdateBoosts()
+end
+
+-- Помощник, бой или смена цели: рисунок и дальность могли устареть.
+local function OnCombatOrTarget(_, event)
+    if C_ActionBar and C_ActionBar.FindAssistedCombatActionButtons then
+        local slots = C_ActionBar.FindAssistedCombatActionButtons()
+        if slots then
+            for _, slotID in pairs(slots) do
+                ActionBar.UpdateTexture(slotID)
+                ActionBar.UpdateIcon(slotID)
+                ActionBar.UpdateCount(slotID)
+            end
+        end
+    end
+    if event == "PLAYER_TARGET_CHANGED" or event == "PLAYER_FOCUS_CHANGED" or event == "PLAYER_SOFT_ENEMY_CHANGED" then
+        -- Смена цели сбрасывает старую дальность: иначе значок остаётся серым.
+        ActionBar.ClearRangeState()
+        ActionBar.EnableAllRangeChecks()
+        ActionBar.UpdateAllUsable()
+        ActionBar.UpdateBoosts()
+        return
+    end
+    if event == "PLAYER_REGEN_ENABLED" then
+        -- В бою пустой ответ не стирал число. После боя его перечитываем на всех кнопках.
+        ForEachButton(function(slotID)
+            ActionBar.UpdateCount(slotID)
+        end)
+    end
+    ActionBar.UpdateBoosts()
+end
+
+-- Восстановление умений обновилось на всей панели и в облаке.
+local function OnCooldown()
+    ActionBar.UpdateCooldowns()
+    ActionBar.UpdateBoosts()
+end
+
+-- Клиент проверил дальность одной ячейки.
+local function OnRangeCheck(_, _, slotID, isInRange, checksRange)
+    ActionBar.SetRangeFromEvent(slotID, isInRange, checksRange)
+    if not slotID then
+        return
+    end
+    ActionBar.UpdateUsable(slotID)
+    if ActionBar.IsBoostSlot(slotID) or ActionBar.IsExtraActionSlot(slotID) then
+        ActionBar.UpdateBoosts()
+    end
+end
+
+-- Свечение готовности заклинания включается или гаснет на его ячейках.
+local function OnGlow(_, event, spellID)
+    local slots = C_ActionBar.FindSpellActionButtons(spellID)
+    if not slots then
+        return
+    end
+    for _, slotID in pairs(slots) do
+        ActionBar.UpdateGlow(slotID, spellID, event)
+    end
+end
+
+-- Рисунок заклинания сменился: обновляем только ячейки этого заклинания.
+local function OnSpellIcon(_, _, spellID)
+    if spellID and C_ActionBar.FindSpellActionButtons then
+        local slots = C_ActionBar.FindSpellActionButtons(spellID)
+        if slots then
+            for _, slotID in pairs(slots) do
+                ActionBar.UpdateTexture(slotID)
+            end
+        end
+    end
+    ActionBar.UpdateBoosts()
+end
+
+-- Пригодность ячеек пришла списком или требует полного обновления восстановления.
+local function OnUsable(_, _, changes)
+    if changes then
+        for slotID, changeData in pairs(changes) do
+            local isUsable, isLackingResources
+            if type(changeData) == "table" then
+                isUsable = changeData.isUsable
+                if isUsable == nil then
+                    isUsable = changeData[1]
+                end
+                isLackingResources = changeData.isLackingResources
+                if isLackingResources == nil then
+                    isLackingResources = changeData[2]
+                end
+            else
+                -- Плоский формат: значение само по себе означает пригодность.
+                isUsable = changeData
+            end
+            ActionBar.UpdateUsable(slotID, isUsable, isLackingResources)
+        end
+    else
+        ActionBar.UpdateCooldowns()
+    end
+    ActionBar.UpdateBoosts()
+end
+
+-- Число зарядов изменилось на кнопках и в облаке.
+local function OnCharges()
+    ForEachButton(function(slotID)
+        ActionBar.UpdateCount(slotID)
+    end)
+    ActionBar.UpdateBoosts()
+end
+
+-- Дополнительная кнопка действия появилась или исчезла.
+local function OnExtraActionBar()
+    ActionBar.UpdateModifierState()
+end
+
+-- Надетые предметы сменились: старое соответствие рисунка и предмета больше не годится.
+local function OnEquipmentChanged()
+    if ActionBar.InvalidateEquippedItemCache then
+        ActionBar.InvalidateEquippedItemCache()
+    end
+    ActionBar.UpdateAllUsable()
+    ActionBar.UpdateBoosts()
+end
+
+-- Событие и что из-за него обновить.
+local eventHandlers = {
+    PLAYER_ENTERING_WORLD = RefreshEnteredWorld,
+    GAME_PAD_ACTIVE_CHANGED = OnGamePadActive,
+    ACTIONBAR_SHOWGRID = OnGridChanged,
+    ACTIONBAR_HIDEGRID = OnGridChanged,
+    ACTIONBAR_PAGE_CHANGED = OnPageChanged,
+    ACTIONBAR_SLOT_CHANGED = OnSlotChanged,
+    ASSISTED_COMBAT_ACTION_SPELL_CAST = OnCombatOrTarget,
+    PLAYER_REGEN_ENABLED = OnCombatOrTarget,
+    PLAYER_REGEN_DISABLED = OnCombatOrTarget,
+    PLAYER_TARGET_CHANGED = OnCombatOrTarget,
+    PLAYER_FOCUS_CHANGED = OnCombatOrTarget,
+    PLAYER_SOFT_ENEMY_CHANGED = OnCombatOrTarget,
+    ACTIONBAR_UPDATE_COOLDOWN = OnCooldown,
+    SPELL_UPDATE_COOLDOWN = OnCooldown,
+    ACTIONBAR_UPDATE_STATE = OnCooldown,
+    ACTION_RANGE_CHECK_UPDATE = OnRangeCheck,
+    MODIFIER_STATE_CHANGED = function()
+        ActionBar.UpdateModifierState()
+    end,
+    SPELL_ACTIVATION_OVERLAY_GLOW_SHOW = OnGlow,
+    SPELL_ACTIVATION_OVERLAY_GLOW_HIDE = OnGlow,
+    SPELL_UPDATE_ICON = OnSpellIcon,
+    ACTIONBAR_UPDATE_USABLE = OnUsable,
+    SPELL_UPDATE_CHARGES = OnCharges,
+    UPDATE_EXTRA_ACTIONBAR = OnExtraActionBar,
+    PLAYER_EQUIPMENT_CHANGED = OnEquipmentChanged,
+}
+
 -- Создание панели команд и подписка на события ячеек.
 function ConsoleMenu:InitializeMainActionBar()
-
-    if ConsoleMenuDB.actionBarStyle == 1 then return end
+    if ConsoleMenuDB.actionBarStyle == 1 then
+        return
+    end
 
     if not C_ActionBar.GetActionCooldown or not C_ActionBar.GetActionTexture then
         return
     end
 
-    -- Создаём родительский фрейм для кнопок (если его ещё нет)
+    if ConsoleMenuFrame.ActionBarFrame and ConsoleMenuFrame.ActionBarFrame.buttonsReady then
+        return
+    end
+
     if not ConsoleMenuFrame.ActionBarFrame then
-        ConsoleMenuFrame.ActionBarFrame = CreateFrame("Frame", "ActionBarFrame", ConsoleMenuFrame)
+        ConsoleMenuFrame.ActionBarFrame = CreateFrame("Frame", nil, ConsoleMenuFrame)
     end
 
     local frame = ConsoleMenuFrame.ActionBarFrame
@@ -27,13 +255,13 @@ function ConsoleMenu:InitializeMainActionBar()
     end
 
     if not frame.PADCenter then
-        frame.PADCenter = CreateFrame("Frame", "PADCenter", frame)
+        frame.PADCenter = CreateFrame("Frame", nil, frame)
         frame.PADCenter:SetPoint("RIGHT", frame, "RIGHT", -ActionBar.paddingPAD, 0)
         frame.PADCenter:SetSize(1, 1)
     end
 
     if not frame.PADDCenter then
-        frame.PADDCenter = CreateFrame("Frame", "PADDCenter", frame)
+        frame.PADDCenter = CreateFrame("Frame", nil, frame)
         frame.PADDCenter:SetPoint("LEFT", frame, "LEFT", ActionBar.paddingPADD, 0)
         frame.PADDCenter:SetSize(1, 1)
     end
@@ -56,27 +284,15 @@ function ConsoleMenu:InitializeMainActionBar()
 
     frame.actionButtons = {}
 
-    for slotID = 1, 12 do
-        local btn = ActionBar.CreateButton(frame, slotID)
-        if btn then
-            btn.slotID = slotID
-            frame.actionButtons[slotID] = btn
-        end
-    end
-
-    for slotID = 13, 24 do
-        local btn = ActionBar.CreateButton(frame, slotID)
-        if btn then
-            btn.slotID = slotID
-            frame.actionButtons[slotID] = btn
-        end
-    end
-
-    for slotID = 49, 72 do
-        local btn = ActionBar.CreateButton(frame, slotID)
-        if btn then
-            btn.slotID = slotID
-            frame.actionButtons[slotID] = btn
+    for rangeIndex = 1, #slotRanges do
+        local firstSlot = slotRanges[rangeIndex][1]
+        local lastSlot = slotRanges[rangeIndex][2]
+        for slotID = firstSlot, lastSlot do
+            local btn = ActionBar.CreateButton(frame, slotID)
+            if btn then
+                btn.slotID = slotID
+                frame.actionButtons[slotID] = btn
+            end
         end
     end
 
@@ -94,193 +310,16 @@ function ConsoleMenu:InitializeMainActionBar()
         end)
     end
 
-    frame:RegisterEvent("PLAYER_ENTERING_WORLD")
-    frame:RegisterEvent("PLAYER_LOGIN")
-
-    frame:RegisterEvent("GAME_PAD_ACTIVE_CHANGED")
-    frame:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
-    frame:RegisterEvent("ACTIONBAR_PAGE_CHANGED")
-    frame:RegisterEvent("ACTIONBAR_SHOWGRID")
-    frame:RegisterEvent("ACTIONBAR_HIDEGRID")
-
-    frame:RegisterEvent("ACTIONBAR_UPDATE_COOLDOWN")
-    frame:RegisterEvent("SPELL_UPDATE_COOLDOWN")
-    frame:RegisterEvent("ACTIONBAR_UPDATE_STATE")
-
-    frame:RegisterEvent("MODIFIER_STATE_CHANGED")
-
-    frame:RegisterEvent("ACTION_RANGE_CHECK_UPDATE")
-
-    frame:RegisterEvent("SPELL_ACTIVATION_OVERLAY_GLOW_SHOW")
-    frame:RegisterEvent("SPELL_ACTIVATION_OVERLAY_GLOW_HIDE")
-    frame:RegisterEvent("SPELL_UPDATE_ICON")
-
-    frame:RegisterEvent("ACTIONBAR_UPDATE_USABLE")
-
-    frame:RegisterEvent("SPELL_UPDATE_CHARGES")
-    frame:RegisterEvent("ASSISTED_COMBAT_ACTION_SPELL_CAST")
-    frame:RegisterEvent("PLAYER_REGEN_ENABLED")
-    frame:RegisterEvent("PLAYER_REGEN_DISABLED")
-    frame:RegisterEvent("PLAYER_TARGET_CHANGED")
-    frame:RegisterEvent("PLAYER_FOCUS_CHANGED")
-    frame:RegisterEvent("PLAYER_SOFT_ENEMY_CHANGED")
-    frame:RegisterEvent("UPDATE_EXTRA_ACTIONBAR")
-
-    -- Обработка событий панели: значки, восстановление, свечение и видимость.
-    local function OnActionBarEvent(self, event, ...)
-        if event == "PLAYER_ENTERING_WORLD" or event == "PLAYER_LOGIN" then
-            for slotID = 1, 12 do
-                ActionBar.UpdateTexture(slotID)
-                ActionBar.UpdateGlow(slotID, nil, "PLAYER_ENTERING_WORLD")
-                ActionBar.UpdateCount(slotID)
-                
-            end
-            for slotID = 13, 24 do
-                ActionBar.UpdateTexture(slotID)
-                ActionBar.UpdateGlow(slotID, nil, "PLAYER_ENTERING_WORLD")
-                ActionBar.UpdateCount(slotID)
-                
-            end
-            for slotID = 49, 72 do
-                ActionBar.UpdateTexture(slotID)
-                ActionBar.UpdateGlow(slotID, nil, "PLAYER_ENTERING_WORLD")
-                ActionBar.UpdateCount(slotID)
-                
-            end
-            ActionBar.EnableAllRangeChecks()
-            ActionBar.UpdateButtonPositions()
-            ActionBar.UpdateCooldowns()
-            ActionBar.UpdateBoosts()
-            ActionBar.UpdateModifierState()
-            ActionBar.UpdateAllUsable()
-        elseif event == "GAME_PAD_ACTIVE_CHANGED" then
-            ConsoleMenu:SetGamePadActive(...)
-            ActionBar.UpdateButtonPositions()
-            ActionBar.UpdateModifierState()
-        elseif event == "ACTIONBAR_SHOWGRID" or event == "ACTIONBAR_HIDEGRID" then
-            ActionBar.UpdateButtonPositions()
-            ActionBar.UpdateModifierState()
-        elseif event == "ACTIONBAR_PAGE_CHANGED" then
-            RunNextFrame(ActionBar.UpdatePageVisibility)
-        elseif event == "ACTIONBAR_SLOT_CHANGED" then
-            local slotID = ...
-            ActionBar.UpdateTexture(slotID)
-            ActionBar.UpdateButtonPositions(slotID)
-            ActionBar.UpdateCooldowns()
-            ActionBar.UpdateCount(slotID)
-            
-            ActionBar.UpdateModifierState()
-            -- Используем RunNextFrame для отложенной проверки glow, чтобы дать overlay системе время обновиться
-            RunNextFrame(function()
-                ActionBar.UpdateGlow(slotID, nil, "ACTIONBAR_SLOT_CHANGED")
-            end)
-            ActionBar.EnableRangeCheck(slotID, true)
-            ActionBar.UpdateUsable(slotID)
-            ActionBar.UpdateBoosts()
-        elseif event == "ASSISTED_COMBAT_ACTION_SPELL_CAST" or event == "PLAYER_REGEN_ENABLED" or event == "PLAYER_REGEN_DISABLED" or event == "PLAYER_TARGET_CHANGED" or event == "PLAYER_FOCUS_CHANGED" or event == "PLAYER_SOFT_ENEMY_CHANGED" then
-            -- Смена заклинания помощника или вход/выход из боя — обновляем иконки (в бою = следующее, вне боя = текущее)
-            if C_ActionBar and C_ActionBar.FindAssistedCombatActionButtons then
-                local slots = C_ActionBar.FindAssistedCombatActionButtons()
-                if slots then
-                    for _, slotID in pairs(slots) do
-                        ActionBar.UpdateTexture(slotID)
-                        ActionBar.UpdateIcon(slotID)
-                        ActionBar.UpdateCount(slotID)
-                        
-                    end
-                end
-            end
-            if event == "PLAYER_TARGET_CHANGED" or event == "PLAYER_FOCUS_CHANGED" or event == "PLAYER_SOFT_ENEMY_CHANGED" then
-                -- Смена цели сбрасывает старую дальность: иначе значок остаётся серым.
-                ActionBar.ClearRangeState()
-                ActionBar.EnableAllRangeChecks()
-                ActionBar.UpdateAllUsable()
-            else
-                ActionBar.UpdateBoosts()
-            end
-        elseif event == "ACTIONBAR_UPDATE_COOLDOWN" or event == "SPELL_UPDATE_COOLDOWN" or event == "ACTIONBAR_UPDATE_STATE" then
-            ActionBar.UpdateCooldowns()
-            ActionBar.UpdateBoosts()
-        elseif event == "ACTION_RANGE_CHECK_UPDATE" then
-            local slotID, isInRange, checksRange = ...
-            ActionBar.SetRangeFromEvent(slotID, isInRange, checksRange)
-            if slotID then
-                ActionBar.UpdateUsable(slotID)
-                if ActionBar.IsBoostSlot(slotID) or ActionBar.IsExtraActionSlot(slotID) then
-                    ActionBar.UpdateBoosts()
-                end
-            end
-        elseif event == "MODIFIER_STATE_CHANGED" then
-            ActionBar.UpdateModifierState()
-        elseif event == "SPELL_ACTIVATION_OVERLAY_GLOW_SHOW" then
-            local spellID = ...
-            local slots = C_ActionBar.FindSpellActionButtons(spellID)
-            if slots then
-                for _, slotID in pairs(slots) do
-                    ActionBar.UpdateGlow(slotID, spellID, "SPELL_ACTIVATION_OVERLAY_GLOW_SHOW")
-                end
-            end
-        elseif event == "SPELL_ACTIVATION_OVERLAY_GLOW_HIDE" then
-            local spellID = ...
-            local slots = C_ActionBar.FindSpellActionButtons(spellID)
-            if slots then
-                for _, slotID in pairs(slots) do
-                    ActionBar.UpdateGlow(slotID, spellID, "SPELL_ACTIVATION_OVERLAY_GLOW_HIDE")
-                end
-            end
-        elseif event == "SPELL_UPDATE_ICON" then
-            -- Иконка может смениться позже свечения, в том числе при окончании прока.
-            for slotID in pairs(frame.actionButtons or {}) do
-                ActionBar.UpdateTexture(slotID)
-            end
-            ActionBar.UpdateBoosts()
-        elseif event == "ACTIONBAR_UPDATE_USABLE" then
-            local changes = ...
-            if changes then
-                for slotID, changeData in pairs(changes) do
-                    local isUsable, isLackingResources
-                    if type(changeData) == "table" then
-                        isUsable = changeData.isUsable
-                        if isUsable == nil then
-                            isUsable = changeData[1]
-                        end
-
-                        isLackingResources = changeData.isLackingResources
-                        if isLackingResources == nil then
-                            isLackingResources = changeData[2]
-                        end
-                    else
-                        -- Поддержка плоского формата: значение = isUsable.
-                        isUsable = changeData
-                    end
-
-                    ActionBar.UpdateUsable(slotID, isUsable, isLackingResources)
-                end
-            else
-                ActionBar.UpdateCooldowns()
-            end
-            ActionBar.UpdateBoosts()
-        elseif event == "SPELL_UPDATE_CHARGES" then
-            for slotID = 1, 12 do
-                ActionBar.UpdateCount(slotID)
-                
-            end
-            for slotID = 13, 24 do
-                ActionBar.UpdateCount(slotID)
-                
-            end
-            for slotID = 49, 72 do
-                ActionBar.UpdateCount(slotID)
-                
-            end
-            ActionBar.UpdateBoosts()
-        elseif event == "UPDATE_EXTRA_ACTIONBAR" then
-            ActionBar.UpdateBoosts()
-            ActionBar.UpdateModifierState()
-        end
+    for eventName in pairs(eventHandlers) do
+        frame:RegisterEvent(eventName)
     end
 
-    frame:SetScript("OnEvent", OnActionBarEvent)
+    frame:SetScript("OnEvent", function(self, event, ...)
+        local handler = eventHandlers[event]
+        if handler then
+            handler(self, event, ...)
+        end
+    end)
 
+    frame.buttonsReady = true
 end
-

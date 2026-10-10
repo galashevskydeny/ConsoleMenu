@@ -50,29 +50,7 @@ end
 
 -- Текстура ячейки облака по тем же правилам, что у обычных кнопок.
 local function GetBoostTexture(slotID)
-    local textureFileID = nil
-
-    if C_ActionBar and C_ActionBar.IsAssistedCombatAction and C_ActionBar.IsAssistedCombatAction(slotID) then
-        if C_AssistedCombat and C_Spell then
-            local spellID = C_AssistedCombat.GetNextCastSpell and C_AssistedCombat.GetNextCastSpell(true)
-            if spellID then
-                textureFileID = C_Spell.GetSpellTexture(spellID)
-            end
-        end
-    end
-
-    if not textureFileID and C_ActionBar and C_ActionBar.GetActionTexture then
-        local ok, result = pcall(C_ActionBar.GetActionTexture, slotID)
-        if ok then
-            textureFileID = result
-        end
-    end
-
-    if textureFileID and issecretvalue and issecretvalue(textureFileID) then
-        return nil, true
-    end
-
-    return textureFileID, false
+    return ActionBar.GetSlotTexture(slotID)
 end
 
 -- Состояние облака, если рамка уже создана.
@@ -169,8 +147,8 @@ local function CreateBoostIcon(parent, index, spec)
     DisablePixelSnap(stackCount)
 
     local countShadow = stackCount:CreateTexture(nil, "BACKGROUND")
-    countShadow:SetPoint("TOPLEFT", stackCount, "TOPLEFT", -ActionBar.stackCountShadowOffsef, ActionBar.stackCountShadowOffsef)
-    countShadow:SetPoint("BOTTOMRIGHT", stackCount, "BOTTOMRIGHT", ActionBar.stackCountShadowOffsef, -ActionBar.stackCountShadowOffsef)
+    countShadow:SetPoint("TOPLEFT", stackCount, "TOPLEFT", -ActionBar.stackCountShadowOffset, ActionBar.stackCountShadowOffset)
+    countShadow:SetPoint("BOTTOMRIGHT", stackCount, "BOTTOMRIGHT", ActionBar.stackCountShadowOffset, -ActionBar.stackCountShadowOffset)
     countShadow:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\CrossBackgorund.png")
     DisablePixelSnap(countShadow)
     stackCount.Shadow = countShadow
@@ -224,8 +202,8 @@ local function CreateBoostIcon(parent, index, spec)
         DisablePixelSnap(keyIcon)
 
         keyIcon.Shadow = keyIcon:CreateTexture(nil, "BACKGROUND")
-        keyIcon.Shadow:SetPoint("TOPLEFT", keyIcon, "TOPLEFT", -ActionBar.stackCountShadowOffsef, ActionBar.stackCountShadowOffsef)
-        keyIcon.Shadow:SetPoint("BOTTOMRIGHT", keyIcon, "BOTTOMRIGHT", ActionBar.stackCountShadowOffsef, -ActionBar.stackCountShadowOffsef)
+        keyIcon.Shadow:SetPoint("TOPLEFT", keyIcon, "TOPLEFT", -ActionBar.stackCountShadowOffset, ActionBar.stackCountShadowOffset)
+        keyIcon.Shadow:SetPoint("BOTTOMRIGHT", keyIcon, "BOTTOMRIGHT", ActionBar.stackCountShadowOffset, -ActionBar.stackCountShadowOffset)
         keyIcon.Shadow:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\CrossBackgorund.png")
         DisablePixelSnap(keyIcon.Shadow)
 
@@ -263,8 +241,8 @@ local function CreateBoostStickHint(parent)
     DisablePixelSnap(hint)
 
     hint.Shadow = hint:CreateTexture(nil, "BACKGROUND")
-    hint.Shadow:SetPoint("TOPLEFT", hint, "TOPLEFT", -ActionBar.stackCountShadowOffsef, ActionBar.stackCountShadowOffsef)
-    hint.Shadow:SetPoint("BOTTOMRIGHT", hint, "BOTTOMRIGHT", ActionBar.stackCountShadowOffsef, -ActionBar.stackCountShadowOffsef)
+    hint.Shadow:SetPoint("TOPLEFT", hint, "TOPLEFT", -ActionBar.stackCountShadowOffset, ActionBar.stackCountShadowOffset)
+    hint.Shadow:SetPoint("BOTTOMRIGHT", hint, "BOTTOMRIGHT", ActionBar.stackCountShadowOffset, -ActionBar.stackCountShadowOffset)
     hint.Shadow:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\CrossBackgorund.png")
     DisablePixelSnap(hint.Shadow)
 
@@ -747,17 +725,12 @@ local function FindHostButton(mainKey)
         return nil
     end
 
-    local page = 1
-    if C_ActionBar and C_ActionBar.GetActionBarPage then
-        page = C_ActionBar.GetActionBarPage() or 1
-    end
-    local pageStart = 12 * (page - 1) + 1
     local onCross
     for slotID, btn in pairs(frame.actionButtons) do
         if btn.mainKey == mainKey and not btn.modifierKey and not ActionBar.IsBoostSlot(slotID) and not ActionBar.ignoredSlot[slotID] then
             local position = ActionBar.buttonPositions[btn.mainKey]
-            if position and (position[2] == "PADDCenter" or mainKey == "PADLSTICK") then
-                if slotID >= pageStart and slotID < pageStart + 12 then
+            if position and (position[2] == "left" or mainKey == "PADLSTICK") then
+                if ActionBar.IsSlotOnActivePage(slotID) then
                     return btn
                 end
                 onCross = btn
@@ -888,13 +861,21 @@ local function ShowCoinCount(host)
     if not host then
         return
     end
-    local face = host.boostShowingAlt and host.boostFlipSlot or host.slotID
-    if host.coinCountReady and host.coinCountFace == face then
+    -- Число принадлежит той стороне, которая сейчас видна, а не умению на обороте.
+    local face = host.slotID
+    if host.boostShowingAlt and host.boostFlipSlot then
+        face = host.boostFlipSlot
+    end
+    if host.coinCountReady and host.coinCountFace == face and host.StackCount and host.StackCount:IsShown() then
         return
     end
     host.coinCountReady = true
     host.coinCountFace = face
     SeatCoinCount(host)
+    -- На открытии стороны число могло ещё не прийти: попытки чтения начинаем заново.
+    if face then
+        ActionBar.countReadRetries[face] = nil
+    end
     if host.slotID and ActionBar.UpdateCount then
         ActionBar.UpdateCount(host.slotID)
     end
@@ -916,22 +897,21 @@ local function HoldCoinCount(host)
     stack:Hide()
 end
 
--- Одно появление числа: на оборотной стороне, без вспышки старых зарядов и без второго показа на посадке.
+-- Число лицевой стороны остаётся с ней. Прячем его только пока открыт оборот без своего счётчика.
 local function SyncCoinCount(host, showAlt, amount)
     if not host then
         return
     end
-    if showAlt or amount >= 1 then
+    local frontHasCount = host.slotID and ActionBar.SavedChargeText(host.slotID) ~= nil
+    if showAlt or amount >= CountRevealAmount() or (not showAlt and frontHasCount) then
         host.coinCountLatched = true
         ShowCoinCount(host)
         return
     end
-    if amount < CountRevealAmount() then
-        host.coinCountLatched = nil
-        host.coinCountReady = nil
-        host.coinCountFace = nil
-        HoldCoinCount(host)
-    end
+    host.coinCountLatched = nil
+    host.coinCountReady = nil
+    host.coinCountFace = nil
+    HoldCoinCount(host)
 end
 
 -- Крутит текстуру, если клиент это умеет.
@@ -999,6 +979,9 @@ local function ResetHostCoin(btn)
     end
     if ActionBar.SyncButtonCooldown then
         ActionBar.SyncButtonCooldown(btn, true)
+    end
+    if btn.slotID then
+        ActionBar.countReadRetries[btn.slotID] = nil
     end
     if btn.slotID and ActionBar.UpdateCount then
         ActionBar.UpdateCount(btn.slotID)
@@ -1115,6 +1098,8 @@ local function ApplyHostFace(btn, boostSlot, showAlt)
         return
     end
     btn.boostShowingAlt = showAlt
+    -- Сторона монеты сменилась: тени групп нужно пересчитать, но не на каждом кадре полёта.
+    ActionBar.shadowsDirty = true
     if showAlt then
         local textureFileID = GetBoostTexture(boostSlot)
         if textureFileID then
@@ -1258,7 +1243,7 @@ local function ApplyBoostIconPose(boosts, icon, progress, elapsedTime)
             HideHostTwins(host)
             local showAlt = ApplyCoinToss(host.texture, host.background, host.mask, host, ActionBar.buttonSize, amount, tilt)
             ApplyHostFace(host, icon.slotID, showAlt)
-            if ActionBar.UpdateTextureDesaturation then
+            if not host.coinFaceReady and ActionBar.UpdateTextureDesaturation then
                 ActionBar.UpdateTextureDesaturation(host, showAlt and icon.slotID or host.slotID)
             end
             local timerFace = showAlt and true or false
@@ -1270,15 +1255,13 @@ local function ApplyBoostIconPose(boosts, icon, progress, elapsedTime)
                 end
             end
             SyncCoinCount(host, showAlt, amount)
-            if amount >= 1 then
-                if not host.coinFaceReady then
-                    host.coinInAir = nil
-                    host.coinFaceReady = true
-                    if ActionBar.SyncButtonCooldown then
-                        ActionBar.SyncButtonCooldown(host, true)
-                    end
-                    SyncCoinCount(host, true, amount)
+            if amount >= 1 and not host.coinFaceReady then
+                host.coinInAir = nil
+                host.coinFaceReady = true
+                if ActionBar.SyncButtonCooldown then
+                    ActionBar.SyncButtonCooldown(host, true)
                 end
+                SyncCoinCount(host, true, amount)
                 if ActionBar.UpdateTextureDesaturation then
                     ActionBar.UpdateTextureDesaturation(host, icon.slotID)
                 end
@@ -1304,9 +1287,9 @@ local function ApplyBoostIconPose(boosts, icon, progress, elapsedTime)
         end
         icon.coinSpinning = true
         local showAlt = ApplyCoinToss(icon.texture, icon.background, icon.mask, icon, math.max(size, 0.01), amount, tilt)
-        if showAlt or amount >= 1 then
+        if showAlt or amount >= CountRevealAmount() then
             icon.countLatched = true
-        elseif amount < CountRevealAmount() then
+        else
             icon.countLatched = nil
         end
         if amount >= 1 and not icon.coinFaceReady then
@@ -1413,7 +1396,7 @@ local function ApplyBoostIconPose(boosts, icon, progress, elapsedTime)
         if tossingOwnFace then
             showCount = icon.countLatched == true
         else
-            showCount = progress >= ActionBar.boostCooldownProgress
+            showCount = progress >= CountRevealAmount() * (ActionBar.boostFlipSettle or ActionBar.boostCooldownProgress or 0.72)
         end
     end
     if icon.countShown ~= showCount then
@@ -1497,8 +1480,8 @@ function ActionBar.OnBoostsUpdate(elapsed)
     FinishExtraLayoutExit(boosts)
     ApplyBoostStickHint(boosts)
     ApplyCloudHalo(boosts)
-    if ActionBar.UpdateActionButtonShadows then
-        ActionBar.UpdateActionButtonShadows()
+    if ActionBar.UpdateActionButtonShadowsIfNeeded then
+        ActionBar.UpdateActionButtonShadowsIfNeeded()
     end
 
     if boosts.exploringHidePending then
@@ -1587,12 +1570,6 @@ function ActionBar.IsBoostMotionActive()
         return true
     end
     return false
-end
-
--- Текущий ход разворота: ноль у рычага, единица на крестовине.
-function ActionBar.GetBoostProgress()
-    local boosts = GetBoosts()
-    return boosts and boosts.progress or 0
 end
 
 -- Есть ли в облаке хотя бы один заполненный значок.
@@ -1693,6 +1670,9 @@ local function UpdateBoostIconCount(icon)
     end
 
     if not icon.filled then
+        if ActionBar.IsInCombat() and (ActionBar.SlotHasChargeCounter(icon.slotID) or ActionBar.SavedChargeText(icon.slotID) ~= nil) then
+            return
+        end
         icon.hasCount = false
         stackCount.Text:SetText("")
         if icon.countShown then
@@ -1702,23 +1682,83 @@ local function UpdateBoostIconCount(icon)
         return
     end
 
-    local count = C_ActionBar.GetActionDisplayCount(icon.slotID)
-    if count and issecretvalue and issecretvalue(count) then
-        stackCount.Text:SetText(count)
-        return
+    if ActionBar.ChargeActionChanged(icon.slotID) then
+        ActionBar.ForgetChargeCount(icon.slotID)
+    end
+    local count = ActionBar.ReadDisplayCount(icon.slotID)
+    local function HideCount(unknown)
+        if ActionBar.IsInCombat() and (ActionBar.SlotHasChargeCounter(icon.slotID) or ActionBar.SavedChargeText(icon.slotID) ~= nil) then
+            local saved = ActionBar.SavedChargeText(icon.slotID)
+            if saved ~= nil then
+                stackCount.Text:SetText(saved)
+            end
+            icon.hasCount = true
+            ActionBar.stackCountChange[icon.slotID] = true
+            ActionBar.FinishCountRead(icon.slotID)
+            return
+        end
+        stackCount.Text:SetText("")
+        icon.hasCount = false
+        if icon.countShown then
+            icon.countShown = false
+            ConsoleMenu:AnimatedHide(stackCount)
+        end
+        ActionBar.FinishCountRead(icon.slotID, unknown)
     end
 
-    if (count and count ~= "" and count ~= "0" and count ~= 0) or ActionBar.stackCountChange[icon.slotID] then
-        stackCount.Text:SetText(count)
-        ActionBar.stackCountChange[icon.slotID] = true
+    local slotID = icon.slotID
+    local flipping = icon.coinInAir or icon.coinSpinning
+    local known = ActionBar.SlotHasChargeCounter(slotID) or ActionBar.SavedChargeText(slotID) ~= nil
+
+    local function KeepKnownCount()
+        if not known then
+            return false
+        end
+        local saved = ActionBar.SavedChargeText(slotID)
+        if saved ~= nil then
+            stackCount.Text:SetText(saved)
+        elseif not icon.hasCount then
+            return false
+        end
+        ActionBar.stackCountChange[slotID] = true
         icon.hasCount = true
-    else
-        stackCount.Text:SetText("")
-        icon.hasCount = false
-        if icon.countShown then
-            icon.countShown = false
-            ConsoleMenu:AnimatedHide(stackCount)
+        ActionBar.FinishCountRead(slotID, count == nil)
+        return true
+    end
+
+    if ActionBar.IsSecretValue(count) then
+        if not known then
+            HideCount(false)
+            return
         end
+        stackCount.Text:SetText(count)
+        ActionBar.stackCountChange[slotID] = true
+        icon.hasCount = true
+        ActionBar.FinishCountRead(slotID)
+        return
+    end
+
+    if ActionBar.HasVisibleChargeCount(count) then
+        ActionBar.RememberChargeSlot(slotID, count)
+        stackCount.Text:SetText(count)
+        ActionBar.stackCountChange[slotID] = true
+        icon.hasCount = true
+        ActionBar.FinishCountRead(slotID)
+    elseif flipping and KeepKnownCount() then
+        -- Во время подброса пустой ответ не стирает уже известные заряды.
+    elseif ActionBar.IsInCombat() and KeepKnownCount() then
+        -- В бою счётчик не гаснет из-за пустого ответа.
+    elseif not flipping and not ActionBar.IsInCombat() and (count == 0 or count == "0" or ActionBar.ShouldForgetChargeCount(count)) then
+        ActionBar.ClearChargeText(slotID)
+        HideCount(false)
+    elseif not known then
+        HideCount(count == nil)
+    elseif ActionBar.stackCountChange[slotID] then
+        icon.hasCount = true
+    elseif count == nil then
+        HideCount(true)
+    else
+        HideCount(false)
     end
 end
 
@@ -1738,26 +1778,6 @@ function UpdateBoostIconCooldown(icon)
     end
 end
 
--- Значение скрыто, по нему нельзя решать, пуста ли ячейка.
-local function IsSecretValue(value)
-    return value ~= nil and issecretvalue and issecretvalue(value)
-end
-
--- Есть ли действие в ячейке облака. Пустой ответ оставляем без изменений.
-local function SlotHasAction(slotID)
-    if not slotID or not C_ActionBar or not C_ActionBar.HasAction then
-        return false
-    end
-    local ok, hasAction = pcall(C_ActionBar.HasAction, slotID)
-    if not ok then
-        return nil
-    end
-    if IsSecretValue(hasAction) then
-        return true
-    end
-    return hasAction == true
-end
-
 -- Текстура, видимость и пригодность одного значка облака.
 local function UpdateBoostIcon(icon)
     local slotID = icon.slotID
@@ -1765,7 +1785,7 @@ local function UpdateBoostIcon(icon)
     if icon.isExtra then
         hasAction = ActionBar.HasExtraAction()
     else
-        hasAction = SlotHasAction(slotID)
+        hasAction = ActionBar.SlotHasAction(slotID)
         if hasAction == nil then
             return
         end
@@ -2113,635 +2133,16 @@ function ActionBar.CreateBoosts(parent)
     return boosts
 end
 
--- Переворот панели Ctrl: та же кнопка подбрасывается монетой и садится умением другой панели.
--- Наклон у каждой свой, чтобы ребро не вставало одинаковой щелью.
-local ctrlSpinTilts = {
-    PAD3 = 0.74,
-    PAD4 = -0.62,
-    PAD2 = 0.9,
-    PADDUP = 0.72,
-    PADDRIGHT = -0.86,
-    PADDLEFT = -1.05,
-    PADLSTICK = 0.58,
-    PADDDOWN = -0.58,
+-- Общие приёмы подброса монеты. Ими пользуется и переворот при удержании Ctrl.
+ActionBar.Coin = {
+    EaseOutCubic = EaseOutCubic,
+    TossAmount = CoinTossAmount,
+    HoldCooldown = HoldCoinCooldown,
+    RaiseLayers = RaiseCoinLayers,
+    ApplyToss = ApplyCoinToss,
+    ApplyFace = ApplyHostFace,
+    SyncCount = SyncCoinCount,
+    ShowCount = ShowCoinCount,
+    ResetHost = ResetHostCoin,
+    HideTwins = HideHostTwins,
 }
-
--- Разброс скорости, как у облака: часть значков садится раньше остальных.
-local ctrlSpinRates = {
-    PAD3 = 0.72,
-    PAD4 = 1.22,
-    PAD2 = 0.86,
-    PADDUP = 1.12,
-    PADDRIGHT = 0.78,
-    PADDLEFT = 0.96,
-    PADLSTICK = 1.08,
-    PADDDOWN = 0.9,
-}
-
--- Место кнопки на панели. Соседи с одной точкой, например рычаг и низ креста, совпадают.
-local function PositionToken(mainKey)
-    local position = mainKey and ActionBar.buttonPositions[mainKey]
-    if not position then
-        return nil
-    end
-    return position[1]
-        .. ":" .. position[2]
-        .. ":" .. position[3]
-        .. ":" .. tostring(position[4])
-        .. ":" .. tostring(position[5])
-end
-
--- Снизу виден левый рычаг, отдельная нижняя кнопка креста ему уступает.
-local function HostRank(mainKey)
-    if mainKey == "PADLSTICK" then
-        return 2
-    end
-    if mainKey == "PADDDOWN" then
-        return 0
-    end
-    return 1
-end
-
--- Кнопка основной страницы, а не запасной панели.
-local function IsHostOnCurrentPage(slotID)
-    if not slotID or slotID < 1 or slotID > 24 then
-        return false
-    end
-
-    local page = 1
-    if C_ActionBar and C_ActionBar.GetActionBarPage then
-        page = C_ActionBar.GetActionBarPage() or 1
-    end
-
-    local startSlot = 12 * (page - 1) + 1
-    return slotID >= startSlot and slotID < startSlot + 12
-end
-
--- Рисунок, который сейчас виден на кнопке.
-local function ReadButtonTexture(texture)
-    if not texture or not texture.GetTexture then
-        return nil
-    end
-
-    local ok, current = pcall(texture.GetTexture, texture)
-    if not ok or not current or IsSecretValue(current) then
-        return nil
-    end
-    return current
-end
-
--- Умение Ctrl на том же месте, что и кнопка. Своя клавиша важнее соседней.
-local function PickCtrlButton(list, hostKey)
-    local fallback
-    for index = 1, #list do
-        local candidate = list[index]
-        if candidate.mainKey == hostKey then
-            return candidate
-        end
-        if not fallback then
-            fallback = candidate
-        end
-    end
-    return fallback
-end
-
--- Пары: кнопка текущей страницы и заполненное умение Ctrl на том же месте.
-local function CollectCtrlPairs(frame)
-    local ctrlByToken = {}
-    local entries = {}
-    local tokens = {}
-    local rateFloor = 1
-    if not frame or not frame.actionButtons then
-        return entries, tokens, rateFloor
-    end
-
-    for slotID, btn in pairs(frame.actionButtons) do
-        if btn.modifierKey == "CTRL"
-            and not ActionBar.ignoredSlot[slotID]
-            and not ActionBar.slot12Slots[slotID]
-            and not ActionBar.IsBoostSlot(slotID)
-            and SlotHasAction(slotID) == true
-        then
-            local token = PositionToken(btn.mainKey)
-            if token then
-                local list = ctrlByToken[token]
-                if not list then
-                    list = {}
-                    ctrlByToken[token] = list
-                end
-                list[#list + 1] = btn
-            end
-        end
-    end
-
-    local bestHost = {}
-    for slotID, btn in pairs(frame.actionButtons) do
-        if not btn.modifierKey
-            and IsHostOnCurrentPage(slotID)
-            and not ActionBar.ignoredSlot[slotID]
-            and not ActionBar.slot12Slots[slotID]
-            and not ActionBar.IsBoostSlot(slotID)
-            and not ActionBar.IsExtraActionSlot(slotID)
-        then
-            local token = PositionToken(btn.mainKey)
-            if token and ctrlByToken[token] then
-                local current = bestHost[token]
-                if not current or HostRank(btn.mainKey) > HostRank(current.mainKey) then
-                    bestHost[token] = btn
-                end
-            end
-        end
-    end
-
-    for token, host in pairs(bestHost) do
-        local alt = PickCtrlButton(ctrlByToken[token], host.mainKey)
-        if alt then
-            local rate = ctrlSpinRates[host.mainKey] or 1
-            if rate < rateFloor then
-                rateFloor = rate
-            end
-            entries[#entries + 1] = {
-                host = host,
-                altSlot = alt.slotID,
-                tilt = ctrlSpinTilts[host.mainKey] or 0.7,
-                rate = rate,
-            }
-            tokens[token] = true
-        end
-    end
-
-    if rateFloor < 0.05 then
-        rateFloor = 1
-    end
-    return entries, tokens, rateFloor
-end
-
--- Правый рычаг забирает крестовину обратно в облако усилений.
-local function ShiftTakesHost(host)
-    if not host or IsControlKeyDown() or not IsShiftKeyDown() then
-        return false
-    end
-    return ActionBar.IsBoostHostKey and ActionBar.IsBoostHostKey(host.mainKey) or false
-end
-
--- Лицевая сторона: своё умение, а если кнопка уже показывает усиление — оно и остаётся до оборота.
-local function PrepareCtrlFront(host, target)
-    if target == 0 then
-        local textureFileID = GetBoostTexture(host.slotID)
-        if textureFileID and not IsSecretValue(textureFileID) then
-            host.boostHostSaved = true
-            host.boostHostTexture = textureFileID
-        end
-        return
-    end
-
-    if host.boostShowingAlt and host.boostFlipSlot and ActionBar.IsBoostSlot(host.boostFlipSlot) then
-        local current = ReadButtonTexture(host.texture)
-        if current then
-            host.boostHostSaved = true
-            host.boostHostTexture = current
-            return
-        end
-    end
-
-    if host.boostHostSaved then
-        return
-    end
-
-    host.boostHostSaved = true
-    local textureFileID = GetBoostTexture(host.slotID)
-    if textureFileID and not IsSecretValue(textureFileID) then
-        host.boostHostTexture = textureFileID
-        return
-    end
-    host.boostHostTexture = ReadButtonTexture(host.texture)
-end
-
--- Запоминает лицевую сторону один раз на направление подброса.
--- Обратный ход начинается с уже показанного оборота, а не с общего, более раннего.
-local function BindCtrlMotion(host, flip)
-    if host.ctrlMotionTarget == flip.target and host.ctrlStartProgress ~= nil then
-        return
-    end
-    PrepareCtrlFront(host, flip.target)
-    host.ctrlMotionTarget = flip.target
-    local from = host.ctrlShownProgress
-    if from == nil then
-        from = flip.progress or 0
-    end
-    host.ctrlStartProgress = from
-    host.ctrlFaceSettled = nil
-end
-
--- Ход одной монеты: быстрые доходят до оборота раньше общего конца.
-local function CtrlEntryProgress(flip, entry)
-    local target = flip.target or 0
-    if not flip.duration or flip.duration <= 0 or flip.progress == target then
-        return target
-    end
-
-    local rate = entry.rate or 1
-    local slowest = flip.rateFloor or 1
-    if slowest < 0.05 then
-        slowest = 1
-    end
-
-    local amount = (flip.elapsed or 0) / flip.duration
-    if amount < 0 then
-        amount = 0
-    elseif amount > 1 then
-        amount = 1
-    end
-
-    local travelled = amount * (rate / slowest)
-    if travelled > 1 then
-        travelled = 1
-    end
-
-    local startProgress = entry.host.ctrlStartProgress
-    if startProgress == nil then
-        startProgress = flip.startProgress or 0
-    end
-    return startProgress + (target - startProgress) * EaseOutCubic(travelled)
-end
-
--- Возвращает кнопку к своему умению после переворота.
-local function ReleaseCtrlHost(host)
-    if not host then
-        return
-    end
-
-    local tossed = host.coinActive or host.boostFlipLock or host.ctrlFlipOwned
-    host.ctrlFlipOwned = nil
-    if host.cooldown then
-        host.cooldown:SetAlpha(1)
-    end
-    if tossed then
-        host.coinActive = true
-        ResetHostCoin(host)
-    else
-        host.ctrlFaceSettled = nil
-        host.ctrlMotionTarget = nil
-        host.ctrlStartProgress = nil
-        host.ctrlShownProgress = nil
-    end
-    if host.Glow and ActionBar.UpdateGlow then
-        ActionBar.UpdateGlow(host.slotID)
-    end
-end
-
--- Снимает переворот со всех кнопок, которые он держал.
-local function CloseCtrlFlip(flip)
-    local frame = ActionBar.GetFrame()
-    if frame and frame.actionButtons then
-        for _, btn in pairs(frame.actionButtons) do
-            if btn.ctrlFlipOwned or btn.ctrlMotionTarget ~= nil then
-                ReleaseCtrlHost(btn)
-            end
-        end
-    end
-    flip.entries = nil
-    flip.hostSlots = nil
-    flip.ownedTokens = nil
-end
-
--- Один кадр подброса: кнопка остаётся на месте и меняет рисунок на ребре.
-local function PoseCtrlHost(flip, entry)
-    local host = entry.host
-    if not host then
-        return
-    end
-
-    -- Крестовину отдаём облаку один раз, иначе каждый кадр стирает её подброс.
-    if flip.target == 0 and ShiftTakesHost(host) then
-        if host.ctrlFlipOwned or host.ctrlMotionTarget ~= nil then
-            ReleaseCtrlHost(host)
-        end
-        return false
-    end
-
-    BindCtrlMotion(host, flip)
-    local shown = CtrlEntryProgress(flip, entry)
-    host.ctrlShownProgress = shown
-    local amount = CoinTossAmount(shown)
-    if amount < 1 then
-        HoldCoinCooldown(host)
-    end
-    host.ctrlFlipOwned = true
-    host.coinActive = true
-    host.boostFlipLock = true
-    host.boostFlipSlot = entry.altSlot
-    if not host.coinBaseLevel then
-        host.coinBaseLevel = host:GetFrameLevel()
-    end
-    host:SetFrameLevel(host.coinBaseLevel + 20)
-    RaiseCoinLayers(host)
-    if host.fadeOut then
-        host.fadeOut:Stop()
-        host.fadeOut:SetScript("OnFinished", nil)
-    end
-    if host.fadeIn then
-        host.fadeIn:Stop()
-    end
-    if not host:IsShown() then
-        host:Show()
-    end
-    host:SetAlpha(1)
-    if host.Icon then
-        host.Icon:Hide()
-    end
-    if host.background then
-        host.background:Show()
-    end
-    HideHostTwins(host)
-
-    local showAlt = ApplyCoinToss(host.texture, host.background, host.mask, host, ActionBar.buttonSize, amount, entry.tilt)
-    if not showAlt and host.boostHostTexture then
-        local current = ReadButtonTexture(host.texture)
-        if current ~= host.boostHostTexture then
-            host.boostShowingAlt = true
-        end
-    end
-    ApplyHostFace(host, entry.altSlot, showAlt)
-    if ActionBar.UpdateTextureDesaturation then
-        ActionBar.UpdateTextureDesaturation(host, showAlt and entry.altSlot or host.slotID)
-    end
-    local timerFace = showAlt and true or false
-    if (showAlt or amount >= 1) and (not host.coinTimerReady or host.coinTimerFace ~= timerFace) then
-        host.coinTimerReady = true
-        host.coinTimerFace = timerFace
-        if amount < 1 and ActionBar.SyncButtonCooldown then
-            ActionBar.SyncButtonCooldown(host, true)
-        end
-    end
-
-    SyncCoinCount(host, showAlt, amount)
-
-    if amount < 1 then
-        host.ctrlFaceSettled = nil
-        if host.Glow then
-            host.Glow:Hide()
-        end
-        return true
-    end
-
-    if not host.ctrlFaceSettled then
-        host.coinInAir = nil
-        host.ctrlFaceSettled = true
-        ShowCoinCount(host)
-        if ActionBar.SyncButtonCooldown then
-            ActionBar.SyncButtonCooldown(host, true)
-        end
-        if ActionBar.UpdateGlow then
-            ActionBar.UpdateGlow(host.slotID)
-        end
-        if ActionBar.RepaintButtonColors then
-            ActionBar.RepaintButtonColors()
-        end
-    end
-    if ActionBar.UpdateTextureDesaturation then
-        ActionBar.UpdateTextureDesaturation(host, entry.altSlot)
-    end
-    return true
-end
-
--- Обновляет набор монет и рисует текущий кадр.
-local function ApplyCtrlFaces(flip)
-    local frame = ActionBar.GetFrame()
-    local entries, tokens, rateFloor = CollectCtrlPairs(frame)
-    local keep = {}
-    for index = 1, #entries do
-        keep[entries[index].host] = true
-    end
-
-    if flip.entries then
-        for index = 1, #flip.entries do
-            local previous = flip.entries[index].host
-            if previous and not keep[previous] then
-                ReleaseCtrlHost(previous)
-            end
-        end
-    end
-
-    flip.entries = entries
-    flip.ownedTokens = tokens
-    flip.rateFloor = rateFloor
-    flip.hostSlots = {}
-    for index = 1, #entries do
-        local entry = entries[index]
-        if PoseCtrlHost(flip, entry) then
-            flip.hostSlots[entry.host.slotID] = true
-        end
-    end
-end
-
--- Общий ход подброса без скачка при смене направления.
-local function AdvanceCtrlProgress(flip, elapsed)
-    if not flip.duration or flip.duration <= 0 or flip.progress == flip.target then
-        flip.progress = flip.target
-        return true
-    end
-
-    flip.elapsed = (flip.elapsed or 0) + (elapsed or 0)
-    local amount = flip.elapsed / flip.duration
-    if amount >= 1 then
-        flip.progress = flip.target
-        flip.duration = 0
-        return true
-    end
-
-    flip.progress = flip.startProgress + (flip.target - flip.startProgress) * EaseOutCubic(amount)
-    return false
-end
-
--- Кадр переворота. Пока он скрыт, анимация стоит.
-local function EnsureCtrlFlip(frame)
-    if frame.ctrlFlip then
-        return frame.ctrlFlip
-    end
-
-    local driver = CreateFrame("Frame", nil, frame)
-    driver:Hide()
-    local flip = {
-        progress = 0,
-        target = 0,
-        startProgress = 0,
-        elapsed = 0,
-        duration = 0,
-        driver = driver,
-    }
-    driver:SetScript("OnUpdate", function(_, elapsed)
-        ActionBar.OnCtrlFlipUpdate(elapsed)
-    end)
-    frame.ctrlFlip = flip
-    return flip
-end
-
--- Шаг переворота всех кнопок панели Ctrl.
-function ActionBar.OnCtrlFlipUpdate(elapsed)
-    local frame = ActionBar.GetFrame()
-    local flip = frame and frame.ctrlFlip
-    if not flip or flip.ticking then
-        return
-    end
-
-    flip.ticking = true
-    local settled = AdvanceCtrlProgress(flip, elapsed or 0)
-    ApplyCtrlFaces(flip)
-
-    local empty = not flip.entries or #flip.entries == 0
-    if empty then
-        settled = true
-        flip.progress = flip.target
-        flip.duration = 0
-    end
-
-    if ActionBar.UpdateActionButtonShadows then
-        ActionBar.UpdateActionButtonShadows()
-    end
-
-    if settled then
-        flip.duration = 0
-        if flip.driver then
-            flip.driver:Hide()
-        end
-        if flip.target == 0 then
-            CloseCtrlFlip(flip)
-            flip.progress = 0
-            flip.ticking = false
-            if ActionBar.UpdateModifierState then
-                ActionBar.UpdateModifierState()
-            end
-            return
-        end
-    end
-
-    flip.ticking = false
-end
-
--- Запускает подброс к цели. Короткий остаток не растягивается на полную длительность.
-local function BeginCtrlMotion(flip, target)
-    flip.startProgress = flip.progress or 0
-    local span = math.abs(target - flip.startProgress)
-    if flip.entries then
-        for index = 1, #flip.entries do
-            local host = flip.entries[index].host
-            local shown = host and host.ctrlShownProgress
-            if shown then
-                local gap = math.abs(target - shown)
-                if gap > span then
-                    span = gap
-                end
-            end
-        end
-    end
-    flip.target = target
-    flip.elapsed = 0
-    if span < 0.001 then
-        flip.progress = target
-        flip.duration = 0
-        ActionBar.OnCtrlFlipUpdate(0)
-        return
-    end
-
-    local _, _, rateFloor = CollectCtrlPairs(ActionBar.GetFrame())
-    if not rateFloor or rateFloor < 0.05 then
-        rateFloor = 1
-    end
-    flip.rateFloor = rateFloor
-    local full = target == 1 and (ActionBar.boostExpandDuration or 0.48) or (ActionBar.boostCollapseDuration or 0.48)
-    flip.duration = full * span / rateFloor
-    flip.driver:Show()
-    ActionBar.OnCtrlFlipUpdate(0)
-end
-
--- В исследовании панель гаснет сразу, поэтому обратный подброс не показывается.
-local function ExploringHidesCtrlFlip()
-    if IsControlKeyDown() then
-        return false
-    end
-    if not ConsoleMenu.GetPlayerContext or ConsoleMenu:GetPlayerContext() ~= "exploring" then
-        return false
-    end
-    return true
-end
-
--- Панель Ctrl ещё держит кнопки, пока монеты не вернулись.
-function ActionBar.CtrlFlipOwnsHosts()
-    local frame = ActionBar.GetFrame()
-    local flip = frame and frame.ctrlFlip
-    if not flip then
-        return false
-    end
-    return (flip.target or 0) == 1 or (flip.progress or 0) > 0.001
-end
-
--- Эта кнопка сама показывает умение Ctrl.
-function ActionBar.IsActiveCtrlHostSlot(slotID)
-    local frame = ActionBar.GetFrame()
-    local flip = frame and frame.ctrlFlip
-    if not flip or not flip.hostSlots or not ActionBar.CtrlFlipOwnsHosts() then
-        return false
-    end
-    return flip.hostSlots[slotID] == true
-end
-
--- Вторая копия на том же месте скрыта: рисунок уже на переворачиваемой кнопке.
-function ActionBar.CtrlFlipHidesSlot(slotID)
-    local frame = ActionBar.GetFrame()
-    local flip = frame and frame.ctrlFlip
-    local btn = ActionBar.GetButton(slotID)
-    if not flip or not btn or btn.modifierKey ~= "CTRL" or not ActionBar.CtrlFlipOwnsHosts() then
-        return false
-    end
-    if ActionBar.slot12Slots[slotID] then
-        return false
-    end
-    local token = PositionToken(btn.mainKey)
-    return token and flip.ownedTokens and flip.ownedTokens[token] == true or false
-end
-
--- Включает переворот при удержании Ctrl и сажает монеты обратно, когда клавишу отпускают.
-function ActionBar.SetCtrlFlip(active)
-    local frame = ActionBar.GetFrame()
-    if not frame then
-        return
-    end
-
-    local flip = EnsureCtrlFlip(frame)
-    if not active then
-        if ExploringHidesCtrlFlip() then
-            if (flip.progress or 0) > 0.001 or (flip.target or 0) ~= 0 or flip.hostSlots then
-                flip.target = 0
-                flip.progress = 0
-                flip.duration = 0
-                flip.elapsed = 0
-                if flip.driver then
-                    flip.driver:Hide()
-                end
-                CloseCtrlFlip(flip)
-            end
-            return
-        end
-        if (flip.target or 0) == 0 and (flip.progress or 0) <= 0.001 and (flip.duration or 0) <= 0 then
-            return
-        end
-        -- Повторное отпускание не перезапускает уже идущий возврат.
-        if (flip.target or 0) == 0 and (flip.duration or 0) > 0 then
-            return
-        end
-        BeginCtrlMotion(flip, 0)
-        return
-    end
-
-    if flip.target == 1 and (flip.duration or 0) <= 0 and (flip.progress or 0) >= 0.999 then
-        ApplyCtrlFaces(flip)
-        return
-    end
-
-    if flip.target == 1 and (flip.duration or 0) > 0 then
-        return
-    end
-
-    BeginCtrlMotion(flip, 1)
-end

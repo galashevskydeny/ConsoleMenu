@@ -172,10 +172,10 @@ local function ApplyMacroSettings()
         SetActionForSlot(125, "spell", 361584)
         SetActionForSlot(126, "macro", "Трюк")
         SetActionForSlot(127, "empty", nil)
-        SetActionForSlot(128, "spell", 403092)
+        SetActionForSlot(128, "empty", nil)
         SetActionForSlot(129, "empty", nil)
         SetActionForSlot(130, "empty", nil)
-        SetActionForSlot(131, "empty", nil)
+        SetActionForSlot(131, "spell", 403092)
         SetActionForSlot(132, "empty", nil)
     end
 

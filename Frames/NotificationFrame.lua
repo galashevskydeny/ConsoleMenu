@@ -514,41 +514,91 @@ local function GetGroupedNotification(notification)
     return notification
 end
 
--- Возвращает безопасную высоту строки
-local function GetSafeStringHeight(fontString)
+-- Сколько строк займёт текст сразу, без ожидания переноса на следующем кадре
+local function EstimateWrappedLineCount(fontString)
     if not fontString then
         return 0
     end
-    local height = fontString:GetStringHeight()
-    if not height or IsSecret(height) then
+
+    local text = fontString:GetText()
+    if not text or text == "" or IsSecret(text) then
         return 0
     end
-    return height
+
+    local explicitLines = 1
+    if string.find(text, "\n", 1, true) then
+        explicitLines = 0
+        for _ in string.gmatch(text .. "\n", "(.-)\n") do
+            explicitLines = explicitLines + 1
+        end
+    end
+
+    local stringWidth
+    if fontString.GetUnboundedStringWidth then
+        stringWidth = fontString:GetUnboundedStringWidth()
+    else
+        stringWidth = fontString:GetStringWidth()
+    end
+    if not stringWidth or IsSecret(stringWidth) or stringWidth <= 0 then
+        return explicitLines
+    end
+
+    -- Лишний пиксель не должен добавлять пустую строку
+    local wrappedLines = math.ceil((stringWidth - 1) / frameWidth)
+    if wrappedLines < 1 then
+        wrappedLines = 1
+    end
+    if explicitLines > wrappedLines then
+        return explicitLines
+    end
+    return wrappedLines
 end
 
--- Подгоняет высоту рамки под текст и подпись
+-- Высота текста по числу строк. GetStringHeight догоняет перенос только кадром позже
+local function EstimateFontStringHeight(fontString)
+    local lines = EstimateWrappedLineCount(fontString)
+    if lines <= 0 then
+        return 0
+    end
+
+    local lineHeight = fontString.GetLineHeight and fontString:GetLineHeight() or 0
+    if not lineHeight or IsSecret(lineHeight) or lineHeight <= 0 then
+        return 0
+    end
+    return lineHeight * lines
+end
+
+-- Подгоняет высоту рамки под текст и подпись в том же кадре, где сменился текст
 local function UpdateNotificationFrameHeight(frame)
     if not frame or not frame.Text then
         return
     end
-    local textHeight = GetSafeStringHeight(frame.Text)
+    local textHeight = EstimateFontStringHeight(frame.Text)
     local captionHeight = 0
     if frame.Caption and frame.Caption:IsShown() then
-        captionHeight = GetSafeStringHeight(frame.Caption) + captionPadding
+        local measuredCaption = EstimateFontStringHeight(frame.Caption)
+        if measuredCaption > 0 then
+            captionHeight = measuredCaption + captionPadding
+        end
     end
-    frame:SetHeight(math.max(frameHeight, textHeight + captionHeight))
-end
-
--- Повторяет подгонку высоты после переноса строк
-local function ScheduleNotificationFrameHeightUpdate(frame)
-    UpdateNotificationFrameHeight(frame)
-    if not frame then
+    if textHeight <= 0 and captionHeight <= 0 then
         return
     end
-    frame:SetScript("OnUpdate", function(self)
-        self:SetScript("OnUpdate", nil)
-        UpdateNotificationFrameHeight(self)
-    end)
+
+    local newHeight = math.max(frameHeight, textHeight + captionHeight)
+    local oldHeight = frame:GetHeight()
+    if oldHeight and not IsSecret(oldHeight) and math.abs(oldHeight - newHeight) < 1 then
+        return
+    end
+    frame:SetHeight(newHeight)
+end
+
+-- Ставит окончательную высоту сразу: повтор на следующем кадре поднимал низ рамки
+local function ScheduleNotificationFrameHeightUpdate(frame)
+    if frame then
+        frame:SetScript("OnUpdate", nil)
+    end
+    UpdateNotificationFrameHeight(frame)
 end
 
 -- Запускает появление рамки, даже если идёт исчезновение
