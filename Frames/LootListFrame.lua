@@ -390,6 +390,8 @@ local function ApplyItemPoint(itemFrame, x, y)
 
     itemFrame.moveX = x
     itemFrame.moveY = y
+    -- Старые привязки нельзя оставлять: строка рисуется по первой, а затем прыгает к новой
+    itemFrame:ClearAllPoints()
     if itemFrame.moveStretchHorizontal then
         local leftPoint = itemFrame.moveLeftPoint or "TOPLEFT"
         local rightPoint = itemFrame.moveRightPoint or "TOPRIGHT"
@@ -414,6 +416,7 @@ local function ApplyLabelSlide(itemFrame, x)
     end
 
     itemFrame.nameSlideX = x
+    label:ClearAllPoints()
     label:SetPoint("LEFT", holder, "RIGHT", padding + x, 0)
     label:SetPoint("RIGHT", itemFrame, "RIGHT", -padding + x, 0)
     label:SetPoint("TOP", itemFrame, "TOP", 0, 0)
@@ -436,6 +439,7 @@ local function ApplyIconPose(itemFrame, scale, offsetY)
     itemFrame.iconOffsetY = offsetY
     itemFrame.iconScale = scale
     icon:SetScale(scale)
+    icon:ClearAllPoints()
     icon:SetPoint("CENTER", 0, offsetY)
 end
 
@@ -921,37 +925,63 @@ ReanchorLootListBackground = function()
     end
 
     local background = lootFrame.background
-    -- Верх держим за сам список: заголовок при уходе уезжает влево и тащил бы тень
-    background:SetPoint("TOPLEFT", lootFrame, "TOPLEFT", -lootListBackgroundHOffset * 1.5, lootListBackgroundVOffset)
-    background:SetPoint("TOPRIGHT", lootFrame, "TOPRIGHT", lootListBackgroundHOffset, lootListBackgroundVOffset)
-
     local displayedCount = #lootFrame.DisplayedItems
     local captionVisible = displayedCount == maxItemsCount and #lootFrame.Queue > 0
-    if captionVisible and lootFrame.AdditionalItemsCount then
-        background:SetPoint("BOTTOMLEFT", lootFrame.AdditionalItemsCount, "BOTTOMLEFT", -lootListBackgroundHOffset * 1.5, -lootListBackgroundVOffset)
-        background:SetPoint("BOTTOMRIGHT", lootFrame.AdditionalItemsCount, "BOTTOMRIGHT", lootListBackgroundHOffset, -lootListBackgroundVOffset * 2)
-        return
-    end
 
-    local lastItem
-    local lowestOffset
-    if lootFrame.Items then
-        for i = 1, maxItemsCount do
-            local itemFrame = lootFrame.Items["Item" .. i]
-            if itemFrame and itemFrame:IsShown() then
-                local yOffset = GetItemLayoutOffset(itemFrame)
-                if not lowestOffset or yOffset < lowestOffset then
-                    lowestOffset = yOffset
-                    lastItem = itemFrame
+    local bottomTarget
+    local bottomLeftX
+    local bottomLeftY
+    local bottomRightX
+    local bottomRightY
+    if captionVisible and lootFrame.AdditionalItemsCountHolder then
+        -- Держатель подписи уже имеет размер. Сама подпись дорисовывается кадром позже и дёргала тень
+        bottomTarget = lootFrame.AdditionalItemsCountHolder
+        bottomLeftX = -lootListBackgroundHOffset * 1.5
+        bottomLeftY = -lootListBackgroundVOffset
+        bottomRightX = lootListBackgroundHOffset
+        bottomRightY = -lootListBackgroundVOffset * 2
+    else
+        local lowestOffset
+        if lootFrame.Items then
+            for i = 1, maxItemsCount do
+                local itemFrame = lootFrame.Items["Item" .. i]
+                if itemFrame and itemFrame:IsShown() then
+                    local yOffset = GetItemLayoutOffset(itemFrame)
+                    if not lowestOffset or yOffset < lowestOffset then
+                        lowestOffset = yOffset
+                        bottomTarget = itemFrame
+                    end
                 end
             end
         end
+        bottomLeftX = -lootListBackgroundHOffset
+        bottomLeftY = -lootListBackgroundVOffset
+        bottomRightX = lootListBackgroundHOffset / 2
+        bottomRightY = -lootListBackgroundVOffset
     end
 
-    if lastItem then
-        background:SetPoint("BOTTOMLEFT", lastItem, "BOTTOMLEFT", -lootListBackgroundHOffset, -lootListBackgroundVOffset)
-        background:SetPoint("BOTTOMRIGHT", lastItem, "BOTTOMRIGHT", lootListBackgroundHOffset / 2, -lootListBackgroundVOffset)
+    -- Пока строк нет, оставляем прежнюю нижнюю границу: иначе тень схлопывается в кадре ухода
+    if not bottomTarget then
+        return
     end
+
+    if background.anchorTarget == bottomTarget
+        and background.anchorBottomLeftX == bottomLeftX
+        and background.anchorBottomRightY == bottomRightY
+    then
+        return
+    end
+
+    background.anchorTarget = bottomTarget
+    background.anchorBottomLeftX = bottomLeftX
+    background.anchorBottomRightY = bottomRightY
+
+    background:ClearAllPoints()
+    -- Верх держим за сам список: заголовок при уходе уезжает влево и тащил бы тень
+    background:SetPoint("TOPLEFT", lootFrame, "TOPLEFT", -lootListBackgroundHOffset * 1.5, lootListBackgroundVOffset)
+    background:SetPoint("TOPRIGHT", lootFrame, "TOPRIGHT", lootListBackgroundHOffset, lootListBackgroundVOffset)
+    background:SetPoint("BOTTOMLEFT", bottomTarget, "BOTTOMLEFT", bottomLeftX, bottomLeftY)
+    background:SetPoint("BOTTOMRIGHT", bottomTarget, "BOTTOMRIGHT", bottomRightX, bottomRightY)
 end
 
 -- Функция для обновления фрейма предмета
@@ -1254,7 +1284,7 @@ function ConsoleMenu:SetLootList()
     if not frame.Items then
         frame.Items = CreateFrame("Frame", "LootListFrameItems", frame)
         frame.Items:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -(titleFontSize + itemsPadding))
-        frame.Items:SetPoint("BOTTOMRIGHT", frame.AdditionalItemsCount, "TOPRIGHT", 0, itemsPadding)
+        frame.Items:SetPoint("BOTTOMRIGHT", frame.AdditionalItemsCountHolder, "TOPRIGHT", 0, itemsPadding)
 
         for i = 1, maxItemsCount do
             local item = CreateFrame("Frame", "LootListFrameItem" .. i, frame.Items)
