@@ -548,21 +548,116 @@ function ActionBar.UpdateAllUsable()
     end
 end
 
--- Векторы свечения переиспользуются, пока смещение не изменилось.
-local glowOffsetVector
-local glowZeroVector
-local glowOffsetValue
+-- Готовит слой свечения: рисунок, золотой цвет и круговое проигрывание кадров.
+local function StartGlowSheet(texture, path, blendMode, color, duration)
+    texture:SetAllPoints()
+    texture:SetTexture(path)
+    texture:SetBlendMode(blendMode)
+    texture:SetVertexColor(color[1], color[2], color[3], 1)
 
--- Возвращает уже созданные векторы смещения и нуля.
-local function GetGlowVectors(offset)
-    if not glowZeroVector then
-        glowZeroVector = CreateVector3D(0, 0, 0)
+    local group = texture:CreateAnimationGroup()
+    group:SetLooping("REPEAT")
+    local sheet = group:CreateAnimation("FlipBook")
+    sheet:SetOrder(1)
+    sheet:SetDuration(duration or ActionBar.glowDuration)
+    sheet:SetFlipBookRows(ActionBar.glowRows)
+    sheet:SetFlipBookColumns(ActionBar.glowColumns)
+    sheet:SetFlipBookFrames(ActionBar.glowFrames)
+    sheet:SetFlipBookFrameWidth(0)
+    sheet:SetFlipBookFrameHeight(0)
+    texture.sheet = group
+end
+
+-- Готовит одноразовую вспышку из записанного цикла поверх контура.
+local function StartGlowBurst(texture)
+    texture:SetTexture(ActionBar.glowBurstTexture)
+    texture:SetBlendMode("ADD")
+    texture:SetVertexColor(1, 1, 1, 1)
+    texture:SetSize(ActionBar.glowBurstSize, ActionBar.glowBurstSize)
+    texture:SetPoint("CENTER")
+    texture:SetAlpha(0)
+
+    local group = texture:CreateAnimationGroup()
+    group:SetToFinalAlpha(true)
+
+    local show = group:CreateAnimation("Alpha")
+    show:SetOrder(0)
+    show:SetDuration(0.001)
+    show:SetFromAlpha(1)
+    show:SetToAlpha(1)
+
+    local sheet = group:CreateAnimation("FlipBook")
+    sheet:SetOrder(1)
+    sheet:SetDuration(ActionBar.glowBurstDuration)
+    sheet:SetFlipBookRows(ActionBar.glowBurstRows)
+    sheet:SetFlipBookColumns(ActionBar.glowBurstColumns)
+    sheet:SetFlipBookFrames(ActionBar.glowBurstFrames)
+    sheet:SetFlipBookFrameWidth(0)
+    sheet:SetFlipBookFrameHeight(0)
+
+    local hide = group:CreateAnimation("Alpha")
+    hide:SetOrder(2)
+    hide:SetDuration(0.001)
+    hide:SetFromAlpha(1)
+    hide:SetToAlpha(0)
+
+    texture.sheet = group
+end
+
+-- Гасит вспышку, чтобы следующее появление свечения начало её сначала.
+local function StopGlowBurst(glow)
+    if not glow then
+        return
     end
-    if glowOffsetValue ~= offset then
-        glowOffsetValue = offset
-        glowOffsetVector = CreateVector3D(offset, offset, 0)
+    glow.burstPlayed = nil
+    local burst = glow.Burst
+    if not burst or not burst.sheet then
+        return
     end
-    return glowOffsetVector, glowZeroVector
+    burst.sheet:Stop()
+    burst:SetAlpha(0)
+end
+
+-- Запускает вспышку только в момент загорания свечения.
+local function PlayGlowBurst(glow)
+    local burst = glow and glow.Burst
+    if not burst or glow.burstPlayed then
+        return
+    end
+    glow.burstPlayed = true
+    burst:SetAlpha(1)
+    burst.sheet:Stop()
+    burst.sheet:Play()
+end
+
+-- Продолжает проигрывание, если кадр был скрыт и анимация остановилась.
+local function KeepGlowSheetsPlaying(glow)
+    if glow.Ring and glow.Ring.sheet and not glow.Ring.sheet:IsPlaying() then
+        glow.Ring.sheet:Play()
+    end
+    if glow.Body and glow.Body.sheet and not glow.Body.sheet:IsPlaying() then
+        glow.Body.sheet:Play()
+    end
+    if glow.Core and glow.Core.sheet and not glow.Core.sheet:IsPlaying() then
+        glow.Core.sheet:Play()
+    end
+end
+
+-- Держит свечение над рисунком умения, а счётчик и значок клавиши — над свечением.
+local function PlaceActionButtonGlow(btn)
+    local glow = btn.Glow
+    if not glow then
+        return
+    end
+
+    local level = btn:GetFrameLevel()
+    glow:SetFrameLevel(level + 1)
+    if btn.StackCount then
+        btn.StackCount:SetFrameLevel(level + 2)
+    end
+    if btn.Icon then
+        btn.Icon:SetFrameLevel(level + 3)
+    end
 end
 
 -- Обновление свечения готовности на кнопке.
@@ -603,42 +698,40 @@ local function UpdateActionButtonGlow(slotID, spellID, event)
         end
     end
 
-    -- Фрейм для отображения M2 модели
+    -- Кольцо под двумя слоями крутящегося контура: мягкое золото и светлое ядро.
     if not btn.Glow then
-        btn.Glow = CreateFrame("PlayerModel", nil, btn)
-        btn.Glow:SetSize(ActionBar.modelSize, ActionBar.modelSize)
-        if btn.texture then
-            btn.Glow:SetPoint("CENTER", btn.texture, "CENTER", 0, 0)
-        else
-            btn.Glow:SetPoint("CENTER", btn, "CENTER", 0, 0)
-        end
-        btn.Glow:SetFrameStrata(btn:GetFrameStrata())
-        btn.Glow:SetFrameLevel(btn:GetFrameLevel() - 1)
-        btn.Glow:SetModel(5201375)
-        btn.Glow:SetParent(btn)
-        btn.Glow:SetKeepModelOnHide(true)
-        btn.Glow:SetAnimation(1)
+        local glow = CreateFrame("Frame", nil, btn)
+        -- На пару пикселей меньше расчётного размера, чтобы контур не казался крупным.
+        local glowSize = ActionBar.buttonSize * ActionBar.glowScale - 2
+        glow:SetSize(glowSize, glowSize)
+        glow:SetFrameStrata(btn:GetFrameStrata())
+        glow:SetAlpha(0)
+        glow:Hide()
 
-        btn.Glow:SetAlpha(1.0)
-        btn.Glow:Show()
+        glow.Ring = glow:CreateTexture(nil, "ARTWORK", nil, -1)
+        StartGlowSheet(glow.Ring, ActionBar.glowRingTexture, "ADD", ActionBar.glowBodyColor, ActionBar.glowRingDuration)
+        glow.Body = glow:CreateTexture(nil, "ARTWORK")
+        StartGlowSheet(glow.Body, ActionBar.glowBodyTexture, "BLEND", ActionBar.glowBodyColor)
+        glow.Core = glow:CreateTexture(nil, "OVERLAY")
+        StartGlowSheet(glow.Core, ActionBar.glowCoreTexture, "ADD", ActionBar.glowCoreColor)
+        glow.Burst = glow:CreateTexture(nil, "OVERLAY", nil, 1)
+        StartGlowBurst(glow.Burst)
+        glow:SetScript("OnHide", StopGlowBurst)
 
-        ConsoleMenu:InitFadeAnimations(btn.Glow, ActionBar.animationDuration)
-    elseif btn.texture then
-        btn.Glow:ClearAllPoints()
-        btn.Glow:SetPoint("CENTER", btn.texture, "CENTER", 0, 0)
+        ConsoleMenu:InitFadeAnimations(glow, ActionBar.animationDuration)
+        btn.Glow = glow
     end
 
-    -- Переустанавливаем transform на каждом обновлении:
-    -- это удерживает визуальный центр при разном соотношении сторон и смене разрешения.
-    local transformOffset, transformScale = ActionBar.GetGlowTransform()
-    local offsetVector, zeroVector = GetGlowVectors(transformOffset)
-    btn.Glow:SetTransform(offsetVector, zeroVector, transformScale)
+    local anchor = btn.texture or btn
+    btn.Glow:ClearAllPoints()
+    btn.Glow:SetPoint("CENTER", anchor, "CENTER", 0, 0)
+    PlaceActionButtonGlow(btn)
 
     -- Если spellID не передан, пытаемся получить его из слота
     if not spellID then
         local actionType, id, _ = GetActionInfo(paintSlot)
         
-        -- Если это не заклинание и не макрос, скрываем glow
+        -- Если это не заклинание и не макрос, скрываем свечение.
         if actionType ~= "spell" and actionType ~= "macro" then
             ConsoleMenu:AnimatedHide(btn.Glow)
             return
@@ -654,6 +747,8 @@ local function UpdateActionButtonGlow(slotID, spellID, event)
             -- Иконка слота часто меняется вместе с проком.
             UpdateActionButtonTexture(slotID)
             ConsoleMenu:AnimatedShow(btn.Glow)
+            KeepGlowSheetsPlaying(btn.Glow)
+            PlayGlowBurst(btn.Glow)
         else
             ConsoleMenu:AnimatedHide(btn.Glow)
             -- После исчезновения свечения клиент ещё может отдавать иконку прока.

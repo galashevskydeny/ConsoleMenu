@@ -10,11 +10,29 @@ ActionBar.frameWidth = 688
 ActionBar.frameHeight = 196
 
 ActionBar.buttonSize = 52
-ActionBar.modelSize = 160
-ActionBar.modelOffset = 0.039
-ActionBar.modelScale = 0.017
--- Изначальный отступ модели подбирался на экране MacBook Pro (примерно 16:10).
-ActionBar.modelReferenceAspect = 16 / 10
+
+-- Крутящийся контур готовности: лист из тридцати кадров, пять в ширину и шесть в высоту.
+ActionBar.glowScale = 1.5
+ActionBar.glowRows = 6
+ActionBar.glowColumns = 5
+ActionBar.glowFrames = 30
+ActionBar.glowDuration = 1
+-- Мягкое золото и более светлое ядро, чтобы свечение не стало белым.
+ActionBar.glowBodyColor = { 1, 0.78, 0.22 }
+ActionBar.glowCoreColor = { 1, 0.93, 0.55 }
+ActionBar.glowBodyTexture = "Interface\\AddOns\\ConsoleMenu\\Assets\\Glow\\orbit-glow-pinswirl-loop-round-full.tga"
+ActionBar.glowCoreTexture = "Interface\\AddOns\\ConsoleMenu\\Assets\\Glow\\orbit-glow-pinswirl-loop-round-full-core.tga"
+-- Светящееся кольцо под контуром. Тот же лист кадров, дыхание медленнее вращения.
+ActionBar.glowRingTexture = "Interface\\AddOns\\ConsoleMenu\\Assets\\Glow\\orbit-glow-halobreathe-loop-round-full-core.tga"
+ActionBar.glowRingDuration = 1.6
+-- Вспышка из одного цикла записи: все кадры ролика, восемь в ширину и семь в высоту.
+-- Кадр целиком, крупнее иконки: свечение в записи занимает середину, и на размере иконки его не разглядеть.
+ActionBar.glowBurstTexture = "Interface\\AddOns\\ConsoleMenu\\Assets\\Glow\\impact-burst.tga"
+ActionBar.glowBurstSize = ActionBar.buttonSize * 6
+ActionBar.glowBurstRows = 7
+ActionBar.glowBurstColumns = 8
+ActionBar.glowBurstFrames = 56
+ActionBar.glowBurstDuration = 1
 
 ActionBar.iconSize = 28
 ActionBar.stackCountSize = 24
@@ -519,24 +537,6 @@ function ActionBar.GetButton(slotID)
         return nil
     end
     return frame.actionButtons[slotID]
-end
-
--- Смещение и масштаб свечения за один замер экрана, чтобы модель оставалась по центру кнопки.
-function ActionBar.GetGlowTransform()
-    local offset = ActionBar.modelOffset
-    local scale = ActionBar.modelScale
-    local width, height = GetPhysicalScreenSize()
-    if not width or not height or height == 0 then
-        return offset, scale
-    end
-
-    local currentAspect = width / height
-    if currentAspect <= 0 then
-        return offset, scale
-    end
-
-    local ratio = ActionBar.modelReferenceAspect / currentAspect
-    return offset * ratio, scale * ratio
 end
 
 -- Значение скрыто клиентом, по нему нельзя принимать решение.

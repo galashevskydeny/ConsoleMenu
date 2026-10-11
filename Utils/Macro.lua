@@ -133,7 +133,7 @@ local function ApplyMacroSettings()
         -- SetActionForSlot(24, "empty", nil)
     end
 
-    if ConsoleMenuDB.actionBarPagePlayerInteraction == 1 then
+    if ConsoleMenuDB.actionBarPageExploring == 1 then
         SetActionForSlot(25, "nil", nil)
         SetActionForSlot(26, "macro", "Полезности")
         SetActionForSlot(27, "empty", nil)
@@ -178,6 +178,8 @@ local function ApplyMacroSettings()
         SetActionForSlot(131, "spell", 403092)
         SetActionForSlot(132, "empty", nil)
     end
+
+    SetActionForSlot(157, "spell", 1231411)
 
     -- Получаем список нарядов и устанавливаем их с 145 по 156 ячейку (только 12 первых нарядов)
     local outfits = C_TransmogOutfitInfo.GetOutfitsInfo and C_TransmogOutfitInfo.GetOutfitsInfo() or {}

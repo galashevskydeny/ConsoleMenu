@@ -821,17 +821,23 @@ local function HoldCoinCooldown(owner)
     cooldown:Hide()
 end
 
--- Счётчик и таймер должны остаться над иконкой, когда кнопка поднимается для подброса.
+-- Счётчик, значок клавиши и таймер остаются над свечением, когда кнопка поднимается для подброса.
 local function RaiseCoinLayers(host)
     if not host then
         return
     end
     local level = host:GetFrameLevel()
+    if host.Glow then
+        host.Glow:SetFrameLevel(level + 1)
+    end
     if host.cooldown then
         host.cooldown:SetFrameLevel(level + 1)
     end
     if host.StackCount then
         host.StackCount:SetFrameLevel(level + 2)
+    end
+    if host.Icon then
+        host.Icon:SetFrameLevel(level + 3)
     end
 end
 
