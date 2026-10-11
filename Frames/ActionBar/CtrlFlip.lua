@@ -307,7 +307,7 @@ local function PoseCtrlHost(flip, entry)
     host.boostFlipLock = true
     host.boostFlipSlot = entry.altSlot
     if not host.coinBaseLevel then
-        host.coinBaseLevel = host:GetFrameLevel()
+        host.coinBaseLevel = ActionBar.ButtonRestFrameLevel and ActionBar.ButtonRestFrameLevel(host) or host:GetFrameLevel()
     end
     host:SetFrameLevel(host.coinBaseLevel + 20)
     ActionBar.Coin.RaiseLayers(host)
@@ -330,7 +330,11 @@ local function PoseCtrlHost(flip, entry)
     end
     ActionBar.Coin.HideTwins(host)
 
-    local showAlt = ActionBar.Coin.ApplyToss(host.texture, host.background, host.mask, host, ActionBar.buttonSize, amount, entry.tilt)
+    -- После посадки картинку больше не трогаем: иначе каждый кадр стирает размер свечения.
+    local showAlt = true
+    if amount < 1 or not host.ctrlFaceSettled then
+        showAlt = ActionBar.Coin.ApplyToss(host.texture, host.background, host.mask, host, ActionBar.buttonSize, amount, entry.tilt)
+    end
     if not showAlt and host.boostHostTexture then
         local current = ReadButtonTexture(host.texture)
         if current ~= host.boostHostTexture then
@@ -357,8 +361,11 @@ local function PoseCtrlHost(flip, entry)
 
     if amount < 1 then
         host.ctrlFaceSettled = nil
-        if host.Glow then
+        if host.Glow and host.Glow:IsShown() then
             host.Glow:Hide()
+        end
+        if host.glowShadow and host.glowShadow:IsShown() and ActionBar.SetGlowShadow then
+            ActionBar.SetGlowShadow(host, false, true)
         end
         return true
     end

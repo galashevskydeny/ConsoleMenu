@@ -17,6 +17,18 @@ function ActionBar.CreateButton(parent, slotID)
         buttonFrame:SetSize(ActionBar.buttonSize, ActionBar.buttonSize)
     end
     ConsoleMenu:InitFadeAnimations(buttonFrame, ActionBar.animationDuration)
+    -- Уровень до подъёма над тенью свечения. Переворот монеты меняет уровень отдельно.
+    buttonFrame.glowRestLevel = buttonFrame:GetFrameLevel()
+    buttonFrame:HookScript("OnHide", function(self)
+        if ActionBar.SetGlowShadow then
+            ActionBar.SetGlowShadow(self, false, true)
+        end
+    end)
+    buttonFrame:HookScript("OnShow", function(self)
+        if self.glowReady and self.slotID and ActionBar.UpdateGlow then
+            ActionBar.UpdateGlow(self.slotID)
+        end
+    end)
 
     local textureFileID = C_ActionBar.GetActionTexture(slotID)
     if ActionBar.IsSecretValue(textureFileID) then

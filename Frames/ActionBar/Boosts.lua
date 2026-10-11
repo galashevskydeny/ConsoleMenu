@@ -980,6 +980,10 @@ local function ResetHostCoin(btn)
     if btn.slotID and ActionBar.UpdateTexture then
         ActionBar.UpdateTexture(btn.slotID)
     end
+    -- После посадки картинка снова вспухает или садится вместе со свечением.
+    if ActionBar.SyncGlowButtonSizes then
+        ActionBar.SyncGlowButtonSizes()
+    end
     if btn.slotID and ActionBar.UpdateIcon then
         ActionBar.UpdateIcon(btn.slotID)
     end
@@ -994,6 +998,9 @@ local function ResetHostCoin(btn)
     end
     if btn.slotID and ActionBar.UpdateUsable then
         ActionBar.UpdateUsable(btn.slotID)
+    end
+    if btn.slotID and ActionBar.UpdateGlow then
+        ActionBar.UpdateGlow(btn.slotID)
     end
 end
 
@@ -1224,7 +1231,13 @@ local function ApplyBoostIconPose(boosts, icon, progress, elapsedTime)
             host.boostFlipLock = true
             host.boostFlipSlot = icon.slotID
             if not host.coinBaseLevel then
-                host.coinBaseLevel = host:GetFrameLevel()
+                host.coinBaseLevel = ActionBar.ButtonRestFrameLevel and ActionBar.ButtonRestFrameLevel(host) or host:GetFrameLevel()
+                if host.Glow then
+                    host.Glow:Hide()
+                end
+                if ActionBar.SetGlowShadow then
+                    ActionBar.SetGlowShadow(host, false, true)
+                end
             end
             host:SetFrameLevel(host.coinBaseLevel + 20)
             RaiseCoinLayers(host)
@@ -1235,6 +1248,10 @@ local function ApplyBoostIconPose(boosts, icon, progress, elapsedTime)
             if host.fadeIn then
                 host.fadeIn:Stop()
             end
+            if amount < 1 then
+                HoldCoinCooldown(host)
+                host.coinFaceReady = nil
+            end
             if not host:IsShown() then
                 host:Show()
             end
@@ -1242,12 +1259,12 @@ local function ApplyBoostIconPose(boosts, icon, progress, elapsedTime)
             if host.Icon then
                 host.Icon:Hide()
             end
-            if amount < 1 then
-                HoldCoinCooldown(host)
-                host.coinFaceReady = nil
-            end
             HideHostTwins(host)
-            local showAlt = ApplyCoinToss(host.texture, host.background, host.mask, host, ActionBar.buttonSize, amount, tilt)
+            -- После посадки картинку больше не трогаем: иначе каждый кадр стирает размер свечения.
+            local showAlt = true
+            if amount < 1 or not host.coinFaceReady then
+                showAlt = ApplyCoinToss(host.texture, host.background, host.mask, host, ActionBar.buttonSize, amount, tilt)
+            end
             ApplyHostFace(host, icon.slotID, showAlt)
             if not host.coinFaceReady and ActionBar.UpdateTextureDesaturation then
                 ActionBar.UpdateTextureDesaturation(host, showAlt and icon.slotID or host.slotID)
@@ -1273,6 +1290,9 @@ local function ApplyBoostIconPose(boosts, icon, progress, elapsedTime)
                 end
                 if ActionBar.RepaintButtonColors then
                     ActionBar.RepaintButtonColors()
+                end
+                if host.slotID and ActionBar.UpdateGlow then
+                    ActionBar.UpdateGlow(host.slotID)
                 end
             end
         end

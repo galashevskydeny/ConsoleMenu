@@ -604,12 +604,11 @@ local function StartGlowBurst(texture)
     texture.sheet = group
 end
 
--- Гасит вспышку, чтобы следующее появление свечения начало её сначала.
+-- Останавливает вспышку на экране. Повторный показ кнопки её не запускает заново.
 local function StopGlowBurst(glow)
     if not glow then
         return
     end
-    glow.burstPlayed = nil
     local burst = glow.Burst
     if not burst or not burst.sheet then
         return
@@ -618,10 +617,10 @@ local function StopGlowBurst(glow)
     burst:SetAlpha(0)
 end
 
--- Запускает вспышку только в момент загорания свечения.
+-- Запускает вспышку только в момент загорания свечения и только на видимой кнопке.
 local function PlayGlowBurst(glow)
     local burst = glow and glow.Burst
-    if not burst or glow.burstPlayed then
+    if not burst or glow.burstPlayed or not glow:IsVisible() then
         return
     end
     glow.burstPlayed = true
@@ -660,18 +659,336 @@ local function PlaceActionButtonGlow(btn)
     end
 end
 
+-- Смягчение с перелётом, как у значка в облаке усилений.
+local function EaseOutBack(t)
+    if t <= 0 then
+        return 0
+    end
+    if t >= 1 then
+        return 1
+    end
+    local overshoot = 2.2
+    local cubic = overshoot + 1
+    t = t - 1
+    return 1 + cubic * t * t * t + overshoot * t * t
+end
+
+-- Уменьшение ускоряется и садится ровно в цель, без проскока ниже неё.
+local function EaseIn(t)
+    if t <= 0 then
+        return 0
+    end
+    if t >= 1 then
+        return 1
+    end
+    return t * t
+end
+
+-- Размер на пути. Перелёт только когда иконка растёт из-за своего свечения.
+-- Возврат к обычному размеру и уменьшение идут с ускорением, без проскока.
+local function BubbleSize(origin, target, life)
+    local glowSize = ActionBar.buttonSize + (ActionBar.glowGrowSize or 6)
+    if target <= origin or math.abs(target - glowSize) > 0.5 then
+        return origin + (target - origin) * EaseIn(life)
+    end
+    local scale = EaseOutBack(life)
+    if scale < 0 then
+        scale = 0
+    end
+    local pop = scale - 1
+    if pop < 0 then
+        pop = 0
+    end
+    local puff = ActionBar.buttonSize * pop
+    return origin + (target - origin) * scale + puff
+end
+
+-- Кнопка ещё кувыркается: её картинку в этот момент меняет переворот.
+local function ButtonSizeLocked(btn)
+    return btn.coinInAir or (btn.ctrlFlipOwned and not btn.ctrlFaceSettled)
+end
+
+-- Обычный размер кольца свечения вокруг картинки.
+local function BaseGlowSize()
+    return ActionBar.buttonSize * ActionBar.glowScale - 2
+end
+
+-- Правая группа, левая группа или центр панели. Чужое свечение размер не меняет.
+local function ButtonGlowGroup(btn)
+    local position = btn.mainKey and ActionBar.buttonPositions[btn.mainKey]
+    return position and position[2] or nil
+end
+
+-- В каких группах сейчас горит хотя бы одно свечение.
+local function GlowingGroups(buttons)
+    local groups = {}
+    for _, btn in pairs(buttons) do
+        if btn.glowReady then
+            local group = ButtonGlowGroup(btn)
+            if group then
+                groups[group] = true
+            end
+        end
+    end
+    return groups
+end
+
+-- К какому размеру картинки стремится кнопка.
+local function IconTargetSize(btn, glowingGroups)
+    if btn.glowReady then
+        return ActionBar.buttonSize + (ActionBar.glowGrowSize or 6)
+    end
+    local group = ButtonGlowGroup(btn)
+    if group and glowingGroups[group] then
+        return ActionBar.buttonSize - (ActionBar.glowShrinkSize or 6)
+    end
+    return ActionBar.buttonSize
+end
+
+-- Ставит размер картинки, подложки и кольца. Значок клавиши и счётчик не меняются.
+local function ApplyGlowButtonSize(btn, size)
+    local texture = btn.texture
+    if not texture or size < 1 then
+        return
+    end
+
+    local wide = ActionBar.slot12Slots and ActionBar.slot12Slots[btn.slotID]
+    if not wide then
+        texture:ClearAllPoints()
+        texture:SetPoint("CENTER", btn, "CENTER", 0, 0)
+        if btn.background then
+            btn.background:SetSize(size + 8, size + 8)
+        end
+    end
+    texture:SetSize(size, size)
+
+    if btn.Glow then
+        local glowSize = BaseGlowSize() + (size - ActionBar.buttonSize)
+        if glowSize < 1 then
+            glowSize = 1
+        end
+        btn.Glow:SetSize(glowSize, glowSize)
+    end
+end
+
+local glowSizeDriver
+
+-- Доводит размеры кнопок до цели и засыпает, когда все уже сели.
+local function StepGlowButtonSizes(_, elapsed)
+    local frame = ActionBar.GetFrame()
+    local buttons = frame and frame.actionButtons
+    if not buttons then
+        glowSizeDriver:Hide()
+        return
+    end
+
+    local glowingGroups = GlowingGroups(buttons)
+    local duration = ActionBar.boostBubbleDuration or 0.16
+    if duration < 0.01 then
+        duration = 0.16
+    end
+    local busy = false
+
+    for _, btn in pairs(buttons) do
+        if ButtonSizeLocked(btn) then
+            btn.glowSizeRestart = true
+            busy = true
+        elseif btn.texture then
+            local target = IconTargetSize(btn, glowingGroups)
+            local life = btn.glowBubbleLife
+            local arrived = btn.glowBubbleTarget == target and (life or 0) >= 1
+            if btn.glowSizeRestart or not arrived then
+                if btn.glowSizeRestart or btn.glowBubbleTarget ~= target then
+                    btn.glowSizeRestart = nil
+                    btn.glowBubbleOrigin = btn.texture:GetWidth()
+                    btn.glowBubbleTarget = target
+                    if math.abs(btn.glowBubbleOrigin - target) < 0.05 then
+                        btn.glowBubbleLife = 1
+                        ApplyGlowButtonSize(btn, target)
+                    else
+                        btn.glowBubbleLife = 0
+                        busy = true
+                    end
+                else
+                    btn.glowBubbleLife = math.min(1, (life or 0) + (elapsed or 0) / duration)
+                    ApplyGlowButtonSize(btn, BubbleSize(btn.glowBubbleOrigin, btn.glowBubbleTarget, btn.glowBubbleLife))
+                    if btn.glowBubbleLife < 1 then
+                        busy = true
+                    end
+                end
+            end
+        end
+    end
+
+    if not busy then
+        glowSizeDriver:Hide()
+    end
+end
+
+-- Запускает вспухание размеров, если кнопки ещё не пришли к нужному размеру.
+function ActionBar.SyncGlowButtonSizes()
+    if not glowSizeDriver then
+        glowSizeDriver = CreateFrame("Frame")
+        glowSizeDriver:Hide()
+        glowSizeDriver:SetScript("OnUpdate", StepGlowButtonSizes)
+    end
+    local frame = ActionBar.GetFrame()
+    local buttons = frame and frame.actionButtons
+    if buttons then
+        local glowingGroups = GlowingGroups(buttons)
+        for _, btn in pairs(buttons) do
+            local target = IconTargetSize(btn, glowingGroups)
+            local width = btn.texture and btn.texture:GetWidth() or target
+            local arrived = btn.glowBubbleTarget == target and (btn.glowBubbleLife or 0) >= 1
+            if ButtonSizeLocked(btn) or btn.glowBubbleTarget ~= target or (arrived and math.abs(width - target) >= 0.05) then
+                btn.glowSizeRestart = true
+            end
+        end
+    end
+    glowSizeDriver:Show()
+end
+
+-- Запоминает, горит ли свечение, и просит остальные кнопки подстроить размер.
+-- Вспышка забывается только когда готовность правда погасла, а не когда кадр спрятали.
+local function NoteGlowReady(btn, ready)
+    btn.glowReady = ready and true or false
+    if not btn.glowReady and btn.Glow then
+        btn.Glow.burstPlayed = nil
+    end
+    ActionBar.SyncGlowButtonSizes()
+end
+
+-- Тень выше обычных кнопок, а горящая кнопка — выше своей тени, чтобы тёмный центр её не закрыл.
+local GLOW_SHADOW_LEVEL = 4
+local GLOW_BUTTON_LEVEL = 10
+
+-- Мягкая тень вокруг готовой иконки. Рисуется отдельно, чтобы лечь на соседние кнопки.
+local function EnsureGlowShadow(btn)
+    if btn.glowShadow then
+        return btn.glowShadow
+    end
+
+    local shadow = CreateFrame("Frame", nil, btn:GetParent())
+    shadow:SetFrameStrata(btn:GetFrameStrata())
+    shadow:EnableMouse(false)
+    shadow:SetAlpha(0)
+    shadow:Hide()
+
+    local texture = shadow:CreateTexture(nil, "ARTWORK")
+    texture:SetAllPoints()
+    texture:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\CrossBackgorund.png")
+
+    ConsoleMenu:InitFadeAnimations(shadow, 0.2)
+    -- После свечения тень уходит быстрее, чем появляется.
+    shadow.fadeOut.alpha:SetDuration(0.1)
+    shadow.glowButton = btn
+    btn.glowShadow = shadow
+    return shadow
+end
+
+-- Подброс сам держит уровень кнопки: свечение в этот момент его не меняет.
+local function CoinOwnsLevel(btn)
+    return btn.coinBaseLevel ~= nil
+end
+
+-- Опускает кнопку, когда тень уже не должна лежать поверх её иконки.
+local function ReleaseGlowButtonLevel(btn)
+    if not btn or not btn.glowLevelRaised or CoinOwnsLevel(btn) or ButtonSizeLocked(btn) then
+        return
+    end
+    local rest = btn.glowRestLevel
+    if not rest then
+        return
+    end
+    btn:SetFrameLevel(rest)
+    btn.glowLevelRaised = nil
+    PlaceActionButtonGlow(btn)
+end
+
+-- Исходный уровень для подброса: не тот, на который кнопку подняло свечение.
+function ActionBar.ButtonRestFrameLevel(btn)
+    if btn and btn.glowLevelRaised and btn.glowRestLevel then
+        return btn.glowRestLevel
+    end
+    return btn and btn:GetFrameLevel() or 0
+end
+
+-- Гасит тень сразу и снимает незаконченное проявление.
+local function HideGlowShadowNow(shadow)
+    if shadow.fadeIn then
+        shadow.fadeIn:Stop()
+    end
+    if shadow.fadeOut then
+        shadow.fadeOut:Stop()
+        shadow.fadeOut:SetScript("OnFinished", nil)
+    end
+    shadow:SetAlpha(0)
+    shadow:Hide()
+end
+
+-- Показывает или убирает тень. Пока кнопка кувыркается, её уровень не трогаем.
+local function SetGlowShadow(btn, shown, instant)
+    if shown and not btn:IsShown() then
+        shown = false
+        instant = true
+    end
+    if not shown and instant and btn.glowShadow and not btn.glowShadow:IsShown() then
+        ReleaseGlowButtonLevel(btn)
+        return
+    end
+    if not shown and not btn.glowShadow then
+        ReleaseGlowButtonLevel(btn)
+        return
+    end
+
+    local shadow = EnsureGlowShadow(btn)
+    local rest = btn.glowRestLevel or btn:GetFrameLevel()
+    local anchor = btn.texture or btn
+    shadow:ClearAllPoints()
+    shadow:SetPoint("CENTER", anchor, "CENTER", 0, 0)
+    shadow:SetSize(ActionBar.glowShadowSize, ActionBar.glowShadowSize)
+    shadow:SetFrameLevel(rest + GLOW_SHADOW_LEVEL)
+
+    local levelLocked = ButtonSizeLocked(btn) or CoinOwnsLevel(btn)
+    if shown then
+        if not levelLocked then
+            btn:SetFrameLevel(rest + GLOW_BUTTON_LEVEL)
+            btn.glowLevelRaised = true
+        end
+        ConsoleMenu:AnimatedShow(shadow)
+    elseif instant then
+        HideGlowShadowNow(shadow)
+        ReleaseGlowButtonLevel(btn)
+    else
+        -- Кнопка остаётся выше тени, пока та гаснет, иначе тёмный центр накроет иконку.
+        ConsoleMenu:AnimatedHide(shadow)
+        if shadow.fadeOut and shadow.fadeOut:IsPlaying() then
+            shadow.fadeOut:SetScript("OnFinished", function()
+                shadow:Hide()
+                shadow.fadeOut:SetScript("OnFinished", nil)
+                shadow.fadeOut.alpha:SetFromAlpha(1)
+                shadow.fadeOut.alpha:SetToAlpha(0)
+                ReleaseGlowButtonLevel(shadow.glowButton)
+            end)
+        else
+            ReleaseGlowButtonLevel(btn)
+        end
+    end
+
+    if not levelLocked then
+        PlaceActionButtonGlow(btn)
+    end
+end
+
+ActionBar.SetGlowShadow = SetGlowShadow
+
 -- Обновление свечения готовности на кнопке.
 local function UpdateActionButtonGlow(slotID, spellID, event)
     local btn = ActionBar.GetButton(slotID)
     if not btn then return end
 
-    -- Пока монета в воздухе, свечение остаётся скрытым.
-    if btn.ctrlFlipOwned and not btn.ctrlFaceSettled then
-        if btn.Glow then
-            btn.Glow:Hide()
-        end
-        return
-    end
+    -- Пока монета в воздухе, кольцо и тень не показываем, но готовность для соседей обновляем.
+    local inAir = btn.coinInAir or (btn.ctrlFlipOwned and not btn.ctrlFaceSettled)
 
     local paintSlot = slotID
     if btn.boostShowingAlt and btn.boostFlipSlot then
@@ -733,7 +1050,16 @@ local function UpdateActionButtonGlow(slotID, spellID, event)
         
         -- Если это не заклинание и не макрос, скрываем свечение.
         if actionType ~= "spell" and actionType ~= "macro" then
-            ConsoleMenu:AnimatedHide(btn.Glow)
+            NoteGlowReady(btn, false)
+            if inAir then
+                if btn.Glow then
+                    btn.Glow:Hide()
+                end
+                SetGlowShadow(btn, false, true)
+            else
+                ConsoleMenu:AnimatedHide(btn.Glow)
+                SetGlowShadow(btn, false)
+            end
             return
         end
 
@@ -744,20 +1070,41 @@ local function UpdateActionButtonGlow(slotID, spellID, event)
     if spellID then
         local isSpellOverlayed = C_SpellActivationOverlay.IsSpellOverlayed(spellID)
         if isSpellOverlayed then
+            NoteGlowReady(btn, true)
+            if inAir then
+                btn.Glow:Hide()
+                SetGlowShadow(btn, false, true)
+                return
+            end
             -- Иконка слота часто меняется вместе с проком.
             UpdateActionButtonTexture(slotID)
             ConsoleMenu:AnimatedShow(btn.Glow)
+            SetGlowShadow(btn, true)
             KeepGlowSheetsPlaying(btn.Glow)
             PlayGlowBurst(btn.Glow)
         else
+            NoteGlowReady(btn, false)
+            if inAir then
+                btn.Glow:Hide()
+                SetGlowShadow(btn, false, true)
+                return
+            end
             ConsoleMenu:AnimatedHide(btn.Glow)
+            SetGlowShadow(btn, false)
             -- После исчезновения свечения клиент ещё может отдавать иконку прока.
             RunNextFrame(function()
                 UpdateActionButtonTexture(slotID)
             end)
         end
     else
+        NoteGlowReady(btn, false)
+        if inAir then
+            btn.Glow:Hide()
+            SetGlowShadow(btn, false, true)
+            return
+        end
         ConsoleMenu:AnimatedHide(btn.Glow)
+        SetGlowShadow(btn, false)
         RunNextFrame(function()
             UpdateActionButtonTexture(slotID)
         end)

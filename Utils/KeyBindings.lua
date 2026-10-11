@@ -937,7 +937,7 @@ function ConsoleMenu:SetBaseKeyBindings()
         PADDLEFT = "MULTIACTIONBAR1BUTTON9",
         PADDRIGHT = "MULTIACTIONBAR1BUTTON7",
         -- Пока дополнительной кнопки нет, сочетание R3 и L3 остаётся ячейкой второй панели
-        PADLSTICK = "MULTIACTIONBAR1BUTTON5",
+        PADLSTICK = "EXTRAACTIONBUTTON1",
         -- PADRSTICK = "MULTIACTIONBAR1BUTTON4",
         PADFORWARD = "CAMERAZOOMOUT",
         PADRTRIGGER = "INTERACTTARGET",
