@@ -16,6 +16,18 @@ local function GetFadeAlpha(frame)
     return frame:GetAlpha() or 1
 end
 
+-- Верхняя непрозрачность кадра. Без отдельного значения проявление идёт до полной.
+local function FadeCeiling(frame)
+    local alpha = frame and frame.fadeAlpha
+    if not alpha or alpha > 1 then
+        return 1
+    end
+    if alpha < 0 then
+        return 0
+    end
+    return alpha
+end
+
 function ConsoleMenu:InitFadeAnimations(frame, duration)
     -- Создаем группу анимаций для фрейма, если еще не создана
     if not frame.fadeIn then
@@ -55,20 +67,21 @@ function ConsoleMenu:AnimatedShow(frame)
     frame.fadeIn:Stop()
 
     local fadeIn = frame.fadeIn
+    local ceiling = FadeCeiling(frame)
     if not shown then
         current = 0
         frame:Show()
     end
-    if current >= 1 then
+    if current >= ceiling then
         fadeIn.alpha:SetFromAlpha(0)
-        fadeIn.alpha:SetToAlpha(1)
-        frame:SetAlpha(1)
+        fadeIn.alpha:SetToAlpha(ceiling)
+        frame:SetAlpha(ceiling)
         return
     end
 
     frame:SetAlpha(current)
     fadeIn.alpha:SetFromAlpha(current)
-    fadeIn.alpha:SetToAlpha(1)
+    fadeIn.alpha:SetToAlpha(ceiling)
     fadeIn:Play()
 end
 
@@ -93,7 +106,7 @@ function ConsoleMenu:AnimatedHide(frame)
     frame.fadeOut:SetScript("OnFinished", function()
         frame:Hide()
         frame.fadeOut:SetScript("OnFinished", nil)
-        frame.fadeOut.alpha:SetFromAlpha(1)
+        frame.fadeOut.alpha:SetFromAlpha(FadeCeiling(frame))
         frame.fadeOut.alpha:SetToAlpha(0)
     end)
     frame.fadeOut:Play()

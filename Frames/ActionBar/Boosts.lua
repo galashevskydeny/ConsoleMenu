@@ -1480,6 +1480,9 @@ function ActionBar.OnBoostsUpdate(elapsed)
 
     boosts.time = boosts.time + elapsed
     AdvanceBoostProgress(boosts, elapsed)
+    if ActionBar.NoteCloudOnCross then
+        ActionBar.NoteCloudOnCross()
+    end
     AdvanceLayoutMix(boosts, elapsed)
 
     for index = 1, #boosts.icons do

@@ -93,6 +93,19 @@ local function GetActiveModifier()
     return nil
 end
 
+-- Кнопка сейчас занимает место на панели. Скрытая страница и чужой модификатор в сдвиг не входят.
+function ActionBar.IsShiftButtonVisible(btn)
+    if not btn or not btn.slotID then
+        return false
+    end
+    local activeModifier = GetActiveModifier()
+    if IsActionButtonVisible(btn.slotID, btn, activeModifier) then
+        return true
+    end
+    -- В исследовании обычные кнопки скрыты, но переворачивающаяся кнопка крестовины остаётся.
+    return ActionBar.IsActiveBoostHostSlot and ActionBar.IsActiveBoostHostSlot(btn.slotID)
+end
+
 -- Включает ареол группы один раз: повторный вызов не перезапускает проявление.
 local function SetGroupShadowShown(shadow, shown)
     if not shadow or shadow.groupShown == shown then
@@ -155,6 +168,16 @@ local function UpdateActionButtonShadowsIfNeeded()
     UpdateActionButtonShadows()
 end
 
+-- Ставит кнопку на место раскладки и оставляет уже набранный сдвиг к тёмной противоположной.
+local function PlaceButton(btn, position, anchor)
+    local shiftX, shiftY = 0, 0
+    if ActionBar.ButtonGlowShift then
+        shiftX, shiftY = ActionBar.ButtonGlowShift(btn)
+    end
+    btn:ClearAllPoints()
+    btn:SetPoint(position[1], anchor, position[3], position[4] + shiftX, position[5] + shiftY)
+end
+
 -- Привязка кнопок к положениям по назначению клавиш.
 local function UpdateButtonPositions(slotID)
     local frame = ActionBar.GetFrame()
@@ -180,8 +203,7 @@ local function UpdateButtonPositions(slotID)
 
         local anchor = position and ActionBar.ResolveAnchor(frame, position[2])
         if anchor and not (ActionBar.ignoredSlot[slotID] == true) then
-            btn:ClearAllPoints()
-            btn:SetPoint(position[1], anchor, position[3], position[4], position[5])
+            PlaceButton(btn, position, anchor)
         end
 
         ActionBar.UpdateIcon(slotID)
@@ -203,8 +225,7 @@ local function UpdateButtonPositions(slotID)
         local position = ActionBar.buttonPositions[btn.mainKey]
         local anchor = position and ActionBar.ResolveAnchor(frame, position[2])
         if anchor and not (ActionBar.ignoredSlot[slotID] == true) then
-            btn:ClearAllPoints()
-            btn:SetPoint(position[1], anchor, position[3], position[4], position[5])
+            PlaceButton(btn, position, anchor)
         end
 
         ActionBar.UpdateIcon(slotID)
@@ -252,11 +273,8 @@ local function UpdateModifierState()
     ActionBar.SetBoostsExpanded(activeModifier == "SHIFT")
 
     for slotID, btn in pairs(frame.actionButtons) do
-        local keepCross = not btn.modifierKey
-            and ActionBar.IsBoostHostKey
-            and ActionBar.IsBoostHostKey(btn.mainKey)
-            and ActionBar.BoostFlipOwnsHosts
-            and ActionBar.BoostFlipOwnsHosts()
+        -- На месте крестовины остаётся только та кнопка, которая сама переворачивается.
+        local keepCross = ActionBar.IsActiveBoostHostSlot and ActionBar.IsActiveBoostHostSlot(slotID)
         if IsActionButtonVisible(slotID, btn, activeModifier) or keepCross then
             ConsoleMenu:AnimatedShow(btn)
         else
@@ -269,6 +287,10 @@ local function UpdateModifierState()
     UpdateExploringFrameVisibility(activeModifier)
     if ActionBar.RefreshFaceButtonDesaturation then
         ActionBar.RefreshFaceButtonDesaturation()
+    end
+    -- Набор кнопок сменился: старый сдвиг не должен остаться у новой страницы.
+    if ActionBar.SyncGlowButtonSizes then
+        ActionBar.SyncGlowButtonSizes()
     end
 end
 

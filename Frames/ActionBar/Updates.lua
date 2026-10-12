@@ -684,6 +684,18 @@ local function EaseIn(t)
     return t * t
 end
 
+-- Сдвиг начинается быстро и замедляется ровно к цели, без проскока за неё.
+local function EaseOut(t)
+    if t <= 0 then
+        return 0
+    end
+    if t >= 1 then
+        return 1
+    end
+    local remain = 1 - t
+    return 1 - remain * remain
+end
+
 -- Размер на пути. Перелёт только когда иконка растёт из-за своего свечения.
 -- Возврат к обычному размеру и уменьшение идут с ускорением, без проскока.
 local function BubbleSize(origin, target, life)
@@ -719,11 +731,22 @@ local function ButtonGlowGroup(btn)
     return position and position[2] or nil
 end
 
--- В каких группах сейчас горит хотя бы одно свечение.
+-- Кнопка занимает место на панели, а не просто ещё не успела погаснуть.
+local function ShiftButtonVisible(btn)
+    if not btn then
+        return false
+    end
+    if ActionBar.IsShiftButtonVisible then
+        return ActionBar.IsShiftButtonVisible(btn)
+    end
+    return btn:IsShown()
+end
+
+-- В каких группах сейчас горит хотя бы одно свечение на видимой кнопке.
 local function GlowingGroups(buttons)
     local groups = {}
     for _, btn in pairs(buttons) do
-        if btn.glowReady then
+        if btn.glowReady and ShiftButtonVisible(btn) then
             local group = ButtonGlowGroup(btn)
             if group then
                 groups[group] = true
@@ -735,6 +758,9 @@ end
 
 -- К какому размеру картинки стремится кнопка.
 local function IconTargetSize(btn, glowingGroups)
+    if not ShiftButtonVisible(btn) then
+        return ActionBar.buttonSize
+    end
     if btn.glowReady then
         return ActionBar.buttonSize + (ActionBar.glowGrowSize or 6)
     end
@@ -743,6 +769,288 @@ local function IconTargetSize(btn, glowingGroups)
         return ActionBar.buttonSize - (ActionBar.glowShrinkSize or 6)
     end
     return ActionBar.buttonSize
+end
+
+-- Оси двух крестов. Сверху напротив снизу, справа напротив слева.
+-- Низ левой крестовины — левый рычаг, а не отдельная нижняя кнопка.
+local shiftAxes = {
+    { group = "right", axis = "y", positive = "PAD4", negative = "PADRSTICK" },
+    { group = "right", axis = "x", positive = "PAD2", negative = "PAD3" },
+    { group = "left", axis = "y", positive = "PADDUP", negative = "PADLSTICK" },
+    { group = "left", axis = "x", positive = "PADDRIGHT", negative = "PADDLEFT" },
+}
+
+-- Кнопки, которые входят в крест и могут сдвинуться.
+local shiftMembers = {
+    PAD4 = true,
+    PADRSTICK = true,
+    PAD2 = true,
+    PAD3 = true,
+    PADDUP = true,
+    PADLSTICK = true,
+    PADDRIGHT = true,
+    PADDLEFT = true,
+    PADDDOWN = true,
+}
+
+-- Левый рычаг сейчас на панели: он и есть низ крестовины.
+local function StickIsShown(buttons)
+    for _, btn in pairs(buttons) do
+        if btn.mainKey == "PADLSTICK" and ShiftButtonVisible(btn) and not ActionBar.IsBoostSlot(btn.slotID) then
+            return true
+        end
+    end
+    return false
+end
+
+-- Кнопка занимает низ крестовины: левый рычаг, а если его нет — нижняя кнопка.
+local function IsBottomOccupant(btn, buttons)
+    if not btn or ActionBar.IsBoostSlot(btn.slotID) then
+        return false
+    end
+    if btn.mainKey == "PADLSTICK" then
+        return true
+    end
+    return btn.mainKey == "PADDDOWN" and not StickIsShown(buttons)
+end
+
+-- Кнопка принадлежит кресту лицевых кнопок или крестовины.
+local function IsShiftMember(btn, buttons)
+    if not btn or not btn.mainKey or ActionBar.IsBoostSlot(btn.slotID) then
+        return false
+    end
+    if btn.mainKey == "PADDDOWN" then
+        return IsBottomOccupant(btn, buttons)
+    end
+    return shiftMembers[btn.mainKey] == true
+end
+
+-- Эта сторона оси сейчас горит на видимой кнопке.
+local function PoleGlows(buttons, key)
+    local stickShown = key == "PADLSTICK" and StickIsShown(buttons)
+    for _, btn in pairs(buttons) do
+        if btn.glowReady and ShiftButtonVisible(btn) and not ActionBar.IsBoostSlot(btn.slotID) then
+            if key == "PADLSTICK" then
+                if stickShown and btn.mainKey == "PADLSTICK" then
+                    return true
+                end
+                if not stickShown and btn.mainKey == "PADDDOWN" then
+                    return true
+                end
+            elseif btn.mainKey == key then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+-- Место кнопки на кресте: верх и право считаются положительными.
+local function ButtonCrossSign(btn)
+    local key = btn.mainKey
+    if key == "PAD4" or key == "PADDUP" then
+        return 0, 1
+    end
+    if key == "PADRSTICK" or key == "PADLSTICK" or key == "PADDDOWN" then
+        return 0, -1
+    end
+    if key == "PAD2" or key == "PADDRIGHT" then
+        return 1, 0
+    end
+    if key == "PAD3" or key == "PADDLEFT" then
+        return -1, 0
+    end
+    return 0, 0
+end
+
+-- Шаг к противоположной стороне сразу по вертикали и по горизонтали.
+local function AddShiftToward(shiftX, shiftY, btn, oppositeX, oppositeY, distance)
+    local buttonX, buttonY = ButtonCrossSign(btn)
+    if oppositeX ~= buttonX then
+        shiftX = shiftX + (oppositeX > buttonX and distance or -distance)
+    end
+    if oppositeY ~= buttonY then
+        shiftY = shiftY + (oppositeY > buttonY and distance or -distance)
+    end
+    return shiftX, shiftY
+end
+
+-- Кнопка стоит на указанной стороне оси.
+local function IsPoleButton(btn, key, buttons)
+    if key == "PADLSTICK" then
+        return IsBottomOccupant(btn, buttons)
+    end
+    return btn.mainKey == key
+end
+
+-- Облако уже село на крестовину и занимает её место целиком.
+local function CloudStandsOnCross()
+    if not ActionBar.BoostFlipOwnsHosts or not ActionBar.BoostFlipOwnsHosts() then
+        return false
+    end
+    local frame = ActionBar.GetFrame()
+    local boosts = frame and frame.boosts
+    if not boosts then
+        return false
+    end
+    local settle = ActionBar.boostFlipSettle or 0.72
+    return (boosts.progress or 0) >= settle
+end
+
+-- Облако считается светящимся, если готов хотя бы один его значок.
+local function CloudGlows(buttons)
+    for _, btn in pairs(buttons) do
+        if btn.glowReady then
+            if btn.slotID and (ActionBar.IsBoostSlot(btn.slotID) or ActionBar.IsExtraActionSlot(btn.slotID)) then
+                return true
+            end
+            if btn.boostShowingAlt and ActionBar.IsBoostHostKey and ActionBar.IsBoostHostKey(btn.mainKey) then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+-- На крестовине горит хотя бы одна её собственная кнопка.
+local function CrossHasGlow(buttons, group)
+    for _, btn in pairs(buttons) do
+        if btn.glowReady and ShiftButtonVisible(btn) and ButtonGlowGroup(btn) == group and IsShiftMember(btn, buttons) then
+            return true
+        end
+    end
+    return false
+end
+
+-- Сдвиг к центру крестовины, когда напротив стоит всё облако.
+local function ShiftTowardCloud(btn, distance)
+    if btn.mainKey == "PADDUP" then
+        return 0, -distance
+    end
+    if btn.mainKey == "PADLSTICK" or btn.mainKey == "PADDDOWN" then
+        return 0, distance
+    end
+    if btn.mainKey == "PADDRIGHT" then
+        return -distance, 0
+    end
+    if btn.mainKey == "PADDLEFT" then
+        return distance, 0
+    end
+    return 0, 0
+end
+
+-- Видимый левый рычаг. Нижняя кнопка креста делит с ним одно место.
+local function FindShownStick(buttons)
+    for _, btn in pairs(buttons) do
+        if btn.mainKey == "PADLSTICK" and ShiftButtonVisible(btn) and not ActionBar.IsBoostSlot(btn.slotID) then
+            return btn
+        end
+    end
+    return nil
+end
+
+-- Куда подъехать тёмной кнопке. Светящаяся и тёмная противоположная остаются на месте.
+local function ButtonShiftTarget(btn, buttons)
+    -- Скрытая страница не хранит чужой сдвиг: иначе он всплывёт при смене страницы.
+    if not ShiftButtonVisible(btn) then
+        return 0, 0
+    end
+    -- Нижняя кнопка не отдельная сторона. Своё свечение её удерживает, иначе она едет с рычагом.
+    if btn.mainKey == "PADDDOWN" and StickIsShown(buttons) then
+        if btn.glowReady then
+            return 0, 0
+        end
+        local stick = FindShownStick(buttons)
+        if not stick or stick.glowReady then
+            return 0, 0
+        end
+        btn = stick
+    end
+    if not IsShiftMember(btn, buttons) or btn.glowReady then
+        return 0, 0
+    end
+    local group = ButtonGlowGroup(btn)
+    if group ~= "left" and group ~= "right" then
+        return 0, 0
+    end
+
+    local distance = ActionBar.glowShiftSize or 6
+    if distance < 0 then
+        distance = 0
+    end
+
+    -- На месте крестовины облако: оно одно напротив, и светится целиком.
+    if group == "left" and CloudStandsOnCross() then
+        if CloudGlows(buttons) or not CrossHasGlow(buttons, group) then
+            return 0, 0
+        end
+        return ShiftTowardCloud(btn, distance)
+    end
+
+    local shiftX, shiftY = 0, 0
+    for index = 1, #shiftAxes do
+        local axis = shiftAxes[index]
+        if axis.group == group then
+            local positiveGlows = PoleGlows(buttons, axis.positive)
+            local negativeGlows = PoleGlows(buttons, axis.negative)
+            local towardNegative = positiveGlows and not negativeGlows
+            local towardPositive = negativeGlows and not positiveGlows
+            local blocked = false
+            local oppositeX, oppositeY = 0, 0
+            if towardNegative then
+                blocked = IsPoleButton(btn, axis.negative, buttons)
+                if axis.axis == "y" then
+                    oppositeY = -1
+                else
+                    oppositeX = -1
+                end
+            elseif towardPositive then
+                blocked = IsPoleButton(btn, axis.positive, buttons)
+                if axis.axis == "y" then
+                    oppositeY = 1
+                else
+                    oppositeX = 1
+                end
+            end
+            if (towardNegative or towardPositive) and not blocked then
+                shiftX, shiftY = AddShiftToward(shiftX, shiftY, btn, oppositeX, oppositeY, distance)
+            end
+        end
+    end
+    return shiftX, shiftY
+end
+
+-- Ставит кнопку на место раскладки и добавляет только временный сдвиг.
+local function ApplyButtonShift(btn, shiftX, shiftY)
+    btn.glowShiftX = shiftX
+    btn.glowShiftY = shiftY
+    if ButtonSizeLocked(btn) then
+        return
+    end
+    local position = btn.mainKey and ActionBar.buttonPositions[btn.mainKey]
+    if not position then
+        return
+    end
+    local frame = ActionBar.GetFrame()
+    local anchor = frame and ActionBar.ResolveAnchor(frame, position[2])
+    if not anchor then
+        return
+    end
+    btn:ClearAllPoints()
+    btn:SetPoint(position[1], anchor, position[3], position[4] + shiftX, position[5] + shiftY)
+end
+
+-- Текущий сдвиг поверх раскладки, чтобы обновление мест его не стирало.
+function ActionBar.ButtonGlowShift(btn)
+    if not btn then
+        return 0, 0
+    end
+    return btn.glowShiftX or 0, btn.glowShiftY or 0
+end
+
+-- Смещение начинается быстро и замедляется ровно к цели.
+local function ShiftOffset(origin, target, life)
+    return (origin or 0) + ((target or 0) - (origin or 0)) * EaseOut(life or 0)
 end
 
 -- Ставит размер картинки, подложки и кольца. Значок клавиши и счётчик не меняются.
@@ -783,36 +1091,69 @@ local function StepGlowButtonSizes(_, elapsed)
     end
 
     local glowingGroups = GlowingGroups(buttons)
-    local duration = ActionBar.boostBubbleDuration or 0.16
+    local duration = ActionBar.glowMotionDuration or 0.11
     if duration < 0.01 then
-        duration = 0.16
+        duration = 0.11
     end
     local busy = false
 
     for _, btn in pairs(buttons) do
         if ButtonSizeLocked(btn) then
             btn.glowSizeRestart = true
+            btn.glowShiftRestart = true
             busy = true
-        elseif btn.texture then
-            local target = IconTargetSize(btn, glowingGroups)
-            local life = btn.glowBubbleLife
-            local arrived = btn.glowBubbleTarget == target and (life or 0) >= 1
-            if btn.glowSizeRestart or not arrived then
-                if btn.glowSizeRestart or btn.glowBubbleTarget ~= target then
-                    btn.glowSizeRestart = nil
-                    btn.glowBubbleOrigin = btn.texture:GetWidth()
-                    btn.glowBubbleTarget = target
-                    if math.abs(btn.glowBubbleOrigin - target) < 0.05 then
-                        btn.glowBubbleLife = 1
-                        ApplyGlowButtonSize(btn, target)
+        else
+            if btn.texture then
+                local target = IconTargetSize(btn, glowingGroups)
+                local life = btn.glowBubbleLife
+                local arrived = btn.glowBubbleTarget == target and (life or 0) >= 1
+                if btn.glowSizeRestart or not arrived then
+                    if btn.glowSizeRestart or btn.glowBubbleTarget ~= target then
+                        btn.glowSizeRestart = nil
+                        btn.glowBubbleOrigin = btn.texture:GetWidth()
+                        btn.glowBubbleTarget = target
+                        if math.abs(btn.glowBubbleOrigin - target) < 0.05 then
+                            btn.glowBubbleLife = 1
+                            ApplyGlowButtonSize(btn, target)
+                        else
+                            btn.glowBubbleLife = 0
+                            busy = true
+                        end
                     else
-                        btn.glowBubbleLife = 0
+                        btn.glowBubbleLife = math.min(1, (life or 0) + (elapsed or 0) / duration)
+                        ApplyGlowButtonSize(btn, BubbleSize(btn.glowBubbleOrigin, btn.glowBubbleTarget, btn.glowBubbleLife))
+                        if btn.glowBubbleLife < 1 then
+                            busy = true
+                        end
+                    end
+                end
+            end
+
+            local shiftX, shiftY = ButtonShiftTarget(btn, buttons)
+            local shiftLife = btn.glowShiftLife
+            local shiftArrived = btn.glowShiftTargetX == shiftX and btn.glowShiftTargetY == shiftY and (shiftLife or 0) >= 1
+            if btn.glowShiftRestart or not shiftArrived then
+                if btn.glowShiftRestart or btn.glowShiftTargetX ~= shiftX or btn.glowShiftTargetY ~= shiftY then
+                    btn.glowShiftRestart = nil
+                    btn.glowShiftOriginX = btn.glowShiftX or 0
+                    btn.glowShiftOriginY = btn.glowShiftY or 0
+                    btn.glowShiftTargetX = shiftX
+                    btn.glowShiftTargetY = shiftY
+                    if math.abs(btn.glowShiftOriginX - shiftX) < 0.05 and math.abs(btn.glowShiftOriginY - shiftY) < 0.05 then
+                        btn.glowShiftLife = 1
+                        ApplyButtonShift(btn, shiftX, shiftY)
+                    else
+                        btn.glowShiftLife = 0
                         busy = true
                     end
                 else
-                    btn.glowBubbleLife = math.min(1, (life or 0) + (elapsed or 0) / duration)
-                    ApplyGlowButtonSize(btn, BubbleSize(btn.glowBubbleOrigin, btn.glowBubbleTarget, btn.glowBubbleLife))
-                    if btn.glowBubbleLife < 1 then
+                    btn.glowShiftLife = math.min(1, (shiftLife or 0) + (elapsed or 0) / duration)
+                    ApplyButtonShift(
+                        btn,
+                        ShiftOffset(btn.glowShiftOriginX, shiftX, btn.glowShiftLife),
+                        ShiftOffset(btn.glowShiftOriginY, shiftY, btn.glowShiftLife)
+                    )
+                    if btn.glowShiftLife < 1 then
                         busy = true
                     end
                 end
@@ -843,9 +1184,37 @@ function ActionBar.SyncGlowButtonSizes()
             if ButtonSizeLocked(btn) or btn.glowBubbleTarget ~= target or (arrived and math.abs(width - target) >= 0.05) then
                 btn.glowSizeRestart = true
             end
+
+            local shiftX, shiftY = ButtonShiftTarget(btn, buttons)
+            local sameShift = btn.glowShiftTargetX == shiftX and btn.glowShiftTargetY == shiftY
+            local shiftArrived = sameShift and (btn.glowShiftLife or 0) >= 1
+            local currentX = btn.glowShiftX or 0
+            local currentY = btn.glowShiftY or 0
+            local shiftDrifted = math.abs(currentX - shiftX) >= 0.05 or math.abs(currentY - shiftY) >= 0.05
+            if ButtonSizeLocked(btn) or not sameShift or (shiftArrived and shiftDrifted) then
+                btn.glowShiftRestart = true
+            end
         end
     end
     glowSizeDriver:Show()
+end
+
+-- Облако село на крестовину или ушло с неё: сдвиг нужно пересчитать, даже если свечение не менялось.
+local cloudOnCrossKnown = false
+local cloudWasOnCross = false
+
+function ActionBar.NoteCloudOnCross()
+    local standing = CloudStandsOnCross()
+    if cloudOnCrossKnown and cloudWasOnCross == standing then
+        return
+    end
+    -- Первый замер в покое кнопки не трогает. Посадка и уход облака заново считают сдвиг.
+    local changed = cloudOnCrossKnown or standing
+    cloudWasOnCross = standing
+    cloudOnCrossKnown = true
+    if changed then
+        ActionBar.SyncGlowButtonSizes()
+    end
 end
 
 -- Запоминает, горит ли свечение, и просит остальные кнопки подстроить размер.
@@ -948,6 +1317,13 @@ local function SetGlowShadow(btn, shown, instant)
     shadow:SetPoint("CENTER", anchor, "CENTER", 0, 0)
     shadow:SetSize(ActionBar.glowShadowSize, ActionBar.glowShadowSize)
     shadow:SetFrameLevel(rest + GLOW_SHADOW_LEVEL)
+    local shadowAlpha = ActionBar.glowShadowAlpha
+    if not shadowAlpha or shadowAlpha > 1 then
+        shadowAlpha = 1
+    elseif shadowAlpha < 0 then
+        shadowAlpha = 0
+    end
+    shadow.fadeAlpha = shadowAlpha
 
     local levelLocked = ButtonSizeLocked(btn) or CoinOwnsLevel(btn)
     if shown then
@@ -966,7 +1342,7 @@ local function SetGlowShadow(btn, shown, instant)
             shadow.fadeOut:SetScript("OnFinished", function()
                 shadow:Hide()
                 shadow.fadeOut:SetScript("OnFinished", nil)
-                shadow.fadeOut.alpha:SetFromAlpha(1)
+                shadow.fadeOut.alpha:SetFromAlpha(shadow.fadeAlpha or 1)
                 shadow.fadeOut.alpha:SetToAlpha(0)
                 ReleaseGlowButtonLevel(shadow.glowButton)
             end)
