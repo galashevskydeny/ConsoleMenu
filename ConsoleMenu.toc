@@ -61,7 +61,6 @@ Frames/Gossip/Actions.lua
 Frames/Gossip/List.lua
 Frames/Gossip/Controller.lua
 Frames/Gossip/Manager.lua
-Frames/IgnoredCurrencies.lua
 Frames/NotificationFrame.lua
 Frames/QueueStatusToastFrame.lua
 Frames/LootListFrame.lua
@@ -89,6 +88,7 @@ Frames/Merchant/Actions.lua
 Frames/Merchant/Controller.lua
 Frames/Merchant/Manager.lua
 
+Utils/IgnoredCurrencies.lua
 Utils/Contexts.lua
 Utils/HideBlizzardUI.lua
 Utils/UpdateCVars.lua
