@@ -7,6 +7,7 @@ local ActionBar = ConsoleMenu.ActionBar
 local slotRanges = {
     { 1, 12 },
     { 13, 24 },
+    { 25, 48 },
     { 49, 72 },
 }
 
@@ -18,6 +19,54 @@ local function ForEachButton(callback)
     end
     for slotID in pairs(frame.actionButtons) do
         callback(slotID)
+    end
+end
+
+-- Несколько боевых событий одного кадра красят кнопки и облако один раз, без новой раскладки.
+local paintQueued = false
+local paintCooldowns = false
+local paintCounts = false
+local paintClouds = false
+
+local function RunBarPaint()
+    paintQueued = false
+    local cooldowns = paintCooldowns
+    local counts = paintCounts
+    local clouds = paintClouds
+    paintCooldowns = false
+    paintCounts = false
+    paintClouds = false
+    if cooldowns and ActionBar.UpdateCooldowns then
+        ActionBar.UpdateCooldowns()
+    end
+    if counts then
+        ForEachButton(function(slotID)
+            ActionBar.UpdateCount(slotID)
+        end)
+    end
+    if clouds and ActionBar.RecolorClouds then
+        ActionBar.RecolorClouds()
+    end
+end
+
+local function ScheduleBarPaint(kind)
+    if kind == "cooldowns" then
+        paintCooldowns = true
+        paintClouds = true
+    elseif kind == "counts" then
+        paintCounts = true
+        paintClouds = true
+    else
+        paintClouds = true
+    end
+    if paintQueued then
+        return
+    end
+    paintQueued = true
+    if RunNextFrame then
+        RunNextFrame(RunBarPaint)
+    else
+        RunBarPaint()
     end
 end
 
@@ -64,6 +113,9 @@ local function OnSlotChanged(_, _, slotID)
     if not ActionBar.IsInCombat() or ActionBar.ChargeActionChanged(slotID) then
         ActionBar.ForgetChargeCount(slotID)
     end
+    if ActionBar.ForgetUseAction then
+        ActionBar.ForgetUseAction(slotID)
+    end
     ActionBar.UpdateTexture(slotID)
     ActionBar.UpdateButtonPositions(slotID)
     ActionBar.UpdateCooldowns()
@@ -95,7 +147,7 @@ local function OnCombatOrTarget(_, event)
         ActionBar.ClearRangeState()
         ActionBar.EnableAllRangeChecks()
         ActionBar.UpdateAllUsable()
-        ActionBar.UpdateBoosts()
+        ScheduleBarPaint("clouds")
         return
     end
     if event == "PLAYER_REGEN_ENABLED" then
@@ -104,13 +156,12 @@ local function OnCombatOrTarget(_, event)
             ActionBar.UpdateCount(slotID)
         end)
     end
-    ActionBar.UpdateBoosts()
+    ScheduleBarPaint("clouds")
 end
 
 -- Восстановление умений обновилось на всей панели и в облаке.
 local function OnCooldown()
-    ActionBar.UpdateCooldowns()
-    ActionBar.UpdateBoosts()
+    ScheduleBarPaint("cooldowns")
 end
 
 -- Клиент проверил дальность одной ячейки.
@@ -121,7 +172,7 @@ local function OnRangeCheck(_, _, slotID, isInRange, checksRange)
     end
     ActionBar.UpdateUsable(slotID)
     if ActionBar.IsBoostSlot(slotID) or ActionBar.IsExtraActionSlot(slotID) then
-        ActionBar.UpdateBoosts()
+        ScheduleBarPaint("clouds")
     end
 end
 
@@ -132,7 +183,7 @@ local function OnGlow(_, event, spellID)
         return
     end
     for _, slotID in pairs(slots) do
-        ActionBar.UpdateGlow(slotID, spellID, event)
+        ActionBar.NoteSpellGlow(slotID, spellID, event)
     end
 end
 
@@ -146,7 +197,7 @@ local function OnSpellIcon(_, _, spellID)
             end
         end
     end
-    ActionBar.UpdateBoosts()
+    ScheduleBarPaint("clouds")
 end
 
 -- Пригодность ячеек пришла списком или требует полного обновления восстановления.
@@ -169,18 +220,15 @@ local function OnUsable(_, _, changes)
             end
             ActionBar.UpdateUsable(slotID, isUsable, isLackingResources)
         end
+        ScheduleBarPaint("clouds")
     else
-        ActionBar.UpdateCooldowns()
+        ScheduleBarPaint("cooldowns")
     end
-    ActionBar.UpdateBoosts()
 end
 
--- Число зарядов изменилось на кнопках и в облаке.
+-- Число зарядов изменилось на кнопках. Облако числа не показывает, его только перекрашиваем.
 local function OnCharges()
-    ForEachButton(function(slotID)
-        ActionBar.UpdateCount(slotID)
-    end)
-    ActionBar.UpdateBoosts()
+    ScheduleBarPaint("counts")
 end
 
 -- Дополнительная кнопка действия появилась или исчезла.
@@ -194,7 +242,7 @@ local function OnEquipmentChanged()
         ActionBar.InvalidateEquippedItemCache()
     end
     ActionBar.UpdateAllUsable()
-    ActionBar.UpdateBoosts()
+    ScheduleBarPaint("clouds")
 end
 
 -- Событие и что из-за него обновить.
@@ -296,7 +344,10 @@ function ConsoleMenu:InitializeMainActionBar()
         end
     end
 
-    ActionBar.CreateBoosts(frame)
+    ActionBar.CreateClouds = ActionBar.CreateClouds or ActionBar.CreateBoosts
+    if ActionBar.CreateClouds then
+        ActionBar.CreateClouds(frame)
+    end
     ActionBar.EnableAllRangeChecks()
 
     -- Стандартная рамка скрывается с задержкой: облако обновляем, когда кнопка реально исчезла.

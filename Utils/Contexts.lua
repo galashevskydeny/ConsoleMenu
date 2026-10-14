@@ -652,10 +652,16 @@ function ConsoleMenu:ApplyContextUIChanges()
 
         ConsoleMenu.Merchant.Hide()
         -- Вне боя панель скрыта, пока не удерживают Ctrl или Shift.
-        if ConsoleMenu.ActionBar and ConsoleMenu.ActionBar.UpdateModifierState then
+        if ConsoleMenu.ActionBar and ConsoleMenu.ActionBar.SetBarDesired then
+            ConsoleMenu.ActionBar.SetBarDesired(true)
+        elseif ConsoleMenu.ActionBar and ConsoleMenu.ActionBar.UpdateModifierState then
             ConsoleMenu.ActionBar.UpdateModifierState()
         else
+            if ConsoleMenu.ActionBar and ConsoleMenu.ActionBar.SetBarDesired then
+            ConsoleMenu.ActionBar.SetBarDesired(false)
+        else
             ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
+        end
         end
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.CombatFrame)
         ConsoleMenu:AnimatedHide(PersonalResourceDisplayFrame)
@@ -672,7 +678,11 @@ function ConsoleMenu:ApplyContextUIChanges()
             return
         end
 
-        ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
+        if ConsoleMenu.ActionBar and ConsoleMenu.ActionBar.SetBarDesired then
+            ConsoleMenu.ActionBar.SetBarDesired(false)
+        else
+            ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
+        end
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.CombatFrame)
         ConsoleMenu:AnimatedHide(PersonalResourceDisplayFrame)
     elseif context == "mount" then
@@ -684,7 +694,11 @@ function ConsoleMenu:ApplyContextUIChanges()
         end
 
         ConsoleMenu.Merchant.Hide()
-        ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
+        if ConsoleMenu.ActionBar and ConsoleMenu.ActionBar.SetBarDesired then
+            ConsoleMenu.ActionBar.SetBarDesired(false)
+        else
+            ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
+        end
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.CombatFrame)
         ConsoleMenu:AnimatedHide(PersonalResourceDisplayFrame)
     elseif context == "combat" or context == "precombat" then
@@ -712,7 +726,11 @@ function ConsoleMenu:ApplyContextUIChanges()
         if ConsoleMenu.ActionBar and ConsoleMenu.ActionBar.UpdateModifierState then
             ConsoleMenu.ActionBar.UpdateModifierState()
         end
-        ConsoleMenu:AnimatedShow(ConsoleMenuFrame.ActionBarFrame)
+        if ConsoleMenu.ActionBar and ConsoleMenu.ActionBar.SetBarDesired then
+            ConsoleMenu.ActionBar.SetBarDesired(true)
+        else
+            ConsoleMenu:AnimatedShow(ConsoleMenuFrame.ActionBarFrame)
+        end
         ConsoleMenu:AnimatedShow(ConsoleMenuFrame.CombatFrame)
     elseif context == "housing" then
         ApplyHousingKeys(contextData)
@@ -723,7 +741,11 @@ function ConsoleMenu:ApplyContextUIChanges()
         end
 
         ConsoleMenu.Merchant.Hide()
-        ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
+        if ConsoleMenu.ActionBar and ConsoleMenu.ActionBar.SetBarDesired then
+            ConsoleMenu.ActionBar.SetBarDesired(false)
+        else
+            ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
+        end
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.CombatFrame)
         ConsoleMenu:AnimatedHide(PersonalResourceDisplayFrame)
         ConsoleMenu:PlayFadeOut(ObjectiveTrackerFrame)
@@ -739,7 +761,11 @@ function ConsoleMenu:ApplyContextUIChanges()
         end
 
         ConsoleMenu.Merchant.Hide()
-        ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
+        if ConsoleMenu.ActionBar and ConsoleMenu.ActionBar.SetBarDesired then
+            ConsoleMenu.ActionBar.SetBarDesired(false)
+        else
+            ConsoleMenu:AnimatedHide(ConsoleMenuFrame.ActionBarFrame)
+        end
         ConsoleMenu:AnimatedHide(ConsoleMenuFrame.CombatFrame)
         ConsoleMenu:AnimatedHide(PersonalResourceDisplayFrame)
         ConsoleMenu:PlayFadeOut(ObjectiveTrackerFrame)

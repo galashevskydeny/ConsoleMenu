@@ -657,6 +657,11 @@ local function GetDisplayedZoneAbility()
     return nil
 end
 
+-- Та же способность области, которую аддон назначает на сочетание клавиш.
+function ConsoleMenu:GetDisplayedZoneAbility()
+    return GetDisplayedZoneAbility()
+end
+
 -- Возвращает идентификатор и имя заклинания для привязки сочетания R3 и L3
 local function GetZoneAbilityBindSpell(ability)
     local spellID = ability and ability.spellID

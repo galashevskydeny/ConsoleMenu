@@ -70,8 +70,10 @@ Frames/ActionBar/Shared.lua
 Frames/ActionBar/Titles.lua
 Frames/ActionBar/Updates.lua
 Frames/ActionBar/Layout.lua
-Frames/ActionBar/Boosts.lua
-Frames/ActionBar/CtrlFlip.lua
+Frames/ActionBar/Clouds.lua
+Frames/ActionBar/Visibility.lua
+Frames/ActionBar/Glow.lua
+Frames/ActionBar/Pad6.lua
 Frames/ActionBar/Buttons.lua
 Frames/ActionBar/Manager.lua
 Frames/PanelFrame.lua

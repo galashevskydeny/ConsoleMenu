@@ -68,28 +68,108 @@ ActionBar.slot12IconPadding = (ActionBar.slot12ContainerHeight - (ActionBar.butt
 ActionBar.slot12LabelGap = ActionBar.slot12IconPadding + 6
 ActionBar.slot12LabelEdgePadding = ActionBar.slot12IconPadding
 ActionBar.slot12LabelRightPadding = ActionBar.slot12IconPadding + 12
+-- Плашка островка. Картинка вдвое крупнее показа: торцы круглые, при расширении тянется только середина.
+ActionBar.slot12PlateTexture = "Interface\\AddOns\\ConsoleMenu\\Assets\\GroupIcon3.png"
+ActionBar.slot12PlateTexWidth = 380
+ActionBar.slot12PlateTexHeight = 140
+-- Зазор до верхних кнопок соседних групп, чтобы расширенный островок их не касался.
+ActionBar.slot12SideGap = 16
 -- Высота верхнего ряда значков с учётом внутреннего отступа панельки тачпада.
 ActionBar.topRowOffsetY = ActionBar.buttonVerticalPadding + ActionBar.buttonSize / 2 + ActionBar.slot12IconPadding
+
+-- Ширина островка без полосы названия: кружок и отступы вокруг него.
+function ActionBar.Slot12ChromeWidth()
+    return ActionBar.slot12IconPadding
+        + ActionBar.buttonSize + 8
+        + ActionBar.slot12LabelGap
+        + ActionBar.slot12LabelRightPadding
+end
+
+-- Расстояние от левого края островка до центра кружка.
+function ActionBar.Slot12IconCenterOffset()
+    return ActionBar.slot12IconPadding + (ActionBar.buttonSize + 8) / 2
+end
+
+-- Наибольшая ширина островка: он остаётся по центру и не доходит до верхних кнопок групп.
+function ActionBar.Slot12MaxWidth()
+    local halfButton = ActionBar.buttonSize / 2 + (ActionBar.glowGrowSize or 0) / 2
+    local gap = ActionBar.slot12SideGap or 0
+    local center = ActionBar.frameWidth / 2
+    local leftInner = ActionBar.paddingPADD + halfButton + gap
+    local rightInner = ActionBar.frameWidth - ActionBar.paddingPAD - halfButton - gap
+    local leftRoom = (center - leftInner) * 2
+    local rightRoom = (rightInner - center) * 2
+    local span = leftRoom
+    if rightRoom < span then
+        span = rightRoom
+    end
+    if span < ActionBar.slot12ContainerWidth then
+        return ActionBar.slot12ContainerWidth
+    end
+    return span
+end
+
+-- Ставит кружок умения на левый край островка и снимает наклон после подброса.
+function ActionBar.PlaceSlot12Icon(btn)
+    if not btn then
+        return
+    end
+
+    local background = btn.background
+    if background then
+        background:ClearAllPoints()
+        background:SetPoint("LEFT", btn, "LEFT", ActionBar.slot12IconPadding, 0)
+        background:SetSize(ActionBar.buttonSize + 8, ActionBar.buttonSize + 8)
+        if background.SetRotation then
+            background:SetRotation(0)
+        end
+    end
+
+    local texture = btn.texture
+    if texture then
+        texture:ClearAllPoints()
+        texture:SetSize(ActionBar.buttonSize, ActionBar.buttonSize)
+        if background then
+            texture:SetPoint("CENTER", background, "CENTER", 0, 0)
+        end
+        texture:SetVertexColor(1, 1, 1)
+        if texture.SetRotation then
+            texture:SetRotation(0)
+        end
+    end
+
+    if btn.mask and btn.mask.SetRotation then
+        btn.mask:SetRotation(0)
+    end
+end
 
 ActionBar.shadowSize = 320
 -- Ареол правой группы чуть крупнее, пока в свёрнутом облаке есть дополнительное действие.
 ActionBar.shadowSizeWithExtra = 384
 
 ActionBar.animationDuration = 0.05
+-- Сколько секунд скрытая панель вырастает, когда зажата дополнительная клавиша.
+ActionBar.spellRevealShowDuration = 0.28
+-- Сколько секунд панель сдувается после отпускания этой клавиши.
+ActionBar.spellRevealHideDuration = 0.2
+
+-- Вынос центра значка от середины группы. Якорь по центру, чтобы рост и спад панели не сдвигали значок.
+local buttonReachX = ActionBar.buttonHorizontalPadding + ActionBar.buttonSize / 2
+local buttonReachY = ActionBar.buttonVerticalPadding + ActionBar.buttonSize / 2
 
 -- Второй элемент — ключ якоря: right — правая группа, left — левая, bar — сама панель.
 ActionBar.buttonPositions = {
-    PADRSTICK = { "TOP", "right", "BOTTOM", 0, -ActionBar.buttonVerticalPadding },
-    PADLSTICK = { "TOP", "left", "BOTTOM", 0, -ActionBar.buttonVerticalPadding },
+    PADRSTICK = { "CENTER", "right", "CENTER", 0, -buttonReachY },
+    PADLSTICK = { "CENTER", "left", "CENTER", 0, -buttonReachY },
 
-    PAD2 = { "LEFT", "right", "RIGHT", ActionBar.buttonHorizontalPadding, 0 },
-    PAD3 = { "RIGHT", "right", "LEFT", -ActionBar.buttonHorizontalPadding, 0 },
-    PAD4 = { "BOTTOM", "right", "TOP", 0, ActionBar.buttonVerticalPadding },
+    PAD2 = { "CENTER", "right", "CENTER", buttonReachX, 0 },
+    PAD3 = { "CENTER", "right", "CENTER", -buttonReachX, 0 },
+    PAD4 = { "CENTER", "right", "CENTER", 0, buttonReachY },
 
-    PADDUP = { "BOTTOM", "left", "TOP", 0, ActionBar.buttonVerticalPadding },
-    PADDRIGHT = { "LEFT", "left", "RIGHT", ActionBar.buttonHorizontalPadding, 0 },
-    PADDLEFT = { "RIGHT", "left", "LEFT", -ActionBar.buttonHorizontalPadding, 0 },
-    PADDDOWN = { "TOP", "left", "BOTTOM", 0, -ActionBar.buttonVerticalPadding },
+    PADDUP = { "CENTER", "left", "CENTER", 0, buttonReachY },
+    PADDRIGHT = { "CENTER", "left", "CENTER", buttonReachX, 0 },
+    PADDLEFT = { "CENTER", "left", "CENTER", -buttonReachX, 0 },
+    PADDDOWN = { "CENTER", "left", "CENTER", 0, -buttonReachY },
 
     -- Сенсорная панель DualSense: по центру, на высоте верхнего ряда крестовины и лицевых кнопок
     PAD6 = { "CENTER", "bar", "CENTER", 0, ActionBar.topRowOffsetY },
@@ -164,8 +244,18 @@ ActionBar.mainFaceButtonKeys = {
     PAD4 = true,
     PAD2 = true,
 }
+-- Умения облака правого рычага: вверх, вправо, вниз, влево его панели.
+ActionBar.rightCloudKeys = { "PADDUP", "PADDRIGHT", "PADDDOWN", "PADDLEFT" }
+-- Умения облака левого рычага: квадрат, треугольник и круг его панели.
+ActionBar.leftCloudKeys = { "PAD3", "PAD4", "PAD2" }
+-- Эти кнопки не переворачиваются, пока модификатор сидит на правом рычаге.
+ActionBar.rightStickStillKeys = {
+    PAD3 = true,
+    PAD4 = true,
+    PAD2 = true,
+}
 -- Дополнительная кнопка действия: самый крупный значок в центре облака.
-ActionBar.boostExtraCloudSize = 46
+ActionBar.boostExtraCloudSize = 40
 -- Покой у правого рычага, посадка в центре панели — в координатах самой панели.
 ActionBar.boostExtraRestX = ActionBar.frameWidth / 2 - ActionBar.paddingPAD
 ActionBar.boostExtraRestY = -ActionBar.boostExpandOffset
@@ -415,9 +505,6 @@ function ActionBar.ScheduleCountRetry(slotID)
                 ActionBar.UpdateCount(id)
             end
         end
-        if ActionBar.UpdateBoosts then
-            ActionBar.UpdateBoosts()
-        end
     end)
 end
 
@@ -568,6 +655,40 @@ function ActionBar.IsSlotOnActivePage(slotID)
     end
 
     local page = C_ActionBar.GetActionBarPage() or 1
+    local startSlot = 12 * (page - 1) + 1
+    return slotID >= startSlot and slotID < startSlot + 12
+end
+
+-- Страница, с которой в бою берутся квадрат, круг и треугольник. Вне боя третья страница её не затирает.
+ActionBar.combatPage = ActionBar.combatPage or 1
+
+-- Запоминает первую или вторую страницу, пока идёт бой или подготовка к нему.
+function ActionBar.RememberCombatPage()
+    if not ConsoleMenu.GetPlayerContext then
+        return
+    end
+    local context = ConsoleMenu:GetPlayerContext()
+    if context ~= "combat" and context ~= "precombat" then
+        return
+    end
+    if not C_ActionBar or not C_ActionBar.GetActionBarPage then
+        return
+    end
+    local page = C_ActionBar.GetActionBarPage() or 1
+    if page == 1 or page == 2 then
+        ActionBar.combatPage = page
+    end
+end
+
+-- Ячейка лежит на запомненной боевой странице.
+function ActionBar.IsSlotOnCombatPage(slotID)
+    if not slotID or slotID < 1 or slotID > 24 then
+        return false
+    end
+    local page = ActionBar.combatPage or 1
+    if page ~= 1 and page ~= 2 then
+        page = 1
+    end
     local startSlot = 12 * (page - 1) + 1
     return slotID >= startSlot and slotID < startSlot + 12
 end
