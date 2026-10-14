@@ -1,6 +1,6 @@
 local ConsoleMenu = _G.ConsoleMenu
 
-local maxItemsCount = 5
+local maxItemsCount = 4
 
 local frameWidth = 304
 
