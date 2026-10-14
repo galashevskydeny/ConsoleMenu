@@ -11,6 +11,8 @@ function Gossip.CopyGossipQuest(quest, inProgress)
         isComplete = quest.isComplete,
         questID = quest.questID,
         questLineID = quest.questLineID,
+        frequency = quest.frequency,
+        questInfoID = quest.questInfoID,
     }
 end
 
@@ -56,7 +58,7 @@ function Gossip.GetGreetingQuests()
 
     if numAvailableQuests > 0 then
         for i = 1, numAvailableQuests do
-            local _, _, _, _, questID = GetAvailableQuestInfo(i)
+            local _, frequency, _, _, questID, _, _, questInfoID = GetAvailableQuestInfo(i)
             local title = GetAvailableTitle(i)
             table.insert(result, {
                 title = title,
@@ -64,6 +66,8 @@ function Gossip.GetGreetingQuests()
                 isComplete = false,
                 index = i,
                 questID = questID,
+                frequency = frequency,
+                questInfoID = questInfoID,
             })
         end
     end

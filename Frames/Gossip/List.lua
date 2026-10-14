@@ -52,7 +52,9 @@ function Gossip.CreateScrollBox()
                 name = quest.title,
                 inProgress = quest.inProgress,
                 isComplete = quest.isComplete,
-                questID = quest.questID
+                questID = quest.questID,
+                frequency = quest.frequency,
+                questInfoID = quest.questInfoID,
             })
         end
 
@@ -99,6 +101,8 @@ function Gossip.CreateScrollBox()
                 inProgress = quest.inProgress,
                 isComplete = quest.isComplete,
                 questID = quest.questID,
+                frequency = quest.frequency,
+                questInfoID = quest.questInfoID,
                 index = quest.index
             })
         end

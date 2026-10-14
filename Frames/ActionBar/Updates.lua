@@ -1081,6 +1081,29 @@ end
 
 local glowSizeDriver
 
+-- Увеличение до штатного размера, а не рост из-за своего свечения и не уменьшение.
+local function SizeReturnsHome(origin, target)
+    local standard = ActionBar.buttonSize or 0
+    return (target or 0) > (origin or 0) and math.abs((target or 0) - standard) <= 0.5
+end
+
+-- Сдвиг кончается в нуле: кнопка едет на место раскладки.
+local function ShiftReturnsHome(targetX, targetY)
+    return math.abs(targetX or 0) < 0.05 and math.abs(targetY or 0) < 0.05
+end
+
+-- Возврат домой и движения при свечении длятся разное время.
+local function GlowStepDuration(home)
+    local duration = home and ActionBar.glowHomeDuration or ActionBar.glowMotionDuration
+    if not duration or duration < 0.01 then
+        duration = home and ActionBar.glowMotionDuration or 0.11
+    end
+    if not duration or duration < 0.01 then
+        duration = 0.11
+    end
+    return duration
+end
+
 -- Доводит размеры кнопок до цели и засыпает, когда все уже сели.
 local function StepGlowButtonSizes(_, elapsed)
     local frame = ActionBar.GetFrame()
@@ -1091,10 +1114,6 @@ local function StepGlowButtonSizes(_, elapsed)
     end
 
     local glowingGroups = GlowingGroups(buttons)
-    local duration = ActionBar.glowMotionDuration or 0.11
-    if duration < 0.01 then
-        duration = 0.11
-    end
     local busy = false
 
     for _, btn in pairs(buttons) do
@@ -1120,6 +1139,7 @@ local function StepGlowButtonSizes(_, elapsed)
                             busy = true
                         end
                     else
+                        local duration = GlowStepDuration(SizeReturnsHome(btn.glowBubbleOrigin, target))
                         btn.glowBubbleLife = math.min(1, (life or 0) + (elapsed or 0) / duration)
                         ApplyGlowButtonSize(btn, BubbleSize(btn.glowBubbleOrigin, btn.glowBubbleTarget, btn.glowBubbleLife))
                         if btn.glowBubbleLife < 1 then
@@ -1147,6 +1167,7 @@ local function StepGlowButtonSizes(_, elapsed)
                         busy = true
                     end
                 else
+                    local duration = GlowStepDuration(ShiftReturnsHome(shiftX, shiftY))
                     btn.glowShiftLife = math.min(1, (shiftLife or 0) + (elapsed or 0) / duration)
                     ApplyButtonShift(
                         btn,

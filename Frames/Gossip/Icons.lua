@@ -3,6 +3,123 @@
 local ConsoleMenu = _G.ConsoleMenu
 local Gossip = ConsoleMenu.Gossip
 
+-- Рисунки значка задания: можно взять, можно сдать, ещё не готово.
+-- Смещения держат щит и обёртку внутри ячейки.
+local QUEST_ICON_STYLES = {
+    campaign = {
+        offer = "Crosshair_campaignquest_128",
+        turnIn = "Crosshair_campaignquestturnin_128",
+        progress = "Crosshair_unablecampaignquest_128",
+        left = -6,
+        right = -6,
+        top = 0,
+        bottom = 0,
+    },
+    legendary = {
+        offer = "Crosshair_legendaryquest_128",
+        turnIn = "Crosshair_legendaryquestturnin_128",
+        progress = "Crosshair_unablelegendaryquest_128",
+    },
+    important = {
+        offer = "Crosshair_important_128",
+        turnIn = "Crosshair_importantturnin_128",
+        progress = "Crosshair_unableimportant_128",
+        left = -2,
+        right = -2,
+        top = 2,
+        bottom = 2,
+    },
+    meta = {
+        offer = "Crosshair_Wrapper_128",
+        turnIn = "Crosshair_Wrapperturnin_128",
+        progress = "Crosshair_unableWrapper_128",
+        left = -1,
+        right = -1,
+        top = 2,
+        bottom = 2,
+    },
+    recurring = {
+        offer = "Crosshair_Recurring_128",
+        turnIn = "Crosshair_Recurringturnin_128",
+        progress = "Crosshair_unableRecurring_128",
+    },
+    normal = {
+        offer = "Crosshair_Quest_128",
+        turnIn = "Crosshair_Questturnin_128",
+        progress = "Crosshair_unableQuest_128",
+    },
+}
+
+-- Число, если клиент его не скрывает.
+local function ReadableNumber(value)
+    value = Gossip.Readable(value)
+    if type(value) == "number" then
+        return value
+    end
+end
+
+-- Ежедневное, еженедельное или задание со своим расписанием.
+local function IsRecurringFrequency(frequency)
+    local frequencies = Enum.QuestFrequency
+    if not frequencies or frequency == nil then
+        return false
+    end
+    return frequency == frequencies.Daily
+        or frequency == frequencies.Weekly
+        or frequency == frequencies.ResetByScheduler
+end
+
+-- Частота из пункта диалога или из журнала, если пункт её не принёс.
+local function QuestFrequency(data)
+    local frequency = ReadableNumber(data.frequency)
+    if frequency ~= nil then
+        return frequency
+    end
+    if not (QuestCache and data.questID) then
+        return nil
+    end
+    local quest = QuestCache:Get(data.questID)
+    if not quest then
+        return nil
+    end
+    return ReadableNumber(quest.frequency)
+end
+
+-- Класс значка. Порядок совпадает с окном разговора клиента.
+-- Поручение кампании рисуется щитом кампании: отдельного значка для него нет.
+local function QuestIconStyle(data)
+    local styles = QUEST_ICON_STYLES
+    local classes = Enum.QuestClassification
+    local classification
+    if C_QuestInfoSystem and C_QuestInfoSystem.GetQuestClassification and data.questID then
+        local questInfoID = ReadableNumber(data.questInfoID)
+        if questInfoID == 0 then
+            questInfoID = nil
+        end
+        classification = ReadableNumber(C_QuestInfoSystem.GetQuestClassification(data.questID, questInfoID))
+    end
+
+    if not classes or classification == nil then
+        if IsRecurringFrequency(QuestFrequency(data)) then
+            return styles.recurring
+        end
+        return styles.normal
+    end
+
+    if classification == classes.Campaign or classification == classes.Calling then
+        return styles.campaign
+    elseif classification == classes.Legendary then
+        return styles.legendary
+    elseif classification == classes.Important then
+        return styles.important
+    elseif classification == classes.Meta then
+        return styles.meta
+    elseif classification == classes.Recurring or IsRecurringFrequency(QuestFrequency(data)) then
+        return styles.recurring
+    end
+    return styles.normal
+end
+
 -- Сброс привязки и видимости значка перед новой установкой.
 local function ResetIconTexture(frame)
     if frame.icon.texture then
@@ -16,68 +133,18 @@ end
 
 -- Установка значка пункту списка.
 function Gossip.SetIcon(frame, data)
-    -- Значок задания в зависимости от его класса.
-    local function SetQuestIcon()
-        local classification = C_QuestInfoSystem.GetQuestClassification(data.questID)
-        local classEnum = Enum.QuestClassification
-
-        if classification == classEnum.Important then
-            frame.icon.texture:SetPoint("TOPLEFT", frame.icon, "TOPLEFT", -2, 2)
-            frame.icon.texture:SetPoint("BOTTOMRIGHT", frame.icon, "BOTTOMRIGHT", -2, 2)
-            frame.icon.texture:SetAtlas("Crosshair_important_128")
-        elseif classification == classEnum.Campaign then
-            frame.icon.texture:SetPoint("TOPLEFT", frame.icon, "TOPLEFT", -6, 0)
-            frame.icon.texture:SetPoint("BOTTOMRIGHT", frame.icon, "BOTTOMRIGHT", -6, 0)
-            frame.icon.texture:SetAtlas("Crosshair_campaignquest_128")
-        elseif classification == classEnum.Meta then
-            frame.icon.texture:SetPoint("TOPLEFT", frame.icon, "TOPLEFT", -1, 2)
-            frame.icon.texture:SetPoint("BOTTOMRIGHT", frame.icon, "BOTTOMRIGHT", -1, 2)
-            frame.icon.texture:SetAtlas("Crosshair_Wrapper_128")
-        elseif classification == classEnum.Recurring then
-            frame.icon.texture:SetAllPoints()
-            frame.icon.texture:SetAtlas("Crosshair_Recurring_128")
+    -- Значок задания: предложение, сдача или ещё не готово.
+    local function ApplyQuestIcon(state)
+        local style = QuestIconStyle(data)
+        local texture = frame.icon.texture
+        if style.left then
+            texture:SetPoint("TOPLEFT", frame.icon, "TOPLEFT", style.left, style.top or 0)
+            texture:SetPoint("BOTTOMRIGHT", frame.icon, "BOTTOMRIGHT", style.right, style.bottom or 0)
         else
-            frame.icon.texture:SetAllPoints()
-            frame.icon.texture:SetAtlas("Crosshair_Quest_128")
+            texture:SetAllPoints()
         end
-
-        frame.icon.texture:Show()
-    end
-
-    -- Значок завершения задания в зависимости от его класса.
-    local function SetQuestTurnInIcon()
-        local classification = C_QuestInfoSystem.GetQuestClassification(data.questID)
-        local classEnum = Enum.QuestClassification
-
-        if classification == classEnum.Important then
-            frame.icon.texture:SetPoint("TOPLEFT", frame.icon, "TOPLEFT", -2, 2)
-            frame.icon.texture:SetPoint("BOTTOMRIGHT", frame.icon, "BOTTOMRIGHT", -2, 2)
-            frame.icon.texture:SetAtlas("Crosshair_importantturnin_128")
-        elseif classification == classEnum.Campaign then
-            frame.icon.texture:SetPoint("TOPLEFT", frame.icon, "TOPLEFT", -6, 0)
-            frame.icon.texture:SetPoint("BOTTOMRIGHT", frame.icon, "BOTTOMRIGHT", -6, 0)
-            frame.icon.texture:SetAtlas("Crosshair_campaignquestturnin_128")
-        elseif classification == classEnum.Meta then
-            frame.icon.texture:SetPoint("TOPLEFT", frame.icon, "TOPLEFT", -1, 2)
-            frame.icon.texture:SetPoint("BOTTOMRIGHT", frame.icon, "BOTTOMRIGHT", -1, 2)
-            frame.icon.texture:SetAtlas("Crosshair_Wrapperturnin_128")
-        elseif classification == classEnum.Recurring then
-            frame.icon.texture:SetAllPoints()
-            frame.icon.texture:SetAtlas("Crosshair_Recurringturnin_128")
-        else
-            frame.icon.texture:SetAllPoints()
-            frame.icon.texture:SetAtlas("Crosshair_Questturnin_128")
-        end
-
-        frame.icon.texture:Show()
-    end
-
-    -- Значок прогресса задания.
-    local function SetQuestInProgressIcon()
-        frame.icon.texture:SetPoint("TOPLEFT", frame.icon, "TOPLEFT", -4, 4)
-        frame.icon.texture:SetPoint("BOTTOMRIGHT", frame.icon, "BOTTOMRIGHT", 4, -4)
-        frame.icon.texture:SetAtlas("Quest-In-Progress-Icon-yellow")
-        frame.icon.texture:Show()
+        texture:SetAtlas(style[state] or style.offer)
+        texture:Show()
     end
 
     -- Значок облака общения.
@@ -152,24 +219,24 @@ function Gossip.SetIcon(frame, data)
         frame.icon.texture:Show()
     elseif data.type == "gossipQuest" or data.type == "greetingQuest" then
         if data.isComplete then
-            SetQuestTurnInIcon()
+            ApplyQuestIcon("turnIn")
         elseif data.inProgress then
-            SetQuestInProgressIcon()
+            ApplyQuestIcon("progress")
         else
-            SetQuestIcon()
+            ApplyQuestIcon("offer")
         end
     elseif data.type == "acceptQuest" then
         if Gossip.previousGossip then
             SetSpeakIcon()
         else
-            SetQuestIcon()
+            ApplyQuestIcon("offer")
         end
     elseif data.type == "progressQuest" then
         SetSpeakIcon()
     elseif data.type == "completeQuest" then
-        SetQuestTurnInIcon()
+        ApplyQuestIcon("turnIn")
     elseif data.type == "completeQuestInStoryline" then
-        SetQuestInProgressIcon()
+        ApplyQuestIcon("progress")
     elseif data.type == "completeQuestWithReward" then
         frame.icon.texture:SetAllPoints()
         frame.icon.texture:SetTexture(data.texture)

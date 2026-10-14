@@ -78,6 +78,7 @@ local CraftingQualityOffset = {
 local lootSlots = {}
 
 local UpdateLootList
+local ApplyLootItemContents
 
 -- Номер предмета из ссылки, если игра его уже знает
 local function GetItemIDFromLink(itemLink)
@@ -88,17 +89,28 @@ local function GetItemIDFromLink(itemLink)
     return C_Item.GetItemInfoInstant(itemLink)
 end
 
--- Одинаковы ли две записи добычи
-local function IsSameLootItem(left, right)
+-- Значение скрыто боем и его нельзя сравнивать
+local function IsSecretValue(value)
+    return value ~= nil and issecretvalue and issecretvalue(value)
+end
+
+-- Целое количество не меньше единицы; скрытое или пустое значение остаётся неизвестным
+local function NormalizeLootQuantity(quantity)
+    if quantity == nil or IsSecretValue(quantity) then
+        return nil
+    end
+
+    local number = tonumber(quantity)
+    if not number or number < 1 then
+        return 1
+    end
+
+    return math.floor(number + 0.5)
+end
+
+-- Один и тот же предмет, даже если имя, значок или качество пришли из разных событий
+local function IsSameLootIdentity(left, right)
     if not left or not right then
-        return false
-    end
-
-    if (left.quantity or 1) ~= (right.quantity or 1) then
-        return false
-    end
-
-    if left.craftingQuality ~= right.craftingQuality then
         return false
     end
 
@@ -106,23 +118,45 @@ local function IsSameLootItem(left, right)
         return left.itemID == right.itemID
     end
 
-    return left.itemName == right.itemName
-        and left.itemQuality == right.itemQuality
-        and left.itemTexture == right.itemTexture
+    if not left.itemName or left.itemName ~= right.itemName then
+        return false
+    end
+
+    -- Ранги реагента считаем разными, только если оба ранга известны, а номер предмета ещё нет
+    if left.craftingQuality and right.craftingQuality and left.craftingQuality ~= right.craftingQuality then
+        return false
+    end
+
+    return true
 end
 
--- Уже есть такой предмет в очереди или на экране
-local function HasDuplicateLootItem(itemData)
+-- Повтор той же добычи: то же число либо вторая запись без своего количества
+local function IsLootEcho(existing, incoming)
+    if not IsSameLootIdentity(existing, incoming) then
+        return false
+    end
+
+    local left = existing.quantity
+    local right = incoming.quantity
+    if not left or not right or left == right then
+        return true
+    end
+
+    return left == 1 or right == 1
+end
+
+-- Ищет ту же добычу в очереди, на экране и среди строк, которые ещё гаснут
+local function FindLootEcho(itemData)
     local lootFrame = ConsoleMenuFrame and ConsoleMenuFrame.LootListFrame
     if not lootFrame then
-        return false
+        return nil
     end
 
     local displayed = lootFrame.DisplayedItems
     if displayed then
         for i = 1, #displayed do
-            if IsSameLootItem(displayed[i], itemData) then
-                return true
+            if IsLootEcho(displayed[i], itemData) then
+                return displayed[i]
             end
         end
     end
@@ -130,13 +164,23 @@ local function HasDuplicateLootItem(itemData)
     local queue = lootFrame.Queue
     if queue then
         for i = 1, #queue do
-            if IsSameLootItem(queue[i], itemData) then
-                return true
+            if IsLootEcho(queue[i], itemData) then
+                return queue[i]
             end
         end
     end
 
-    return false
+    if lootFrame.Items then
+        for i = 1, maxItemsCount do
+            local itemFrame = lootFrame.Items["Item" .. i]
+            local departing = itemFrame and itemFrame.departingItem
+            if departing and IsLootEcho(departing, itemData) then
+                return departing
+            end
+        end
+    end
+
+    return nil
 end
 
 -- Собирает данные слота, если это предмет, а не валюта
@@ -159,6 +203,7 @@ local function BuildLootSlotData(slotIndex)
         itemTexture = itemTexture,
         craftingQuality = craftingQuality,
         itemID = GetItemIDFromLink(itemLink),
+        itemLink = itemLink,
     }
 end
 
@@ -192,6 +237,43 @@ local function ClearLootSlots()
     wipe(lootSlots)
 end
 
+-- Групповое распределение: нужность, не откажусь и распыление
+local function IsGroupRollLootMethod(method)
+    if method == nil or IsSecretValue(method) then
+        return false
+    end
+
+    local lootMethod = Enum and Enum.LootMethod
+    if lootMethod and (method == lootMethod.Group or method == lootMethod.Needbeforegreed) then
+        return true
+    end
+
+    return method == "group" or method == "needbeforegreed"
+end
+
+-- Слот закрыли, потому что предмет ещё будут разыгрывать, а не потому что игрок его забрал
+local function ClearedSlotIsPendingRoll(slotData)
+    if not slotData or not C_PartyInfo or not C_PartyInfo.GetLootMethod then
+        return false
+    end
+
+    if not IsGroupRollLootMethod(C_PartyInfo.GetLootMethod()) then
+        return false
+    end
+
+    local quality = slotData.itemQuality
+    if quality == nil or IsSecretValue(quality) or not GetLootThreshold then
+        return false
+    end
+
+    local threshold = GetLootThreshold()
+    if threshold == nil or IsSecretValue(threshold) then
+        return false
+    end
+
+    return quality >= threshold
+end
+
 -- Свободные строки: только полностью скрытые, уходящие не забираем
 local function FindItemFrames()
     if not ConsoleMenuFrame.LootListFrame or not ConsoleMenuFrame.LootListFrame.Items then
@@ -222,21 +304,57 @@ local function AddItem(itemData)
     end
 
     local itemName = itemData.itemName
-    if not itemName or itemName == "" then
+    if not itemName or itemName == "" or IsSecretValue(itemName) then
         return
     end
 
+    local itemID = itemData.itemID
+    if not itemID and itemData.itemLink then
+        itemID = GetItemIDFromLink(itemData.itemLink)
+    end
+
     local normalizedData = {
-        quantity = itemData.quantity or 1,
+        quantity = NormalizeLootQuantity(itemData.quantity),
         itemName = itemName,
         itemQuality = itemData.itemQuality or 0,
         itemTexture = itemData.itemTexture,
         craftingQuality = itemData.craftingQuality,
         isCraftingReagent = itemData.isCraftingReagent,
-        itemID = itemData.itemID,
+        itemID = itemID,
     }
 
-    if HasDuplicateLootItem(normalizedData) then
+    local echo = FindLootEcho(normalizedData)
+    if echo then
+        -- Вторая запись той же добычи дополняет первую, а не рисует ещё одну иконку
+        local refresh = false
+        if not echo.itemID and normalizedData.itemID then
+            echo.itemID = normalizedData.itemID
+        end
+        if not echo.itemTexture and normalizedData.itemTexture then
+            echo.itemTexture = normalizedData.itemTexture
+            refresh = true
+        end
+        if not echo.craftingQuality and normalizedData.craftingQuality then
+            echo.craftingQuality = normalizedData.craftingQuality
+            refresh = true
+        end
+        if normalizedData.quantity and (not echo.quantity or normalizedData.quantity > echo.quantity) then
+            echo.quantity = normalizedData.quantity
+            refresh = true
+        end
+
+        if refresh and ApplyLootItemContents then
+            local lootFrame = ConsoleMenuFrame and ConsoleMenuFrame.LootListFrame
+            if lootFrame and lootFrame.Items then
+                for i = 1, maxItemsCount do
+                    local itemFrame = lootFrame.Items["Item" .. i]
+                    if itemFrame and (itemFrame.lootItem == echo or itemFrame.departingItem == echo) then
+                        ApplyLootItemContents(itemFrame, echo)
+                        break
+                    end
+                end
+            end
+        end
         return
     end
 
@@ -660,6 +778,8 @@ local function OnItemsUpdate(items, elapsed)
             local itemFrame = lootFrame.Items["Item" .. i]
             if itemFrame and itemFrame.pendingHide then
                 itemFrame.pendingHide = nil
+                itemFrame.departingItem = nil
+                itemFrame.layoutSlot = nil
                 StopContent(itemFrame)
                 itemFrame:SetAlpha(1)
                 ResetContentVisuals(itemFrame, false)
@@ -843,6 +963,22 @@ local function HideLootLabel(holder)
     ConsoleMenu:AnimatedHide(holder)
 end
 
+-- Ставит строку на место в столбике и запоминает номер этого места
+local function PlaceLootRow(itemFrame, slot, appearIndex)
+    local targetY = GetItemSlotOffset(slot)
+    itemFrame.layoutSlot = slot
+    if itemFrame.enterFromLeft then
+        itemFrame.enterFromLeft = nil
+        -- Новая строка встаёт в слот на месте: едет только имя, не вся строка
+        SnapItemMotion(itemFrame, 0, targetY)
+        StartContentIn(itemFrame, appearIndex * batchStagger)
+        return appearIndex + 1
+    end
+
+    StartItemMotion(itemFrame, 0, targetY)
+    return appearIndex
+end
+
 -- Расставляет строки по устойчивому порядку показа: новые сверху, без смены мест у остальных
 local function UpdateListItemsPoints()
     local lootFrame = ConsoleMenuFrame.LootListFrame
@@ -851,10 +987,16 @@ local function UpdateListItemsPoints()
     end
 
     local frames = {}
+    local reserved = {}
+    local hasDeparting = false
     for i = 1, maxItemsCount do
         local itemFrame = lootFrame.Items["Item" .. i]
         if itemFrame and itemFrame.lootItem then
             table.insert(frames, itemFrame)
+        elseif itemFrame and itemFrame:IsShown() and itemFrame.layoutSlot then
+            -- Уходящая строка ещё занимает своё место, новую поверх неё не ставим
+            reserved[itemFrame.layoutSlot] = true
+            hasDeparting = true
         end
     end
 
@@ -872,19 +1014,35 @@ local function UpdateListItemsPoints()
         return (a.startTime or 0) > (b.startTime or 0)
     end)
 
-    local appearIndex = 0
+    if not hasDeparting then
+        local appearIndex = 0
+        for i = 1, #frames do
+            appearIndex = PlaceLootRow(frames[i], i, appearIndex)
+        end
+        return
+    end
+
     for i = 1, #frames do
         local itemFrame = frames[i]
-        local targetY = GetItemSlotOffset(i)
-        if itemFrame.enterFromLeft then
-            itemFrame.enterFromLeft = nil
-            -- Новая строка встаёт в слот на месте: едет только имя, не вся строка
-            SnapItemMotion(itemFrame, 0, targetY)
-            StartContentIn(itemFrame, appearIndex * batchStagger)
-            appearIndex = appearIndex + 1
-        else
-            StartItemMotion(itemFrame, 0, targetY)
+        if not itemFrame.enterFromLeft and itemFrame.layoutSlot then
+            reserved[itemFrame.layoutSlot] = true
         end
+    end
+
+    local appearIndex = 0
+    local nextSlot = 1
+    for i = 1, #frames do
+        local itemFrame = frames[i]
+        local slot = itemFrame.layoutSlot
+        if itemFrame.enterFromLeft or not slot or not reserved[slot] then
+            while reserved[nextSlot] and nextSlot < maxItemsCount do
+                nextSlot = nextSlot + 1
+            end
+            slot = nextSlot
+            reserved[slot] = true
+            nextSlot = nextSlot + 1
+        end
+        appearIndex = PlaceLootRow(itemFrame, slot, appearIndex)
     end
 end
 
@@ -984,50 +1142,55 @@ ReanchorLootListBackground = function()
     background:SetPoint("BOTTOMRIGHT", bottomTarget, "BOTTOMRIGHT", bottomRightX, bottomRightY)
 end
 
--- Функция для обновления фрейма предмета
-local function UpdateItemFrame(frame, item)
-    if not item then return end
+-- Рисует значок, метку качества реагента и подпись с количеством
+ApplyLootItemContents = function(frame, item)
+    if not frame or not item or not frame.Icon or not frame.Text then
+        return
+    end
 
     local itemName = item.itemName or UNKNOWN
     local itemQuality = item.itemQuality or 0
-    local quantity = item.quantity or 1
+    local quantity = item.quantity
 
     frame.Icon.Texture:SetTexture(item.itemTexture)
-    
-    if item.craftingQuality then
-        frame.Icon.CraftingQuality:SetPoint("TOPLEFT", frame.Icon, "TOPLEFT", CraftingQualityOffset[item.craftingQuality][1], -CraftingQualityOffset[item.craftingQuality][2])
-        
-        local atlasName = CraftingQualityTexture[item.craftingQuality]
 
+    local qualityOffset = item.craftingQuality and CraftingQualityOffset[item.craftingQuality]
+    local atlasName = item.craftingQuality and CraftingQualityTexture[item.craftingQuality]
+    local atlasInfo = atlasName and C_Texture.GetAtlasInfo(atlasName)
+    if frame.Icon.CraftingQuality and qualityOffset and atlasInfo and atlasInfo.width and atlasInfo.width > 0 then
+        frame.Icon.CraftingQuality:ClearAllPoints()
+        frame.Icon.CraftingQuality:SetPoint("TOPLEFT", frame.Icon, "TOPLEFT", qualityOffset[1], -qualityOffset[2])
         frame.Icon.CraftingQuality:SetAtlas(atlasName)
-        local atlasInfo = C_Texture.GetAtlasInfo(atlasName)
-
         frame.Icon.CraftingQuality:SetWidth(craftingQualityIconSize)
         frame.Icon.CraftingQuality:SetHeight(craftingQualityIconSize / atlasInfo.width * atlasInfo.height)
-        
         frame.Icon.CraftingQuality:Show()
     elseif frame.Icon.CraftingQuality then
         frame.Icon.CraftingQuality:Hide()
     end
 
     local text = itemName
-
     local colorCode = ITEM_QUALITY_COLORS[itemQuality] and ITEM_QUALITY_COLORS[itemQuality].hex
-
     if colorCode and itemQuality >= 3 then
         text = colorCode .. text .. "|r"
     end
-
-    if quantity > 1 then
+    if quantity and not IsSecretValue(quantity) and quantity > 1 then
         text = text .. " x" .. quantity
     end
 
     frame.Text:SetText(text)
+end
+
+-- Функция для обновления фрейма предмета
+local function UpdateItemFrame(frame, item)
+    if not item then return end
+
+    ApplyLootItemContents(frame, item)
 
     RestoreItemLevel(frame)
     frame.startTime = item.startTime
     frame.addSequence = item.addSequence
     frame.sortOrder = nil
+    frame.departingItem = nil
     frame.lootItem = item
     -- Новая строка: значок вырастает, имя выезжает следом
     frame.enterFromLeft = true
@@ -1062,6 +1225,7 @@ local function UpdateItemFrame(frame, item)
             end
         end
 
+        frame.departingItem = item
         frame.lootItem = nil
         frame.startTime = nil
         frame.sortOrder = nil
@@ -1089,6 +1253,7 @@ local function HideLootListForCombat()
         for i = 1, maxItemsCount do
             local itemFrame = lootFrame.Items["Item" .. i]
             if itemFrame then
+                local shownItem = itemFrame.lootItem
                 itemFrame.displayToken = (itemFrame.displayToken or 0) + 1
                 itemFrame.lootItem = nil
                 itemFrame.startTime = nil
@@ -1096,11 +1261,14 @@ local function HideLootListForCombat()
                 itemFrame.enterFromLeft = nil
                 if itemFrame:IsShown() then
                     -- В бою уходим на месте, тем же движением, что и по таймеру
+                    itemFrame.departingItem = shownItem
                     local _, currentY = GetItemOffsets(itemFrame)
                     SnapItemMotion(itemFrame, 0, currentY)
                     RaiseDepartingItem(itemFrame)
                     StartContentOut(itemFrame)
                 else
+                    itemFrame.departingItem = nil
+                    itemFrame.layoutSlot = nil
                     RestoreItemLevel(itemFrame)
                     StopContent(itemFrame)
                     itemFrame.pendingHide = nil
@@ -1366,6 +1534,7 @@ function ConsoleMenu:SetLootList()
     frame:RegisterEvent("LOOT_SLOT_CHANGED")
     frame:RegisterEvent("LOOT_SLOT_CLEARED")
     frame:RegisterEvent("LOOT_CLOSED")
+    frame:RegisterEvent("LOOT_ITEM_ROLL_WON")
     frame:RegisterEvent("TRADE_SKILL_ITEM_CRAFTED_RESULT")
     frame:RegisterEvent("QUEST_LOOT_RECEIVED")
     frame:RegisterEvent("SHOW_LOOT_TOAST")
@@ -1395,13 +1564,17 @@ function ConsoleMenu:SetLootList()
             ClearLootSlots()
             return
         elseif event == "LOOT_SLOT_CLEARED" then
-            -- Слот забрали: показываем только фактически полученный предмет
+            -- Слот закрыт. На распределение предмет ещё не получен, его покажет победа в розыгрыше
             local slotIndex = ...
             local slotData = lootSlots[slotIndex]
             lootSlots[slotIndex] = nil
-            if slotData then
+            if slotData and not ClearedSlotIsPendingRoll(slotData) then
                 AddItem(slotData)
             end
+        elseif event == "LOOT_ITEM_ROLL_WON" then
+            local itemLink, quantity = ...
+            AddItemFromLink(itemLink, quantity)
+            return
         elseif event == "TRADE_SKILL_ITEM_CRAFTED_RESULT" then
             local data = ...
             if not data then
