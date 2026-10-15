@@ -97,9 +97,9 @@ local function HideUnitNameSettings()
     SetCVar("UnitNameHostleNPC", 0)
     SetCVar("UnitNameInteractiveNPC", 0)
 
-    SetCVar("SoftTargetNameplateInteract", 1)
+    SetCVar("SoftTargetNameplateInteract", 0)
     SetCVar("SoftTargetNameplateEnemy", 1)
-    SetCVar("nameplateShowFriendlyNPCs", 1)
+    SetCVar("nameplateShowFriendlyNPCs", 0)
 end
 
 -- Возвращает настройки отображения имен к значениям по умолчанию
