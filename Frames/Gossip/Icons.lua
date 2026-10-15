@@ -3,13 +3,12 @@
 local ConsoleMenu = _G.ConsoleMenu
 local Gossip = ConsoleMenu.Gossip
 
--- Рисунки значка задания: можно взять, можно сдать, ещё не готово.
+-- Рисунки значка задания: можно взять или можно сдать.
 -- Смещения держат щит и обёртку внутри ячейки.
 local QUEST_ICON_STYLES = {
     campaign = {
         offer = "Crosshair_campaignquest_128",
         turnIn = "Crosshair_campaignquestturnin_128",
-        progress = "Crosshair_unablecampaignquest_128",
         left = -6,
         right = -6,
         top = 0,
@@ -18,12 +17,10 @@ local QUEST_ICON_STYLES = {
     legendary = {
         offer = "Crosshair_legendaryquest_128",
         turnIn = "Crosshair_legendaryquestturnin_128",
-        progress = "Crosshair_unablelegendaryquest_128",
     },
     important = {
         offer = "Crosshair_important_128",
         turnIn = "Crosshair_importantturnin_128",
-        progress = "Crosshair_unableimportant_128",
         left = -2,
         right = -2,
         top = 2,
@@ -32,7 +29,6 @@ local QUEST_ICON_STYLES = {
     meta = {
         offer = "Crosshair_Wrapper_128",
         turnIn = "Crosshair_Wrapperturnin_128",
-        progress = "Crosshair_unableWrapper_128",
         left = -1,
         right = -1,
         top = 2,
@@ -41,12 +37,10 @@ local QUEST_ICON_STYLES = {
     recurring = {
         offer = "Crosshair_Recurring_128",
         turnIn = "Crosshair_Recurringturnin_128",
-        progress = "Crosshair_unableRecurring_128",
     },
     normal = {
         offer = "Crosshair_Quest_128",
         turnIn = "Crosshair_Questturnin_128",
-        progress = "Crosshair_unableQuest_128",
     },
 }
 
@@ -133,7 +127,7 @@ end
 
 -- Установка значка пункту списка.
 function Gossip.SetIcon(frame, data)
-    -- Значок задания: предложение, сдача или ещё не готово.
+    -- Значок задания: можно взять или можно сдать.
     local function ApplyQuestIcon(state)
         local style = QuestIconStyle(data)
         local texture = frame.icon.texture
@@ -144,6 +138,15 @@ function Gossip.SetIcon(frame, data)
             texture:SetAllPoints()
         end
         texture:SetAtlas(style[state] or style.offer)
+        texture:Show()
+    end
+
+    -- Значок задания, которое ещё выполняется.
+    local function SetQuestInProgressIcon()
+        local texture = frame.icon.texture
+        texture:SetPoint("TOPLEFT", frame.icon, "TOPLEFT", -4, 4)
+        texture:SetPoint("BOTTOMRIGHT", frame.icon, "BOTTOMRIGHT", 4, -4)
+        texture:SetAtlas("Quest-In-Progress-Icon-yellow")
         texture:Show()
     end
 
@@ -221,7 +224,7 @@ function Gossip.SetIcon(frame, data)
         if data.isComplete then
             ApplyQuestIcon("turnIn")
         elseif data.inProgress then
-            ApplyQuestIcon("progress")
+            SetQuestInProgressIcon()
         else
             ApplyQuestIcon("offer")
         end
@@ -236,7 +239,7 @@ function Gossip.SetIcon(frame, data)
     elseif data.type == "completeQuest" then
         ApplyQuestIcon("turnIn")
     elseif data.type == "completeQuestInStoryline" then
-        ApplyQuestIcon("progress")
+        SetQuestInProgressIcon()
     elseif data.type == "completeQuestWithReward" then
         frame.icon.texture:SetAllPoints()
         frame.icon.texture:SetTexture(data.texture)
