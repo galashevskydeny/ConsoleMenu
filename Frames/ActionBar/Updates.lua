@@ -43,8 +43,24 @@ function ActionBar.EnableAllRangeChecks()
     if not frame then
         return
     end
-    for slotID in pairs(frame.actionButtons) do
-        ActionBar.EnableRangeCheck(slotID, true)
+    for _, btn in pairs(frame.actionButtons) do
+        local slots = btn.IconFrame and btn.IconFrame.slots
+        if slots then
+            if slots.base then
+                ActionBar.EnableRangeCheck(slots.base, true)
+            end
+            if slots.SHIFT then
+                ActionBar.EnableRangeCheck(slots.SHIFT, true)
+            end
+            if slots.CTRL then
+                ActionBar.EnableRangeCheck(slots.CTRL, true)
+            end
+            if slots.ALT then
+                ActionBar.EnableRangeCheck(slots.ALT, true)
+            end
+        elseif btn.slotID then
+            ActionBar.EnableRangeCheck(btn.slotID, true)
+        end
     end
 end
 
@@ -327,6 +343,10 @@ end
 
 -- Обновление значка клавиши на заполненной ячейке.
 local function UpdateActionButtonIcon(slotID)
+    if ActionBar.UpdateButton then
+        ActionBar.UpdateButton(slotID)
+        return
+    end
     local btn = ActionBar.GetButton(slotID)
     if not btn or not btn.Icon or not btn.Icon.Texture or not btn.mainKey then return end
 
@@ -566,6 +586,10 @@ end
 
 -- Обновление текстуры умения на кнопке.
 local function UpdateActionButtonTexture(slotID)
+    if ActionBar.UpdateButton then
+        ActionBar.UpdateButton(slotID)
+        return
+    end
     local btn = ActionBar.GetButton(slotID)
     if not btn or not btn.texture then return end
     -- Во время подброса лицо кнопки задаёт переворот, обычное обновление его не затирает.
@@ -652,32 +676,27 @@ local function SetIconGray(texture, gray, keepShade)
     texture:SetVertexColor(1, 1, 1)
 end
 
--- Обновление обесцвечивания значка по пригодности, восстановлению и блокировке.
-local function UpdateActionButtonTextureDesaturation(btn, slotID, isUsable, isLackingResources)
-    if not btn or not btn.texture then
-        return
+-- Нужно ли обесцветить видимую способность по пригодности, дальности и модификатору.
+function ActionBar.IconNeedsDesaturation(btn, slotID, isUsable, isLackingResources)
+    if not btn or not slotID then
+        return false
     end
-
-    -- В полёте остаётся блик ребра, но серый рисунок уже соответствует видимой стороне.
-    local keepShade = btn.flipBusy or btn.coinActive or btn.coinInAir or (btn.ctrlFlipOwned and not btn.ctrlFaceSettled)
 
     -- Предмет без применения всегда обесцвечен. Пустую ячейку этим правилом не красим.
     local hasAction = C_ActionBar and C_ActionBar.HasAction and C_ActionBar.HasAction(slotID)
     if hasAction and not IsSecretValue(hasAction) and not ActionBar.SlotHasUseAction(slotID) then
-        SetIconGray(btn.texture, true, keepShade)
-        return
+        return true
     end
 
-    -- Получаем значения пригодности и недостатка маны если не заданы
     if isUsable == nil or isLackingResources == nil then
         if C_ActionBar and C_ActionBar.IsUsableAction then
             isUsable, isLackingResources = C_ActionBar.IsUsableAction(slotID)
         else
-            isUsable, isLackingResources = true, false -- fallback
+            isUsable, isLackingResources = true, false
         end
     end
 
-    -- Серым умение делает только своё восстановление. Общее восстановление и застывший кадр таймера цвет не держат.
+    -- Серым умение делает только своё восстановление. Общее восстановление цвет не держит.
     local onCooldown = false
     if C_ActionBar and C_ActionBar.GetActionCooldown then
         local info = C_ActionBar.GetActionCooldown(slotID)
@@ -692,21 +711,38 @@ local function UpdateActionButtonTextureDesaturation(btn, slotID, isUsable, isLa
         gray = C_LevelLink.IsActionLocked(slotID) and true or false
     end
 
-    -- Правый рычаг раскрывает облако на крестовине: квадрат, треугольник и круг основной панели остаются серыми.
-    -- Пока основная иконка сама переворачивается в умение усиления, её не обесцвечиваем.
+    -- Пока кнопка переходит на способность модификатора, отсутствие сочетания её не обесцвечивает.
     if not gray and btn.heldGray then
         gray = true
     end
 
-    if not gray and not btn.flipBusy and not btn.boostShowingAlt and btn.mainKey and ActionBar.IsMainFaceButtonKey(btn.mainKey) and not btn.modifierKey and ActionBar.ShouldGrayFaceButtons() then
+    if not gray and not btn.flipBusy and not btn.boostShowingAlt and btn.mainKey and ActionBar.IsMainFaceButtonKey and ActionBar.IsMainFaceButtonKey(btn.mainKey) and not btn.modifierKey and ActionBar.ShouldGrayFaceButtons and ActionBar.ShouldGrayFaceButtons() then
         gray = true
     end
 
+    return gray
+end
+
+-- Обновление обесцвечивания значка облака. Кнопка панели красит себя сама.
+local function UpdateActionButtonTextureDesaturation(btn, slotID, isUsable, isLackingResources)
+    if not btn or not btn.texture then
+        return
+    end
+    if btn.IconFrame and btn.IconFrame.EnableDesaturation then
+        return
+    end
+
+    local keepShade = btn.flipBusy or btn.coinActive or btn.coinInAir or (btn.ctrlFlipOwned and not btn.ctrlFaceSettled)
+    local gray = ActionBar.IconNeedsDesaturation(btn, slotID, isUsable, isLackingResources)
     SetIconGray(btn.texture, gray, keepShade)
 end
 
 -- Обновление пригодности кнопки к применению.
 local function UpdateActionButtonUsable(slotID, isUsable, isLackingResources)
+    if ActionBar.UpdateButton then
+        ActionBar.UpdateButton(slotID, nil, isUsable, isLackingResources)
+        return
+    end
     local btn = ActionBar.GetButton(slotID)
     if not btn or not btn.texture then return end
 
@@ -735,8 +771,10 @@ local function RepaintButtonColors()
     if not frame or not frame.actionButtons then
         return
     end
-    for slotID in pairs(frame.actionButtons) do
-        UpdateActionButtonUsable(slotID)
+    for _, btn in pairs(frame.actionButtons) do
+        if btn.slotID then
+            UpdateActionButtonUsable(btn.slotID)
+        end
     end
 end
 
@@ -747,9 +785,9 @@ function ActionBar.RefreshFaceButtonDesaturation()
         return
     end
 
-    for slotID, btn in pairs(frame.actionButtons) do
-        if ActionBar.IsMainFaceButtonKey(btn.mainKey) and not btn.modifierKey then
-            UpdateActionButtonUsable(slotID)
+    for _, btn in pairs(frame.actionButtons) do
+        if btn.slotID and ActionBar.IsMainFaceButtonKey(btn.mainKey) and not btn.modifierKey then
+            UpdateActionButtonUsable(btn.slotID)
         end
     end
 end
@@ -761,8 +799,10 @@ function ActionBar.UpdateAllUsable()
         return
     end
 
-    for slotID in pairs(frame.actionButtons) do
-        UpdateActionButtonUsable(slotID)
+    for _, btn in pairs(frame.actionButtons) do
+        if btn.slotID then
+            UpdateActionButtonUsable(btn.slotID)
+        end
     end
 end
 
@@ -860,7 +900,7 @@ local function KeepGlowSheetsPlaying(glow)
     end
 end
 
--- Держит свечение над рисунком умения, а счётчик и значок клавиши — над свечением.
+-- Держит свечение над рисунком умения, а счётчик с тенью и значок клавиши — над свечением.
 local function PlaceActionButtonGlow(btn)
     local glow = btn.Glow
     if not glow then
@@ -868,12 +908,21 @@ local function PlaceActionButtonGlow(btn)
     end
 
     local level = btn:GetFrameLevel()
-    glow:SetFrameLevel(level + 1)
+    glow:SetFrameLevel(level + 2)
+    if glow.Spin then
+        glow.Spin:SetFrameLevel(level + 2)
+    end
+    if glow.BurstFrame then
+        glow.BurstFrame:SetFrameLevel(level + 2)
+    end
+    if btn.cooldown then
+        btn.cooldown:SetFrameLevel(level + 3)
+    end
     if btn.StackCount then
-        btn.StackCount:SetFrameLevel(level + 2)
+        btn.StackCount:SetFrameLevel(level + 5)
     end
     if btn.Icon then
-        btn.Icon:SetFrameLevel(level + 3)
+        btn.Icon:SetFrameLevel(level + 6)
     end
 end
 
@@ -1292,18 +1341,15 @@ local function ApplyButtonShift(btn, shiftX, shiftY)
     if not anchor then
         return
     end
-    local x = position[4] + shiftX
-    local y = position[5] + shiftY
     local scale = btn:GetScale() or 1
-    if scale < 0.999 then
-        if scale < 0.001 then
-            scale = 0.001
-        end
-        x = x / scale
-        y = y / scale
-    end
     btn:ClearAllPoints()
-    btn:SetPoint(position[1], anchor, position[3], x, y)
+    btn:SetPoint(
+        position[1],
+        anchor,
+        position[3],
+        ActionBar.StableOffset(position[4] + shiftX, scale),
+        ActionBar.StableOffset(position[5] + shiftY, scale)
+    )
 end
 
 -- Текущий сдвиг поверх раскладки, чтобы обновление мест его не стирало.
@@ -1425,7 +1471,7 @@ local function StepGlowButtonSizes(_, elapsed)
             btn.glowSizeRestart = true
             btn.glowShiftRestart = true
         else
-            if btn.texture then
+            if btn.texture and not btn.glowReady then
                 local target = IconTargetSize(btn, glowingGroups)
                 local life = btn.glowBubbleLife
                 local arrived = btn.glowBubbleTarget == target and (life or 0) >= 1
@@ -1544,7 +1590,7 @@ function ActionBar.SyncGlowButtonSizes()
             local sameTarget = btn.glowBubbleTarget == target
             local arrived = sameTarget and (btn.glowBubbleLife or 0) >= 1
             local knockedAway = math.abs(width - target) >= 2
-            if ButtonSizeLocked(btn) or not sameTarget or (arrived and knockedAway) then
+            if not btn.glowReady and (ButtonSizeLocked(btn) or not sameTarget or (arrived and knockedAway)) then
                 btn.glowSizeRestart = true
             end
 
@@ -1739,6 +1785,10 @@ end
 
 -- Обновление свечения готовности на кнопке.
 local function UpdateActionButtonGlow(slotID, spellID, event)
+    if ActionBar.UpdateButton then
+        ActionBar.UpdateButton(slotID, spellID)
+        return
+    end
     local btn = ActionBar.GetButton(slotID)
     if not btn then return end
 
@@ -1880,6 +1930,10 @@ end
 
 -- Ставит время восстановления на видимую сторону. На ребре цифры ещё скрыты, с новым рисунком они уже видны.
 local function SyncButtonCooldown(btn, rebuild)
+    if btn and btn.Update then
+        btn:Update()
+        return
+    end
     if not btn or not btn.cooldown then
         return
     end
@@ -1942,6 +1996,10 @@ end
 
 -- Обновление восстановления и пригодности всех кнопок.
 local function UpdateActionButtonCooldowns()
+    if ActionBar.UpdateAllButtons then
+        ActionBar.UpdateAllButtons()
+        return
+    end
     local frame = ActionBar.GetFrame()
     if not frame then
         return
@@ -1954,6 +2012,10 @@ end
 
 -- Обновление счётчика зарядов на кнопке.
 local function UpdateActionButtonCount(slotID)
+    if ActionBar.UpdateButton then
+        ActionBar.UpdateButton(slotID)
+        return
+    end
     local btn = ActionBar.GetButton(slotID)
     if not btn or not btn.StackCount or not btn.StackCount.Text then return end
 
@@ -2098,19 +2160,12 @@ local function UpdateActionBarPageVisibility()
     end
     ActionBar.ForgetUseAction()
 
-    for slotID = 1, 24 do
-        UpdateActionButtonTexture(slotID)
-        UpdateActionButtonCount(slotID)
+    if ActionBar.UpdateAllButtons then
+        ActionBar.UpdateAllButtons()
     end
-    -- Эквиваленты слота 12 на панелях с модификаторами
-    UpdateActionButtonTexture(60)
-    UpdateActionButtonCount(60)
-    UpdateActionButtonTexture(72)
-    UpdateActionButtonCount(72)
     ActionBar.EnableAllRangeChecks()
     ActionBar.UpdateButtonPositions()
     ActionBar.UpdateModifierState()
-    ActionBar.UpdateAllUsable()
 end
 
 ActionBar.UpdateIcon = UpdateActionButtonIcon

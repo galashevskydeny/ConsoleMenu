@@ -1,129 +1,5 @@
 local ConsoleMenu = _G.ConsoleMenu
 
--- Возвращает текущую прозрачность с учётом идущего проявления или исчезновения.
-local function GetFadeAlpha(frame)
-    local group
-    if frame.fadeOut and frame.fadeOut:IsPlaying() then
-        group = frame.fadeOut
-    elseif frame.fadeIn and frame.fadeIn:IsPlaying() then
-        group = frame.fadeIn
-    end
-    if group and group.alpha then
-        local anim = group.alpha
-        local progress = anim.GetSmoothProgress and anim:GetSmoothProgress() or group:GetProgress() or 0
-        return anim:GetFromAlpha() + (anim:GetToAlpha() - anim:GetFromAlpha()) * progress
-    end
-    return frame:GetAlpha() or 1
-end
-
--- Верхняя непрозрачность кадра. Без отдельного значения проявление идёт до полной.
-local function FadeCeiling(frame)
-    local alpha = frame and frame.fadeAlpha
-    if not alpha or alpha > 1 then
-        return 1
-    end
-    if alpha < 0 then
-        return 0
-    end
-    return alpha
-end
-
-function ConsoleMenu:InitFadeAnimations(frame, duration)
-    -- Создаем группу анимаций для фрейма, если еще не создана
-    if not frame.fadeIn then
-        -- Анимация появления (fade in)
-        frame.fadeIn = frame:CreateAnimationGroup()
-        frame.fadeIn.alpha = frame.fadeIn:CreateAnimation("Alpha")
-        frame.fadeIn.alpha:SetFromAlpha(0)
-        frame.fadeIn.alpha:SetToAlpha(1)
-        frame.fadeIn.alpha:SetDuration(duration or 0.2)
-        frame.fadeIn.alpha:SetSmoothing("OUT")
-
-        frame.fadeIn:SetToFinalAlpha(true)
-    end
-
-    if not frame.fadeOut then
-        -- Анимация исчезновения (fade out)
-        frame.fadeOut = frame:CreateAnimationGroup()
-        frame.fadeOut.alpha = frame.fadeOut:CreateAnimation("Alpha")
-        frame.fadeOut.alpha:SetFromAlpha(1)
-        frame.fadeOut.alpha:SetToAlpha(0)
-        frame.fadeOut.alpha:SetDuration(duration or 0.2)
-        frame.fadeOut.alpha:SetSmoothing("IN")
-
-        frame.fadeOut:SetToFinalAlpha(true)
-    end
-end
-
-function ConsoleMenu:AnimatedShow(frame)
-    if not frame or not frame.fadeIn or not frame.fadeOut then return end
-
-    -- Запоминаем прозрачность до остановки, иначе сброс анимации вспыхивает на полной яркости.
-    local current = GetFadeAlpha(frame)
-    local shown = frame:IsShown()
-
-    frame.fadeOut:Stop()
-    frame.fadeOut:SetScript("OnFinished", nil)
-    frame.fadeIn:Stop()
-
-    local fadeIn = frame.fadeIn
-    local ceiling = FadeCeiling(frame)
-    if not shown then
-        current = 0
-        frame:Show()
-    end
-    if current >= ceiling then
-        fadeIn.alpha:SetFromAlpha(0)
-        fadeIn.alpha:SetToAlpha(ceiling)
-        frame:SetAlpha(ceiling)
-        return
-    end
-
-    frame:SetAlpha(current)
-    fadeIn.alpha:SetFromAlpha(current)
-    fadeIn.alpha:SetToAlpha(ceiling)
-    fadeIn:Play()
-end
-
-function ConsoleMenu:AnimatedHide(frame)
-    if not frame or not frame.fadeIn or not frame.fadeOut then return end
-    if not frame:IsShown() then return end
-
-    local current = GetFadeAlpha(frame)
-    frame.fadeIn:Stop()
-    frame.fadeOut:Stop()
-    frame.fadeOut:SetScript("OnFinished", nil)
-
-    if current <= 0 then
-        frame:SetAlpha(0)
-        frame:Hide()
-        return
-    end
-
-    frame:SetAlpha(current)
-    frame.fadeOut.alpha:SetFromAlpha(current)
-    frame.fadeOut.alpha:SetToAlpha(0)
-    frame.fadeOut:SetScript("OnFinished", function()
-        frame:Hide()
-        frame.fadeOut:SetScript("OnFinished", nil)
-        frame.fadeOut.alpha:SetFromAlpha(FadeCeiling(frame))
-        frame.fadeOut.alpha:SetToAlpha(0)
-    end)
-    frame.fadeOut:Play()
-end
-
-function ConsoleMenu:PlayFadeIn(frame)
-    if not frame or not frame.fadeIn then return end
-    if frame:GetAlpha() ~= 0 then return end
-    frame.fadeIn:Play()
-end
-
-function ConsoleMenu:PlayFadeOut(frame)
-    if frame:GetAlpha() ~= 1 then return end
-    if not frame or not frame.fadeOut then return end
-    frame.fadeOut:Play()
-end
-
 -- Незаметная глазу разница размеров.
 local SCALE_MATCH = 0.0005
 
@@ -207,10 +83,10 @@ local function ReleaseScaleGroup(group)
         group.scale:SetScaleFrom(1, 1)
         group.scale:SetScaleTo(1, 1)
     end
+    group.scaleDone = nil
 end
 
--- Записывает размер в кадр, не трогая его привязки.
--- Ноль сохраняется как наименьший допустимый размер, поэтому область нажатия тоже сжимается.
+-- Записывает размер и сразу возвращает кнопку на её место: клиент иначе тянет отступ к центру группы.
 local function ApplyScale(frame, scale)
     local collapsed = scale <= 0
     local written = collapsed and SCALE_FLOOR or scale
@@ -219,6 +95,10 @@ local function ApplyScale(frame, scale)
     end
     frame.scaleZero = collapsed or nil
     frame:SetScale(written)
+    local bar = ConsoleMenu.ActionBar
+    if frame.mainKey and bar and bar.SeatButton then
+        bar.SeatButton(frame)
+    end
 end
 
 -- Сглаженный ход анимации от нуля до единицы.
@@ -233,7 +113,8 @@ local function AnimationProgress(anim, group)
 end
 
 -- Меняет размер от текущего видимого к указанному и записывает его по завершении.
-local function PlayScaleTo(frame, group, target, smoothing)
+-- По окончании вызывает переданное действие. При обрыве прежнее действие не выполняется.
+local function PlayScaleTo(frame, group, target, smoothing, onFinished)
     if target < 0 then
         target = 0
     end
@@ -251,9 +132,15 @@ local function PlayScaleTo(frame, group, target, smoothing)
         current = frame.scaleZero and 0 or (frame:GetScale() or current)
     end
 
+    group.scaleDone = onFinished
     if math.abs(current - target) < SCALE_MATCH then
         if (target <= 0) ~= (frame.scaleZero == true) then
             ApplyScale(frame, target)
+        end
+        local done = group.scaleDone
+        group.scaleDone = nil
+        if done then
+            done(frame)
         end
         return
     end
@@ -266,15 +153,27 @@ local function PlayScaleTo(frame, group, target, smoothing)
     anim:SetScaleTo(1, 1)
     frame.scaleZero = nil
     frame:SetScale(startScale)
+    local bar = ConsoleMenu.ActionBar
+    if frame.mainKey and bar and bar.SeatButton then
+        bar.SeatButton(frame)
+    end
     group:SetScript("OnUpdate", function(self)
         local scaleAnim = self.scale
         local scale = ScaleAtProgress(startScale, goalScale, AnimationProgress(scaleAnim, self))
         frame:SetScale(scale)
+        if frame.mainKey and bar and bar.SeatButton then
+            bar.SeatButton(frame)
+        end
     end)
     group:SetScript("OnFinished", function(self)
         self:SetScript("OnUpdate", nil)
         self:SetScript("OnFinished", nil)
         ApplyScale(frame, target)
+        local done = self.scaleDone
+        self.scaleDone = nil
+        if done then
+            done(frame)
+        end
     end)
     group:Play()
 end
@@ -302,22 +201,31 @@ function ConsoleMenu:InitScaleAnimations(frame, duration)
     end
 end
 
+-- Останавливает смену размера и оставляет кадр в текущем видимом размере.
+function ConsoleMenu:StopScaleAnimation(frame)
+    if not frame then
+        return
+    end
+    ReleaseScaleGroup(frame.scaleUp)
+    ReleaseScaleGroup(frame.scaleDown)
+end
+
 -- Увеличивает кадр до указанного размера.
 -- Сглаживание: плавное начало или плавное окончание. Без него рост заканчивается плавно.
-function ConsoleMenu:AnimatedScaleUp(frame, targetScale, easing)
+-- Последний аргумент выполняется, когда размер уже достигнут.
+function ConsoleMenu:AnimatedScaleUp(frame, targetScale, easing, onFinished)
     if not frame or not frame.scaleUp or type(targetScale) ~= "number" then
         return
     end
-    PlayScaleTo(frame, frame.scaleUp, targetScale, ScaleSmoothing(easing, "OUT"))
+    PlayScaleTo(frame, frame.scaleUp, targetScale, ScaleSmoothing(easing, "OUT"), onFinished)
 end
 
 -- Уменьшает кадр до указанного размера.
 -- Сглаживание: плавное начало или плавное окончание. Без него сжатие ускоряется к концу.
-function ConsoleMenu:AnimatedScaleDown(frame, targetScale, easing)
+-- Последний аргумент выполняется, когда размер уже достигнут.
+function ConsoleMenu:AnimatedScaleDown(frame, targetScale, easing, onFinished)
     if not frame or not frame.scaleDown or type(targetScale) ~= "number" then
         return
     end
-    PlayScaleTo(frame, frame.scaleDown, targetScale, ScaleSmoothing(easing, "IN"))
+    PlayScaleTo(frame, frame.scaleDown, targetScale, ScaleSmoothing(easing, "IN"), onFinished)
 end
-
-

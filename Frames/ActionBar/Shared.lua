@@ -11,7 +11,7 @@ ActionBar.frameHeight = 196
 
 ActionBar.buttonSize = 52
 -- На сколько пикселей вырастает кнопка, пока на ней горит свечение готовности.
-ActionBar.glowGrowSize = 6
+ActionBar.glowGrowSize = 4
 -- На сколько пикселей уменьшаются остальные кнопки, пока чужое свечение горит.
 ActionBar.glowShrinkSize = 4
 -- На сколько пикселей тёмные кнопки подъезжают к тёмной противоположной.
@@ -115,6 +115,17 @@ function ActionBar.PlaceSlot12Icon(btn)
         return
     end
 
+    if btn.Ability then
+        btn.Ability:ClearAllPoints()
+        btn.Ability:SetPoint("LEFT", btn, "LEFT", (ActionBar.slot12IconPadding or 0) + 4, 0)
+        btn.Ability:SetSize(ActionBar.buttonSize, ActionBar.buttonSize)
+        if btn.IconFrame then
+            btn.IconFrame:ClearAllPoints()
+            btn.IconFrame:SetAllPoints(btn.Ability)
+        end
+        return
+    end
+
     local background = btn.background
     if background then
         background:ClearAllPoints()
@@ -148,33 +159,50 @@ ActionBar.shadowSize = 320
 ActionBar.shadowSizeWithExtra = 384
 
 ActionBar.animationDuration = 0.05
--- Сколько секунд скрытая панель вырастает, когда зажата дополнительная клавиша.
-ActionBar.spellRevealShowDuration = 0.28
--- Сколько секунд панель сдувается после отпускания этой клавиши.
-ActionBar.spellRevealHideDuration = 0.2
 
--- Вынос центра значка от середины группы. Якорь по центру, чтобы рост и спад панели не сдвигали значок.
-local buttonReachX = ActionBar.buttonHorizontalPadding + ActionBar.buttonSize / 2
-local buttonReachY = ActionBar.buttonVerticalPadding + ActionBar.buttonSize / 2
+-- Клиент умножает отступ точки на размер кнопки. Делим заранее, чтобы место на джойстике не съезжало к центру группы.
+function ActionBar.StableOffset(value, scale)
+    local offset = value or 0
+    scale = scale or 1
+    if scale >= 0.999 then
+        return offset
+    end
+    if scale < 0.001 then
+        scale = 0.001
+    end
+    return offset / scale
+end
 
+-- Центр кнопки стоит на своём месте джойстика относительно центра группы.
 -- Второй элемент — ключ якоря: right — правая группа, left — левая, bar — сама панель.
+local reachX = ActionBar.buttonHorizontalPadding + ActionBar.buttonSize / 2
+local reachY = ActionBar.buttonVerticalPadding + ActionBar.buttonSize / 2
 ActionBar.buttonPositions = {
-    PADRSTICK = { "CENTER", "right", "CENTER", 0, -buttonReachY },
-    PADLSTICK = { "CENTER", "left", "CENTER", 0, -buttonReachY },
+    PADRSTICK = { "CENTER", "right", "CENTER", 0, -reachY },
+    PADLSTICK = { "CENTER", "left", "CENTER", 0, -reachY },
 
-    PAD2 = { "CENTER", "right", "CENTER", buttonReachX, 0 },
-    PAD3 = { "CENTER", "right", "CENTER", -buttonReachX, 0 },
-    PAD4 = { "CENTER", "right", "CENTER", 0, buttonReachY },
+    PAD2 = { "CENTER", "right", "CENTER", reachX, 0 },
+    PAD3 = { "CENTER", "right", "CENTER", -reachX, 0 },
+    PAD4 = { "CENTER", "right", "CENTER", 0, reachY },
 
-    PADDUP = { "CENTER", "left", "CENTER", 0, buttonReachY },
-    PADDRIGHT = { "CENTER", "left", "CENTER", buttonReachX, 0 },
-    PADDLEFT = { "CENTER", "left", "CENTER", -buttonReachX, 0 },
-    PADDDOWN = { "CENTER", "left", "CENTER", 0, -buttonReachY },
+    PADDUP = { "CENTER", "left", "CENTER", 0, reachY },
+    PADDRIGHT = { "CENTER", "left", "CENTER", reachX, 0 },
+    PADDLEFT = { "CENTER", "left", "CENTER", -reachX, 0 },
+    PADDDOWN = { "CENTER", "left", "CENTER", 0, -reachY },
 
     -- Сенсорная панель DualSense: по центру, на высоте верхнего ряда крестовины и лицевых кнопок
     PAD6 = { "CENTER", "bar", "CENTER", 0, ActionBar.topRowOffsetY },
     PADBACK = { "CENTER", "bar", "CENTER", 0, ActionBar.topRowOffsetY },
 }
+
+-- Правая сторона: квадрат, треугольник и круг. Правый рычаг добавляется, только если нажат как ячейка.
+ActionBar.rightButtonKeys = { "PAD3", "PAD4", "PAD2" }
+ActionBar.rightStickKey = "PADRSTICK"
+-- Левая сторона: крестовина. Левый рычаг добавляется, только если нажат как ячейка.
+ActionBar.leftButtonKeys = { "PADDUP", "PADDRIGHT", "PADDDOWN", "PADDLEFT" }
+ActionBar.leftStickKey = "PADLSTICK"
+-- Сенсорная панель остаётся отдельной кнопкой.
+ActionBar.padButtonKey = "PAD6"
 
 -- Слоты ACTIONBUTTON12 / MULTIACTIONBAR*BUTTON12
 ActionBar.slot12Slots = {
@@ -185,8 +213,6 @@ ActionBar.slot12Slots = {
 }
 
 ActionBar.ignoredSlot = {
-    [8] = true,
-    [20] = true,
     [53] = true,
 }
 
@@ -381,6 +407,15 @@ function ActionBar.ForgetChargeCount(slotID)
     ActionBar.chargeText[slotID] = nil
     ActionBar.chargeAction[slotID] = nil
     ActionBar.countReadRetries[slotID] = nil
+    local frame = ActionBar.GetFrame()
+    if not frame or not frame.actionButtons then
+        return
+    end
+    for _, btn in pairs(frame.actionButtons) do
+        if btn.ForgetCharges and (btn.slotID == slotID or btn.shownSlot == slotID) then
+            btn:ForgetCharges()
+        end
+    end
 end
 
 -- Какое умение сейчас лежит в ячейке. Скрытый ответ не считается сменой.
@@ -631,13 +666,98 @@ function ActionBar.GetFrame()
     return frame
 end
 
--- Кнопка ячейки, если окно панели и сама кнопка существуют.
-function ActionBar.GetButton(slotID)
-    local frame = ActionBar.GetFrame()
-    if not frame or not slotID then
+-- Номер панели мультидействий в нумерации ячеек игры.
+local multiBarIndex = {
+    [1] = 6,
+    [2] = 5,
+    [3] = 3,
+    [4] = 4,
+    [5] = 13,
+    [6] = 14,
+    [7] = 15,
+}
+
+-- Ячейка команды панели: своя страница у основной панели и постоянное место у панели модификатора.
+function ActionBar.CommandToSlot(command, page)
+    if not command or command == "" then
         return nil
     end
-    return frame.actionButtons[slotID]
+    local buttonID = string.match(command, "^ACTIONBUTTON(%d+)$")
+    if buttonID then
+        buttonID = tonumber(buttonID)
+        if not page or page < 1 then
+            page = 1
+        end
+        return (page - 1) * 12 + buttonID
+    end
+    local bar, id = string.match(command, "^MULTIACTIONBAR(%d+)BUTTON(%d+)$")
+    if bar then
+        local barIndex = multiBarIndex[tonumber(bar)]
+        if not barIndex then
+            return nil
+        end
+        return (barIndex - 1) * 12 + tonumber(id)
+    end
+    if command == "EXTRAACTIONBUTTON1" and ActionBar.GetExtraActionSlotID then
+        return ActionBar.GetExtraActionSlotID()
+    end
+    return nil
+end
+
+-- Ячейка, привязанная к клавише геймпада без модификатора или с ним.
+function ActionBar.BindingSlot(key, modifier, page)
+    if not key or not GetBindingAction then
+        return nil
+    end
+    local binding = modifier and (modifier .. "-" .. key) or key
+    local command = GetBindingAction(binding, true)
+    return ActionBar.CommandToSlot(command, page)
+end
+
+-- Страница, с которой берётся способность без модификатора.
+function ActionBar.SlotPage()
+    if ConsoleMenu.GetPlayerContext and ConsoleMenu:GetPlayerContext() == "exploring" then
+        local page = ActionBar.combatPage or 1
+        if page ~= 1 and page ~= 2 then
+            page = 1
+        end
+        return page
+    end
+    if C_ActionBar and C_ActionBar.GetActionBarPage then
+        local page = C_ActionBar.GetActionBarPage() or 1
+        if page < 1 then
+            return 1
+        end
+        return page
+    end
+    return 1
+end
+
+-- Нажатие рычага привязано к ячейке панели, а не к пустому месту и не к дополнительному действию.
+function ActionBar.StickHasSlot(key)
+    local slot = ActionBar.BindingSlot(key, nil, ActionBar.SlotPage())
+    if not slot or (ActionBar.IsExtraActionSlot and ActionBar.IsExtraActionSlot(slot)) then
+        return false
+    end
+    return true
+end
+
+-- Кнопка, которая показывает эту ячейку: своя или одна из ячеек модификатора.
+function ActionBar.GetButton(slotID)
+    local frame = ActionBar.GetFrame()
+    if not frame or not slotID or not frame.actionButtons then
+        return nil
+    end
+    for _, btn in pairs(frame.actionButtons) do
+        if btn.slotID == slotID or btn.shownSlot == slotID then
+            return btn
+        end
+        local slots = btn.IconFrame and btn.IconFrame.slots
+        if slots and (slots.base == slotID or slots.SHIFT == slotID or slots.CTRL == slotID or slots.ALT == slotID) then
+            return btn
+        end
+    end
+    return nil
 end
 
 -- Значение скрыто клиентом, по нему нельзя принимать решение.
@@ -713,6 +833,11 @@ end
 -- Рисунок ячейки. У однокнопочного помощника берётся заклинание, которое будет применено.
 -- Второй результат истинен, если клиент скрыл рисунок и трогать кнопку нельзя.
 function ActionBar.GetSlotTexture(slotID)
+    -- У кнопки без привязки номера нет, а клиент требует число.
+    if not slotID then
+        return nil, false
+    end
+
     local textureFileID = nil
 
     if C_ActionBar and C_ActionBar.IsAssistedCombatAction and C_ActionBar.IsAssistedCombatAction(slotID) then

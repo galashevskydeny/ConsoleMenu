@@ -10,7 +10,9 @@ Utils/SettingsHelper.lua
 Options.lua
 
 Assets/Assets.lua
-Assets/Animations.lua
+Assets/Animations/Fade.lua
+Assets/Animations/Scale.lua
+Assets/Animations/Flight.lua
 
 BlizzardFrames/CharacterFrame.lua
 BlizzardFrames/ChatFrame.lua

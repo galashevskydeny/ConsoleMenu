@@ -1,10 +1,39 @@
--- Сборка одной кнопки панели: фон, маска, восстановление, счётчик и значок клавиши.
+-- Кнопка панели: способность, перезарядка, заряды, свечение, тень и пиктограмма.
 
 local ConsoleMenu = _G.ConsoleMenu
 local ActionBar = ConsoleMenu.ActionBar
 
+local ICON_EDGE = 3
+
+-- Показывает кадр проявлением и не перезапускает его, если он уже виден.
+local function FadeIn(frame)
+    if not frame then
+        return
+    end
+    if frame.fadeOut and frame.fadeOut:IsPlaying() then
+        ConsoleMenu:AnimatedShow(frame)
+        return
+    end
+    local ceiling = frame.fadeAlpha or 1
+    if frame:IsShown() and (frame:GetAlpha() or 0) >= ceiling - 0.01 then
+        return
+    end
+    ConsoleMenu:AnimatedShow(frame)
+end
+
+-- Прячет кадр исчезновением и не начинает его заново, пока прошлое ещё идёт.
+local function FadeOut(frame)
+    if not frame or not frame:IsShown() then
+        return
+    end
+    if frame.fadeOut and frame.fadeOut:IsPlaying() then
+        return
+    end
+    ConsoleMenu:AnimatedHide(frame)
+end
+
 -- Рисунок, подложка, круглая маска, восстановление и число зарядов.
--- Этой заготовкой пользуются и кнопка панели, и значок облака.
+-- Этой заготовкой пользуется значок облака.
 local function AttachRoundIcon(buttonFrame, stackName)
     local backgroundSize = ActionBar.buttonSize + 8
     local background = buttonFrame:CreateTexture(nil, "BACKGROUND")
@@ -17,7 +46,7 @@ local function AttachRoundIcon(buttonFrame, stackName)
     local texture = buttonFrame:CreateTexture(nil, "ARTWORK")
     texture:SetSize(ActionBar.buttonSize, ActionBar.buttonSize)
     texture:SetPoint("CENTER", buttonFrame, "CENTER", 0, 0)
-    local edge = 3 / ActionBar.buttonSize
+    local edge = ICON_EDGE / ActionBar.buttonSize
     texture:SetTexCoord(edge, 1 - edge, edge, 1 - edge)
     buttonFrame.texture = texture
 
@@ -63,89 +92,1241 @@ function ActionBar.CreateRoundIcon(parent)
     return icon
 end
 
--- Создание рамки кнопки для ячейки панели.
-function ActionBar.CreateButton(parent, slotID)
-    local buttonName = "ConsoleMenuActionButton" .. slotID
+-- Сторона монеты: свой рисунок и круглая маска.
+local function CreateFace(parent)
+    local face = CreateFrame("Frame", nil, parent)
+    face:SetAllPoints(parent)
+    local texture = face:CreateTexture(nil, "ARTWORK")
+    texture:SetAllPoints(face)
+    local edge = ICON_EDGE / ActionBar.buttonSize
+    texture:SetTexCoord(edge, 1 - edge, edge, 1 - edge)
+    local mask = face:CreateMaskTexture()
+    mask:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\MaskCircle.png")
+    mask:SetAllPoints(texture)
+    texture:AddMaskTexture(mask)
+    face.texture = texture
+    face.mask = mask
+    return face
+end
+
+-- Записывает слот без модификатора или со Shift, Ctrl либо Alt.
+local function SetIconSlot(icon, modifier, slotID)
+    if modifier == nil or modifier == "" then
+        icon.slots.base = slotID
+    else
+        icon.slots[modifier] = slotID
+    end
+end
+
+-- Убирает слот из таблицы сочетаний.
+local function ClearIconSlot(icon, modifier)
+    if modifier == nil or modifier == "" then
+        icon.slots.base = nil
+    else
+        icon.slots[modifier] = nil
+    end
+end
+
+-- Заменяет слот сочетания новым значением.
+local function UpdateIconSlot(icon, modifier, slotID)
+    SetIconSlot(icon, modifier, slotID)
+end
+
+-- Очищает всю таблицу слотов иконки.
+local function ClearIconSlots(icon)
+    icon.slots.base = nil
+    icon.slots.SHIFT = nil
+    icon.slots.CTRL = nil
+    icon.slots.ALT = nil
+end
+
+-- Включает обесцвечивание видимой стороны.
+local function EnableIconDesaturation(icon)
+    local button = icon.button
+    local texture = button and button.texture
+    if not texture then
+        return
+    end
+    local keepShade = button.flipBusy or button.coinInAir
+    if ActionBar.SetIconGray then
+        ActionBar.SetIconGray(texture, true, keepShade)
+        return
+    end
+    if texture.SetDesaturated then
+        texture:SetDesaturated(true)
+    end
+    if texture.SetDesaturation then
+        texture:SetDesaturation(1)
+    end
+    texture.iconGray = true
+end
+
+-- Снимает обесцвечивание и возвращает обычный цвет рисунка.
+local function DisableIconDesaturation(icon)
+    local button = icon.button
+    local texture = button and button.texture
+    if not texture then
+        return
+    end
+    local keepShade = button.flipBusy or button.coinInAir
+    if ActionBar.SetIconGray then
+        ActionBar.SetIconGray(texture, false, keepShade)
+        return
+    end
+    if texture.SetDesaturated then
+        texture:SetDesaturated(false)
+    end
+    if texture.SetDesaturation then
+        texture:SetDesaturation(0)
+    end
+    texture.iconGray = false
+    if not button.flipBusy then
+        texture:SetVertexColor(1, 1, 1)
+    end
+end
+
+-- Увеличивает кадр иконки до размера со свечением.
+local function GrowIcon(icon)
+    local button = icon and icon.button
+    if not button or (ActionBar.slot12Slots and ActionBar.slot12Slots[button.slotID]) then
+        return
+    end
+    if button.flipBusy then
+        return
+    end
+    local ability = button.Ability
+    if ability and math.abs((ability:GetWidth() or 0) - ActionBar.buttonSize) > 0.5 then
+        ability:SetSize(ActionBar.buttonSize, ActionBar.buttonSize)
+    end
+    if math.abs((icon:GetWidth() or 0) - ActionBar.buttonSize) > 0.5 then
+        icon:SetSize(ActionBar.buttonSize, ActionBar.buttonSize)
+    end
+    local grow = ActionBar.glowGrowSize or 6
+    local target = (ActionBar.buttonSize + grow) / ActionBar.buttonSize
+    ConsoleMenu:InitScaleAnimations(icon, ActionBar.glowMotionDuration or 0.2)
+    ConsoleMenu:AnimatedScaleUp(icon, target)
+end
+
+-- Возвращает кадру иконки обычный размер.
+local function RestoreIcon(icon)
+    local button = icon and icon.button
+    if not button or button.flipBusy then
+        return
+    end
+    ConsoleMenu:InitScaleAnimations(icon, ActionBar.glowMotionDuration or 0.2)
+    ConsoleMenu:AnimatedScaleDown(icon, 1)
+end
+
+-- Кнопка той же клавиши должна остаться серой на правом рычаге.
+local function StaysOnRightStick(btn, modifier)
+    if not modifier or not btn.mainKey then
+        return false
+    end
+    if not ActionBar.ModifierSitsOnRightStick or not ActionBar.ModifierSitsOnRightStick(modifier) then
+        return false
+    end
+    return ActionBar.rightStickStillKeys and ActionBar.rightStickStillKeys[btn.mainKey] == true
+end
+
+-- Слот, который кнопка показывает: свой или слот зажатого модификатора.
+local function ResolveShownSlot(btn)
+    local icon = btn.IconFrame
+    local base = (icon and icon.slots and icon.slots.base) or btn.slotID
+    local modifier = btn.heldModifier
+    if not modifier then
+        btn.heldGray = false
+        return base
+    end
+    if StaysOnRightStick(btn, modifier) then
+        btn.heldGray = true
+        return base
+    end
+    local slot = icon and icon.slots and icon.slots[modifier]
+    if slot and ActionBar.SlotHasAction(slot) then
+        btn.heldGray = false
+        return slot
+    end
+    btn.heldGray = true
+    if btn.flipBusy and btn.flipTargetSlot and btn.flipTargetSlot ~= base then
+        btn.heldGray = false
+    end
+    return base
+end
+
+-- Показывает одну сторону и запоминает, какая способность сейчас видна.
+local function ShowSide(btn, face, slotID, texture)
+    local base = (btn.IconFrame.slots and btn.IconFrame.slots.base) or btn.slotID
+    local sameFace = btn.texture == face.texture and btn.shownSlot == slotID and btn.shownTexture == texture and face:IsShown()
+    if not sameFace then
+        btn.Front:Hide()
+        btn.Back:Hide()
+        face:Show()
+        if texture and face.texture.shownFile ~= texture then
+            face.texture:SetTexture(texture)
+            face.texture.shownFile = texture
+        end
+        if texture and btn.IconFrame.background then
+            btn.IconFrame.background:Show()
+        end
+    end
+    btn.texture = face.texture
+    btn.mask = face.mask
+    btn.shownSlot = slotID
+    btn.shownTexture = texture
+    btn.boostShowingAlt = slotID ~= base
+    btn.boostFlipSlot = btn.boostShowingAlt and slotID or nil
+end
+
+-- Убирает рисунок пустой ячейки.
+local function ClearSide(btn)
+    btn.Front:Show()
+    btn.Back:Hide()
+    btn.Front.texture.shownFile = nil
+    btn.Front.texture:SetTexture(nil)
+    btn.texture = btn.Front.texture
+    btn.shownSlot = (btn.IconFrame.slots and btn.IconFrame.slots.base) or btn.slotID
+    btn.shownTexture = nil
+    btn.boostShowingAlt = nil
+    btn.boostFlipSlot = nil
+    if btn.IconFrame.background then
+        btn.IconFrame.background:Hide()
+    end
+end
+
+-- Меняет рисунок: с переворотом, если способность сменяется между своим слотом и слотом модификатора.
+local function SwitchIcon(icon, slotID, texture, animate)
+    local btn = icon.button
+    if not btn then
+        return
+    end
+    local base = (icon.slots and icon.slots.base) or btn.slotID
+    if btn.flipBusy and btn.flipTargetSlot == slotID then
+        if texture then
+            btn.flipTargetTexture = texture
+            btn.Back.texture:SetTexture(texture)
+        end
+        return
+    end
+    if not texture then
+        ConsoleMenu:StopModelFlight(btn)
+        ClearSide(btn)
+        return
+    end
+    if not animate then
+        ConsoleMenu:StopModelFlight(btn)
+        ShowSide(btn, btn.Front, slotID, texture)
+        return
+    end
+    local fromSlot = btn.shownSlot or base
+    local fromTexture = btn.shownTexture
+    if fromSlot == slotID and fromTexture == texture then
+        return
+    end
+    ConsoleMenu:StartModelFlight(btn, fromSlot, fromTexture or texture, slotID, texture)
+end
+
+-- Выбирает способность и запускает переворот только при смене между своим слотом и слотом модификатора.
+local function UpdateFace(btn)
+    local slotID = ResolveShownSlot(btn)
+    local texture, hidden = ActionBar.GetSlotTexture(slotID)
+    if hidden then
+        return
+    end
+    local base = (btn.IconFrame.slots and btn.IconFrame.slots.base) or btn.slotID
+    local previous = btn.shownSlot or base
+    local crosses = (previous == base) ~= (slotID == base)
+    local animate = crosses and not btn.swapInstant
+    if btn.shownSlot == slotID and btn.shownTexture == texture and not btn.flipBusy then
+        return
+    end
+    SwitchIcon(btn.IconFrame, slotID, texture, animate)
+    if not btn.flipBusy and btn.Label and btn.slotID and ActionBar.UpdateSlot12Label then
+        ActionBar.UpdateSlot12Label(btn.slotID)
+    end
+end
+
+-- Ключ способности. Пустая ячейка ключа не даёт.
+local function ChargeKey(slotID)
+    if not ActionBar.ReadActionKey then
+        return nil
+    end
+    local key = ActionBar.ReadActionKey(slotID)
+    if not key or key == "" then
+        return nil
+    end
+    return key
+end
+
+-- Слот, чьи заряды и перезарядку сейчас можно показывать.
+local function VisibleSlot(btn)
+    if btn.flipBusy and btn.coinTimerReady and btn.flipTargetSlot then
+        return btn.flipTargetSlot
+    end
+    if btn.flipBusy then
+        return btn.flipFromSlot or btn.shownSlot or btn.slotID
+    end
+    return btn.shownSlot or btn.slotID
+end
+
+-- Показывает число зарядов. Само число записывает функция обновления счётчика.
+local function ShowCharges(btn, count)
+    local stack = btn.Charges
+    if not stack then
+        return
+    end
+    if stack.UpdateCharges then
+        stack:UpdateCharges(count)
+    end
+    FadeIn(stack)
+end
+
+-- Прячет число зарядов.
+local function HideCharges(btn)
+    FadeOut(btn.Charges)
+end
+
+-- Обновляет счётчик по признаку, записанному для этой способности.
+local function UpdateCharges(btn)
+    local slotID = VisibleSlot(btn)
+    local key = ChargeKey(slotID) or btn.chargeKey
+    if not key then
+        HideCharges(btn)
+        return
+    end
+    local raw
+    if C_ActionBar and C_ActionBar.GetActionDisplayCount then
+        raw = C_ActionBar.GetActionDisplayCount(slotID)
+    end
+    if ActionBar.IsSecretValue(raw) then
+        if btn.chargeShown[key] then
+            ShowCharges(btn, raw)
+        else
+            HideCharges(btn)
+        end
+        return
+    end
+    local count = raw
+    if (count == nil or count == "") and ActionBar.ReadDisplayCount then
+        local extra = ActionBar.ReadDisplayCount(slotID)
+        if ActionBar.IsSecretValue(extra) then
+            if btn.chargeShown[key] then
+                ShowCharges(btn, extra)
+            else
+                HideCharges(btn)
+            end
+            return
+        end
+        if extra ~= nil and extra ~= "" then
+            count = extra
+        end
+    end
+    if count ~= nil and count ~= "" and not ActionBar.IsSecretValue(count) then
+        btn.chargeShown[key] = true
+        btn.chargeKey = key
+        btn.chargeKeyBySlot[slotID] = key
+    end
+    if btn.chargeShown[key] then
+        ShowCharges(btn, count)
+    else
+        HideCharges(btn)
+    end
+end
+
+-- Забывает, для каких способностей на кнопке уже показывали счётчик.
+local function ForgetCharges(btn)
+    wipe(btn.chargeShown)
+    wipe(btn.chargeKeyBySlot)
+    btn.chargeKey = nil
+end
+
+-- Делает кадр перезарядки видимым сразу.
+local function ShowCooldown(btn)
+    local cooldown = btn.cooldown
+    if not cooldown then
+        return
+    end
+    if cooldown.fadeOut then
+        cooldown.fadeOut:Stop()
+        cooldown.fadeOut:SetScript("OnFinished", nil)
+    end
+    cooldown:Show()
+    cooldown:SetAlpha(1)
+    local level = btn:GetFrameLevel()
+    -- Цифры перезарядки над рисунком, но под счётчиком зарядов и его тенью.
+    cooldown:SetFrameLevel(level + 3)
+    if btn.Charges then
+        btn.Charges:SetFrameLevel(level + 5)
+    end
+    if btn.Pictogram then
+        btn.Pictogram:SetFrameLevel(level + 6)
+    end
+end
+
+-- Прячет перезарядку исчезновением.
+local function HideCooldown(btn)
+    FadeOut(btn.cooldown)
+end
+
+-- Записывает объект длительности как есть, не читая скрытые числа.
+local function RefreshCooldown(btn, duration)
+    local cooldown = btn.cooldown
+    if not cooldown or not duration or not cooldown.SetCooldownFromDurationObject then
+        return
+    end
+    cooldown:SetCooldownFromDurationObject(duration)
+end
+
+-- Ставит отсчёт на кружок или в центр кнопки, пока та ещё переворачивается.
+-- У кадра должен быть свой размер: растягивание на иконку оставляет отсчёт невидимым.
+local function PlaceCooldown(btn, inFlight)
+    local cooldown = btn.cooldown
+    if not cooldown then
+        return
+    end
+    local anchor = inFlight and "button" or "icon"
+    if btn.coinTimerAnchor == anchor and (cooldown:GetWidth() or 0) > 1 then
+        return
+    end
+    cooldown:ClearAllPoints()
+    cooldown:SetSize(ActionBar.buttonSize, ActionBar.buttonSize)
+    if inFlight then
+        local wide = ActionBar.slot12Slots and ActionBar.slot12Slots[btn.slotID]
+        if wide and ActionBar.Slot12IconCenterOffset then
+            cooldown:SetPoint("CENTER", btn, "LEFT", ActionBar.Slot12IconCenterOffset(), 0)
+        else
+            cooldown:SetPoint("CENTER", btn, "CENTER", 0, 0)
+        end
+    else
+        cooldown:SetPoint("CENTER", btn.Ability or btn, "CENTER", 0, 0)
+    end
+    btn.coinTimerAnchor = anchor
+end
+
+-- Показывает, обновляет или прячет перезарядку видимой способности.
+local function UpdateCooldown(btn)
+    local cooldown = btn.cooldown
+    if not cooldown then
+        return
+    end
+    local inFlight = btn.flipBusy or btn.coinInAir
+    if inFlight and not btn.coinTimerReady then
+        HideCooldown(btn)
+        return
+    end
+    PlaceCooldown(btn, inFlight and true or false)
+    local slotID = VisibleSlot(btn)
+    if not slotID or not C_ActionBar or not C_ActionBar.GetActionCooldownDuration then
+        HideCooldown(btn)
+        return
+    end
+    -- Второй аргумент отсекает общее восстановление. Поля состояния не читаем: в бою они скрыты.
+    local duration = C_ActionBar.GetActionCooldownDuration(slotID, true)
+    ShowCooldown(btn)
+    RefreshCooldown(btn, duration)
+end
+
+-- Готовит повторяющееся проигрывание листа кадров.
+local function StartGlowSheet(texture, path, blendMode, color, duration)
+    texture:SetAllPoints()
+    texture:SetTexture(path)
+    texture:SetBlendMode(blendMode)
+    texture:SetVertexColor(color[1], color[2], color[3], 1)
+    local group = texture:CreateAnimationGroup()
+    group:SetLooping("REPEAT")
+    local sheet = group:CreateAnimation("FlipBook")
+    sheet:SetOrder(1)
+    sheet:SetDuration(duration or ActionBar.glowDuration)
+    sheet:SetFlipBookRows(ActionBar.glowRows)
+    sheet:SetFlipBookColumns(ActionBar.glowColumns)
+    sheet:SetFlipBookFrames(ActionBar.glowFrames)
+    sheet:SetFlipBookFrameWidth(0)
+    sheet:SetFlipBookFrameHeight(0)
+    texture.sheet = group
+end
+
+-- Готовит разовую вспышку искр.
+local function StartGlowBurst(texture)
+    texture:SetTexture(ActionBar.glowBurstTexture)
+    texture:SetBlendMode("ADD")
+    texture:SetVertexColor(1, 1, 1, 1)
+    texture:SetAllPoints()
+    local group = texture:CreateAnimationGroup()
+    group:SetToFinalAlpha(true)
+    local show = group:CreateAnimation("Alpha")
+    show:SetOrder(0)
+    show:SetDuration(0.001)
+    show:SetFromAlpha(1)
+    show:SetToAlpha(1)
+    local sheet = group:CreateAnimation("FlipBook")
+    sheet:SetOrder(1)
+    sheet:SetDuration(ActionBar.glowBurstDuration)
+    sheet:SetFlipBookRows(ActionBar.glowBurstRows)
+    sheet:SetFlipBookColumns(ActionBar.glowBurstColumns)
+    sheet:SetFlipBookFrames(ActionBar.glowBurstFrames)
+    sheet:SetFlipBookFrameWidth(0)
+    sheet:SetFlipBookFrameHeight(0)
+    local hide = group:CreateAnimation("Alpha")
+    hide:SetOrder(2)
+    hide:SetDuration(0.001)
+    hide:SetFromAlpha(1)
+    hide:SetToAlpha(0)
+    texture.sheet = group
+end
+
+-- Запускает повторяющееся вращение свечения.
+local function PlaySpin(spin)
+    spin:Show()
+    spin:SetAlpha(1)
+    local function Play(texture)
+        if texture and texture.sheet and not texture.sheet:IsPlaying() then
+            texture.sheet:Play()
+        end
+    end
+    Play(spin.Ring)
+    Play(spin.Body)
+    Play(spin.Core)
+end
+
+-- Останавливает повторяющееся вращение.
+local function StopSpin(spin)
+    local function Stop(texture)
+        if texture and texture.sheet then
+            texture.sheet:Stop()
+        end
+    end
+    Stop(spin.Ring)
+    Stop(spin.Body)
+    Stop(spin.Core)
+end
+
+-- Запускает вспышку один раз за загорание.
+local function PlayBurst(burst)
+    if not burst or burst.played then
+        return
+    end
+    burst.played = true
+    burst:Show()
+    burst:SetAlpha(1)
+    if burst.Texture and burst.Texture.sheet then
+        burst.Texture:SetAlpha(1)
+        burst.Texture.sheet:Stop()
+        burst.Texture.sheet:Play()
+    end
+end
+
+-- Останавливает вспышку.
+local function StopBurst(burst)
+    if not burst then
+        return
+    end
+    if burst.Texture and burst.Texture.sheet then
+        burst.Texture.sheet:Stop()
+        burst.Texture:SetAlpha(0)
+    end
+end
+
+-- Показывает свечение: крутит ореол и один раз вспыхивает искрами.
+local function ShowGlowFrame(glow)
+    if not glow then
+        return
+    end
+    glow:Show()
+    glow:SetAlpha(1)
+    if glow.Spin and glow.Spin.PlayLoop then
+        glow.Spin:PlayLoop()
+    end
+    if glow.BurstFrame and glow.BurstFrame.PlayOnce then
+        glow.BurstFrame:PlayOnce()
+    end
+    if glow.BurstFrame then
+        glow.burstPlayed = glow.BurstFrame.played
+    end
+end
+
+-- Прячет свечение: останавливает оба ролика и убирает их кадры.
+local function HideGlowFrame(glow)
+    if not glow then
+        return
+    end
+    if glow.Spin and glow.Spin.StopLoop then
+        glow.Spin:StopLoop()
+    end
+    if glow.BurstFrame and glow.BurstFrame.StopOnce then
+        glow.BurstFrame:StopOnce()
+    end
+    FadeOut(glow.Spin)
+    FadeOut(glow.BurstFrame)
+end
+
+-- Обычный размер кольца свечения вокруг иконки.
+local function GlowHomeSize()
+    return ActionBar.buttonSize * ActionBar.glowScale - 2
+end
+
+-- Увеличивает фрейм свечения вместе с иконкой.
+local function GrowGlow(glow)
+    local button = glow and glow.button
+    if not button or (ActionBar.slot12Slots and ActionBar.slot12Slots[button.slotID]) then
+        return
+    end
+    if button.flipBusy then
+        return
+    end
+    local home = GlowHomeSize()
+    if math.abs((glow:GetWidth() or 0) - home) > 0.5 then
+        glow:SetSize(home, home)
+    end
+    local grow = ActionBar.glowGrowSize or 6
+    local target = (ActionBar.buttonSize + grow) / ActionBar.buttonSize
+    ConsoleMenu:InitScaleAnimations(glow, ActionBar.glowMotionDuration or 0.2)
+    ConsoleMenu:AnimatedScaleUp(glow, target)
+end
+
+-- Возвращает фрейму свечения обычный размер.
+local function RestoreGlow(glow)
+    local button = glow and glow.button
+    if not button or button.flipBusy then
+        return
+    end
+    ConsoleMenu:InitScaleAnimations(glow, ActionBar.glowMotionDuration or 0.2)
+    ConsoleMenu:AnimatedScaleDown(glow, 1)
+end
+
+-- Показывает свечение кнопки через функцию её кадра.
+local function ShowGlow(btn)
+    if btn and btn.Glow and btn.Glow.ShowGlow then
+        btn.Glow:ShowGlow()
+    end
+end
+
+-- Прячет свечение кнопки через функцию её кадра.
+local function HideGlow(btn)
+    if btn and btn.Glow and btn.Glow.HideGlow then
+        btn.Glow:HideGlow()
+    end
+end
+
+-- Держит тень под рисунком, а счётчик и пиктограмму над свечением.
+local function RaiseButtonContents(btn)
+    local level = btn:GetFrameLevel()
+    if btn.Shadow then
+        btn.Shadow:SetFrameLevel(level)
+    end
+    if btn.Ability then
+        btn.Ability:SetFrameLevel(level + 1)
+    end
+    if btn.IconFrame then
+        btn.IconFrame:SetFrameLevel(level + 1)
+    end
+    if btn.Front then
+        btn.Front:SetFrameLevel(level + 1)
+    end
+    if btn.Back then
+        btn.Back:SetFrameLevel(level + 1)
+    end
+    if btn.Glow then
+        btn.Glow:SetFrameLevel(level + 2)
+        if btn.Glow.Spin then
+            btn.Glow.Spin:SetFrameLevel(level + 2)
+        end
+        if btn.Glow.BurstFrame then
+            btn.Glow.BurstFrame:SetFrameLevel(level + 2)
+        end
+    end
+    if btn.cooldown then
+        btn.cooldown:SetFrameLevel(level + 3)
+    end
+    if btn.Charges then
+        btn.Charges:SetFrameLevel(level + 5)
+    end
+    if btn.Pictogram then
+        btn.Pictogram:SetFrameLevel(level + 6)
+    end
+end
+
+-- Показывает тень под кнопкой.
+local function ShowShadow(btn)
+    if ActionBar.SetGlowShadow then
+        ActionBar.SetGlowShadow(btn, true)
+    else
+        FadeIn(btn.Shadow)
+    end
+    RaiseButtonContents(btn)
+end
+
+-- Прячет тень под кнопкой.
+local function HideShadow(btn, instant)
+    if ActionBar.SetGlowShadow then
+        ActionBar.SetGlowShadow(btn, false, instant and true or false)
+        return
+    end
+    if instant and btn.Shadow then
+        btn.Shadow:Hide()
+        return
+    end
+    FadeOut(btn.Shadow)
+end
+
+-- Запоминает, должно ли свечение гореть, чтобы соседи могли сдвинуться.
+local function NoteGlow(btn, ready)
+    ready = ready and true or false
+    local changed = btn.glowReady ~= ready
+    btn.glowReady = ready
+    if not ready and btn.Glow and btn.Glow.BurstFrame then
+        btn.Glow.BurstFrame.played = nil
+        btn.Glow.burstPlayed = nil
+    end
+    if changed and ActionBar.SyncGlowButtonSizes then
+        ActionBar.SyncGlowButtonSizes()
+    end
+end
+
+-- Зажигает или гасит свечение, тень и размер иконки со свечением.
+local function ApplyGlow(btn, ready)
+    NoteGlow(btn, ready)
+    if btn.flipBusy or btn.coinInAir then
+        HideGlow(btn)
+        HideShadow(btn, true)
+        return
+    end
+    if ready then
+        ShowGlow(btn)
+        ShowShadow(btn)
+        GrowIcon(btn.IconFrame)
+        if btn.Glow and btn.Glow.Grow then
+            btn.Glow:Grow()
+        end
+    else
+        HideGlow(btn)
+        HideShadow(btn)
+        RestoreIcon(btn.IconFrame)
+        if btn.Glow and btn.Glow.Restore then
+            btn.Glow:Restore()
+        end
+    end
+end
+
+-- Проверяет, нужно ли свечение у видимой способности.
+local function UpdateGlow(btn, spellID)
+    local slotID = VisibleSlot(btn)
+    if spellID and GetActionInfo then
+        local ok, actionType, actionID = pcall(GetActionInfo, slotID)
+        local readable = ok
+            and not ActionBar.IsSecretValue(actionType)
+            and not ActionBar.IsSecretValue(actionID)
+            and not ActionBar.IsSecretValue(spellID)
+        if readable and actionType == "spell" and actionID ~= spellID then
+            return
+        end
+    end
+    local ready = false
+    local actionType, actionID
+    if GetActionInfo then
+        local ok, kind, id = pcall(GetActionInfo, slotID)
+        if ok then
+            actionType, actionID = kind, id
+        end
+    end
+    local secretKind = actionType and ActionBar.IsSecretValue(actionType)
+    if not spellID then
+        if secretKind then
+            return
+        end
+        if actionType ~= "spell" and actionType ~= "macro" then
+            ApplyGlow(btn, false)
+            return
+        end
+        spellID = actionID
+    end
+    if spellID and not ActionBar.IsSecretValue(spellID) and C_SpellActivationOverlay and C_SpellActivationOverlay.IsSpellOverlayed then
+        ready = C_SpellActivationOverlay.IsSpellOverlayed(spellID) and true or false
+    end
+    ApplyGlow(btn, ready)
+end
+
+-- Красит видимую сторону функциями включения и выключения обесцвечивания.
+local function UpdateDesaturation(btn)
+    local icon = btn.IconFrame
+    if not icon or not icon.EnableDesaturation or not icon.DisableDesaturation then
+        return
+    end
+    local slotID = VisibleSlot(btn)
+    local usable = btn.usableHint
+    local lacking = btn.resourceHint
+    btn.usableHint = nil
+    btn.resourceHint = nil
+    local gray = false
+    if ActionBar.IconNeedsDesaturation then
+        gray = ActionBar.IconNeedsDesaturation(btn, slotID, usable, lacking)
+    elseif btn.heldGray then
+        gray = true
+    end
+    if gray then
+        icon:EnableDesaturation()
+    else
+        icon:DisableDesaturation()
+    end
+end
+
+-- Обновляет пиктограмму, когда меняется обозначение кнопки.
+local function UpdatePictogram(btn)
+    local icon = btn.Pictogram
+    if not icon or not icon.Texture or not btn.mainKey then
+        return
+    end
+    local slotID = VisibleSlot(btn)
+    local hasAction = ActionBar.SlotHasAction(slotID)
+    local mainKey = btn.mainKey
+    local show = hasAction and (
+        mainKey == "PADRSTICK" or
+        mainKey == "PADLSTICK" or
+        mainKey == "4" or
+        mainKey == "5"
+    )
+    if not show then
+        FadeOut(icon)
+        return
+    end
+    local textureInfo = ConsoleMenu.Textures and ConsoleMenu.Textures[mainKey]
+    local texture = textureInfo and textureInfo.texture
+    if not texture or texture == "" then
+        if ActionBar.IsInCombat and ActionBar.IsInCombat() then
+            return
+        end
+        FadeOut(icon)
+        return
+    end
+    if btn.pictogramKey ~= mainKey then
+        icon.Texture:SetTexture(texture)
+        btn.pictogramKey = mainKey
+        if mainKey == "PADLSTICK" or (ActionBar.slot12Slots and ActionBar.slot12Slots[btn.slotID]) then
+            ActionBar.ApplyKeyGlyphStyle(icon)
+        elseif icon.Background then
+            icon:SetSize(ActionBar.iconSize, ActionBar.iconSize)
+            icon.Background:Show()
+        end
+    end
+    FadeIn(icon)
+end
+
+-- Обновляет заряды, перезарядку, свечение, цвет и пиктограмму уже выбранной стороны.
+local function UpdateRest(btn, spellID)
+    UpdateCharges(btn)
+    UpdateCooldown(btn)
+    UpdateGlow(btn, spellID)
+    UpdateDesaturation(btn)
+    UpdatePictogram(btn)
+end
+
+-- Полёт кружка показывает сторону сам и после шага обновляет остальное содержимое.
+ConsoleMenu:BindModelFlight(ShowSide, UpdateRest)
+
+-- Обновляет кнопку целиком: сторону, заряды, перезарядку, свечение, цвет и пиктограмму.
+local function UpdateButtonState(btn, spellID)
+    if btn.updating then
+        btn.updateAgain = true
+        btn.updateSpell = spellID
+        return
+    end
+    btn.updating = true
+    UpdateFace(btn)
+    UpdateRest(btn, spellID)
+    btn.updating = false
+    if btn.updateAgain then
+        btn.updateAgain = nil
+        local nextSpell = btn.updateSpell
+        btn.updateSpell = nil
+        UpdateButtonState(btn, nextSpell)
+    end
+end
+
+-- Кнопка показывает этот слот сама или может показать его через модификатор.
+local function ShowsSlot(btn, slotID)
+    if not slotID then
+        return false
+    end
+    if btn.slotID == slotID or btn.shownSlot == slotID then
+        return true
+    end
+    local slots = btn.IconFrame and btn.IconFrame.slots
+    if not slots then
+        return false
+    end
+    return slots.base == slotID or slots.SHIFT == slotID or slots.CTRL == slotID or slots.ALT == slotID
+end
+
+-- Ставит центр кнопки на её место у центра группы. Пока размер меньше обычного, отступ увеличивается, чтобы клиент не подтянул кнопку к середине.
+function ActionBar.SeatButton(btn)
+    if not btn or not btn.mainKey then
+        return
+    end
+    if ActionBar.ignoredSlot and ActionBar.ignoredSlot[btn.slotID] then
+        return
+    end
+    local position = ActionBar.buttonPositions and ActionBar.buttonPositions[btn.mainKey]
+    local frame = ActionBar.GetFrame()
+    local anchor = position and ActionBar.ResolveAnchor(frame, position[2])
+    if not anchor then
+        return
+    end
+    local shiftX, shiftY = 0, 0
+    if ActionBar.ButtonGlowShift then
+        shiftX, shiftY = ActionBar.ButtonGlowShift(btn)
+    end
+    local scale = btn:GetScale() or 1
+    btn:ClearAllPoints()
+    btn:SetPoint(
+        position[1],
+        anchor,
+        position[3],
+        ActionBar.StableOffset(position[4] + shiftX, scale),
+        ActionBar.StableOffset(position[5] + shiftY, scale)
+    )
+end
+
+-- Пока кнопка меняет размер, заново ставит её на место.
+local function WatchSeat(btn)
+    if btn.seatWatch then
+        return
+    end
+    btn.seatWatch = true
+    btn:SetScript("OnUpdate", function(self)
+        local growing = self.scaleUp and self.scaleUp:IsPlaying()
+        local shrinking = self.scaleDown and self.scaleDown:IsPlaying()
+        ActionBar.SeatButton(self)
+        if not growing and not shrinking then
+            self.seatWatch = nil
+            self:SetScript("OnUpdate", nil)
+            ActionBar.SeatButton(self)
+        end
+    end)
+end
+
+-- Показывает кнопку: сначала обновляет её, затем растит до обычного размера.
+local function ShowButton(btn)
+    if not btn then
+        return
+    end
+    btn.hiding = nil
+    if btn.Update then
+        btn:Update()
+    end
+    ConsoleMenu:InitScaleAnimations(btn, ActionBar.glowMotionDuration or 0.2)
+    local growing = btn.scaleUp and btn.scaleUp:IsPlaying()
+    local atHome = btn:IsShown() and not btn.scaleZero and math.abs((btn:GetScale() or 1) - 1) < 0.02
+    if not btn:IsShown() then
+        btn:Show()
+        btn:SetAlpha(1)
+    end
+    ActionBar.SeatButton(btn)
+    if growing or atHome then
+        return
+    end
+    WatchSeat(btn)
+    ConsoleMenu:AnimatedScaleUp(btn, 1)
+end
+
+-- Прячет кнопку уменьшением до нуля и убирает свечение, тень, заряды и перезарядку.
+local function HideButton(btn)
+    if not btn then
+        return
+    end
+    HideGlow(btn)
+    HideShadow(btn)
+    HideCharges(btn)
+    HideCooldown(btn)
+    RestoreIcon(btn.IconFrame)
+    if btn.Glow and btn.Glow.Restore then
+        btn.Glow:Restore()
+    end
+    if btn.hiding or not btn:IsShown() then
+        return
+    end
+    ConsoleMenu:InitScaleAnimations(btn, ActionBar.glowMotionDuration or 0.2)
+    if btn.scaleDown and btn.scaleDown:IsPlaying() then
+        btn.hiding = true
+        return
+    end
+    btn.hiding = true
+    ActionBar.SeatButton(btn)
+    WatchSeat(btn)
+    ConsoleMenu:AnimatedScaleDown(btn, 0, nil, function(frame)
+        frame.hiding = nil
+        frame:Hide()
+        if ActionBar.AfterButtonHidden then
+            ActionBar.AfterButtonHidden()
+        end
+    end)
+end
+
+-- Задаёт размер кружка соседям светящейся кнопки. Сама светящаяся иконка растёт отдельно.
+function ActionBar.SetButtonPictureSize(btn, size)
+    if not btn or not size or size < 1 then
+        return
+    end
+    if btn.flipBusy or btn.glowReady then
+        return
+    end
+    if ActionBar.slot12Slots and ActionBar.slot12Slots[btn.slotID] then
+        return
+    end
+    local ability = btn.Ability
+    if ability then
+        ability:SetSize(size, size)
+    end
+    if btn.IconFrame then
+        btn.IconFrame:SetSize(size, size)
+    end
+    if ability then
+        return
+    end
+    if btn.texture then
+        btn.texture:ClearAllPoints()
+        btn.texture:SetPoint("CENTER", btn, "CENTER", 0, 0)
+        btn.texture:SetSize(size, size)
+    end
+end
+
+-- Собирает вращающееся свечение и вспышку искр.
+local function CreateGlow(btn)
+    local glow = CreateFrame("Frame", nil, btn)
+    local glowSize = ActionBar.buttonSize * ActionBar.glowScale - 2
+    glow:SetSize(glowSize, glowSize)
+    glow:SetPoint("CENTER", btn.Ability, "CENTER", 0, 0)
+    glow:SetFrameStrata(btn:GetFrameStrata())
+    glow:Hide()
+    glow.button = btn
+    ConsoleMenu:InitScaleAnimations(glow, ActionBar.glowMotionDuration or 0.2)
+
+    local spin = CreateFrame("Frame", nil, glow)
+    spin:SetAllPoints(glow)
+    ConsoleMenu:InitFadeAnimations(spin, ActionBar.animationDuration)
+    spin.Ring = spin:CreateTexture(nil, "ARTWORK", nil, -1)
+    StartGlowSheet(spin.Ring, ActionBar.glowRingTexture, "ADD", ActionBar.glowBodyColor, ActionBar.glowRingDuration)
+    spin.Body = spin:CreateTexture(nil, "ARTWORK")
+    StartGlowSheet(spin.Body, ActionBar.glowBodyTexture, "BLEND", ActionBar.glowBodyColor)
+    spin.Core = spin:CreateTexture(nil, "OVERLAY")
+    StartGlowSheet(spin.Core, ActionBar.glowCoreTexture, "ADD", ActionBar.glowCoreColor)
+    spin:Hide()
+    spin.PlayLoop = PlaySpin
+    spin.StopLoop = StopSpin
+
+    local burst = CreateFrame("Frame", nil, glow)
+    burst:SetSize(ActionBar.glowBurstSize, ActionBar.glowBurstSize)
+    burst:SetPoint("CENTER", glow, "CENTER", 0, 0)
+    ConsoleMenu:InitFadeAnimations(burst, ActionBar.animationDuration)
+    burst.Texture = burst:CreateTexture(nil, "OVERLAY")
+    StartGlowBurst(burst.Texture)
+    burst:Hide()
+    burst.PlayOnce = PlayBurst
+    burst.StopOnce = StopBurst
+
+    glow.Spin = spin
+    glow.BurstFrame = burst
+    glow.Ring = spin.Ring
+    glow.Body = spin.Body
+    glow.Core = spin.Core
+    glow.Burst = burst.Texture
+    glow.ShowGlow = ShowGlowFrame
+    glow.HideGlow = HideGlowFrame
+    glow.Grow = GrowGlow
+    glow.Restore = RestoreGlow
+    btn.Glow = glow
+end
+
+-- Собирает тень под кнопкой.
+local function CreateShadow(btn)
+    local shadow = CreateFrame("Frame", nil, btn)
+    shadow:SetFrameStrata(btn:GetFrameStrata())
+    shadow:EnableMouse(false)
+    shadow:SetSize(ActionBar.glowShadowSize, ActionBar.glowShadowSize)
+    shadow:SetPoint("CENTER", btn.Ability, "CENTER", 0, 0)
+    shadow:SetAlpha(0)
+    shadow:Hide()
+    local texture = shadow:CreateTexture(nil, "ARTWORK")
+    texture:SetAllPoints()
+    texture:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\CrossBackgorund.png")
+    ConsoleMenu:InitFadeAnimations(shadow, 0.2)
+    shadow.fadeOut.alpha:SetDuration(0.1)
+    shadow.fadeAlpha = ActionBar.glowShadowAlpha or 0.7
+    shadow.glowButton = btn
+    shadow.ShowShadow = function(self)
+        ShowShadow(self.glowButton)
+    end
+    shadow.HideShadow = function(self)
+        HideShadow(self.glowButton)
+    end
+    btn.Shadow = shadow
+    btn.glowShadow = shadow
+end
+
+-- Собирает пиктограмму обозначения кнопки.
+local function CreatePictogram(btn, slotID, isSlot12)
+    local icon = CreateFrame("Frame", "ConsoleMenuActionButtonIcon" .. slotID, btn)
+    icon:SetSize(ActionBar.iconSize, ActionBar.iconSize)
+    icon:SetPoint("TOPRIGHT", btn.IconFrame, "TOPRIGHT", ActionBar.stackCountOffset, ActionBar.stackCountOffset)
+    ConsoleMenu:InitFadeAnimations(icon, ActionBar.animationDuration)
+    icon:Hide()
+    icon.Texture = icon:CreateTexture(nil, "ARTWORK")
+    icon.Texture:SetAllPoints()
+    icon.Texture:SetAlpha(1)
+    icon.Texture:SetTexture(ConsoleMenu.Backgrounds and ConsoleMenu.Backgrounds["PAD"])
+    icon.Background = icon:CreateTexture(nil, "BACKGROUND")
+    icon.Background:SetAllPoints()
+    icon.Background:SetAlpha(0.75)
+    icon.Background:SetTexture(ConsoleMenu.Backgrounds and ConsoleMenu.Backgrounds["STICK"])
+    icon.Shadow = icon:CreateTexture(nil, "BACKGROUND")
+    icon.Shadow:SetPoint("TOPLEFT", icon.Background, "TOPLEFT", -ActionBar.stackCountShadowOffset, ActionBar.stackCountShadowOffset)
+    icon.Shadow:SetPoint("BOTTOMRIGHT", icon.Background, "BOTTOMRIGHT", ActionBar.stackCountShadowOffset, -ActionBar.stackCountShadowOffset)
+    icon.Shadow:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\CrossBackgorund.png")
+    icon.ShowPictogram = function(self)
+        FadeIn(self)
+    end
+    icon.HidePictogram = function(self)
+        FadeOut(self)
+    end
+    icon.UpdatePictogram = function()
+        UpdatePictogram(btn)
+    end
+    if isSlot12 then
+        ActionBar.ApplyKeyGlyphStyle(icon)
+    end
+    btn.Pictogram = icon
+    btn.Icon = icon
+end
+
+-- Создание кнопки геймпада. Номера ячеек записываются позже, по привязкам клавиши.
+function ActionBar.CreateButton(parent, mainKey)
+    local buttonName = "ConsoleMenuActionButton" .. mainKey
     local buttonFrame = CreateFrame("Frame", buttonName, parent)
     parent[buttonName] = buttonFrame
 
-    local isSlot12 = ActionBar.slot12Slots[slotID]
-
+    local isSlot12 = mainKey == ActionBar.padButtonKey or mainKey == "PADBACK"
     if isSlot12 then
         buttonFrame:SetSize(ActionBar.slot12ContainerWidth, ActionBar.slot12ContainerHeight)
     else
         buttonFrame:SetSize(ActionBar.buttonSize, ActionBar.buttonSize)
     end
     ConsoleMenu:InitFadeAnimations(buttonFrame, ActionBar.animationDuration)
-    -- Уровень до подъёма над тенью свечения. Переворот монеты меняет уровень отдельно.
+    ConsoleMenu:InitScaleAnimations(buttonFrame, ActionBar.glowMotionDuration or 0.2)
     buttonFrame.glowRestLevel = buttonFrame:GetFrameLevel()
-    buttonFrame:HookScript("OnHide", function(self)
-        if ActionBar.SetGlowShadow then
-            ActionBar.SetGlowShadow(self, false, true)
-        end
-    end)
-    buttonFrame:HookScript("OnShow", function(self)
-        if self.glowReady and self.slotID and ActionBar.UpdateGlow then
-            ActionBar.UpdateGlow(self.slotID)
-        end
-    end)
+    buttonFrame.mainKey = mainKey
+    buttonFrame.modifierKey = nil
+    buttonFrame.chargeShown = {}
+    buttonFrame.chargeKeyBySlot = {}
 
-    local textureFileID = C_ActionBar.GetActionTexture(slotID)
-    if ActionBar.IsSecretValue(textureFileID) then
-        -- Не считаем слот пустым: просто отложим установку текстуры.
-        textureFileID = nil
-    end
-
-    -- Плашка островка тачпада: торцы остаются круглыми, когда название требует большей ширины.
     if isSlot12 and ActionBar.BuildSlot12Plate then
         ActionBar.BuildSlot12Plate(buttonFrame)
     end
 
-    AttachRoundIcon(buttonFrame, "ConsoleMenuActionButtonStackCount" .. slotID)
-    if textureFileID then
-        buttonFrame.texture:SetTexture(textureFileID)
-    end
-
-    -- Ось кружка не едет вместе с подбросом и не зависит от ширины плашки.
+    local ability = CreateFrame("Frame", nil, buttonFrame)
+    ability:SetSize(ActionBar.buttonSize, ActionBar.buttonSize)
     if isSlot12 then
-        ActionBar.PlaceSlot12Icon(buttonFrame)
+        ability:SetPoint("LEFT", buttonFrame, "LEFT", (ActionBar.slot12IconPadding or 0) + 4, 0)
+    else
+        ability:SetPoint("CENTER", buttonFrame, "CENTER", 0, 0)
+    end
+    buttonFrame.Ability = ability
+    ConsoleMenu:InitScaleAnimations(ability, ActionBar.glowMotionDuration or 0.2)
+
+    local icon = CreateFrame("Frame", nil, ability)
+    icon:SetSize(ActionBar.buttonSize, ActionBar.buttonSize)
+    icon:SetPoint("CENTER", ability, "CENTER", 0, 0)
+    ConsoleMenu:InitScaleAnimations(icon, ActionBar.glowMotionDuration or 0.2)
+    icon.slots = {}
+    icon.button = buttonFrame
+    icon.SetSlot = SetIconSlot
+    icon.ClearSlot = ClearIconSlot
+    icon.UpdateSlot = UpdateIconSlot
+    icon.ClearSlots = ClearIconSlots
+    icon.EnableDesaturation = EnableIconDesaturation
+    icon.DisableDesaturation = DisableIconDesaturation
+    icon.Switch = SwitchIcon
+    icon.Grow = GrowIcon
+    icon.Restore = RestoreIcon
+    local background = icon:CreateTexture(nil, "BACKGROUND")
+    background:SetPoint("TOPLEFT", icon, "TOPLEFT", -4, 4)
+    background:SetPoint("BOTTOMRIGHT", icon, "BOTTOMRIGHT", 4, -4)
+    background:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\Buttons\\pad-background.png")
+    background:SetVertexColor(0, 0, 0, 1)
+    icon.background = background
+    buttonFrame.background = background
+    buttonFrame.Front = CreateFace(icon)
+    buttonFrame.Back = CreateFace(icon)
+    buttonFrame.Back:Hide()
+    buttonFrame.texture = buttonFrame.Front.texture
+    buttonFrame.mask = buttonFrame.Front.mask
+    buttonFrame.IconFrame = icon
+    icon:ClearSlots()
+
+    local cooldown = CreateFrame("Cooldown", nil, buttonFrame, "CooldownFrameTemplate")
+    cooldown:SetSize(ActionBar.buttonSize, ActionBar.buttonSize)
+    cooldown:SetPoint("CENTER", ability, "CENTER", 0, 0)
+    cooldown:SetDrawBling(false)
+    cooldown:SetDrawSwipe(false)
+    cooldown:SetDrawEdge(false)
+    cooldown:SetHideCountdownNumbers(false)
+    cooldown:SetMinimumCountdownDuration(0)
+    ConsoleMenu:InitFadeAnimations(cooldown, ActionBar.animationDuration)
+    cooldown:Hide()
+    cooldown:HookScript("OnHide", function(self)
+        if self.Clear then
+            self:Clear()
+        end
+    end)
+    cooldown.ShowCooldown = function()
+        ShowCooldown(buttonFrame)
+    end
+    cooldown.HideCooldown = function()
+        HideCooldown(buttonFrame)
+    end
+    cooldown.RefreshCooldown = function(_, duration)
+        RefreshCooldown(buttonFrame, duration)
+    end
+    buttonFrame.cooldown = cooldown
+
+    local stack = CreateFrame("Frame", "ConsoleMenuActionButtonStackCount" .. mainKey, buttonFrame)
+    stack:SetSize(ActionBar.stackCountSize, ActionBar.stackCountSize)
+    stack:SetPoint("BOTTOMRIGHT", icon, "BOTTOMRIGHT", ActionBar.stackCountOffset, -ActionBar.stackCountOffset)
+    ConsoleMenu:InitFadeAnimations(stack, ActionBar.animationDuration)
+    stack:Hide()
+    stack.Shadow = stack:CreateTexture(nil, "BACKGROUND")
+    stack.Shadow:SetPoint("TOPLEFT", stack, "TOPLEFT", -ActionBar.stackCountShadowOffset, ActionBar.stackCountShadowOffset)
+    stack.Shadow:SetPoint("BOTTOMRIGHT", stack, "BOTTOMRIGHT", ActionBar.stackCountShadowOffset, -ActionBar.stackCountShadowOffset)
+    stack.Shadow:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\CrossBackgorund.png")
+    stack.Text = stack:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    stack.Text:SetAllPoints()
+    stack.Text:SetJustifyH("CENTER")
+    stack.Text:SetTextColor(1.0, 0.960784, 0.772549, 1)
+    stack.Text:SetFont("Fonts\\FRIZQT___CYR.TTF", ActionBar.fontSize, "")
+    stack.Text:SetText("")
+    stack.ShowCharges = function(_, count)
+        ShowCharges(buttonFrame, count)
+    end
+    stack.HideCharges = function()
+        HideCharges(buttonFrame)
+    end
+    stack.UpdateCharges = function(_, count)
+        if count ~= nil then
+            stack.Text:SetText(count)
+        end
+    end
+    buttonFrame.Charges = stack
+    buttonFrame.StackCount = stack
+
+    CreateGlow(buttonFrame)
+    CreateShadow(buttonFrame)
+    CreatePictogram(buttonFrame, mainKey, isSlot12)
+
+    if isSlot12 then
         local iconAnchor = CreateFrame("Frame", nil, buttonFrame)
         iconAnchor:SetSize(1, 1)
         iconAnchor:SetPoint("LEFT", buttonFrame, "LEFT", ActionBar.Slot12IconCenterOffset(), 0)
         buttonFrame.iconAnchor = iconAnchor
-    else
-        buttonFrame.texture:SetAllPoints(buttonFrame)
-    end
-
-    ActionBar.EnableRangeCheck(slotID, true)
-
-    -- После таймера красим ту сторону, которая сейчас на кнопке, а не ячейку, с которой кнопка создана.
-    local function RefreshCooldownPaint()
-        if buttonFrame.flipBusy or buttonFrame.coinActive or buttonFrame.coinInAir or (buttonFrame.ctrlFlipOwned and not buttonFrame.ctrlFaceSettled) then
-            return
-        end
-        local paintSlot = buttonFrame.slotID
-        if buttonFrame.boostShowingAlt and buttonFrame.boostFlipSlot then
-            paintSlot = buttonFrame.boostFlipSlot
-        end
-        ActionBar.UpdateTextureDesaturation(buttonFrame, paintSlot)
-    end
-
-    buttonFrame.cooldown:HookScript("OnHide", function()
-        RunNextFrame(RefreshCooldownPaint)
-    end)
-
-    buttonFrame.cooldown:SetScript("OnCooldownDone", function()
-        RunNextFrame(RefreshCooldownPaint)
-    end)
-
-    -- Название действия справа от иконки (слот 12)
-    if isSlot12 then
         buttonFrame.Label = buttonFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        -- Левый край привязан к покоящемуся кружку, чтобы подброс не тащил слова за собой.
         buttonFrame.Label:SetPoint(
             "LEFT",
-            buttonFrame.iconAnchor,
+            iconAnchor,
             "CENTER",
             (ActionBar.buttonSize + 8) / 2 + ActionBar.slot12LabelGap,
             0
@@ -163,484 +1344,163 @@ function ActionBar.CreateButton(parent, slotID)
         buttonFrame.Label:SetText("")
     end
 
-    -- Иконка клавиши
-    if not buttonFrame.Icon then
-        buttonFrame.Icon = CreateFrame("Frame", "ConsoleMenuActionButtonIcon" .. slotID, buttonFrame)
-        buttonFrame.Icon:SetSize(ActionBar.iconSize, ActionBar.iconSize)
-        buttonFrame.Icon:SetPoint("TOPRIGHT", buttonFrame.texture, "TOPRIGHT", ActionBar.stackCountOffset, ActionBar.stackCountOffset)
-        ConsoleMenu:InitFadeAnimations(buttonFrame.Icon, ActionBar.animationDuration)
-
-        buttonFrame.Icon:Hide()
-
-        --Иконка бинда
-        if not buttonFrame.Icon.Texture then
-            buttonFrame.Icon.Texture = buttonFrame.Icon:CreateTexture(nil, "ARTWORK")
-            buttonFrame.Icon.Texture:SetAllPoints()
-            buttonFrame.Icon.Texture:SetAlpha(1)
-
-            local texture = ConsoleMenu.Backgrounds["PAD"]
-            buttonFrame.Icon.Texture:SetTexture(texture)
-        end
-
-        -- Фон
-        if not buttonFrame.Icon.Background then
-            buttonFrame.Icon.Background = buttonFrame.Icon:CreateTexture(nil, "BACKGROUND")
-            buttonFrame.Icon.Background:SetAllPoints()
-            buttonFrame.Icon.Background:SetAlpha(0.75)
-
-            local texture = ConsoleMenu.Backgrounds["STICK"]
-            buttonFrame.Icon.Background:SetTexture(texture)
-        end
-
-        --Тень
-        if not buttonFrame.Icon.Shadow then
-            buttonFrame.Icon.Shadow = buttonFrame.Icon:CreateTexture(nil, "BACKGROUND")
-            buttonFrame.Icon.Shadow:SetPoint("TOPLEFT", buttonFrame.Icon.Background, "TOPLEFT", -ActionBar.stackCountShadowOffset, ActionBar.stackCountShadowOffset)
-            buttonFrame.Icon.Shadow:SetPoint("BOTTOMRIGHT", buttonFrame.Icon.Background, "BOTTOMRIGHT", ActionBar.stackCountShadowOffset, -ActionBar.stackCountShadowOffset)
-
-            local texture = "Interface\\AddOns\\ConsoleMenu\\Assets\\CrossBackgorund.png"
-            buttonFrame.Icon.Shadow:SetTexture(texture)
-        end
-
-        -- На тачпаде пиктограмма клавиши без подложки, с тенью как у счётчика.
-        if isSlot12 then
-            ActionBar.ApplyKeyGlyphStyle(buttonFrame.Icon)
-        end
+    buttonFrame.Update = UpdateButtonState
+    buttonFrame.ShowsSlot = ShowsSlot
+    buttonFrame.ShowButton = ShowButton
+    buttonFrame.HideButton = HideButton
+    buttonFrame.ShowGlow = ShowGlow
+    buttonFrame.HideGlow = HideGlow
+    buttonFrame.ShowShadow = ShowShadow
+    buttonFrame.HideShadow = HideShadow
+    buttonFrame.ShowCharges = ShowCharges
+    buttonFrame.HideCharges = HideCharges
+    buttonFrame.ShowCooldown = ShowCooldown
+    buttonFrame.HideCooldown = HideCooldown
+    buttonFrame.ForgetCharges = ForgetCharges
+    buttonFrame.GrowIcon = function(self)
+        GrowIcon(self.IconFrame)
+    end
+    buttonFrame.RestoreIcon = function(self)
+        RestoreIcon(self.IconFrame)
     end
 
+    buttonFrame:HookScript("OnHide", function(self)
+        if self.HideShadow then
+            self:HideShadow(true)
+        end
+    end)
+
+    RaiseButtonContents(buttonFrame)
     return buttonFrame
 end
 
--- Крутит текстуру, если клиент это умеет.
-local function SetPieceRotation(piece, angle)
-    if piece and piece.SetRotation then
-        piece:SetRotation(angle or 0)
+-- Добавляет рычаг, если его нажатие привязано к ячейке, и убирает, если привязки больше нет.
+function ActionBar.SyncStickButtons(frame)
+    frame = frame or ActionBar.GetFrame()
+    if not frame or not frame.actionButtons then
+        return
     end
-end
-
--- Подброс рисунка: в середине видна другая сторона.
-local function ApplyPictureToss(btn, amount, tilt)
-    local texture = btn.texture
-    local background = btn.background
-    local size = ActionBar.buttonSize
-    local turns = ActionBar.boostCoinTurns or 1
-    if turns < 1 then
-        turns = 1
-    end
-    local edge = ActionBar.boostFlipEdge or 0.07
-    local thin = 1
-    local axis = 0
-    local slide = 0
-    local lift = 0
-    local shade = 1
-    local scale = 1
-    local showAlt = amount >= 1
-
-    if amount > 0 and amount < 1 then
-        local rise = amount ^ 0.62
-        local hop = math.sin(rise * math.pi)
-        local spun = amount * amount * (3 - 2 * amount)
-        local spin = spun * turns * math.pi
-        thin = math.abs(math.cos(spin))
-        if thin < edge then
-            thin = edge
-        end
-        showAlt = math.cos(spin) < 0
-        local tiltAmount = tilt or 0.7
-        local direction = tiltAmount >= 0 and 1 or -1
-        axis = tiltAmount * hop * 0.85
-        slide = math.sin(amount * math.pi) * direction * (ActionBar.boostFlipNudge or 6)
-        lift = hop * (ActionBar.boostFlipLift or 26)
-        scale = 1 + hop * 0.12
-        shade = 0.35 + 0.65 * thin
-    end
-
-    local height = size * scale
-    local width = height * thin
-    if width < 0.01 then
-        width = 0.01
-    end
-    local wide = ActionBar.slot12Slots and ActionBar.slot12Slots[btn.slotID]
-    if background then
-        background:ClearAllPoints()
-        background:SetSize(math.max(width + 8, 0.01), height + 8)
-        SetPieceRotation(background, axis)
-        if wide then
-            -- Кружок прыгает на левом краю плашки, сама плашка и подпись не едут.
-            background:SetPoint("LEFT", btn, "LEFT", (ActionBar.slot12IconPadding or 0) + slide, lift)
-        else
-            background:SetPoint("CENTER", btn, "CENTER", slide, lift)
-        end
-    end
-    if texture then
-        texture:ClearAllPoints()
-        texture:SetSize(width, height)
-        texture:SetVertexColor(shade, shade, shade)
-        SetPieceRotation(texture, axis)
-        if wide and background then
-            texture:SetPoint("CENTER", background, "CENTER", 0, 0)
-        else
-            texture:SetPoint("CENTER", btn, "CENTER", slide, lift)
-        end
-    end
-    return showAlt
-end
-
--- Возвращает рисунок и подложку на обычное место.
-local function SeatPicture(btn)
-    local texture = btn.texture
-    if ActionBar.slot12Slots and ActionBar.slot12Slots[btn.slotID] and ActionBar.PlaceSlot12Icon then
-        ActionBar.PlaceSlot12Icon(btn)
-    elseif texture then
-        texture:ClearAllPoints()
-        texture:SetAllPoints(btn)
-        texture:SetVertexColor(1, 1, 1)
-        SetPieceRotation(texture, 0)
-        if btn.background then
-            btn.background:ClearAllPoints()
-            btn.background:SetPoint("CENTER", btn, "CENTER", 0, 0)
-            btn.background:SetSize(ActionBar.buttonSize + 8, ActionBar.buttonSize + 8)
-            SetPieceRotation(btn.background, 0)
+    local sticks = { ActionBar.rightStickKey, ActionBar.leftStickKey }
+    for index = 1, #sticks do
+        local key = sticks[index]
+        if key then
+            local bound = ActionBar.StickHasSlot and ActionBar.StickHasSlot(key)
+            local btn = frame.actionButtons[key]
+            frame.keptButtons = frame.keptButtons or {}
+            if bound and not btn then
+                btn = frame.keptButtons[key]
+                if not btn then
+                    btn = ActionBar.CreateButton(frame, key)
+                    frame.keptButtons[key] = btn
+                end
+                frame.actionButtons[key] = btn
+            elseif btn and not bound then
+                if btn.HideButton then
+                    btn:HideButton()
+                else
+                    btn:Hide()
+                end
+                frame.keptButtons[key] = btn
+                frame.actionButtons[key] = nil
+            end
         end
     end
 end
 
--- Кнопка той же клавиши на панели зажатого модификатора.
-local function FindModifierFace(btn, modifier)
+-- Записывает в кнопку ячейку без модификатора и ячейки Shift, Ctrl и Alt.
+local function WriteButtonSlots(btn, page)
+    local icon = btn.IconFrame
+    local key = btn.mainKey
+    if not icon or not icon.ClearSlots or not key or not ActionBar.BindingSlot then
+        return
+    end
+    icon:ClearSlots()
+    local base = ActionBar.BindingSlot(key, nil, page)
+    if not base and key == ActionBar.padButtonKey then
+        base = ActionBar.BindingSlot("PADBACK", nil, page)
+    end
+    icon:SetSlot(nil, base)
+    btn.slotID = base
+    local modifiers = { "SHIFT", "CTRL", "ALT" }
+    for index = 1, #modifiers do
+        local modifier = modifiers[index]
+        local slot = ActionBar.BindingSlot(key, modifier, page)
+        if not slot and key == ActionBar.padButtonKey then
+            slot = ActionBar.BindingSlot("PADBACK", modifier, page)
+        end
+        if slot and not (ActionBar.IsExtraActionSlot and ActionBar.IsExtraActionSlot(slot)) then
+            icon:SetSlot(modifier, slot)
+            if ActionBar.EnableRangeCheck then
+                ActionBar.EnableRangeCheck(slot, true)
+            end
+        end
+    end
+    if base and ActionBar.EnableRangeCheck then
+        ActionBar.EnableRangeCheck(base, true)
+    end
+end
+
+-- Раскладывает ячейки по кнопкам геймпада согласно текущим привязкам.
+function ActionBar.FillButtonSlots()
     local frame = ActionBar.GetFrame()
-    if not frame or not frame.actionButtons or not btn.mainKey or not modifier then
-        return nil
-    end
-    for _, other in pairs(frame.actionButtons) do
-        if other ~= btn and other.mainKey == btn.mainKey and other.modifierKey == modifier then
-            return other
-        end
-    end
-    return nil
-end
-
--- Этой кнопке при правом рычаге положено остаться серой.
-local function StaysOnRightStick(btn, modifier)
-    if not modifier or not btn.mainKey then
-        return false
-    end
-    if not ActionBar.ModifierSitsOnRightStick or not ActionBar.ModifierSitsOnRightStick(modifier) then
-        return false
-    end
-    return ActionBar.rightStickStillKeys and ActionBar.rightStickStillKeys[btn.mainKey] == true
-end
-
--- Ставит рисунок стороны и запоминает, чью ячейку сейчас видно.
-local function ShowFace(btn, slotID, texture)
-    if not btn.texture or not texture then
+    if not frame or not frame.actionButtons then
         return
     end
-    if btn.shownTexture == texture and btn.boostFlipSlot == slotID then
-        return
+    if ActionBar.SyncStickButtons then
+        ActionBar.SyncStickButtons(frame)
     end
-    btn.texture:SetTexture(texture)
-    btn.shownTexture = texture
-    btn.boostShowingAlt = slotID ~= btn.slotID
-    btn.boostFlipSlot = slotID ~= btn.slotID and slotID or nil
-    if ActionBar.UpdateTextureDesaturation then
-        ActionBar.UpdateTextureDesaturation(btn, slotID)
-    end
-    -- Пока кружок в воздухе, плашка не подгоняется под новое название.
-    if not btn.flipBusy and not btn.coinInAir and btn.Label and btn.slotID and ActionBar.UpdateSlot12Label then
-        ActionBar.UpdateSlot12Label(btn.slotID)
+    local page = ActionBar.SlotPage and ActionBar.SlotPage() or 1
+    for _, btn in pairs(frame.actionButtons) do
+        WriteButtonSlots(btn, page)
     end
 end
 
-local flipping = {}
-local flipDriver
-
-local function StopFlipDriverIfIdle()
-    if not flipDriver then
+-- Сообщает видимой кнопке зажатый модификатор.
+function ActionBar.SetButtonModifier(btn, modifier, instant)
+    if not btn or btn.modifierKey or not btn.Update then
         return
     end
-    for index = 1, #flipping do
-        if flipping[index].flipBusy then
+    if btn.heldModifier == modifier and not btn.flipBusy then
+        local want = ResolveShownSlot(btn)
+        if modifier == btn.heldModifier and btn.shownSlot == want and not instant then
             return
         end
     end
-    flipDriver:Hide()
+    btn.heldModifier = modifier
+    btn.swapInstant = instant and true or false
+    btn:Update()
+    btn.swapInstant = nil
 end
 
--- Шаг подброса всех кнопок, которые сейчас в воздухе.
-local function StepFlips(_, elapsed)
-    for index = #flipping, 1, -1 do
-        local btn = flipping[index]
-        if btn.flipBusy then
-            btn.flipElapsed = (btn.flipElapsed or 0) + (elapsed or 0)
-            local duration = btn.flipDuration or 0.2
-            local amount = duration > 0 and btn.flipElapsed / duration or 1
-            if amount >= 1 then
-                amount = 1
+-- Обновляет кнопку слота и те кнопки, которые сейчас показывают этот слот.
+function ActionBar.UpdateButton(slotID, spellID, isUsable, isLackingResources)
+    local frame = ActionBar.GetFrame()
+    if not frame or not frame.actionButtons or not slotID then
+        return
+    end
+    for _, btn in pairs(frame.actionButtons) do
+        if btn.Update and not btn.modifierKey and btn.ShowsSlot and btn:ShowsSlot(slotID) then
+            if btn.slotID == slotID or btn.shownSlot == slotID then
+                btn.usableHint = isUsable
+                btn.resourceHint = isLackingResources
             end
-            local showAlt = ApplyPictureToss(btn, amount, btn.flipTilt)
-            local faceSlot = btn.flipFrontSlot or btn.slotID
-            local faceTexture = btn.flipFrontTexture or btn.homeTexture
-            if showAlt then
-                faceSlot = btn.flipSlot or btn.slotID
-                faceTexture = btn.flipTexture or faceTexture
-            end
-            ShowFace(btn, faceSlot, faceTexture)
-            local timerReady = showAlt and true or nil
-            if btn.coinTimerReady ~= timerReady then
-                btn.coinTimerReady = timerReady
-                if amount < 1 and ActionBar.SyncButtonCooldown then
-                    ActionBar.SyncButtonCooldown(btn)
-                end
-            end
-            if amount >= 1 then
-                if btn.flipSlot == btn.slotID and btn.flipTexture then
-                    btn.homeTexture = btn.flipTexture
-                end
-                btn.flipBusy = false
-                btn.coinInAir = nil
-                btn.coinActive = nil
-                btn.coinTimerReady = true
-                btn.coinCountReady = true
-                btn.flipFrontSlot = nil
-                btn.flipFrontTexture = nil
-                SeatPicture(btn)
-                ShowFace(btn, btn.flipSlot or btn.slotID, btn.flipTexture or btn.homeTexture)
-                if btn.Label and btn.slotID and ActionBar.UpdateSlot12Label then
-                    ActionBar.UpdateSlot12Label(btn.slotID)
-                end
-                btn.glowHeld = nil
-                btn.glowWanted = nil
-                if ActionBar.UpdateCount and btn.slotID then
-                    ActionBar.UpdateCount(btn.slotID)
-                end
-                if ActionBar.UpdateGlow then
-                    ActionBar.UpdateGlow(btn.slotID)
-                end
-                if ActionBar.SyncButtonCooldown then
-                    ActionBar.SyncButtonCooldown(btn)
-                end
-                if ActionBar.SyncGlowButtonSizes then
-                    ActionBar.SyncGlowButtonSizes()
-                end
-                table.remove(flipping, index)
-            end
-        else
-            table.remove(flipping, index)
-        end
-    end
-    StopFlipDriverIfIdle()
-end
-
-local function EnsureFlipDriver()
-    if flipDriver then
-        return flipDriver
-    end
-    flipDriver = CreateFrame("Frame")
-    flipDriver:Hide()
-    flipDriver:SetScript("OnUpdate", StepFlips)
-    return flipDriver
-end
-
--- Снимает кнопку из списка хода, чтобы второе нажатие не ускоряло подброс.
-local function ForgetFlip(btn)
-    for index = #flipping, 1, -1 do
-        if flipping[index] == btn then
-            table.remove(flipping, index)
+            btn:Update(spellID)
         end
     end
 end
 
--- Отмечает, что рисунок ещё крутится, и оставляет в списке только одну запись.
-local function BeginToss(btn)
-    ForgetFlip(btn)
-    btn.flipBusy = true
-    btn.coinInAir = true
-    btn.coinActive = true
-    btn.coinTimerReady = nil
-    btn.coinCountReady = nil
-    if ActionBar.SyncButtonCooldown then
-        ActionBar.SyncButtonCooldown(btn)
-    end
-    btn.flipElapsed = 0
-    btn.flipDuration = ActionBar.boostExpandDuration and ActionBar.boostExpandDuration * 0.55 or 0.26
-    btn.flipTilt = (btn.slotID % 2 == 0) and 0.7 or -0.6
-    flipping[#flipping + 1] = btn
-    -- Начальная память о кольце. Более поздняя просьба заменит её, не показывая кольцо.
-    btn.glowWanted = btn.Glow and btn.Glow:IsShown() and true or false
-    if btn.Glow then
-        btn.Glow:Hide()
-    end
-    EnsureFlipDriver():Show()
-end
-
--- Рисунок лёг ровно: подброс больше не держит кнопку.
-local function EndToss(btn)
-    ForgetFlip(btn)
-    btn.flipBusy = false
-    btn.coinInAir = nil
-    btn.coinActive = nil
-    btn.coinTimerReady = true
-    btn.coinCountReady = true
-    btn.flipFrontSlot = nil
-    btn.flipFrontTexture = nil
-    btn.glowHeld = nil
-end
-
--- Включает или выключает свечение кнопки. Во время переворота просьба ждёт.
-function ActionBar.SetButtonGlowShown(btn, shown)
-    if not btn then
+-- Обновляет все видимые кнопки панели.
+function ActionBar.UpdateAllButtons(spellID)
+    local frame = ActionBar.GetFrame()
+    if not frame or not frame.actionButtons then
         return
     end
-    btn.glowWanted = shown and true or false
-    if btn.flipBusy or btn.coinInAir then
-        if btn.Glow then
-            btn.Glow:Hide()
+    for _, btn in pairs(frame.actionButtons) do
+        if btn.Update and not btn.modifierKey then
+            btn:Update(spellID)
         end
-        return
-    end
-    if not btn.Glow then
-        return
-    end
-    if btn.glowWanted then
-        ConsoleMenu:AnimatedShow(btn.Glow)
-        local ring = btn.Glow.Ring
-        local body = btn.Glow.Body
-        local core = btn.Glow.Core
-        if ring and ring.sheet and not ring.sheet:IsPlaying() then
-            ring.sheet:Play()
-        end
-        if body and body.sheet and not body.sheet:IsPlaying() then
-            body.sheet:Play()
-        end
-        if core and core.sheet and not core.sheet:IsPlaying() then
-            core.sheet:Play()
-        end
-    else
-        ConsoleMenu:AnimatedHide(btn.Glow)
     end
 end
 
--- Задаёт размер рисунка. Подложка и кольцо следуют за ним.
-function ActionBar.SetButtonPictureSize(btn, size)
-    if not btn or not btn.texture or not size or size < 1 then
-        return
-    end
-    if btn.flipBusy then
-        return
-    end
-    if ActionBar.slot12Slots and ActionBar.slot12Slots[btn.slotID] then
-        return
-    end
-    btn.texture:ClearAllPoints()
-    btn.texture:SetPoint("CENTER", btn, "CENTER", 0, 0)
-    btn.texture:SetSize(size, size)
-    if btn.background then
-        btn.background:SetSize(size + 8, size + 8)
-    end
-    if btn.Glow then
-        local glowSize = ActionBar.buttonSize * (ActionBar.glowScale or 1) - 2 + (size - ActionBar.buttonSize)
-        if glowSize < 1 then
-            glowSize = 1
-        end
-        btn.Glow:SetSize(glowSize, glowSize)
-    end
-end
-
--- Свежий рисунок ячейки. Скрытое боевое значение не подменяет уже известное.
-local function FreshSlotTexture(slotID, fallback)
-    local texture, hidden = ActionBar.GetSlotTexture(slotID)
-    if hidden or not texture then
-        return fallback, hidden
-    end
-    return texture, false
-end
-
--- Сообщает кнопке зажатую дополнительную клавишу. Она сама переворачивается или сереет.
-function ActionBar.SetButtonModifier(btn, modifier, instant)
-    if not btn or btn.modifierKey then
-        return
-    end
-
-    local home = FreshSlotTexture(btn.slotID, btn.homeTexture)
-    if home then
-        btn.homeTexture = home
-    end
-
-    local face = modifier and FindModifierFace(btn, modifier)
-    local stay = modifier and StaysOnRightStick(btn, modifier)
-    local canFlip = face and not stay and C_ActionBar.HasAction(face.slotID)
-    local targetSlot = btn.slotID
-    local targetTexture = home
-    if canFlip then
-        local faceTexture, faceHidden = FreshSlotTexture(face.slotID, nil)
-        if faceHidden or not faceTexture then
-            canFlip = false
-        else
-            targetSlot = face.slotID
-            targetTexture = faceTexture
-        end
-    end
-    btn.heldGray = (modifier and not canFlip) and true or false
-
-    local returning = not instant and not modifier and (btn.flipBusy or btn.boostShowingAlt)
-    local alreadyThere = not btn.flipBusy and btn.heldModifier == modifier and (
-        (canFlip and btn.boostFlipSlot == targetSlot) or (not canFlip and not btn.boostShowingAlt)
-    )
-    -- Сторона уже та, что нужна: число, свечение и рисунок не перечитываем.
-    if alreadyThere then
-        return
-    end
-    if instant or (not canFlip and not returning) then
-        EndToss(btn)
-        btn.heldModifier = modifier
-        btn.flipSlot = canFlip and targetSlot or nil
-        btn.flipTexture = canFlip and targetTexture or nil
-        SeatPicture(btn)
-        ShowFace(btn, canFlip and targetSlot or btn.slotID, (canFlip and targetTexture) or home)
-        if ActionBar.UpdateTextureDesaturation then
-            ActionBar.UpdateTextureDesaturation(btn, canFlip and targetSlot or btn.slotID)
-        end
-        if ActionBar.UpdateCount and btn.slotID then
-            ActionBar.UpdateCount(btn.slotID)
-        end
-        if ActionBar.UpdateGlow then
-            ActionBar.UpdateGlow(btn.slotID)
-        end
-        if ActionBar.SyncButtonCooldown then
-            ActionBar.SyncButtonCooldown(btn)
-        end
-        return
-    end
-
-    if btn.flipBusy and btn.heldModifier == modifier and btn.flipSlot == targetSlot and not returning then
-        if targetTexture then
-            btn.flipTexture = targetTexture
-        end
-        return
-    end
-
-    -- Уже летит на свою ячейку: второе отпускание не начинает ход сначала.
-    if btn.flipBusy and not instant and not modifier and btn.flipSlot == btn.slotID then
-        if home then
-            btn.flipTexture = home
-        end
-        return
-    end
-
-    if returning then
-        btn.flipFrontSlot = btn.boostFlipSlot or btn.slotID
-        btn.flipFrontTexture = btn.shownTexture or btn.flipTexture or home
-        btn.heldModifier = nil
-        btn.heldGray = false
-        btn.flipSlot = btn.slotID
-        btn.flipTexture = home
-    else
-        btn.flipFrontSlot = nil
-        btn.flipFrontTexture = nil
-        btn.heldModifier = modifier
-        btn.flipSlot = targetSlot
-        btn.flipTexture = targetTexture
-    end
-    BeginToss(btn)
-end
-
+ActionBar.ShowButton = ShowButton
+ActionBar.HideButton = HideButton

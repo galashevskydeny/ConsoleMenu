@@ -3,22 +3,16 @@
 local ConsoleMenu = _G.ConsoleMenu
 local ActionBar = ConsoleMenu.ActionBar
 
--- Промежутки ячеек: основная панель, её вторая страница и панели модификаторов.
-local slotRanges = {
-    { 1, 12 },
-    { 13, 24 },
-    { 25, 48 },
-    { 49, 72 },
-}
-
 -- Обходит уже созданные кнопки панели.
 local function ForEachButton(callback)
     local frame = ActionBar.GetFrame()
     if not frame or not frame.actionButtons then
         return
     end
-    for slotID in pairs(frame.actionButtons) do
-        callback(slotID)
+    for _, btn in pairs(frame.actionButtons) do
+        if btn.slotID then
+            callback(btn.slotID)
+        end
     end
 end
 
@@ -36,10 +30,11 @@ local function RunBarPaint()
     paintCooldowns = false
     paintCounts = false
     paintClouds = false
-    if cooldowns and ActionBar.UpdateCooldowns then
+    if (cooldowns or counts) and ActionBar.UpdateAllButtons then
+        ActionBar.UpdateAllButtons()
+    elseif cooldowns and ActionBar.UpdateCooldowns then
         ActionBar.UpdateCooldowns()
-    end
-    if counts then
+    elseif counts then
         ForEachButton(function(slotID)
             ActionBar.UpdateCount(slotID)
         end)
@@ -77,16 +72,9 @@ local function RefreshEnteredWorld()
         ActionBar.InvalidateEquippedItemCache()
     end
 
-    ForEachButton(function(slotID)
-        ActionBar.UpdateTexture(slotID)
-        ActionBar.UpdateGlow(slotID, nil, "PLAYER_ENTERING_WORLD")
-        ActionBar.UpdateCount(slotID)
-    end)
     ActionBar.EnableAllRangeChecks()
     ActionBar.UpdateButtonPositions()
-    ActionBar.UpdateCooldowns()
     ActionBar.UpdateModifierState()
-    ActionBar.UpdateAllUsable()
 end
 
 -- Смена геймпада: заново раскладываем кнопки.
@@ -116,17 +104,18 @@ local function OnSlotChanged(_, _, slotID)
     if ActionBar.ForgetUseAction then
         ActionBar.ForgetUseAction(slotID)
     end
-    ActionBar.UpdateTexture(slotID)
     ActionBar.UpdateButtonPositions(slotID)
-    ActionBar.UpdateCooldowns()
-    ActionBar.UpdateCount(slotID)
+    if ActionBar.UpdateButton then
+        ActionBar.UpdateButton(slotID)
+    end
     ActionBar.UpdateModifierState()
     -- Свечение проверяем кадром позже: оверлей ещё не успевает обновиться.
     RunNextFrame(function()
-        ActionBar.UpdateGlow(slotID, nil, "ACTIONBAR_SLOT_CHANGED")
+        if ActionBar.UpdateButton then
+            ActionBar.UpdateButton(slotID)
+        end
     end)
     ActionBar.EnableRangeCheck(slotID, true)
-    ActionBar.UpdateUsable(slotID)
     ActionBar.UpdateBoosts()
 end
 
@@ -136,9 +125,9 @@ local function OnCombatOrTarget(_, event)
         local slots = C_ActionBar.FindAssistedCombatActionButtons()
         if slots then
             for _, slotID in pairs(slots) do
-                ActionBar.UpdateTexture(slotID)
-                ActionBar.UpdateIcon(slotID)
-                ActionBar.UpdateCount(slotID)
+                if ActionBar.UpdateButton then
+                    ActionBar.UpdateButton(slotID)
+                end
             end
         end
     end
@@ -150,11 +139,9 @@ local function OnCombatOrTarget(_, event)
         ScheduleBarPaint("clouds")
         return
     end
-    if event == "PLAYER_REGEN_ENABLED" then
+    if event == "PLAYER_REGEN_ENABLED" and ActionBar.UpdateAllButtons then
         -- В бою пустой ответ не стирал число. После боя его перечитываем на всех кнопках.
-        ForEachButton(function(slotID)
-            ActionBar.UpdateCount(slotID)
-        end)
+        ActionBar.UpdateAllButtons()
     end
     ScheduleBarPaint("clouds")
 end
@@ -332,16 +319,25 @@ function ConsoleMenu:InitializeMainActionBar()
 
     frame.actionButtons = {}
 
-    for rangeIndex = 1, #slotRanges do
-        local firstSlot = slotRanges[rangeIndex][1]
-        local lastSlot = slotRanges[rangeIndex][2]
-        for slotID = firstSlot, lastSlot do
-            local btn = ActionBar.CreateButton(frame, slotID)
-            if btn then
-                btn.slotID = slotID
-                frame.actionButtons[slotID] = btn
-            end
+    local function AddButton(key)
+        if not key or frame.actionButtons[key] then
+            return
         end
+        local btn = ActionBar.CreateButton(frame, key)
+        if btn then
+            frame.actionButtons[key] = btn
+        end
+    end
+
+    for index = 1, #ActionBar.rightButtonKeys do
+        AddButton(ActionBar.rightButtonKeys[index])
+    end
+    for index = 1, #ActionBar.leftButtonKeys do
+        AddButton(ActionBar.leftButtonKeys[index])
+    end
+    AddButton(ActionBar.padButtonKey)
+    if ActionBar.SyncStickButtons then
+        ActionBar.SyncStickButtons(frame)
     end
 
     ActionBar.CreateClouds = ActionBar.CreateClouds or ActionBar.CreateBoosts

@@ -99,24 +99,22 @@ local function HeldModifier()
     return nil
 end
 
--- Кнопка основной панели без дополнительной клавиши. При двух страницах берётся боевая.
+-- Кнопка основной панели без дополнительной клавиши.
 local function FindMainPageButton(mainKey)
     local frame = ActionBar.GetFrame()
     if not frame or not frame.actionButtons or not mainKey then
         return nil
     end
-    local fallback
+    local host = frame.actionButtons[mainKey]
+    if host and not host.modifierKey then
+        return host
+    end
     for _, btn in pairs(frame.actionButtons) do
-        if btn.mainKey == mainKey and not btn.modifierKey and btn.slotID and btn.slotID >= 1 and btn.slotID <= 24 then
-            if ActionBar.IsSlotOnCombatPage and ActionBar.IsSlotOnCombatPage(btn.slotID) then
-                return btn
-            end
-            if not fallback then
-                fallback = btn
-            end
+        if btn.mainKey == mainKey and not btn.modifierKey then
+            return btn
         end
     end
-    return fallback
+    return nil
 end
 
 -- Кнопка панели с этой клавишей и этим модификатором.
@@ -175,12 +173,21 @@ local function CloudSpecs()
     return specs
 end
 
--- Кнопка умения облака. Правый рычаг берётся с основной панели.
+-- Кнопка умения облака. Номер ячейки берётся из таблицы кнопки этой клавиши.
 local function CloudSpellButton(key, modifier)
     if key == "PADRSTICK" then
         return FindMainPageButton(key)
     end
-    return FindSpellButton(key, modifier)
+    local host = FindMainPageButton(key)
+    if not host or not modifier then
+        return host
+    end
+    local slots = host.IconFrame and host.IconFrame.slots
+    local slotID = slots and slots[modifier]
+    if not slotID then
+        return FindSpellButton(key, modifier)
+    end
+    return { slotID = slotID }
 end
 
 -- Снимает привязку к сетке у значка и его рисунка, иначе покачивание дёргается.
