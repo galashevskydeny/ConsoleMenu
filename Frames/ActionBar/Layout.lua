@@ -304,6 +304,26 @@ function ActionBar.AfterButtonHidden()
     HidePanelFrameIfIdle(frame, GetActiveModifier())
 end
 
+-- Иконка без модификатора уже стоит на экране.
+local function BaseIconDisplayed(btn)
+    if not btn:IsShown() or btn.hiding or btn.scaleZero then
+        return false
+    end
+    if math.abs((btn:GetScale() or 1) - 1) >= 0.02 then
+        return false
+    end
+    local slots = btn.IconFrame and btn.IconFrame.slots
+    local base = (slots and slots.base) or btn.slotID
+    if not base or btn.shownSlot ~= base then
+        return false
+    end
+    local texture = btn.shownTexture
+    if ActionBar.IsSecretValue and ActionBar.IsSecretValue(texture) then
+        return true
+    end
+    return texture ~= nil and texture ~= ""
+end
+
 -- Смена набора кнопок при удержании дополнительной клавиши.
 -- Размер панели не меняется: видимые кнопки сами вырастают, лишние сами исчезают.
 local function UpdateModifierState()
@@ -328,8 +348,17 @@ local function UpdateModifierState()
     for _, btn in pairs(frame.actionButtons) do
         local visible = showPanel and IsActionButtonVisible(btn.slotID, btn, activeModifier)
         if not btn.modifierKey and ActionBar.SetButtonModifier then
+            if activeModifier and not btn.heldModifier then
+                btn.baseIconShown = BaseIconDisplayed(btn)
+            end
+            local releasing = btn.heldModifier and not (visible and activeModifier)
             local settled = btn:IsShown() and not btn.hiding and not btn.scaleZero and math.abs((btn:GetScale() or 1) - 1) < 0.02
-            ActionBar.SetButtonModifier(btn, visible and activeModifier or nil, not settled)
+            -- До нажатия своей иконки не было: при скрытии рисунок не переворачиваем.
+            if releasing and not visible and not btn.baseIconShown and btn:IsShown() then
+                btn.keepFaceOnHide = true
+            end
+            local instant = (not settled) or (releasing and not btn.baseIconShown)
+            ActionBar.SetButtonModifier(btn, visible and activeModifier or nil, instant)
         end
         if visible then
             ActionBar.ShowButton(btn)

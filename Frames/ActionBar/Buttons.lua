@@ -327,6 +327,13 @@ end
 
 -- Выбирает способность и запускает переворот только при смене между своим слотом и слотом модификатора.
 local function UpdateFace(btn)
+    -- Скрытие без своей иконки оставляет видимый рисунок: переворот здесь не нужен.
+    if btn.keepFaceOnHide then
+        if btn.flipBusy then
+            ConsoleMenu:StopModelFlight(btn)
+        end
+        return
+    end
     local slotID = ResolveShownSlot(btn)
     local texture, hidden = ActionBar.GetSlotTexture(slotID)
     if hidden then
@@ -941,7 +948,10 @@ local function UpdateButtonState(btn, spellID)
     end
     btn.updating = true
     UpdateFace(btn)
-    UpdateRest(btn, spellID)
+    -- Пока кнопка исчезает без своей иконки, заряды и перезарядку заново не показываем.
+    if not btn.keepFaceOnHide then
+        UpdateRest(btn, spellID)
+    end
     btn.updating = false
     if btn.updateAgain then
         btn.updateAgain = nil
@@ -1013,14 +1023,35 @@ local function WatchSeat(btn)
     end)
 end
 
+-- Когда кнопка уже скрыта, ставит свою иконку без переворота.
+local function SettleHiddenFace(btn)
+    if not btn or not btn.keepFaceOnHide then
+        return
+    end
+    btn.keepFaceOnHide = nil
+    btn.swapInstant = true
+    if btn.Update then
+        btn:Update()
+    end
+    btn.swapInstant = nil
+end
+
 -- Показывает кнопку: сначала обновляет её, затем растит до обычного размера.
 local function ShowButton(btn)
     if not btn then
         return
     end
     btn.hiding = nil
+    local keptFace = btn.keepFaceOnHide
+    btn.keepFaceOnHide = nil
+    if keptFace then
+        btn.swapInstant = true
+    end
     if btn.Update then
         btn:Update()
+    end
+    if keptFace then
+        btn.swapInstant = nil
     end
     ConsoleMenu:InitScaleAnimations(btn, ActionBar.glowMotionDuration or 0.2)
     local growing = btn.scaleUp and btn.scaleUp:IsPlaying()
@@ -1051,6 +1082,9 @@ local function HideButton(btn)
         btn.Glow:Restore()
     end
     if btn.hiding or not btn:IsShown() then
+        if not btn:IsShown() then
+            SettleHiddenFace(btn)
+        end
         return
     end
     ConsoleMenu:InitScaleAnimations(btn, ActionBar.glowMotionDuration or 0.2)
@@ -1064,6 +1098,7 @@ local function HideButton(btn)
     ConsoleMenu:AnimatedScaleDown(btn, 0, nil, function(frame)
         frame.hiding = nil
         frame:Hide()
+        SettleHiddenFace(frame)
         if ActionBar.AfterButtonHidden then
             ActionBar.AfterButtonHidden()
         end
