@@ -179,7 +179,6 @@ local reachX = ActionBar.buttonHorizontalPadding + ActionBar.buttonSize / 2
 local reachY = ActionBar.buttonVerticalPadding + ActionBar.buttonSize / 2
 ActionBar.buttonPositions = {
     PADRSTICK = { "CENTER", "right", "CENTER", 0, -reachY },
-    PADLSTICK = { "CENTER", "left", "CENTER", 0, -reachY },
 
     PAD2 = { "CENTER", "right", "CENTER", reachX, 0 },
     PAD3 = { "CENTER", "right", "CENTER", -reachX, 0 },
@@ -188,6 +187,7 @@ ActionBar.buttonPositions = {
     PADDUP = { "CENTER", "left", "CENTER", 0, reachY },
     PADDRIGHT = { "CENTER", "left", "CENTER", reachX, 0 },
     PADDLEFT = { "CENTER", "left", "CENTER", -reachX, 0 },
+    -- Низ левой крестовины. Без модификатора здесь способность левого рычага.
     PADDDOWN = { "CENTER", "left", "CENTER", 0, -reachY },
 
     -- Сенсорная панель DualSense: по центру, на высоте верхнего ряда крестовины и лицевых кнопок
@@ -198,7 +198,7 @@ ActionBar.buttonPositions = {
 -- Правая сторона: квадрат, треугольник и круг. Правый рычаг добавляется, только если нажат как ячейка.
 ActionBar.rightButtonKeys = { "PAD3", "PAD4", "PAD2" }
 ActionBar.rightStickKey = "PADRSTICK"
--- Левая сторона: крестовина. Левый рычаг добавляется, только если нажат как ячейка.
+-- Левая сторона: крестовина. Нажатие левого рычага показывается на нижнем направлении.
 ActionBar.leftButtonKeys = { "PADDUP", "PADDRIGHT", "PADDDOWN", "PADDLEFT" }
 ActionBar.leftStickKey = "PADLSTICK"
 -- Сенсорная панель остаётся отдельной кнопкой.

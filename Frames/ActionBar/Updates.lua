@@ -355,28 +355,26 @@ local function UpdateActionButtonIcon(slotID)
         btn.Icon:Hide()
         return
     end
-    local mainKey = btn.mainKey
-
     -- Для пустых слотов иконку бинда не показываем.
     if not C_ActionBar.HasAction(slotID) then
         ConsoleMenu:AnimatedHide(btn.Icon)
         return
     end
 
-    local shouldShowIcon = (
-        mainKey == "PADRSTICK" or
-        mainKey == "PADLSTICK" or
-        mainKey == "4" or
-        mainKey == "5"
-    )
+    local glyphKey = nil
+    if btn.mainKey == ActionBar.rightStickKey then
+        glyphKey = ActionBar.rightStickKey
+    elseif btn.baseFromStick and not btn.heldModifier then
+        glyphKey = ActionBar.leftStickKey
+    end
 
-    if not shouldShowIcon then
+    if not glyphKey then
         ConsoleMenu:AnimatedHide(btn.Icon)
         return
     end
 
     -- Обновление иконки
-    local textureInfo = ConsoleMenu.Textures and ConsoleMenu.Textures[mainKey]
+    local textureInfo = ConsoleMenu.Textures and ConsoleMenu.Textures[glyphKey]
     local texture = textureInfo and textureInfo.texture
     if not texture or texture == "" then
         -- Во время боя биндинг/текстура могут обновляться неатомарно.
@@ -389,7 +387,7 @@ local function UpdateActionButtonIcon(slotID)
     end
 
     btn.Icon.Texture:SetTexture(texture)
-    if mainKey == "PADLSTICK" then
+    if glyphKey == ActionBar.leftStickKey then
         ActionBar.ApplyKeyGlyphStyle(btn.Icon)
     elseif btn.Icon.Background then
         btn.Icon:SetSize(ActionBar.iconSize, ActionBar.iconSize)
@@ -1025,11 +1023,11 @@ local function IconTargetSize(btn, glowingGroups)
 end
 
 -- Оси двух крестов. Сверху напротив снизу, справа напротив слева.
--- Низ левой крестовины — левый рычаг, а не отдельная нижняя кнопка.
+-- Низ левой крестовины — один фрейм: рычаг без модификатора и направление с модификатором.
 local shiftAxes = {
     { group = "right", axis = "y", positive = "PAD4", negative = "PADRSTICK" },
     { group = "right", axis = "x", positive = "PAD2", negative = "PAD3" },
-    { group = "left", axis = "y", positive = "PADDUP", negative = "PADLSTICK" },
+    { group = "left", axis = "y", positive = "PADDUP", negative = "PADDDOWN" },
     { group = "left", axis = "x", positive = "PADDRIGHT", negative = "PADDLEFT" },
 }
 
@@ -1040,75 +1038,30 @@ local shiftMembers = {
     PAD2 = true,
     PAD3 = true,
     PADDUP = true,
-    PADLSTICK = true,
     PADDRIGHT = true,
     PADDLEFT = true,
     PADDDOWN = true,
 }
 
 -- Снимок сдвига на один проход: стороны креста не пересчитываются для каждой кнопки.
-local shiftScanStickShown
-local shiftScanStick
 local shiftScanPoles
 local shiftScanCloudOnCross
 local shiftScanCloudGlows
 local shiftScanCrossGlow
 
--- Левый рычаг сейчас на панели: он и есть низ крестовины.
-local function StickIsShown(buttons)
-    for _, btn in pairs(buttons) do
-        if btn.mainKey == "PADLSTICK" and ShiftButtonVisible(btn) and not ActionBar.IsBoostSlot(btn.slotID) then
-            return true
-        end
-    end
-    return false
-end
-
--- Берёт уже посчитанный ответ, если снимок сдвига сейчас собран.
-local function StickShownForShift(buttons)
-    if shiftScanStickShown ~= nil then
-        return shiftScanStickShown
-    end
-    return StickIsShown(buttons)
-end
-
--- Кнопка занимает низ крестовины: левый рычаг, а если его нет — нижняя кнопка.
-local function IsBottomOccupant(btn, buttons)
-    if not btn or ActionBar.IsBoostSlot(btn.slotID) then
-        return false
-    end
-    if btn.mainKey == "PADLSTICK" then
-        return true
-    end
-    return btn.mainKey == "PADDDOWN" and not StickShownForShift(buttons)
-end
-
 -- Кнопка принадлежит кресту лицевых кнопок или крестовины.
-local function IsShiftMember(btn, buttons)
+local function IsShiftMember(btn)
     if not btn or not btn.mainKey or ActionBar.IsBoostSlot(btn.slotID) then
         return false
-    end
-    if btn.mainKey == "PADDDOWN" then
-        return IsBottomOccupant(btn, buttons)
     end
     return shiftMembers[btn.mainKey] == true
 end
 
 -- Эта сторона оси сейчас горит на видимой кнопке.
 local function PoleGlows(buttons, key)
-    local stickShown = key == "PADLSTICK" and StickIsShown(buttons)
     for _, btn in pairs(buttons) do
-        if btn.glowReady and ShiftButtonVisible(btn) and not ActionBar.IsBoostSlot(btn.slotID) then
-            if key == "PADLSTICK" then
-                if stickShown and btn.mainKey == "PADLSTICK" then
-                    return true
-                end
-                if not stickShown and btn.mainKey == "PADDDOWN" then
-                    return true
-                end
-            elseif btn.mainKey == key then
-                return true
-            end
+        if btn.glowReady and ShiftButtonVisible(btn) and not ActionBar.IsBoostSlot(btn.slotID) and btn.mainKey == key then
+            return true
         end
     end
     return false
@@ -1120,7 +1073,7 @@ local function ButtonCrossSign(btn)
     if key == "PAD4" or key == "PADDUP" then
         return 0, 1
     end
-    if key == "PADRSTICK" or key == "PADLSTICK" or key == "PADDDOWN" then
+    if key == "PADRSTICK" or key == "PADDDOWN" then
         return 0, -1
     end
     if key == "PAD2" or key == "PADDRIGHT" then
@@ -1145,11 +1098,8 @@ local function AddShiftToward(shiftX, shiftY, btn, oppositeX, oppositeY, distanc
 end
 
 -- Кнопка стоит на указанной стороне оси.
-local function IsPoleButton(btn, key, buttons)
-    if key == "PADLSTICK" then
-        return IsBottomOccupant(btn, buttons)
-    end
-    return btn.mainKey == key
+local function IsPoleButton(btn, key)
+    return btn and btn.mainKey == key
 end
 
 -- Облако уже село на крестовину и занимает её место целиком.
@@ -1184,7 +1134,7 @@ end
 -- На крестовине горит хотя бы одна её собственная кнопка.
 local function CrossHasGlow(buttons, group)
     for _, btn in pairs(buttons) do
-        if btn.glowReady and ShiftButtonVisible(btn) and ButtonGlowGroup(btn) == group and IsShiftMember(btn, buttons) then
+        if btn.glowReady and ShiftButtonVisible(btn) and ButtonGlowGroup(btn) == group and IsShiftMember(btn) then
             return true
         end
     end
@@ -1196,7 +1146,7 @@ local function ShiftTowardCloud(btn, distance)
     if btn.mainKey == "PADDUP" then
         return 0, -distance
     end
-    if btn.mainKey == "PADLSTICK" or btn.mainKey == "PADDDOWN" then
+    if btn.mainKey == "PADDDOWN" then
         return 0, distance
     end
     if btn.mainKey == "PADDRIGHT" then
@@ -1206,24 +1156,6 @@ local function ShiftTowardCloud(btn, distance)
         return distance, 0
     end
     return 0, 0
-end
-
--- Видимый левый рычаг. Нижняя кнопка креста делит с ним одно место.
-local function FindShownStick(buttons)
-    for _, btn in pairs(buttons) do
-        if btn.mainKey == "PADLSTICK" and ShiftButtonVisible(btn) and not ActionBar.IsBoostSlot(btn.slotID) then
-            return btn
-        end
-    end
-    return nil
-end
-
--- Уже найденный рычаг из снимка, чтобы не искать его снова для каждой кнопки.
-local function ShownStickForShift(buttons)
-    if shiftScanStickShown ~= nil then
-        return shiftScanStick
-    end
-    return FindShownStick(buttons)
 end
 
 local function CloudOnCrossNow()
@@ -1260,18 +1192,7 @@ local function ButtonShiftTarget(btn, buttons)
     if not ShiftButtonVisible(btn) then
         return 0, 0
     end
-    -- Нижняя кнопка не отдельная сторона. Своё свечение её удерживает, иначе она едет с рычагом.
-    if btn.mainKey == "PADDDOWN" and StickShownForShift(buttons) then
-        if btn.glowReady then
-            return 0, 0
-        end
-        local stick = ShownStickForShift(buttons)
-        if not stick or stick.glowReady then
-            return 0, 0
-        end
-        btn = stick
-    end
-    if not IsShiftMember(btn, buttons) or btn.glowReady then
+    if not IsShiftMember(btn) or btn.glowReady then
         return 0, 0
     end
     local group = ButtonGlowGroup(btn)
@@ -1303,14 +1224,14 @@ local function ButtonShiftTarget(btn, buttons)
             local blocked = false
             local oppositeX, oppositeY = 0, 0
             if towardNegative then
-                blocked = IsPoleButton(btn, axis.negative, buttons)
+                blocked = IsPoleButton(btn, axis.negative)
                 if axis.axis == "y" then
                     oppositeY = -1
                 else
                     oppositeX = -1
                 end
             elseif towardPositive then
-                blocked = IsPoleButton(btn, axis.positive, buttons)
+                blocked = IsPoleButton(btn, axis.positive)
                 if axis.axis == "y" then
                     oppositeY = 1
                 else
@@ -1422,8 +1343,6 @@ end
 
 -- Собирает стороны креста один раз на проход.
 local function BeginShiftScan(buttons)
-    shiftScanStickShown = StickIsShown(buttons)
-    shiftScanStick = FindShownStick(buttons)
     shiftScanCloudOnCross = CloudStandsOnCross()
     shiftScanCloudGlows = CloudGlows(buttons)
     shiftScanCrossGlow = {
@@ -1444,8 +1363,6 @@ end
 
 -- Снимает снимок, чтобы следующий вызов не пользовался устаревшими сторонами.
 local function ReleaseShiftScan()
-    shiftScanStickShown = nil
-    shiftScanStick = nil
     shiftScanPoles = nil
     shiftScanCloudOnCross = nil
     shiftScanCloudGlows = nil

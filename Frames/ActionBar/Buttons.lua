@@ -873,6 +873,18 @@ local function UpdateDesaturation(btn)
     end
 end
 
+-- Клавиша, чью пиктограмму сейчас нужно показать. Пустой ответ прячет пиктограмму.
+local function PictogramKey(btn)
+    if btn.mainKey == ActionBar.rightStickKey then
+        return ActionBar.rightStickKey
+    end
+    -- Низ крестовины занят рычагом только без модификатора, и только тогда нужна его пиктограмма.
+    if btn.baseFromStick and not btn.heldModifier then
+        return ActionBar.leftStickKey
+    end
+    return nil
+end
+
 -- Обновляет пиктограмму, когда меняется обозначение кнопки.
 local function UpdatePictogram(btn)
     local icon = btn.Pictogram
@@ -881,18 +893,12 @@ local function UpdatePictogram(btn)
     end
     local slotID = VisibleSlot(btn)
     local hasAction = ActionBar.SlotHasAction(slotID)
-    local mainKey = btn.mainKey
-    local show = hasAction and (
-        mainKey == "PADRSTICK" or
-        mainKey == "PADLSTICK" or
-        mainKey == "4" or
-        mainKey == "5"
-    )
-    if not show then
+    local glyphKey = PictogramKey(btn)
+    if not hasAction or not glyphKey then
         FadeOut(icon)
         return
     end
-    local textureInfo = ConsoleMenu.Textures and ConsoleMenu.Textures[mainKey]
+    local textureInfo = ConsoleMenu.Textures and ConsoleMenu.Textures[glyphKey]
     local texture = textureInfo and textureInfo.texture
     if not texture or texture == "" then
         if ActionBar.IsInCombat and ActionBar.IsInCombat() then
@@ -901,10 +907,10 @@ local function UpdatePictogram(btn)
         FadeOut(icon)
         return
     end
-    if btn.pictogramKey ~= mainKey then
+    if btn.pictogramKey ~= glyphKey then
         icon.Texture:SetTexture(texture)
-        btn.pictogramKey = mainKey
-        if mainKey == "PADLSTICK" or (ActionBar.slot12Slots and ActionBar.slot12Slots[btn.slotID]) then
+        btn.pictogramKey = glyphKey
+        if glyphKey == ActionBar.leftStickKey or (ActionBar.slot12Slots and ActionBar.slot12Slots[btn.slotID]) then
             ActionBar.ApplyKeyGlyphStyle(icon)
         elseif icon.Background then
             icon:SetSize(ActionBar.iconSize, ActionBar.iconSize)
@@ -1166,8 +1172,8 @@ local function CreateShadow(btn)
 end
 
 -- Собирает пиктограмму обозначения кнопки.
-local function CreatePictogram(btn, slotID, isSlot12)
-    local icon = CreateFrame("Frame", "ConsoleMenuActionButtonIcon" .. slotID, btn)
+local function CreatePictogram(btn, buttonNumber, isSlot12)
+    local icon = CreateFrame("Frame", "ConsoleMenuActionButtonIcon" .. buttonNumber, btn)
     icon:SetSize(ActionBar.iconSize, ActionBar.iconSize)
     icon:SetPoint("TOPRIGHT", btn.IconFrame, "TOPRIGHT", ActionBar.stackCountOffset, ActionBar.stackCountOffset)
     ConsoleMenu:InitFadeAnimations(icon, ActionBar.animationDuration)
@@ -1200,9 +1206,14 @@ local function CreatePictogram(btn, slotID, isSlot12)
     btn.Icon = icon
 end
 
+-- Следующий порядковый номер фрейма кнопки. Имя не зависит от клавиши.
+local nextButtonNumber = 0
+
 -- Создание кнопки геймпада. Номера ячеек записываются позже, по привязкам клавиши.
 function ActionBar.CreateButton(parent, mainKey)
-    local buttonName = "ConsoleMenuActionButton" .. mainKey
+    nextButtonNumber = nextButtonNumber + 1
+    local buttonNumber = nextButtonNumber
+    local buttonName = "ConsoleMenuActionButton" .. buttonNumber
     local buttonFrame = CreateFrame("Frame", buttonName, parent)
     parent[buttonName] = buttonFrame
 
@@ -1290,7 +1301,7 @@ function ActionBar.CreateButton(parent, mainKey)
     end
     buttonFrame.cooldown = cooldown
 
-    local stack = CreateFrame("Frame", "ConsoleMenuActionButtonStackCount" .. mainKey, buttonFrame)
+    local stack = CreateFrame("Frame", "ConsoleMenuActionButtonStackCount" .. buttonNumber, buttonFrame)
     stack:SetSize(ActionBar.stackCountSize, ActionBar.stackCountSize)
     stack:SetPoint("BOTTOMRIGHT", icon, "BOTTOMRIGHT", ActionBar.stackCountOffset, -ActionBar.stackCountOffset)
     ConsoleMenu:InitFadeAnimations(stack, ActionBar.animationDuration)
@@ -1321,7 +1332,7 @@ function ActionBar.CreateButton(parent, mainKey)
 
     CreateGlow(buttonFrame)
     CreateShadow(buttonFrame)
-    CreatePictogram(buttonFrame, mainKey, isSlot12)
+    CreatePictogram(buttonFrame, buttonNumber, isSlot12)
 
     if isSlot12 then
         local iconAnchor = CreateFrame("Frame", nil, buttonFrame)
@@ -1379,13 +1390,14 @@ function ActionBar.CreateButton(parent, mainKey)
     return buttonFrame
 end
 
--- Добавляет рычаг, если его нажатие привязано к ячейке, и убирает, если привязки больше нет.
+-- Добавляет правый рычаг, если его нажатие привязано к ячейке, и убирает, если привязки больше нет.
+-- Левый рычаг отдельного фрейма не имеет: его ячейка лежит на нижнем направлении крестовины.
 function ActionBar.SyncStickButtons(frame)
     frame = frame or ActionBar.GetFrame()
     if not frame or not frame.actionButtons then
         return
     end
-    local sticks = { ActionBar.rightStickKey, ActionBar.leftStickKey }
+    local sticks = { ActionBar.rightStickKey }
     for index = 1, #sticks do
         local key = sticks[index]
         if key then
@@ -1412,7 +1424,16 @@ function ActionBar.SyncStickButtons(frame)
     end
 end
 
+-- Ячейка годится для кнопки, если она задана и это не дополнительное действие.
+local function AcceptSlot(slot)
+    if not slot or (ActionBar.IsExtraActionSlot and ActionBar.IsExtraActionSlot(slot)) then
+        return nil
+    end
+    return slot
+end
+
 -- Записывает в кнопку ячейку без модификатора и ячейки Shift, Ctrl и Alt.
+-- Низ крестовины без модификатора берёт ячейку левого рычага, а с модификатором — свою.
 local function WriteButtonSlots(btn, page)
     local icon = btn.IconFrame
     local key = btn.mainKey
@@ -1420,7 +1441,17 @@ local function WriteButtonSlots(btn, page)
         return
     end
     icon:ClearSlots()
-    local base = ActionBar.BindingSlot(key, nil, page)
+    btn.baseFromStick = false
+    local base = nil
+    if key == "PADDDOWN" and ActionBar.leftStickKey then
+        base = AcceptSlot(ActionBar.BindingSlot(ActionBar.leftStickKey, nil, page))
+        if base then
+            btn.baseFromStick = true
+        end
+    end
+    if not base then
+        base = ActionBar.BindingSlot(key, nil, page)
+    end
     if not base and key == ActionBar.padButtonKey then
         base = ActionBar.BindingSlot("PADBACK", nil, page)
     end

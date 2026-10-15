@@ -30,17 +30,6 @@ local function IsActionButtonVisible(slotID, btn, activeModifier)
         return false
     end
 
-    -- Низ левой крестовины: без модификатора это левый рычаг, с модификатором — направление вниз.
-    local stickKey = ActionBar.leftStickKey
-    local frame = ActionBar.GetFrame()
-    local stick = stickKey and frame and frame.actionButtons and frame.actionButtons[stickKey]
-    if stick and btn.mainKey == "PADDDOWN" and not activeModifier then
-        return false
-    end
-    if stick and btn.mainKey == stickKey and activeModifier then
-        return false
-    end
-
     -- Подсказка тачпада (слот 12): только при наличии действия и названия
     if ActionBar.slot12Slots[slotID] then
         if not C_ActionBar.HasAction(slotID) then
