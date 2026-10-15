@@ -388,6 +388,11 @@ end
 -- Обновляет счётчик по признаку, записанному для этой способности.
 local function UpdateCharges(btn)
     local slotID = VisibleSlot(btn)
+    -- Без ячейки число запрашивать нельзя: у кнопки может остаться ключ прошлой способности.
+    if not slotID then
+        HideCharges(btn)
+        return
+    end
     local key = ChargeKey(slotID) or btn.chargeKey
     if not key then
         HideCharges(btn)
