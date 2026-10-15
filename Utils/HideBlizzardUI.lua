@@ -101,6 +101,11 @@ function ConsoleMenu:DisableTimeManagerClockButton()
     end
 end
 
+-- Убирает координаты игрока под миникартой
+local function HideMinimapPlayerCoords()
+    SetCVar("minimapShowPlayerCoords", "0")
+end
+
 -- Скрывает кластер миникарты (MinimapCluster)
 local function DisableMinimapCluster()
     UIWidgetBelowMinimapContainerFrame:Hide()
@@ -286,6 +291,7 @@ end
 
 -- Основная функция, которая управляет отображением всех элементов UI Blizzard (1 = "Показать", 2 = "Скрыть")
 function ConsoleMenu:HideBlizzardUI()
+    HideMinimapPlayerCoords()
 
     -- Регистрируем события только если соответствующие настройки установлены на скрытие (2)
     if ConsoleMenuDB.hideTalkingHeadFrame == 2 then
