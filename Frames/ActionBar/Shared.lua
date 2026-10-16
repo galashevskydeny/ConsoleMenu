@@ -155,8 +155,6 @@ function ActionBar.PlaceSlot12Icon(btn)
 end
 
 ActionBar.shadowSize = 320
--- Ареол правой группы чуть крупнее, пока в свёрнутом облаке есть дополнительное действие.
-ActionBar.shadowSizeWithExtra = 384
 
 ActionBar.animationDuration = 0.05
 
@@ -819,10 +817,10 @@ function ActionBar.ResolveAnchor(frame, anchorKey)
         return nil
     end
     if anchorKey == "right" then
-        return frame.PADCenter
+        return frame.rightGroup
     end
     if anchorKey == "left" then
-        return frame.PADDCenter
+        return frame.leftGroup
     end
     if anchorKey == "bar" then
         return frame

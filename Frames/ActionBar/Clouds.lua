@@ -291,8 +291,8 @@ local function EnsureClouds(frame)
         return cluster
     end
 
-    clouds.right = MakeCluster(frame.PADCenter or frame)
-    clouds.left = MakeCluster(frame.PADDCenter or frame)
+    clouds.right = MakeCluster(frame.rightGroup or frame)
+    clouds.left = MakeCluster(frame.leftGroup or frame)
     clouds.loneIcons = {
         CreateCloudIcon(frame),
         CreateCloudIcon(frame),
@@ -728,13 +728,6 @@ local function SnapBubbles(clouds)
     end
     SnapList(clouds.loneIcons)
     clouds.bubbleShow = false
-    if clouds.shadowVisible then
-        clouds.shadowVisible = false
-        if ActionBar.UpdateActionButtonShadowsIfNeeded then
-            ActionBar.UpdateActionButtonShadowsIfNeeded()
-        end
-    end
-    clouds.shadowVisible = false
     if clouds.driver then
         clouds.driver:Hide()
     end
@@ -755,7 +748,6 @@ function ActionBar.StepClouds(elapsed)
         return true
     end
 
-    local shadowVisible = false
     local function StepList(list, parent, mix, show)
         if not list or not parent then
             return false
@@ -766,9 +758,6 @@ function ActionBar.StepClouds(elapsed)
             AdvanceBubble(icon, elapsed, show)
             PoseIcon(icon, parent, clouds.time, mix)
             local life = icon.bubble or 0
-            if icon.painted and life > 0.05 then
-                shadowVisible = true
-            end
             if life > 0.001 or math.abs(life - (icon.bubbleTarget or 0)) > 0.001 then
                 alive = true
             end
@@ -802,12 +791,6 @@ function ActionBar.StepClouds(elapsed)
 
     if clouds.driver and not CloudsNeedDriver(clouds) then
         clouds.driver:Hide()
-    end
-    if clouds.shadowVisible ~= shadowVisible then
-        clouds.shadowVisible = shadowVisible
-        if ActionBar.UpdateActionButtonShadowsIfNeeded then
-            ActionBar.UpdateActionButtonShadowsIfNeeded()
-        end
     end
 end
 
@@ -853,7 +836,7 @@ end
 -- Обновляет состав облаков и их надувание.
 function ActionBar.UpdateClouds()
     local frame = ActionBar.GetFrame()
-    if not frame or not frame.PADCenter then
+    if not frame or not frame.rightGroup then
         return
     end
     local clouds = EnsureClouds(frame)
@@ -945,36 +928,6 @@ function ActionBar.UpdateClouds()
     ActionBar.StepClouds(0)
 end
 
--- Облако ещё видно и может держать тень правой группы.
-function ActionBar.HasVisibleClouds()
-    local frame = ActionBar.GetFrame()
-    local clouds = frame and frame.spellClouds
-    if not clouds then
-        return false
-    end
-    local function IconVisible(icon)
-        return icon and icon.painted and icon:IsShown() and (icon.bubble or 0) > 0.05
-    end
-    local function ListVisible(list)
-        if not list then
-            return false
-        end
-        for index = 1, #list do
-            if IconVisible(list[index]) then
-                return true
-            end
-        end
-        return false
-    end
-    if clouds.right and (ListVisible(clouds.right.icons) or ListVisible(clouds.right.centers)) then
-        return true
-    end
-    if clouds.left and (ListVisible(clouds.left.icons) or ListVisible(clouds.left.centers)) then
-        return true
-    end
-    return ListVisible(clouds.loneIcons)
-end
-
 -- Обновляет рисунок уже стоящего значка, не трогая его место.
 local function RefreshCloudIconTexture(icon)
     if not icon or not icon.painted or not icon.paintSlot or not icon.texture then
@@ -1025,7 +978,6 @@ end
 
 -- Старые вызовы облака усилений идут в новый показ.
 ActionBar.UpdateBoosts = ActionBar.UpdateClouds
-ActionBar.HasVisibleBoosts = ActionBar.HasVisibleClouds
 ActionBar.CreateBoosts = function(parent)
     if parent then
         EnsureClouds(parent)

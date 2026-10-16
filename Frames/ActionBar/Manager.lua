@@ -289,32 +289,9 @@ function ConsoleMenu:InitializeMainActionBar()
         frame:SetClipsChildren(false)
     end
 
-    if not frame.PADCenter then
-        frame.PADCenter = CreateFrame("Frame", nil, frame)
-        frame.PADCenter:SetPoint("RIGHT", frame, "RIGHT", -ActionBar.paddingPAD, 0)
-        frame.PADCenter:SetSize(1, 1)
-    end
-
-    if not frame.PADDCenter then
-        frame.PADDCenter = CreateFrame("Frame", nil, frame)
-        frame.PADDCenter:SetPoint("LEFT", frame, "LEFT", ActionBar.paddingPADD, 0)
-        frame.PADDCenter:SetSize(1, 1)
-    end
-
-    if not frame.PADshadow then
-        frame.PADshadow = frame:CreateTexture(nil, "BACKGROUND")
-        frame.PADshadow:SetPoint("CENTER", frame.PADCenter, "CENTER", 0, 0)
-        frame.PADshadow:SetSize(ActionBar.shadowSize, ActionBar.shadowSize)
-        frame.PADshadow:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\CrossBackgorund.png")
-        ConsoleMenu:InitFadeAnimations(frame.PADshadow, ActionBar.animationDuration)
-    end
-
-    if not frame.PADDshadow then
-        frame.PADDshadow = frame:CreateTexture(nil, "BACKGROUND")
-        frame.PADDshadow:SetPoint("CENTER", frame.PADDCenter, "CENTER", 0, 0)
-        frame.PADDshadow:SetSize(ActionBar.shadowSize, ActionBar.shadowSize)
-        frame.PADDshadow:SetTexture("Interface\\AddOns\\ConsoleMenu\\Assets\\CrossBackgorund.png")
-        ConsoleMenu:InitFadeAnimations(frame.PADDshadow, ActionBar.animationDuration)
+    if not frame.rightGroup and ActionBar.CreateButtonGroup then
+        frame.rightGroup = ActionBar.CreateButtonGroup(frame, "right")
+        frame.leftGroup = ActionBar.CreateButtonGroup(frame, "left")
     end
 
     frame.actionButtons = {}
@@ -323,7 +300,15 @@ function ConsoleMenu:InitializeMainActionBar()
         if not key or frame.actionButtons[key] then
             return
         end
-        local btn = ActionBar.CreateButton(frame, key)
+        local position = ActionBar.buttonPositions[key]
+        local side = position and position[2]
+        local parent = frame
+        if side == "right" and frame.rightGroup then
+            parent = frame.rightGroup
+        elseif side == "left" and frame.leftGroup then
+            parent = frame.leftGroup
+        end
+        local btn = ActionBar.CreateButton(parent, key)
         if btn then
             frame.actionButtons[key] = btn
         end

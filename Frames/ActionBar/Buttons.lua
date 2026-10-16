@@ -934,6 +934,9 @@ local function UpdateRest(btn, spellID)
     UpdateGlow(btn, spellID)
     UpdateDesaturation(btn)
     UpdatePictogram(btn)
+    if btn.group and btn.group.RefreshShift then
+        btn.group:RefreshShift()
+    end
 end
 
 -- Полёт кружка показывает сторону сам и после шага обновляет остальное содержимое.
@@ -1042,6 +1045,7 @@ local function ShowButton(btn)
         return
     end
     btn.hiding = nil
+    btn.glowShiftRelease = nil
     local keptFace = btn.keepFaceOnHide
     btn.keepFaceOnHide = nil
     if keptFace then
@@ -1068,11 +1072,19 @@ local function ShowButton(btn)
     ConsoleMenu:AnimatedScaleUp(btn, 1)
 end
 
--- Прячет кнопку уменьшением до нуля и убирает свечение, тень, заряды и перезарядку.
+-- Скрытие возвращает кнопку её собственной функцией, а не назначает место само.
+local function ReleaseShiftForHide(btn)
+    if btn.ReturnHome then
+        btn:ReturnHome()
+    end
+end
+
+-- Прячет кнопку уменьшением до нуля и убирает свечение, тень, заряды, перезарядку и сдвиг.
 local function HideButton(btn)
     if not btn then
         return
     end
+    ReleaseShiftForHide(btn)
     HideGlow(btn)
     HideShadow(btn)
     HideCharges(btn)
@@ -1098,6 +1110,9 @@ local function HideButton(btn)
     ConsoleMenu:AnimatedScaleDown(btn, 0, nil, function(frame)
         frame.hiding = nil
         frame:Hide()
+        if frame.ReturnHome then
+            frame:ReturnHome()
+        end
         SettleHiddenFace(frame)
         if ActionBar.AfterButtonHidden then
             ActionBar.AfterButtonHidden()
@@ -1399,6 +1414,11 @@ function ActionBar.CreateButton(parent, mainKey)
     buttonFrame.ShowsSlot = ShowsSlot
     buttonFrame.ShowButton = ShowButton
     buttonFrame.HideButton = HideButton
+    buttonFrame.ReturnHome = function(self)
+        if ActionBar.ReturnButtonHome then
+            ActionBar.ReturnButtonHome(self)
+        end
+    end
     buttonFrame.ShowGlow = ShowGlow
     buttonFrame.HideGlow = HideGlow
     buttonFrame.ShowShadow = ShowShadow
@@ -1422,6 +1442,9 @@ function ActionBar.CreateButton(parent, mainKey)
     end)
 
     RaiseButtonContents(buttonFrame)
+    if parent and parent.buttons and ActionBar.AttachGroupButton then
+        ActionBar.AttachGroupButton(parent, buttonFrame)
+    end
     return buttonFrame
 end
 
@@ -1438,12 +1461,15 @@ function ActionBar.SyncStickButtons(frame)
         if key then
             local bound = ActionBar.StickHasSlot and ActionBar.StickHasSlot(key)
             local btn = frame.actionButtons[key]
+            local group = frame.rightGroup
             frame.keptButtons = frame.keptButtons or {}
             if bound and not btn then
                 btn = frame.keptButtons[key]
                 if not btn then
-                    btn = ActionBar.CreateButton(frame, key)
+                    btn = ActionBar.CreateButton(group or frame, key)
                     frame.keptButtons[key] = btn
+                elseif group and ActionBar.AttachGroupButton then
+                    ActionBar.AttachGroupButton(group, btn)
                 end
                 frame.actionButtons[key] = btn
             elseif btn and not bound then
@@ -1451,6 +1477,9 @@ function ActionBar.SyncStickButtons(frame)
                     btn:HideButton()
                 else
                     btn:Hide()
+                end
+                if group and ActionBar.DetachGroupButton then
+                    ActionBar.DetachGroupButton(group, btn)
                 end
                 frame.keptButtons[key] = btn
                 frame.actionButtons[key] = nil
@@ -1555,7 +1584,11 @@ function ActionBar.UpdateButton(slotID, spellID, isUsable, isLackingResources)
                 btn.usableHint = isUsable
                 btn.resourceHint = isLackingResources
             end
-            btn:Update(spellID)
+            if btn.group and btn.group.UpdateGroup then
+                btn.group:UpdateGroup(btn, spellID)
+            else
+                btn:Update(spellID)
+            end
         end
     end
 end

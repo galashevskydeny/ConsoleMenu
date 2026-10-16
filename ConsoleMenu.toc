@@ -77,6 +77,7 @@ Frames/ActionBar/Visibility.lua
 Frames/ActionBar/Glow.lua
 Frames/ActionBar/Pad6.lua
 Frames/ActionBar/Buttons.lua
+Frames/ActionBar/Groups.lua
 Frames/ActionBar/Manager.lua
 Frames/PanelFrame.lua
 Frames/PlayerChoice.lua

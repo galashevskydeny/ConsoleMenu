@@ -1,4 +1,4 @@
--- Раскладка кнопок: положения по клавишам, видимость страницы и тени групп.
+-- Раскладка кнопок: положения по клавишам и видимость страницы.
 
 local ConsoleMenu = _G.ConsoleMenu
 local ActionBar = ConsoleMenu.ActionBar
@@ -75,8 +75,8 @@ local function GetActiveModifier()
     return nil
 end
 
--- Кнопка сейчас занимает место на панели. Скрытая страница и чужой модификатор в сдвиг не входят.
--- Островок тачпада в сдвиге не участвует, поэтому его название здесь не спрашиваем.
+-- Кнопка занимает место на панели, поэтому чужое свечение может уменьшить её иконку.
+-- Островок тачпада в этом уменьшении не участвует, поэтому его название здесь не спрашиваем.
 function ActionBar.IsShiftButtonVisible(btn)
     if not btn or not btn.slotID then
         return false
@@ -92,108 +92,28 @@ function ActionBar.IsShiftButtonVisible(btn)
     return ActionBar.IsActiveBoostHostSlot and ActionBar.IsActiveBoostHostSlot(btn.slotID)
 end
 
--- Обычный размер ареола. После исчезновения панели его нужно вернуть, иначе тень остаётся точкой.
-local function RestoreGroupShadowSize(shadow)
-    if not shadow then
+-- Записывает в таблицу группы кнопки, которые нужно показать. Таблица готова до показа и скрытия.
+local function FillGroupTable(group, showPanel, activeModifier)
+    if not group or not group.visibleButtons or not group.buttons then
         return
     end
-    local home = ActionBar.shadowSize
-    if not home or home < 1 then
-        return
+    local list = group.visibleButtons
+    for index = #list, 1, -1 do
+        list[index] = nil
     end
-    if shadow.lastSize == home then
-        return
-    end
-    shadow:SetSize(home, home)
-    shadow.lastSize = home
-end
-
--- Включает ареол группы один раз: повторный вызов не перезапускает проявление.
-local function SetGroupShadowShown(shadow, shown)
-    if not shadow then
-        return
-    end
-    if shadow.groupShown == shown then
-        return
-    end
-    shadow.groupShown = shown
-    if shown then
-        RestoreGroupShadowSize(shadow)
-        ConsoleMenu:AnimatedShow(shadow)
-    else
-        ConsoleMenu:AnimatedHide(shadow)
-    end
-end
-
--- Показ и скрытие теней левой и правой групп кнопок.
-local function UpdateActionButtonShadows()
-    local frame = ActionBar.GetFrame()
-    if not frame then
-        return
-    end
-
-    local activeModifier = GetActiveModifier()
-
-    local PADcount = 0
-    local PADDcount = 0
-
-    for _, btn in pairs(frame.actionButtons) do
-        local slotID = btn.slotID
-        local position = ActionBar.buttonPositions[btn.mainKey]
-        local shownSlot = slotID
-        if btn.boostShowingAlt and btn.boostFlipSlot then
-            shownSlot = btn.boostFlipSlot
-        end
-        if slotID and position and C_ActionBar.HasAction(shownSlot) and IsActionButtonVisible(slotID, btn, activeModifier) then
-            if position[2] == "right" then
-                PADcount = PADcount + 1
-            elseif position[2] == "left" then
-                PADDcount = PADDcount + 1
-            end
+    for index = 1, #group.buttons do
+        local btn = group.buttons[index]
+        if showPanel and IsActionButtonVisible(btn.slotID, btn, activeModifier) then
+            list[#list + 1] = btn
         end
     end
-
-    local cloudVisible = ActionBar.HasVisibleBoosts and ActionBar.HasVisibleBoosts()
-    SetGroupShadowShown(frame.PADshadow, PADcount > 0 or cloudVisible)
-    SetGroupShadowShown(frame.PADDshadow, PADDcount > 0)
-    frame.shadowCloudVisible = cloudVisible and true or false
-    ActionBar.shadowsDirty = nil
 end
 
--- Пересчитывает тени, только если сменилась видимость облака или сторона монеты.
-local function UpdateActionButtonShadowsIfNeeded()
-    local frame = ActionBar.GetFrame()
-    if not frame then
-        return
-    end
-
-    local cloudVisible = ActionBar.HasVisibleBoosts and ActionBar.HasVisibleBoosts() or false
-    if not ActionBar.shadowsDirty and frame.shadowCloudVisible == cloudVisible then
-        return
-    end
-
-    UpdateActionButtonShadows()
-end
-
--- Ставит кнопку на место раскладки и оставляет уже набранный сдвиг к тёмной противоположной.
-local function PlaceButton(btn, position, anchor)
+-- Ставит кнопку на место раскладки вместе с уже набранным сдвигом.
+local function PlaceButton(btn)
     if ActionBar.SeatButton then
         ActionBar.SeatButton(btn)
-        return
     end
-    local shiftX, shiftY = 0, 0
-    if ActionBar.ButtonGlowShift then
-        shiftX, shiftY = ActionBar.ButtonGlowShift(btn)
-    end
-    local scale = btn:GetScale() or 1
-    btn:ClearAllPoints()
-    btn:SetPoint(
-        position[1],
-        anchor,
-        position[3],
-        ActionBar.StableOffset(position[4] + shiftX, scale),
-        ActionBar.StableOffset(position[5] + shiftY, scale)
-    )
 end
 
 -- Привязка кнопок к положениям. Номера ячеек берутся из таблицы каждой кнопки.
@@ -215,7 +135,7 @@ local function UpdateButtonPositions(slotID)
         local position = ActionBar.buttonPositions[btn.mainKey]
         local anchor = position and ActionBar.ResolveAnchor(frame, position[2])
         if anchor and not (ActionBar.ignoredSlot[btn.slotID] == true) then
-            PlaceButton(btn, position, anchor)
+            PlaceButton(btn)
         end
         if btn.Update then
             btn:Update()
@@ -227,7 +147,7 @@ local function UpdateButtonPositions(slotID)
         local position = ActionBar.buttonPositions[btn.mainKey]
         local anchor = position and ActionBar.ResolveAnchor(frame, position[2])
         if anchor and not (ActionBar.ignoredSlot[btn.slotID] == true) then
-            PlaceButton(btn, position, anchor)
+            PlaceButton(btn)
         end
         if btn.Update then
             btn:Update()
@@ -345,6 +265,9 @@ local function UpdateModifierState()
         ShowNow(frame)
     end
 
+    FillGroupTable(frame.rightGroup, showPanel, activeModifier)
+    FillGroupTable(frame.leftGroup, showPanel, activeModifier)
+
     for _, btn in pairs(frame.actionButtons) do
         local visible = showPanel and IsActionButtonVisible(btn.slotID, btn, activeModifier)
         if not btn.modifierKey and ActionBar.SetButtonModifier then
@@ -360,17 +283,31 @@ local function UpdateModifierState()
             local instant = (not settled) or (releasing and not btn.baseIconShown)
             ActionBar.SetButtonModifier(btn, visible and activeModifier or nil, instant)
         end
-        if visible then
-            ActionBar.ShowButton(btn)
-        else
-            ActionBar.HideButton(btn)
+    end
+
+    if frame.rightGroup and frame.rightGroup.ShowGroup then
+        frame.rightGroup:ShowGroup()
+        frame.rightGroup:HideGroup()
+    end
+    if frame.leftGroup and frame.leftGroup.ShowGroup then
+        frame.leftGroup:ShowGroup()
+        frame.leftGroup:HideGroup()
+    end
+
+    for _, btn in pairs(frame.actionButtons) do
+        if not btn.group then
+            local visible = showPanel and IsActionButtonVisible(btn.slotID, btn, activeModifier)
+            if visible then
+                ActionBar.ShowButton(btn)
+            else
+                ActionBar.HideButton(btn)
+            end
         end
     end
 
     if ActionBar.UpdateClouds then
         ActionBar.UpdateClouds()
     end
-    UpdateActionButtonShadows()
     if ActionBar.RefreshFaceButtonDesaturation then
         ActionBar.RefreshFaceButtonDesaturation()
     end
@@ -385,5 +322,3 @@ end
 
 ActionBar.UpdateButtonPositions = UpdateButtonPositions
 ActionBar.UpdateModifierState = UpdateModifierState
-ActionBar.UpdateActionButtonShadows = UpdateActionButtonShadows
-ActionBar.UpdateActionButtonShadowsIfNeeded = UpdateActionButtonShadowsIfNeeded
