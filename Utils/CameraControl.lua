@@ -1,5 +1,5 @@
 -- CameraControl.lua
--- Подстраивает дистанцию камеры при входе в мир, посадке и спешивании.
+-- Подстраивает дистанцию камеры при входе в мир, посадке, спешивании и смене режима.
 
 local ConsoleMenu = _G.ConsoleMenu
 
@@ -71,6 +71,17 @@ local mountZoomDelta = {
     [2265] = 11.5,
     [2604] = 7.5,
     [2982] = 8.5,
+}
+
+-- Приращение дистанции камеры для каждого режима персонажа. Незаданный режим даёт ноль.
+local contextZoomDelta = {
+    exploring = 0,
+    window = 0,
+    soul = 0,
+    combat = 2,
+    precombat = 0,
+    mount = 0,
+    housing = 0,
 }
 
 -- Отложенная подстройка, сохранённые настройки клиента и регистрация слэш-команды.
@@ -172,22 +183,33 @@ local function IsDragonridingMounted()
     return canGlide and true or false
 end
 
--- Выбирает целевую дистанцию по состоянию персонажа.
+-- Возвращает приращение дистанции для текущего режима персонажа.
+local function GetContextZoomDelta()
+    if not ConsoleMenu.GetPlayerContext then
+        return 0
+    end
+
+    return contextZoomDelta[ConsoleMenu:GetPlayerContext()] or 0
+end
+
+-- Выбирает целевую дистанцию по состоянию персонажа и его режиму.
 local function GetTargetZoom()
+    local zoom
+
     if IsMounted() then
         local mountID = GetActiveMountID()
         if mountID and mountZoomDelta[mountID] then
-            return GetUnmountedZoom() + mountZoomDelta[mountID]
+            zoom = GetUnmountedZoom() + mountZoomDelta[mountID]
+        elseif IsDragonridingMounted() then
+            zoom = defaultZoom.dragonriding
+        else
+            zoom = defaultZoom.mount
         end
-
-        if IsDragonridingMounted() then
-            return defaultZoom.dragonriding
-        end
-
-        return defaultZoom.mount
+    else
+        zoom = GetUnmountedZoom()
     end
 
-    return GetUnmountedZoom()
+    return zoom + GetContextZoomDelta()
 end
 
 -- Максимальная дистанция при данном множителе.

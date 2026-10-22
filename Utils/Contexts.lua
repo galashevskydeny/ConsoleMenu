@@ -775,7 +775,12 @@ function ConsoleMenu:ApplyContextUIChanges()
         end
     end
 
+    -- При том же режиме функция уже завершилась выше, поэтому камера обновляется только при его смене.
     contextData.lastContext = context
+
+    if ConsoleMenu.ApplyCameraZoom then
+        ConsoleMenu:ApplyCameraZoom()
+    end
 end
 
 -- Обновляет подсказки без смены страницы панели.
