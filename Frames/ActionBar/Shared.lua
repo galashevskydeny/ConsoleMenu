@@ -19,7 +19,7 @@ ActionBar.glowShiftSize = 8
 -- Сколько секунд длятся увеличение из-за своего свечения, уменьшение и сдвиг к тёмной противоположной.
 ActionBar.glowMotionDuration = 0.2
 -- Сколько секунд длятся увеличение до штатного размера и сдвиг на штатное место.
-ActionBar.glowHomeDuration = 0.1
+ActionBar.glowHomeDuration = 0.15
 -- Сторона тени у иконки со свечением: больше круга, чтобы выходить за край и немного накрывать соседние иконки.
 ActionBar.glowShadowSize = 240
 -- Непрозрачность этой тени: 1 — полностью видима, 0 — невидима.
@@ -324,6 +324,20 @@ ActionBar.boostExtraKeyOffsetX = 5
 ActionBar.boostExtraKeyOffsetY = 5
 
 ActionBar.stackCountChange = ActionBar.stackCountChange or {}
+
+-- Ассоциативный массив панели: по ключу способности лежит true, если счётчик уже показывали.
+-- Хранится в сохранённых данных и не пропадает после перезапуска игры.
+function ActionBar.EnsureChargeShown()
+    if not ConsoleMenuDB then
+        ConsoleMenuDB = {}
+    end
+    if type(ConsoleMenuDB.actionBarChargeShown) ~= "table" then
+        ConsoleMenuDB.actionBarChargeShown = {}
+    end
+    ActionBar.chargeShown = ConsoleMenuDB.actionBarChargeShown
+    return ActionBar.chargeShown
+end
+
 -- Ячейки, у которых заряды уже были видны. Скрытое боевое значение само по себе счётчик не включает.
 ActionBar.chargeSlots = ActionBar.chargeSlots or {}
 -- Последнее настоящее число. Пустой ответ после переворота не стирает его.

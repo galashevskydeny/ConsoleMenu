@@ -15,15 +15,16 @@ local groupAxes = {
     },
 }
 
--- Движение начинается медленно и разгоняется к цели.
-local function EaseIn(progress)
+-- Быстрый срыв с места и мягкая посадка. Скорость не остаётся ровной.
+local function EaseWhoosh(progress)
     if progress <= 0 then
         return 0
     end
     if progress >= 1 then
         return 1
     end
-    return progress * progress
+    local rest = 1 - progress
+    return 1 - rest * rest * rest * rest
 end
 
 -- Пока иконка переворачивается, новый сдвиг к ней не применяется.
@@ -205,7 +206,7 @@ end
 
 -- Точка на пути от текущего сдвига к цели.
 local function ShiftOffset(origin, target, life)
-    return (origin or 0) + ((target or 0) - (origin or 0)) * EaseIn(life or 0)
+    return (origin or 0) + ((target or 0) - (origin or 0)) * EaseWhoosh(life or 0)
 end
 
 -- Записывает сдвиг и ставит кнопку. Во время переворота положение не меняется.

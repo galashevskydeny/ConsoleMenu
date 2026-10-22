@@ -272,6 +272,8 @@ function ConsoleMenu:InitializeMainActionBar()
         return
     end
 
+    ActionBar.EnsureChargeShown()
+
     if ConsoleMenuFrame.ActionBarFrame and ConsoleMenuFrame.ActionBarFrame.buttonsReady then
         return
     end

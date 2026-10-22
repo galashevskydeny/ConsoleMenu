@@ -37,7 +37,7 @@ local commandFlightTime = 0.35
 -- Целевая дистанция камеры для спешенного персонажа: раса и тип тела.
 -- Тип тела в игре — мужской или женский; более дробное сложение вне парикмахерской недоступно.
 local raceZoom = {
-    BloodElf = { male = 4.9, female = nil },
+    BloodElf = { male = 3.7, female = nil },
     DarkIronDwarf = { male = nil, female = nil },
     Dracthyr = { male = nil, female = nil },
     Draenei = { male = nil, female = nil },

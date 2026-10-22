@@ -392,7 +392,7 @@ local function HideCharges(btn)
     FadeOut(btn.Charges)
 end
 
--- Обновляет счётчик по признаку, записанному для этой способности.
+-- Обновляет счётчик по признаку панели заклинаний для этой способности.
 local function UpdateCharges(btn)
     local slotID = VisibleSlot(btn)
     -- Без ячейки число запрашивать нельзя: у кнопки может остаться ключ прошлой способности.
@@ -400,17 +400,22 @@ local function UpdateCharges(btn)
         HideCharges(btn)
         return
     end
-    local key = ChargeKey(slotID) or btn.chargeKey
+    local readableKey = ChargeKey(slotID)
+    local key = readableKey or btn.chargeKey
     if not key then
         HideCharges(btn)
         return
+    end
+    local shown = ActionBar.EnsureChargeShown()
+    if readableKey and shown[readableKey] then
+        btn.chargeKey = readableKey
     end
     local raw
     if C_ActionBar and C_ActionBar.GetActionDisplayCount then
         raw = C_ActionBar.GetActionDisplayCount(slotID)
     end
     if ActionBar.IsSecretValue(raw) then
-        if btn.chargeShown[key] then
+        if shown[key] then
             ShowCharges(btn, raw)
         else
             HideCharges(btn)
@@ -421,7 +426,7 @@ local function UpdateCharges(btn)
     if (count == nil or count == "") and ActionBar.ReadDisplayCount then
         local extra = ActionBar.ReadDisplayCount(slotID)
         if ActionBar.IsSecretValue(extra) then
-            if btn.chargeShown[key] then
+            if shown[key] then
                 ShowCharges(btn, extra)
             else
                 HideCharges(btn)
@@ -433,21 +438,21 @@ local function UpdateCharges(btn)
         end
     end
     if count ~= nil and count ~= "" and not ActionBar.IsSecretValue(count) then
-        btn.chargeShown[key] = true
-        btn.chargeKey = key
-        btn.chargeKeyBySlot[slotID] = key
+        shown[key] = true
     end
-    if btn.chargeShown[key] then
+    if readableKey and shown[readableKey] then
+        btn.chargeKey = readableKey
+    end
+    if shown[key] then
         ShowCharges(btn, count)
     else
         HideCharges(btn)
     end
 end
 
--- Забывает, для каких способностей на кнопке уже показывали счётчик.
+-- Забывает последнюю способность кнопки, когда в ячейке другое умение.
+-- Признак показа счётчика остаётся у панели заклинаний.
 local function ForgetCharges(btn)
-    wipe(btn.chargeShown)
-    wipe(btn.chargeKeyBySlot)
     btn.chargeKey = nil
 end
 
@@ -1278,8 +1283,6 @@ function ActionBar.CreateButton(parent, mainKey)
     buttonFrame.glowRestLevel = buttonFrame:GetFrameLevel()
     buttonFrame.mainKey = mainKey
     buttonFrame.modifierKey = nil
-    buttonFrame.chargeShown = {}
-    buttonFrame.chargeKeyBySlot = {}
 
     if isSlot12 and ActionBar.BuildSlot12Plate then
         ActionBar.BuildSlot12Plate(buttonFrame)
