@@ -1117,7 +1117,64 @@ local function SettleHiddenFace(btn)
     btn.swapInstant = nil
 end
 
--- Показывает кнопку: сначала обновляет её, затем растит до обычного размера.
+-- Готовит анимации полупрозрачности кнопки и задаёт им длительность кнопки.
+local function PrepareButtonFade(btn)
+    local duration = ActionBar.buttonFadeDuration or 0.2
+    ConsoleMenu:InitFadeAnimations(btn, duration)
+    if btn.fadeIn and btn.fadeIn.alpha then
+        btn.fadeIn.alpha:SetDuration(duration)
+    end
+    if btn.fadeOut and btn.fadeOut.alpha then
+        btn.fadeOut.alpha:SetDuration(duration)
+    end
+end
+
+-- Проявляет кнопку до полной непрозрачности. Повторно не запускает, если проявление уже идёт.
+local function RevealButton(btn)
+    if not btn then
+        return
+    end
+    if btn.fadeIn and btn.fadeIn:IsPlaying() then
+        return
+    end
+    PrepareButtonFade(btn)
+    local fadingOut = btn.fadeOut and btn.fadeOut:IsPlaying()
+    local alpha = btn:GetAlpha() or 1
+    if btn:IsShown() and not fadingOut and alpha >= 0.99 then
+        return
+    end
+    ConsoleMenu:AnimatedShow(btn)
+end
+
+-- Гасит полупрозрачность кнопки до нуля. Кадр не прячет: его спрячет уменьшение размера.
+local function ConcealButton(btn)
+    if not btn or not btn:IsShown() then
+        return
+    end
+    if btn.fadeOut and btn.fadeOut:IsPlaying() then
+        return
+    end
+    PrepareButtonFade(btn)
+    ConsoleMenu:AnimatedFadeOut(btn)
+end
+
+-- Останавливает проявление и погасание, чтобы после скрытия кнопка не вспыхнула.
+local function StopButtonFade(btn)
+    if not btn then
+        return
+    end
+    if btn.fadeOut then
+        btn.fadeOut:SetScript("OnFinished", nil)
+        if btn.fadeOut:IsPlaying() then
+            btn.fadeOut:Stop()
+        end
+    end
+    if btn.fadeIn and btn.fadeIn:IsPlaying() then
+        btn.fadeIn:Stop()
+    end
+end
+
+-- Показывает кнопку: сначала обновляет её, затем растит до обычного размера и проявляет до полной непрозрачности.
 local function ShowButton(btn)
     if not btn then
         return
@@ -1137,11 +1194,9 @@ local function ShowButton(btn)
     end
     ConsoleMenu:InitScaleAnimations(btn, ActionBar.glowMotionDuration or 0.2)
     local growing = btn.scaleUp and btn.scaleUp:IsPlaying()
-    local atHome = btn:IsShown() and not btn.scaleZero and math.abs((btn:GetScale() or 1) - 1) < 0.02
-    if not btn:IsShown() then
-        btn:Show()
-        btn:SetAlpha(1)
-    end
+    local shrinking = btn.scaleDown and btn.scaleDown:IsPlaying()
+    local atHome = btn:IsShown() and not shrinking and not btn.scaleZero and math.abs((btn:GetScale() or 1) - 1) < 0.02
+    RevealButton(btn)
     ActionBar.SeatButton(btn)
     EnsureGlowVisible(btn)
     if growing or atHome then
@@ -1160,7 +1215,7 @@ local function ReleaseShiftForHide(btn)
     end
 end
 
--- Прячет кнопку уменьшением до нуля и убирает свечение, тень, заряды, перезарядку и сдвиг.
+-- Прячет кнопку уменьшением до нуля и погасанием полупрозрачности, убирает свечение, тень, заряды, перезарядку и сдвиг.
 local function HideButton(btn)
     if not btn then
         return
@@ -1183,13 +1238,17 @@ local function HideButton(btn)
     ConsoleMenu:InitScaleAnimations(btn, ActionBar.glowMotionDuration or 0.2)
     if btn.scaleDown and btn.scaleDown:IsPlaying() then
         btn.hiding = true
+        ConcealButton(btn)
         return
     end
     btn.hiding = true
     ActionBar.SeatButton(btn)
     WatchSeat(btn)
+    ConcealButton(btn)
     ConsoleMenu:AnimatedScaleDown(btn, 0, nil, function(frame)
         frame.hiding = nil
+        StopButtonFade(frame)
+        frame:SetAlpha(0)
         frame:Hide()
         if frame.ReturnHome then
             frame:ReturnHome()
@@ -1354,7 +1413,7 @@ function ActionBar.CreateButton(parent, mainKey)
     else
         buttonFrame:SetSize(ActionBar.buttonSize, ActionBar.buttonSize)
     end
-    ConsoleMenu:InitFadeAnimations(buttonFrame, ActionBar.animationDuration)
+    ConsoleMenu:InitFadeAnimations(buttonFrame, ActionBar.buttonFadeDuration or 0.2)
     ConsoleMenu:InitScaleAnimations(buttonFrame, ActionBar.glowMotionDuration or 0.2)
     buttonFrame.glowRestLevel = buttonFrame:GetFrameLevel()
     buttonFrame.mainKey = mainKey

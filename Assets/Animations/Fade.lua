@@ -112,6 +112,33 @@ function ConsoleMenu:AnimatedHide(frame)
     frame.fadeOut:Play()
 end
 
+-- Уменьшает полупрозрачность до нуля и оставляет кадр на экране.
+function ConsoleMenu:AnimatedFadeOut(frame)
+    if not frame or not frame.fadeIn or not frame.fadeOut then return end
+    if not frame:IsShown() then return end
+
+    local current = GetFadeAlpha(frame)
+    frame.fadeIn:Stop()
+    frame.fadeOut:Stop()
+    frame.fadeOut:SetScript("OnFinished", nil)
+
+    if current <= 0 then
+        frame:SetAlpha(0)
+        return
+    end
+
+    frame:SetAlpha(current)
+    frame.fadeOut.alpha:SetFromAlpha(current)
+    frame.fadeOut.alpha:SetToAlpha(0)
+    frame.fadeOut:SetScript("OnFinished", function()
+        frame.fadeOut:SetScript("OnFinished", nil)
+        frame.fadeOut.alpha:SetFromAlpha(FadeCeiling(frame))
+        frame.fadeOut.alpha:SetToAlpha(0)
+        frame:SetAlpha(0)
+    end)
+    frame.fadeOut:Play()
+end
+
 function ConsoleMenu:PlayFadeIn(frame)
     if not frame or not frame.fadeIn then return end
     if frame:GetAlpha() ~= 0 then return end
