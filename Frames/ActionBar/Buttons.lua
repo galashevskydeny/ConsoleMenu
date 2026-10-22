@@ -21,6 +21,22 @@ local function FadeIn(frame)
     ConsoleMenu:AnimatedShow(frame)
 end
 
+-- Гасит незаконченное проявление или исчезновение, чтобы оно не спрятало кадр после нового показа.
+local function ReleaseFade(frame)
+    if not frame then
+        return
+    end
+    if frame.fadeOut then
+        frame.fadeOut:SetScript("OnFinished", nil)
+        if frame.fadeOut:IsPlaying() then
+            frame.fadeOut:Stop()
+        end
+    end
+    if frame.fadeIn and frame.fadeIn:IsPlaying() then
+        frame.fadeIn:Stop()
+    end
+end
+
 -- Прячет кадр исчезновением и не начинает его заново, пока прошлое ещё идёт.
 local function FadeOut(frame)
     if not frame or not frame:IsShown() then
@@ -647,6 +663,9 @@ local function ShowGlowFrame(glow)
     if not glow then
         return
     end
+    ReleaseFade(glow)
+    ReleaseFade(glow.Spin)
+    ReleaseFade(glow.BurstFrame)
     glow:Show()
     glow:SetAlpha(1)
     if glow.Spin and glow.Spin.PlayLoop then
@@ -823,22 +842,43 @@ local function ApplyGlow(btn, ready)
     end
 end
 
+-- Запоминает, нужно ли свечение у ячейки, даже если сейчас видна другая способность.
+local function RememberGlowWanted(btn, slotID, ready)
+    if not btn or not slotID then
+        return
+    end
+    btn.glowWantedBySlot = btn.glowWantedBySlot or {}
+    btn.glowWantedBySlot[slotID] = ready and true or false
+end
+
+-- Умение сейчас подсвечено оверлеем готовности.
+local function OverlayReady(spellID)
+    if not spellID or ActionBar.IsSecretValue(spellID) or not C_SpellActivationOverlay or not C_SpellActivationOverlay.IsSpellOverlayed then
+        return false
+    end
+    return C_SpellActivationOverlay.IsSpellOverlayed(spellID) and true or false
+end
+
 -- Проверяет, нужно ли свечение у видимой способности.
 local function UpdateGlow(btn, spellID)
     local slotID = VisibleSlot(btn)
-    if spellID and GetActionInfo then
+    local eventSlot = btn.glowEventSlot
+    local spellKnown = spellID and not ActionBar.IsSecretValue(spellID)
+    if spellKnown and eventSlot and slotID and eventSlot ~= slotID then
+        RememberGlowWanted(btn, eventSlot, OverlayReady(spellID))
+        return
+    end
+    if spellKnown and GetActionInfo and slotID then
         local ok, actionType, actionID = pcall(GetActionInfo, slotID)
         local readable = ok
             and not ActionBar.IsSecretValue(actionType)
             and not ActionBar.IsSecretValue(actionID)
-            and not ActionBar.IsSecretValue(spellID)
         if readable and actionType == "spell" and actionID ~= spellID then
             return
         end
     end
-    local ready = false
     local actionType, actionID
-    if GetActionInfo then
+    if GetActionInfo and slotID then
         local ok, kind, id = pcall(GetActionInfo, slotID)
         if ok then
             actionType, actionID = kind, id
@@ -847,18 +887,50 @@ local function UpdateGlow(btn, spellID)
     local secretKind = actionType and ActionBar.IsSecretValue(actionType)
     if not spellID then
         if secretKind then
+            local wanted = btn.glowWantedBySlot and slotID and btn.glowWantedBySlot[slotID]
+            if wanted ~= nil then
+                ApplyGlow(btn, wanted)
+            elseif btn.glowReady then
+                ApplyGlow(btn, true)
+            end
             return
         end
         if actionType ~= "spell" and actionType ~= "macro" then
+            RememberGlowWanted(btn, slotID, false)
             ApplyGlow(btn, false)
             return
         end
         spellID = actionID
     end
-    if spellID and not ActionBar.IsSecretValue(spellID) and C_SpellActivationOverlay and C_SpellActivationOverlay.IsSpellOverlayed then
-        ready = C_SpellActivationOverlay.IsSpellOverlayed(spellID) and true or false
+    local ready = OverlayReady(spellID)
+    if spellID and not ActionBar.IsSecretValue(spellID) then
+        RememberGlowWanted(btn, slotID, ready)
+    elseif secretKind then
+        local wanted = btn.glowWantedBySlot and slotID and btn.glowWantedBySlot[slotID]
+        if wanted ~= nil then
+            ready = wanted
+        elseif btn.glowReady then
+            ready = true
+        end
     end
     ApplyGlow(btn, ready)
+end
+
+-- Показывает уже разрешённое свечение, если после переворота или появления кнопки его кадр так и не включился.
+local function EnsureGlowVisible(btn)
+    if not btn or not btn.glowReady or btn.flipBusy or btn.coinInAir then
+        return
+    end
+    local spin = btn.Glow and btn.Glow.Spin
+    local fading = spin and spin.fadeOut and spin.fadeOut:IsPlaying()
+    local visible = spin and spin:IsShown() and not fading and (spin:GetAlpha() or 0) > 0.5
+    if not visible then
+        ApplyGlow(btn, true)
+        return
+    end
+    if spin.PlayLoop then
+        spin:PlayLoop()
+    end
 end
 
 -- Красит видимую сторону функциями включения и выключения обесцвечивания.
@@ -937,6 +1009,7 @@ local function UpdateRest(btn, spellID)
     UpdateCharges(btn)
     UpdateCooldown(btn)
     UpdateGlow(btn, spellID)
+    EnsureGlowVisible(btn)
     UpdateDesaturation(btn)
     UpdatePictogram(btn)
     if btn.group and btn.group.RefreshShift then
@@ -1070,11 +1143,14 @@ local function ShowButton(btn)
         btn:SetAlpha(1)
     end
     ActionBar.SeatButton(btn)
+    EnsureGlowVisible(btn)
     if growing or atHome then
         return
     end
     WatchSeat(btn)
-    ConsoleMenu:AnimatedScaleUp(btn, 1)
+    ConsoleMenu:AnimatedScaleUp(btn, 1, nil, function(frame)
+        EnsureGlowVisible(frame)
+    end)
 end
 
 -- Скрытие возвращает кнопку её собственной функцией, а не назначает место само.
@@ -1587,11 +1663,13 @@ function ActionBar.UpdateButton(slotID, spellID, isUsable, isLackingResources)
                 btn.usableHint = isUsable
                 btn.resourceHint = isLackingResources
             end
+            btn.glowEventSlot = spellID and slotID or nil
             if btn.group and btn.group.UpdateGroup then
                 btn.group:UpdateGroup(btn, spellID)
             else
                 btn:Update(spellID)
             end
+            btn.glowEventSlot = nil
         end
     end
 end
