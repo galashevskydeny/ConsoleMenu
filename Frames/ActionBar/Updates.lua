@@ -1321,7 +1321,7 @@ end
 -- Обновление свечения готовности на кнопке.
 local function UpdateActionButtonGlow(slotID, spellID, event)
     if ActionBar.UpdateButton then
-        ActionBar.UpdateButton(slotID, spellID)
+        ActionBar.UpdateButton(slotID, spellID, nil, nil, event)
         return
     end
     local btn = ActionBar.GetButton(slotID)

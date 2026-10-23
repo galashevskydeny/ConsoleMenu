@@ -100,6 +100,9 @@ end
 local function OnSlotChanged(_, _, slotID)
     if not ActionBar.IsInCombat() or ActionBar.ChargeActionChanged(slotID) then
         ActionBar.ForgetChargeCount(slotID)
+        if ActionBar.ForgetSlotGlow then
+            ActionBar.ForgetSlotGlow(slotID)
+        end
     end
     if ActionBar.ForgetUseAction then
         ActionBar.ForgetUseAction(slotID)
@@ -166,11 +169,13 @@ end
 -- Свечение готовности заклинания включается или гаснет на его ячейках.
 local function OnGlow(_, event, spellID)
     local slots = C_ActionBar.FindSpellActionButtons(spellID)
-    if not slots then
-        return
+    if slots then
+        for _, slotID in pairs(slots) do
+            ActionBar.NoteSpellGlow(slotID, spellID, event)
+        end
     end
-    for _, slotID in pairs(slots) do
-        ActionBar.NoteSpellGlow(slotID, spellID, event)
+    if event == "SPELL_ACTIVATION_OVERLAY_GLOW_HIDE" and ActionBar.ForgetSpellGlow then
+        ActionBar.ForgetSpellGlow(spellID)
     end
 end
 

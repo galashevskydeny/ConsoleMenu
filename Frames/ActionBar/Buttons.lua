@@ -818,9 +818,15 @@ local function NoteGlow(btn, ready)
 end
 
 -- Зажигает или гасит свечение, тень и размер иконки со свечением.
-local function ApplyGlow(btn, ready)
+-- Пока кнопка исчезает или переворачивается, кольцо не включают.
+local function ApplyGlow(btn, ready, slotID)
     NoteGlow(btn, ready)
-    if btn.flipBusy or btn.coinInAir then
+    if ready then
+        btn.glowReadySlot = slotID or VisibleSlot(btn)
+    else
+        btn.glowReadySlot = nil
+    end
+    if btn.hiding or btn.flipBusy or btn.coinInAir then
         HideGlow(btn)
         HideShadow(btn, true)
         return
@@ -859,13 +865,54 @@ local function OverlayReady(spellID)
     return C_SpellActivationOverlay.IsSpellOverlayed(spellID) and true or false
 end
 
+-- Событие включения или выключения важнее повторной проверки: та ещё может отвечать по-старому.
+local function GlowFromEvent(event)
+    if event == "SPELL_ACTIVATION_OVERLAY_GLOW_HIDE" then
+        return false
+    end
+    if event == "SPELL_ACTIVATION_OVERLAY_GLOW_SHOW" then
+        return true
+    end
+    return nil
+end
+
+-- Запоминает умение ячейки, чтобы потом погасить свечение, даже если ячейка уже не найдена.
+local function RememberGlowSpell(btn, slotID, spellID)
+    if not btn or not slotID or not spellID or ActionBar.IsSecretValue(spellID) then
+        return
+    end
+    btn.glowSpellBySlot = btn.glowSpellBySlot or {}
+    btn.glowSpellBySlot[slotID] = spellID
+end
+
+-- Записанное для ячейки решение. nil — решения ещё не было.
+local function SlotGlowWanted(btn, slotID)
+    local wanted = btn and btn.glowWantedBySlot
+    if not wanted or not slotID or wanted[slotID] == nil then
+        return nil
+    end
+    return wanted[slotID] and true or false
+end
+
 -- Проверяет, нужно ли свечение у видимой способности.
 local function UpdateGlow(btn, spellID)
     local slotID = VisibleSlot(btn)
     local eventSlot = btn.glowEventSlot
+    local fromEvent = GlowFromEvent(btn.glowEventName)
     local spellKnown = spellID and not ActionBar.IsSecretValue(spellID)
     if spellKnown and eventSlot and slotID and eventSlot ~= slotID then
-        RememberGlowWanted(btn, eventSlot, OverlayReady(spellID))
+        local ready = fromEvent
+        if ready == nil then
+            ready = OverlayReady(spellID)
+        end
+        RememberGlowSpell(btn, eventSlot, spellID)
+        RememberGlowWanted(btn, eventSlot, ready)
+        return
+    end
+    if fromEvent ~= nil and (not eventSlot or eventSlot == slotID) then
+        RememberGlowSpell(btn, slotID, spellID)
+        RememberGlowWanted(btn, slotID, fromEvent)
+        ApplyGlow(btn, fromEvent, slotID)
         return
     end
     if spellKnown and GetActionInfo and slotID then
@@ -887,45 +934,96 @@ local function UpdateGlow(btn, spellID)
     local secretKind = actionType and ActionBar.IsSecretValue(actionType)
     if not spellID then
         if secretKind then
-            local wanted = btn.glowWantedBySlot and slotID and btn.glowWantedBySlot[slotID]
+            local wanted = SlotGlowWanted(btn, slotID)
             if wanted ~= nil then
-                ApplyGlow(btn, wanted)
-            elseif btn.glowReady then
-                ApplyGlow(btn, true)
+                ApplyGlow(btn, wanted, slotID)
+            elseif btn.glowReadySlot ~= slotID then
+                ApplyGlow(btn, false, slotID)
             end
             return
         end
         if actionType ~= "spell" and actionType ~= "macro" then
             RememberGlowWanted(btn, slotID, false)
-            ApplyGlow(btn, false)
+            ApplyGlow(btn, false, slotID)
             return
         end
         spellID = actionID
+        RememberGlowSpell(btn, slotID, spellID)
     end
-    local ready = OverlayReady(spellID)
-    if spellID and not ActionBar.IsSecretValue(spellID) then
+    local wanted = SlotGlowWanted(btn, slotID)
+    local spellReadable = spellID and not ActionBar.IsSecretValue(spellID)
+    local probed = spellReadable and OverlayReady(spellID)
+    local ready
+    if wanted == false then
+        ready = false
+    elseif wanted == true then
+        ready = not spellReadable or probed
+    else
+        ready = probed and true or false
+    end
+    if spellReadable then
         RememberGlowWanted(btn, slotID, ready)
-    elseif secretKind then
-        local wanted = btn.glowWantedBySlot and slotID and btn.glowWantedBySlot[slotID]
-        if wanted ~= nil then
-            ready = wanted
-        elseif btn.glowReady then
-            ready = true
-        end
     end
-    ApplyGlow(btn, ready)
+    ApplyGlow(btn, ready, slotID)
 end
 
--- Показывает уже разрешённое свечение, если после переворота или появления кнопки его кадр так и не включился.
+-- Гасит свечение умения во всех ячейках, где оно запомнено.
+function ActionBar.ForgetSpellGlow(spellID)
+    if not spellID or ActionBar.IsSecretValue(spellID) then
+        return
+    end
+    local frame = ActionBar.GetFrame()
+    if not frame or not frame.actionButtons then
+        return
+    end
+    for _, btn in pairs(frame.actionButtons) do
+        local spells = btn.glowSpellBySlot
+        if spells then
+            for knownSlot, knownSpell in pairs(spells) do
+                if knownSpell == spellID then
+                    RememberGlowWanted(btn, knownSlot, false)
+                    if VisibleSlot(btn) == knownSlot or btn.glowReadySlot == knownSlot then
+                        ApplyGlow(btn, false, knownSlot)
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- Сбрасывает решение о свечении ячейки, когда в ней другое умение.
+function ActionBar.ForgetSlotGlow(slotID)
+    local frame = ActionBar.GetFrame()
+    if not frame or not frame.actionButtons or not slotID then
+        return
+    end
+    for _, btn in pairs(frame.actionButtons) do
+        if btn.glowWantedBySlot then
+            btn.glowWantedBySlot[slotID] = nil
+        end
+        if btn.glowSpellBySlot then
+            btn.glowSpellBySlot[slotID] = nil
+        end
+        if btn.glowReadySlot == slotID then
+            btn.glowReadySlot = nil
+        end
+    end
+end
+
+-- Показывает уже разрешённое свечение видимой ячейки, если после переворота или появления кнопки кадр так и не включился.
 local function EnsureGlowVisible(btn)
-    if not btn or not btn.glowReady or btn.flipBusy or btn.coinInAir then
+    if not btn or btn.hiding or btn.flipBusy or btn.coinInAir or not btn:IsShown() then
+        return
+    end
+    local slotID = VisibleSlot(btn)
+    if SlotGlowWanted(btn, slotID) ~= true then
         return
     end
     local spin = btn.Glow and btn.Glow.Spin
     local fading = spin and spin.fadeOut and spin.fadeOut:IsPlaying()
     local visible = spin and spin:IsShown() and not fading and (spin:GetAlpha() or 0) > 0.5
     if not visible then
-        ApplyGlow(btn, true)
+        ApplyGlow(btn, true, slotID)
         return
     end
     if spin.PlayLoop then
@@ -1220,6 +1318,14 @@ local function HideButton(btn)
     if not btn then
         return
     end
+    if not btn:IsShown() then
+        SettleHiddenFace(btn)
+        return
+    end
+    if btn.hiding then
+        return
+    end
+    btn.hiding = true
     ReleaseShiftForHide(btn)
     HideGlow(btn)
     HideShadow(btn)
@@ -1229,19 +1335,11 @@ local function HideButton(btn)
     if btn.Glow and btn.Glow.Restore then
         btn.Glow:Restore()
     end
-    if btn.hiding or not btn:IsShown() then
-        if not btn:IsShown() then
-            SettleHiddenFace(btn)
-        end
-        return
-    end
     ConsoleMenu:InitScaleAnimations(btn, ActionBar.glowMotionDuration or 0.2)
     if btn.scaleDown and btn.scaleDown:IsPlaying() then
-        btn.hiding = true
         ConcealButton(btn)
         return
     end
-    btn.hiding = true
     ActionBar.SeatButton(btn)
     WatchSeat(btn)
     ConcealButton(btn)
@@ -1711,7 +1809,7 @@ function ActionBar.SetButtonModifier(btn, modifier, instant)
 end
 
 -- Обновляет кнопку слота и те кнопки, которые сейчас показывают этот слот.
-function ActionBar.UpdateButton(slotID, spellID, isUsable, isLackingResources)
+function ActionBar.UpdateButton(slotID, spellID, isUsable, isLackingResources, glowEvent)
     local frame = ActionBar.GetFrame()
     if not frame or not frame.actionButtons or not slotID then
         return
@@ -1723,12 +1821,14 @@ function ActionBar.UpdateButton(slotID, spellID, isUsable, isLackingResources)
                 btn.resourceHint = isLackingResources
             end
             btn.glowEventSlot = spellID and slotID or nil
+            btn.glowEventName = spellID and glowEvent or nil
             if btn.group and btn.group.UpdateGroup then
                 btn.group:UpdateGroup(btn, spellID)
             else
                 btn:Update(spellID)
             end
             btn.glowEventSlot = nil
+            btn.glowEventName = nil
         end
     end
 end
