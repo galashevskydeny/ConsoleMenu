@@ -37,7 +37,7 @@ local commandFlightTime = 0.35
 -- Целевая дистанция камеры для спешенного персонажа: раса и тип тела.
 -- Тип тела в игре — мужской или женский; более дробное сложение вне парикмахерской недоступно.
 local raceZoom = {
-    BloodElf = { male = 4, female = nil },
+    BloodElf = { male = 5, female = nil },
     DarkIronDwarf = { male = nil, female = nil },
     Dracthyr = { male = nil, female = nil },
     Draenei = { male = nil, female = nil },
@@ -90,6 +90,12 @@ local savedMaxZoomFactor
 local savedZoomSpeed
 local restoreSpeedTimer
 local zoomSlashRegistered
+
+-- Последняя заданная дистанция. Пока камера к ней едет, новую команду считаем от неё.
+local commandedZoom
+
+-- Момент, к которому уже отправленные команды зума должны доехать.
+local zoomBusyUntil = 0
 
 -- Возвращает истину, если автоматическая подстройка включена в настройках.
 local function IsEnabled()
@@ -250,13 +256,46 @@ local function EnsureMaxZoom(target)
     return math.min(target, maxClientZoom)
 end
 
--- Возвращает скорость зума к значению игрока.
+-- Возвращает скорость зума к значению игрока и забывает незавершённую команду.
 local function RestoreZoomSpeed()
     restoreSpeedTimer = nil
+    commandedZoom = nil
+    zoomBusyUntil = 0
     if savedZoomSpeed then
         SetCVar("cameraZoomSpeed", savedZoomSpeed)
         savedZoomSpeed = nil
     end
+end
+
+-- Ждёт, пока камера доедет, и только потом возвращает скорость игрока.
+local function FinishZoomCommand()
+    restoreSpeedTimer = nil
+    local remaining = zoomBusyUntil - GetTime()
+    if remaining > 0.02 then
+        restoreSpeedTimer = C_Timer.NewTimer(remaining, FinishZoomCommand)
+        return
+    end
+
+    RestoreZoomSpeed()
+end
+
+-- Удерживает повышенную скорость, пока все уже отправленные команды не доедут.
+local function HoldZoomSpeed(delta)
+    local now = GetTime()
+    local duration = math.abs(delta) / applyZoomSpeed + 0.05
+    if duration < commandFlightTime then
+        duration = commandFlightTime
+    end
+
+    if zoomBusyUntil < now then
+        zoomBusyUntil = now
+    end
+    zoomBusyUntil = zoomBusyUntil + duration
+
+    if restoreSpeedTimer then
+        restoreSpeedTimer:Cancel()
+    end
+    restoreSpeedTimer = C_Timer.NewTimer(zoomBusyUntil - now, FinishZoomCommand)
 end
 
 -- Приближает или отдаляет камеру до целевой дистанции.
@@ -266,7 +305,8 @@ local function SetWorldCameraZoom(target)
     end
 
     target = EnsureMaxZoom(target)
-    local current = GetCameraZoom()
+    -- Игра не сразу обновляет текущую дистанцию, а повторную команду прибавляет к той, которая ещё не доехала.
+    local current = commandedZoom or GetCameraZoom()
     if not current then
         return
     end
@@ -286,10 +326,8 @@ local function SetWorldCameraZoom(target)
         CameraZoomOut(-delta)
     end
 
-    if restoreSpeedTimer then
-        restoreSpeedTimer:Cancel()
-    end
-    restoreSpeedTimer = C_Timer.NewTimer(commandFlightTime, RestoreZoomSpeed)
+    commandedZoom = target
+    HoldZoomSpeed(delta)
 end
 
 -- Применяет дистанцию камеры под текущее состояние персонажа.
