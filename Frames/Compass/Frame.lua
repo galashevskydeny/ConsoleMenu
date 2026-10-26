@@ -80,10 +80,10 @@ local function RestoreAfterFadeIn(self)
     self:RestoreViewAlpha()
 end
 
--- Показывает или скрывает полосу с учётом подземелья, поля боя и окон.
+-- Показывает или скрывает полосу. Подземелье и район сюда не входят: их решает контекст.
 function Compass:RefreshVisibility()
-    local hidden = self.inInstance or self.hiddenByGame or self.hiddenByContext or self.hiddenByProgress
-    local resetState = self.inInstance or self.hiddenByGame
+    local hidden = self.hiddenByGame or self.hiddenByContext or self.hiddenByProgress
+    local resetState = self.hiddenByGame
     if hidden then
         if self.updating then
             self.events:SetScript("OnUpdate", nil)
@@ -182,17 +182,15 @@ function Compass:SetProgressHidden(hidden)
     self:RefreshVisibility()
 end
 
--- Обновляет скрытие в подземелье, битве питомцев и транспорте; поле боя оставляет видимым.
+-- Обновляет скрытие в битве питомцев и на транспорте.
 function Compass:RefreshInstanceState()
-    local inInstance, instanceType = IsInInstance()
-    self.inInstance = inInstance and instanceType ~= "pvp"
     self.hiddenByGame = C_PetBattles.IsInBattle() or UnitHasVehicleUI("player")
     self:RefreshVisibility()
 end
 
 -- Обрабатывает кадр: сбор точек, азимуты и отрисовка.
 function Compass:OnUpdate(elapsed)
-    if self.inInstance or self.hiddenByGame or self.hiddenByContext or self.hiddenByProgress or not self.frame:IsVisible() then
+    if self.hiddenByGame or self.hiddenByContext or self.hiddenByProgress or not self.frame:IsVisible() then
         self:HidePeek()
         return
     end
@@ -265,10 +263,8 @@ function Compass:OnEvent(event, payload)
     if event == "UI_SCALE_CHANGED" or event == "DISPLAY_SIZE_CHANGED" then
         self.headingsDirty = true
         self.renderDirty = true
-        if not self.inInstance then
-            self:LayoutArtwork()
-        end
-    elseif not self.inInstance then
+        self:LayoutArtwork()
+    else
         self:InvalidateSource(event)
     end
 end
@@ -324,7 +320,7 @@ function ConsoleMenu:SetCompassFrame()
         Compass:SetLabelShadowShown(false, true)
     end)
     frame:SetScript("OnShow", function()
-        if Compass.inInstance or Compass.hiddenByGame then
+        if Compass.hiddenByGame then
             frame:Hide()
         else
             Compass:RefreshPeekModifier()

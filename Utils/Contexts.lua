@@ -751,7 +751,7 @@ function ConsoleMenu:ApplyContextUIChanges()
         ConsoleMenu:PlayFadeOut(ObjectiveTrackerFrame)
         ConsoleMenu:AnimatedHide(Minimap)
         if ConsoleMenu.Compass then
-            ConsoleMenu.Compass:SetContextHidden(true)
+            ConsoleMenu.Compass:SetContextHidden(false)
         end
     elseif context == "soul" then
         ConsoleMenu:UpdateKeysFrame()
