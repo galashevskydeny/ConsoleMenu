@@ -62,9 +62,13 @@ function ConsoleMenu:AnimatedShow(frame)
     local current = GetFadeAlpha(frame)
     local shown = frame:IsShown()
 
-    frame.fadeOut:Stop()
+    -- Сначала отключаем действие по окончании исчезновения, иначе остановка прячет окно сразу после появления.
     frame.fadeOut:SetScript("OnFinished", nil)
+    frame.fadeOut:Stop()
     frame.fadeIn:Stop()
+    if not frame:IsShown() then
+        shown = false
+    end
 
     local fadeIn = frame.fadeIn
     local ceiling = FadeCeiling(frame)
