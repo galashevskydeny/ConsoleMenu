@@ -95,7 +95,7 @@ local function SetActionForSlot(slot, actionType, actionId)
         PickupMacro(actionId)
         PlaceAction(slot)
     elseif actionType == "item" then
-        PickupItem(actionId)
+        C_Item.PickupItem(actionId)
         PlaceAction(slot)
     elseif actionType == "empty" then
         PickupAction(slot)
@@ -141,7 +141,7 @@ local function ApplyMacroSettings()
     end
 
     if ConsoleMenuDB.actionBarPageExploring == 1 then
-        SetActionForSlot(25, "empty", nil)
+        ConsoleMenu:UpdateQuestUseItemSlot()
         SetActionForSlot(26, "empty", nil)
         SetActionForSlot(27, "empty", nil)
         SetActionForSlot(28, "empty", nil)
