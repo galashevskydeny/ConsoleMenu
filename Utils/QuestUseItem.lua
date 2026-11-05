@@ -33,7 +33,7 @@ local function QuestUseItemID(questID)
         return nil
     end
 
-    local link, icon, _, showItemWhenComplete = GetQuestLogSpecialItemInfo(logIndex)
+    local link, icon = GetQuestLogSpecialItemInfo(logIndex)
     local itemID = ItemIDFromLink(link)
 
     -- Если номер не удалось прочитать из ссылки, он берётся из подсказки.
@@ -48,7 +48,8 @@ local function QuestUseItemID(questID)
         return nil
     end
 
-    if C_QuestLog.IsComplete(questID) and not showItemWhenComplete then
+    -- Выполненное задание и задание, готовое к сдаче, больше не держат предмет в ячейке.
+    if C_QuestLog.IsComplete(questID) or C_QuestLog.ReadyForTurnIn(questID) then
         return nil
     end
 
