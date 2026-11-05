@@ -9,10 +9,10 @@ local QUEST_ICON_STYLES = {
     campaign = {
         offer = "Crosshair_campaignquest_128",
         turnIn = "Crosshair_campaignquestturnin_128",
-        left = -6,
-        right = -6,
-        top = 0,
-        bottom = 0,
+        left = -8,
+        right = -4,
+        top = 2,
+        bottom = -2,
     },
     legendary = {
         offer = "Crosshair_legendaryquest_128",
