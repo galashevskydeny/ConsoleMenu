@@ -10,6 +10,9 @@ local macroDefinitions = {
     ["Осмотреть"] = {"/targetfriend\n/inspect", "ACHIEVEMENT_GUILDPERK_LADYLUCK"},
     ["Предложить обмен"] = {"/targetfriend\n/trade", "ACHIEVEMENT_GUILDPERK_CASHFLOW_RANK2"},
     ["Трюк"] = {"/mountspecial", "INV_TreasureCrabPet_Purple"},
+    -- Применение надетых аксессуаров: слот 13 — первый, слот 14 — второй
+    ["Аксессуар 1"] = {"#showtooltip 13\n/use 13", "INV_Jewelry_TrinketPVP_01"},
+    ["Аксессуар 2"] = {"#showtooltip 14\n/use 14", "INV_Jewelry_TrinketPVP_02"},
 }
 
 -- Функция проверки и создания всех необходимых макросов
@@ -18,6 +21,10 @@ local function EnsureAllMacros()
 
     -- Таблица необходимых макросов: заполняется в зависимости от настроек
     local requiredMacros = {}
+
+    -- Аксессуары нужны независимо от страницы панели действий
+    requiredMacros["Аксессуар 1"] = macroDefinitions["Аксессуар 1"]
+    requiredMacros["Аксессуар 2"] = macroDefinitions["Аксессуар 2"]
     
     -- Заполняем таблицу в зависимости от включенных страниц панели действий
     if ConsoleMenuDB.actionBarPageExploring == 1 then
@@ -134,7 +141,7 @@ local function ApplyMacroSettings()
     end
 
     if ConsoleMenuDB.actionBarPageExploring == 1 then
-        SetActionForSlot(25, "nil", nil)
+        SetActionForSlot(25, "empty", nil)
         SetActionForSlot(26, "empty", nil)
         SetActionForSlot(27, "empty", nil)
         SetActionForSlot(28, "empty", nil)
