@@ -35,6 +35,81 @@ function Gossip.CreateScrollBox()
         end
     end
 
+    local extentRefreshQueued = false
+
+    -- Перестроить список, когда высота пункта уточнилась по видимому тексту.
+    local function RefreshOptionExtents()
+        if extentRefreshQueued then
+            return
+        end
+        extentRefreshQueued = true
+        C_Timer.After(0, function()
+            extentRefreshQueued = false
+            if ScrollBox.FullUpdate then
+                if ScrollBoxConstants and ScrollBoxConstants.UpdateImmediately then
+                    ScrollBox:FullUpdate(ScrollBoxConstants.UpdateImmediately)
+                else
+                    ScrollBox:FullUpdate()
+                end
+            elseif ScrollBox.Update then
+                ScrollBox:Update()
+            end
+            UpdateScrollBarVisibility()
+            local focused = Gossip.GetListElement(Gossip.focusedIndex)
+            if focused then
+                Gossip.UpdateFocus(focused, true)
+            end
+        end)
+    end
+
+    -- Сверить высоту пункта с уже нарисованным текстом и поправить список один раз.
+    local function SyncOptionExtent(frame, elementData, isRetry)
+        if not frame or not elementData or elementData.extentLocked then
+            return
+        end
+
+        if not isRetry then
+            if elementData.extentRetry then
+                return
+            end
+            elementData.extentRetry = true
+            C_Timer.After(0, function()
+                if frame.optionData ~= elementData then
+                    return
+                end
+                SyncOptionExtent(frame, elementData, true)
+            end)
+            return
+        end
+
+        local fontString = frame.text
+        if not fontString then
+            elementData.extentLocked = true
+            return
+        end
+
+        if Gossip.OptionTextWrapPending(fontString) and not elementData.extentRetriedAgain then
+            elementData.extentRetriedAgain = true
+            C_Timer.After(0, function()
+                if frame.optionData ~= elementData then
+                    return
+                end
+                SyncOptionExtent(frame, elementData, true)
+            end)
+            return
+        end
+
+        elementData.extentLocked = true
+        local extent = Gossip.ExtentForLabel(fontString)
+        if math.abs((elementData.extent or Gossip.sectionHeight) - extent) <= 1 then
+            return
+        end
+
+        elementData.extent = extent
+        frame:SetHeight(extent)
+        RefreshOptionExtents()
+    end
+
     -- Сравнение пунктов разговора по порядку клиента.
     local function SortGossipOptions(left, right)
         return (left.orderIndex or 0) < (right.orderIndex or 0)
@@ -210,16 +285,23 @@ function Gossip.CreateScrollBox()
             frame.text:SetPoint("LEFT", frame.icon, "RIGHT", Gossip.sectionPadding, 0)
             frame.text:SetPoint("RIGHT", -Gossip.sectionPadding, 0)
             frame.text:SetJustifyH("LEFT")
+            frame.text:SetJustifyV("MIDDLE")
         end
 
         frame.text:SetFont(Gossip.fontName, Gossip.itemFontSize, "OUTLINE")
+        frame.text:SetWordWrap(true)
+        frame.text:SetNonSpaceWrap(true)
         frame.text:SetText(data.name)
         frame.text:SetTextColor(1, 0.976, 0.855)
 
+        frame.optionData = data
+        frame:SetHeight(data.extent or Gossip.sectionHeight)
+        SyncOptionExtent(frame, data, false)
+
         if not frame.bg then
             frame.bg = frame:CreateTexture(nil, "BACKGROUND")
-            frame.bg:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 5)
-            frame.bg:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, -4)
+            frame.bg:SetPoint("TOPLEFT", frame.text, "TOPLEFT", 0, 20)
+            frame.bg:SetPoint("BOTTOMRIGHT", frame.text, "BOTTOMRIGHT", 0, -20)
             frame.bg:SetAtlas("Garr_BuildingInfoShadow")
             frame.bg:Hide()
         end
@@ -249,7 +331,16 @@ function Gossip.CreateScrollBox()
         end)
     end
 
-    ScrollView:SetElementExtent(Gossip.sectionHeight)
+    if ScrollView.SetElementExtentCalculator then
+        ScrollView:SetElementExtentCalculator(function(_, elementData)
+            if not elementData then
+                return Gossip.sectionHeight
+            end
+            return elementData.extent or Gossip.sectionHeight
+        end)
+    else
+        ScrollView:SetElementExtent(Gossip.sectionHeight)
+    end
     ScrollView:SetElementInitializer("Frame", Initializer)
 
     ScrollUtil.InitScrollBoxListWithScrollBar(ScrollBox, ScrollBar, ScrollView)

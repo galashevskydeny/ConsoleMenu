@@ -38,6 +38,64 @@ function Gossip.Readable(value)
     return value
 end
 
+-- Высота уже нарисованной подписи. Пока перенос не готов, берётся высота строк шрифта.
+local function MeasureLabelHeight(fontString)
+    local lineHeight = fontString.GetLineHeight and fontString:GetLineHeight() or 0
+    local lineCount = fontString.GetNumLines and fontString:GetNumLines() or 0
+    local wrapped = 0
+    if lineHeight > 0 and lineCount > 0 then
+        wrapped = lineHeight * lineCount
+    end
+
+    local measured = fontString:GetStringHeight() or 0
+    local height = math.max(measured, wrapped)
+    if height > 1 then
+        return height, lineHeight
+    end
+    return Gossip.itemFontSize, lineHeight
+end
+
+-- Подпись ещё не перенеслась: текст ниже своих строк или всё ещё шире поля.
+function Gossip.OptionTextWrapPending(fontString)
+    if not fontString or not fontString:IsShown() then
+        return true
+    end
+
+    local lineHeight = fontString.GetLineHeight and fontString:GetLineHeight() or 0
+    local lineCount = fontString.GetNumLines and fontString:GetNumLines() or 0
+    local measured = fontString:GetStringHeight() or 0
+    if lineHeight > 0 and lineCount > 0 and measured + lineHeight < lineHeight * lineCount then
+        return true
+    end
+
+    if lineCount <= 1 then
+        local width = fontString:GetWidth() or 0
+        local stringWidth = fontString:GetStringWidth() or 0
+        if width <= 1 or stringWidth > width + 1 then
+            return true
+        end
+    end
+
+    return false
+end
+
+-- Высота пункта по высоте подписи. Одна строка остаётся обычной, лишний текст добавляет рост.
+function Gossip.ExtentForLabel(fontString)
+    if not fontString then
+        return Gossip.sectionHeight
+    end
+
+    local textHeight, lineHeight = MeasureLabelHeight(fontString)
+    if not lineHeight or lineHeight <= 1 then
+        lineHeight = Gossip.itemFontSize
+    end
+    local extra = textHeight - lineHeight
+    if extra < 1 then
+        return Gossip.sectionHeight
+    end
+    return Gossip.sectionHeight + extra
+end
+
 -- Тип взаимодействия с точкой полёта в клиенте.
 function Gossip.GetTaxiInteractionType()
     local types = Enum and Enum.PlayerInteractionType
