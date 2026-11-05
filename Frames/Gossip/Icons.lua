@@ -41,6 +41,10 @@ local QUEST_ICON_STYLES = {
     normal = {
         offer = "Crosshair_Quest_128",
         turnIn = "Crosshair_Questturnin_128",
+        left = 1,
+        right = -1,
+        top = -1,
+        bottom = 1,
     },
 }
 
