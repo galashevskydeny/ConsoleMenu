@@ -64,6 +64,28 @@ local function DefaultOffsetY()
     return offset
 end
 
+-- Вешает проявление и скрытие на контейнер верхних виджетов.
+local function PrepareTopWidget(frame, duration)
+    if frame.compassHideHooked then
+        return
+    end
+    frame.compassHideHooked = true
+    frame.compassSuppressed = false
+    frame.compassWasShown = false
+    ConsoleMenu:InitFadeAnimations(frame, duration)
+    frame:HookScript("OnShow", function()
+        if not frame.compassSuppressed then
+            return
+        end
+        frame.compassWasShown = true
+        if frame.fadeOut and frame.fadeOut:IsPlaying() then
+            return
+        end
+        frame:SetAlpha(0)
+        frame:Hide()
+    end)
+end
+
 -- Возвращает истину, пока рамка полосы проявляется.
 function Compass:IsFadeInPlaying()
     local fadeIn = self.frame and self.frame.fadeIn
@@ -188,10 +210,75 @@ function Compass:RefreshInstanceState()
     self:RefreshVisibility()
 end
 
+-- Истина, пока под полосой видна подпись с расстоянием, «поблизости» или всплывающая подпись Alt.
+function Compass:CaptionCoversTopWidget()
+    if not self.frame or not self.frame:IsVisible() then
+        return false
+    end
+    if self.detailShown then
+        return true
+    end
+    local detail = self.detailFrame
+    if detail and detail:IsShown() then
+        return true
+    end
+    local peek = self.compassPeek
+    if peek and peek.shown then
+        return true
+    end
+    if self.nearbyReflowPhase then
+        return true
+    end
+    if (self.arrivalBlend or 0) > 0 and self.arrivalMarkers and #self.arrivalMarkers > 0 then
+        return true
+    end
+    local slots = self.markerSlots
+    if slots then
+        for index = 1, #slots do
+            local button = slots[index]
+            if button.labelShown then
+                return true
+            end
+            local labelFrame = button.labelFrame
+            if labelFrame and labelFrame:IsShown() then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+-- Скрывает или возвращает верхние виджеты вслед за подписью компаса.
+function Compass:RefreshTopCenterWidget()
+    local frame = UIWidgetTopCenterContainerFrame
+    if not frame then
+        return
+    end
+    PrepareTopWidget(frame, self.Constants.LABEL_FADE_DURATION)
+    local hidden = self:CaptionCoversTopWidget()
+    if hidden == frame.compassSuppressed then
+        return
+    end
+    frame.compassSuppressed = hidden
+    if hidden then
+        frame.compassWasShown = frame:IsShown()
+        if frame.compassWasShown then
+            ConsoleMenu:AnimatedHide(frame)
+        end
+        return
+    end
+    local restore = frame.compassWasShown
+    frame.compassWasShown = false
+    if restore then
+        ConsoleMenu:AnimatedShow(frame)
+    end
+end
+
 -- Обрабатывает кадр: сбор точек, азимуты и отрисовка.
 function Compass:OnUpdate(elapsed)
     if self.hiddenByGame or self.hiddenByContext or self.hiddenByProgress or not self.frame:IsVisible() then
         self:HidePeek()
+        self:RefreshTopCenterWidget()
         return
     end
     self.discoveryClock = self.discoveryClock + elapsed
@@ -226,6 +313,7 @@ function Compass:OnUpdate(elapsed)
     then
         self:Render(facing, true, elapsed)
     end
+    self:RefreshTopCenterWidget()
 end
 
 -- Обрабатывает игровые события полосы.
@@ -318,6 +406,7 @@ function ConsoleMenu:SetCompassFrame()
         Compass:HideDetail(true)
         Compass:HideAllNearbyLabels()
         Compass:SetLabelShadowShown(false, true)
+        Compass:RefreshTopCenterWidget()
     end)
     frame:SetScript("OnShow", function()
         if Compass.hiddenByGame then

@@ -167,7 +167,7 @@ local function SetMacBookSettings()
 
     -- Устанавливаем настройки для MacBook Pro с вырезом экрана
     UIWidgetTopCenterContainerFrame:ClearAllPoints()
-    UIWidgetTopCenterContainerFrame:SetPoint("TOP", UIParent, "TOP", 0, -60)
+    UIWidgetTopCenterContainerFrame:SetPoint("TOP", UIParent, "TOP", 0, -92)
     SetCVar("NotchedDisplayMode", 0)
 
 end
