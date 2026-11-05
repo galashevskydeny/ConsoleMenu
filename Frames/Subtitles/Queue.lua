@@ -73,6 +73,50 @@ function Subtitle.RemoveOld()
     end
 end
 
+-- Убирает долгое удержание последней реплики, чтобы текст доиграл и скрылся сам.
+function Subtitle.ReleaseDialogueHold()
+    local hold = Subtitle.dialogueHoldDuration
+    if not Subtitle.queue or not hold then
+        return
+    end
+
+    for i = #Subtitle.queue, 1, -1 do
+        local subtitle = Subtitle.queue[i]
+        if subtitle.priority == 1 and subtitle.lastLine and subtitle.duration > hold then
+            subtitle.duration = subtitle.duration - hold
+            subtitle.stopTime = subtitle.startTime + subtitle.duration
+            return
+        end
+    end
+end
+
+-- Первая реплика цепочки ещё должна оставаться на экране.
+function Subtitle.FirstLineStillPlaying()
+    local frame = Subtitle.GetFrame()
+    local current = frame and frame.CurrentSubtitle
+    if not current or current.priority ~= 1 or not Subtitle.queue then
+        return false
+    end
+
+    local first = nil
+    for _, item in ipairs(Subtitle.queue) do
+        if item.priority == 1 and item.event == current.event then
+            first = item
+            break
+        end
+    end
+    if not first or not first.startTime or not first.duration then
+        return false
+    end
+
+    local natural = first.duration
+    if first.lastLine and natural > Subtitle.dialogueHoldDuration then
+        natural = natural - Subtitle.dialogueHoldDuration
+    end
+
+    return GetTime() < first.startTime + natural
+end
+
 -- Удаляет реплики указанной важности.
 function Subtitle.RemoveByPriority(priorityToRemove)
     if not Subtitle.queue then
@@ -138,6 +182,23 @@ function ConsoleMenu:AddSubtitles(event, message, sender)
             emotion = emotionFromEvent,
             lastLine = true,
         })
+        -- #region agent log
+        if priority == 1 then
+            local item = Subtitle.queue[#Subtitle.queue]
+            local now = GetTime()
+            Subtitle.DebugLog("H4", "Queue.lua:AddSubtitles", "secret quest line", {
+                event = event,
+                lines = 1,
+                queue = #Subtitle.queue,
+                firstDur = item.duration,
+                firstLeft = item.stopTime - now,
+                firstLast = 1,
+                textLen = -1,
+                preview = "<secret>",
+                t = now,
+            })
+        end
+        -- #endregion
         return
     end
 
@@ -182,4 +243,26 @@ function ConsoleMenu:AddSubtitles(event, message, sender)
             lastSubtitle.stopTime = lastSubtitle.startTime + lastSubtitle.duration
         end
     end
+
+    -- #region agent log
+    if priority == 1 then
+        local first = Subtitle.queue[firstInsertedIndex]
+        local now = GetTime()
+        local lineCount = 0
+        if lastInsertedIndex >= firstInsertedIndex then
+            lineCount = lastInsertedIndex - firstInsertedIndex + 1
+        end
+        Subtitle.DebugLog("H4", "Queue.lua:AddSubtitles", "quest lines queued", {
+            event = event,
+            lines = lineCount,
+            queue = #Subtitle.queue,
+            firstDur = first and first.duration or -1,
+            firstLeft = first and (first.stopTime - now) or -1,
+            firstLast = first and first.lastLine and 1 or 0,
+            textLen = (type(message) == "string" and not Subtitle.IsSecret(message)) and #message or -1,
+            preview = first and Subtitle.DebugPreview(first.text) or "",
+            t = now,
+        })
+    end
+    -- #endregion
 end

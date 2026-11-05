@@ -107,6 +107,71 @@ function Subtitle.GetFrame()
     return ConsoleMenuFrame and ConsoleMenuFrame.SubtitleFrame
 end
 
+-- #region agent log
+-- Короткий фрагмент текста для отладочной записи.
+function Subtitle.DebugPreview(value)
+    if value == nil then
+        return ""
+    end
+    if Subtitle.IsSecret(value) then
+        return "<secret>"
+    end
+    if type(value) ~= "string" then
+        return tostring(type(value))
+    end
+    local text = value:gsub("%s+", " ")
+    if #text > 42 then
+        text = text:sub(1, 42)
+    end
+    return text
+end
+
+-- Пишет отладочную строку показа реплик в сохранённые настройки.
+function Subtitle.DebugLog(hypothesisId, location, message, data)
+    if not ConsoleMenuDB then
+        return
+    end
+    if type(ConsoleMenuDB.subtitleDebugLog) ~= "table" then
+        ConsoleMenuDB.subtitleDebugLog = {}
+    end
+
+    local log = ConsoleMenuDB.subtitleDebugLog
+    local entry = {
+        hypothesisId = hypothesisId or "",
+        location = location or "",
+        message = message or "",
+        t = GetTime() or 0,
+    }
+
+    if type(data) == "table" then
+        for key, value in pairs(data) do
+            if Subtitle.IsSecret(value) then
+                entry[key] = "<secret>"
+            else
+                local kind = type(value)
+                if kind == "number" or kind == "boolean" then
+                    entry[key] = value
+                elseif kind == "string" then
+                    if #value > 80 then
+                        value = value:sub(1, 80)
+                    end
+                    entry[key] = value
+                end
+            end
+        end
+    end
+
+    log[#log + 1] = entry
+    while #log > 80 do
+        table.remove(log, 1)
+    end
+
+    if DEFAULT_CHAT_FRAME then
+        pcall(DEFAULT_CHAT_FRAME.AddMessage, DEFAULT_CHAT_FRAME, "CMDBG " .. tostring(hypothesisId) .. " " .. tostring(message))
+    end
+end
+-- #endregion
+
 -- Возвращает следующий символ UTF-8 и его длину в байтах.
 function Subtitle.GetUtf8Char(str, index)
     local byte = str:byte(index)

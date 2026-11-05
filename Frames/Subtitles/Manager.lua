@@ -3,9 +3,93 @@
 local ConsoleMenu = _G.ConsoleMenu
 local Subtitle = ConsoleMenu.Subtitle
 
+-- Снимает реплики разговора, если отложенное закрытие ещё актуально.
+local function FinishDialogueClose(reason, token)
+    local matched = token == Subtitle.closeToken
+    -- #region agent log
+    Subtitle.DebugLog("H1", "Manager.lua:FinishDialogueClose", "delayed close", {
+        reason = reason,
+        matched = matched and 1 or 0,
+        questId = GetQuestID and GetQuestID() or 0,
+        queue = Subtitle.queue and #Subtitle.queue or 0,
+        t = GetTime(),
+    })
+    -- #endregion
+    if not matched then
+        return
+    end
+
+    -- Задание уже открыто: это закрытие предыдущего окна, реплику задания не снимаем.
+    local questId = GetQuestID and GetQuestID() or 0
+    if not Subtitle.IsSecret(questId) and type(questId) == "number" and questId ~= 0 then
+        -- #region agent log
+        Subtitle.DebugLog("H1", "Manager.lua:FinishDialogueClose", "skip close quest open", {
+            reason = reason,
+            questId = questId,
+            t = GetTime(),
+        })
+        -- #endregion
+        return
+    end
+
+    -- Окно закрылось, пока первая реплика ещё должна быть на экране: даём цепочке доиграть.
+    if Subtitle.FirstLineStillPlaying() then
+        local frame = Subtitle.GetFrame()
+        local current = frame and frame.CurrentSubtitle
+        Subtitle.ReleaseDialogueHold()
+        -- #region agent log
+        Subtitle.DebugLog("H1", "Manager.lua:FinishDialogueClose", "play out", {
+            reason = reason,
+            left = current and ((current.stopTime or GetTime()) - GetTime()) or -1,
+            t = GetTime(),
+        })
+        -- #endregion
+        Subtitle.ScheduleNextUpdate(current)
+        return
+    end
+
+    Subtitle.RemoveByPriority(1)
+    ConsoleMenu:SubtitleFrameUpdate()
+end
+
+-- Длина текста события диалога для отладочной записи.
+local function PeekDialogueTextLen(event)
+    local text
+    if event == "QUEST_DETAIL" then
+        text = GetQuestText()
+    elseif event == "QUEST_PROGRESS" then
+        text = GetProgressText()
+    elseif event == "QUEST_COMPLETE" then
+        text = GetRewardText()
+    elseif event == "QUEST_GREETING" then
+        text = GetGreetingText()
+    elseif event == "GOSSIP_SHOW" then
+        text = C_GossipInfo.GetText()
+    end
+    if not text or Subtitle.IsSecret(text) then
+        return -1
+    end
+    return #text
+end
+
 -- Обрабатывает речь, текст диалога и закрытие окна разговора.
 local function OnSubtitleEvent(_, event, ...)
     Subtitle.RemoveOld()
+
+    -- #region agent log
+    if event == "GOSSIP_SHOW" or event == "GOSSIP_CLOSED" or event == "GOSSIP_CONFIRM"
+        or event == "QUEST_DETAIL" or event == "QUEST_PROGRESS" or event == "QUEST_COMPLETE"
+        or event == "QUEST_GREETING" or event == "QUEST_FINISHED" or event == "TAXIMAP_OPENED"
+    then
+        Subtitle.DebugLog("H1", "Manager.lua:OnSubtitleEvent", "dialogue event", {
+            event = event,
+            closeToken = Subtitle.closeToken or 0,
+            questId = GetQuestID and GetQuestID() or 0,
+            textLen = PeekDialogueTextLen(event),
+            t = GetTime(),
+        })
+    end
+    -- #endregion
 
     if event == "CHAT_MSG_MONSTER_SAY" or
        event == "CHAT_MSG_MONSTER_YELL" or
@@ -59,12 +143,7 @@ local function OnSubtitleEvent(_, event, ...)
         local currentToken = Subtitle.closeToken
 
         C_Timer.After(Subtitle.animationDuration + 0.25, function()
-            if currentToken ~= Subtitle.closeToken then
-                return
-            end
-
-            Subtitle.RemoveByPriority(1)
-            ConsoleMenu:SubtitleFrameUpdate()
+            FinishDialogueClose("QUEST_FINISHED", currentToken)
         end)
         return
     elseif event == "GOSSIP_CLOSED" or event == "GOSSIP_CONFIRM" then
@@ -72,12 +151,7 @@ local function OnSubtitleEvent(_, event, ...)
         local currentToken = Subtitle.closeToken
 
         C_Timer.After(Subtitle.animationDuration, function()
-            if currentToken ~= Subtitle.closeToken then
-                return
-            end
-
-            Subtitle.RemoveByPriority(1)
-            ConsoleMenu:SubtitleFrameUpdate()
+            FinishDialogueClose(event, currentToken)
         end)
         return
     end
@@ -96,6 +170,14 @@ function ConsoleMenu:SetSubtitleFrame()
     end
 
     Subtitle.closeToken = Subtitle.closeToken or 0
+
+    -- #region agent log
+    if ConsoleMenuDB.subtitleDebugRun ~= "post-fix2" then
+        ConsoleMenuDB.subtitleDebugLog = {}
+        ConsoleMenuDB.subtitleDebugRun = "post-fix2"
+    end
+    Subtitle.DebugLog("H1", "Manager.lua:SetSubtitleFrame", "session start", { t = GetTime() })
+    -- #endregion
 
     if not ConsoleMenuFrame.SubtitleFrame then
         local frame = CreateFrame("Frame", "SubtitleFrame", ConsoleMenuFrame)

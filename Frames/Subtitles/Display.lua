@@ -33,6 +33,13 @@ end
 
 -- Снимает реплики разговора и запускает скрытие окна субтитров.
 function Subtitle.CloseDialogue()
+    -- #region agent log
+    Subtitle.DebugLog("H2", "Display.lua:CloseDialogue", "close now", {
+        questId = GetQuestID and GetQuestID() or 0,
+        queue = Subtitle.queue and #Subtitle.queue or 0,
+        t = GetTime(),
+    })
+    -- #endregion
     Subtitle.closeToken = (Subtitle.closeToken or 0) + 1
     Subtitle.RemoveByPriority(1)
     ConsoleMenu:SubtitleFrameUpdate()
@@ -42,9 +49,25 @@ end
 function Subtitle.ScheduleNextUpdate(current)
     Subtitle.CancelUpdateTimer()
 
+    -- #region agent log
+    if current and current.priority == 1 then
+        local now = GetTime()
+        local left = (current.stopTime or now) - now
+        Subtitle.DebugLog("H3", "Display.lua:ScheduleNextUpdate", "schedule", {
+            lastLine = current.lastLine and 1 or 0,
+            left = left,
+            event = current.event or "",
+            t = now,
+        })
+    end
+    -- #endregion
+
     if current then
         if current.priority == 1 and current.lastLine then
-            return
+            local remaining = (current.stopTime or 0) - GetTime()
+            if remaining > 120 then
+                return
+            end
         end
 
         local now = GetTime()
@@ -149,6 +172,23 @@ function ConsoleMenu:SubtitleFrameUpdate(subtitle)
 
     local current = subtitle or Subtitle.GetCurrent()
     frame.CurrentSubtitle = current
+
+    -- #region agent log
+    if not current or current.priority == 1 then
+        local now = GetTime()
+        Subtitle.DebugLog(current and "H5" or "H1", "Display.lua:SubtitleFrameUpdate", current and "show" or "hide", {
+            preview = current and Subtitle.DebugPreview(current.text) or "",
+            left = current and ((current.stopTime or now) - now) or -1,
+            dur = current and current.duration or -1,
+            lastLine = current and current.lastLine and 1 or 0,
+            event = current and current.event or "",
+            queue = Subtitle.queue and #Subtitle.queue or 0,
+            shown = frame:IsShown() and 1 or 0,
+            explicit = subtitle and 1 or 0,
+            t = now,
+        })
+    end
+    -- #endregion
 
     if current then
         frame.Speaker:SetText("")
