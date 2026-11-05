@@ -624,6 +624,22 @@ local function SyncNameplatesWithGossip(contextData)
     nameplates.SetContextHidden(gossipOpen and true or false)
 end
 
+-- Добавляет подсказку сочетания R3 и L3, если сейчас есть дополнительная кнопка или способность области
+local function ApplyStickOverrideKeys()
+    if ConsoleMenu.HasActiveExtraActionOverride and ConsoleMenu:HasActiveExtraActionOverride() then
+        local title = ConsoleMenu:GetExtraActionHintTitle()
+        if title then
+            ConsoleMenu:AddKeysFrameItem("SHIFT-PADLSTICK", title)
+        end
+        return
+    end
+
+    local title = ConsoleMenu.GetZoneAbilityKeyHintTitle and ConsoleMenu:GetZoneAbilityKeyHintTitle()
+    if title then
+        ConsoleMenu:AddKeysFrameItem("SHIFT-PADLSTICK", title)
+    end
+end
+
 -- Перестраивает подсказки и видимость панелей под текущий режим.
 function ConsoleMenu:ApplyContextUIChanges()
     local contextData = GetPlayerContextData()
@@ -644,6 +660,7 @@ function ConsoleMenu:ApplyContextUIChanges()
 
     if context == "exploring" then
         ApplyExploringKeys()
+        ApplyStickOverrideKeys()
         ConsoleMenu:UpdateKeysFrame()
 
         if context == contextData.lastContext then

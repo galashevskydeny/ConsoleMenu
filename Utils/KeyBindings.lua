@@ -477,7 +477,7 @@ end
 local extraActionHintTitle
 
 -- Возвращает название действия дополнительной кнопки для подсказки
-local function GetExtraActionHintTitle()
+function ConsoleMenu:GetExtraActionHintTitle()
     local button = _G.ExtraActionButton1
     local action = button and button.action
     if (not action or action == 0) and button and button.CalculateAction then
@@ -498,7 +498,7 @@ end
 -- Обновляет подсказку сочетания R3 и L3 при появлении или скрытии дополнительной кнопки
 function ConsoleMenu:UpdateExtraActionKeyHint()
     local shouldShow = self:HasActiveExtraActionOverride()
-    local newTitle = shouldShow and GetExtraActionHintTitle() or nil
+    local newTitle = shouldShow and self:GetExtraActionHintTitle() or nil
 
     if extraActionHintTitle and extraActionHintTitle ~= newTitle then
         ConsoleMenu:DeleteKeysFrameItem("SHIFT-PADLSTICK", extraActionHintTitle)
@@ -709,6 +709,16 @@ function ConsoleMenu:UpdateZoneAbilityKeyHint(newTitle)
     end
 
     ConsoleMenu:UpdateKeysFrame()
+end
+
+-- Имя способности области, которую сейчас показывает игра
+function ConsoleMenu:GetZoneAbilityKeyHintTitle()
+    if not IsZoneAbilityOverrideEnabled() or self:HasActiveExtraActionOverride() then
+        return nil
+    end
+
+    local _, spellName = GetZoneAbilityBindSpell(GetDisplayedZoneAbility())
+    return spellName
 end
 
 -- Снимает переназначение сочетания R3 и L3 и подсказку способности области
