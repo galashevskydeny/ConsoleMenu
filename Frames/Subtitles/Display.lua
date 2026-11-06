@@ -233,9 +233,9 @@ function ConsoleMenu:SubtitleFrameUpdate(subtitle)
 
         Subtitle.UpdateDialogueKeyHints(current)
 
-        if not frame:IsShown() then
-            ConsoleMenu:AnimatedShow(frame)
-        end
+        -- Новая реплика отменяет уже начатое исчезновение.
+        -- Иначе текст задания гаснет: окно разговора закрывается чуть раньше, чем приходит сам текст.
+        ConsoleMenu:AnimatedShow(frame)
 
         Subtitle.ScheduleNextUpdate(current)
     else

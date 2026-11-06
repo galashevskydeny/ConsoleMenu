@@ -3,14 +3,21 @@
 local ConsoleMenu = _G.ConsoleMenu
 local Subtitle = ConsoleMenu.Subtitle
 
+-- Окно задания ещё видно. Номер задания после принятия остаётся прежним и сам по себе не значит, что окно открыто.
+local function IsQuestFrameOpen()
+    return QuestFrame and QuestFrame.IsShown and QuestFrame:IsShown()
+end
+
 -- Снимает реплики разговора, если отложенное закрытие ещё актуально.
 local function FinishDialogueClose(reason, token)
     local matched = token == Subtitle.closeToken
+    local questFrameOpen = IsQuestFrameOpen() and 1 or 0
     -- #region agent log
     Subtitle.DebugLog("H1", "Manager.lua:FinishDialogueClose", "delayed close", {
         reason = reason,
         matched = matched and 1 or 0,
         questId = GetQuestID and GetQuestID() or 0,
+        questFrame = questFrameOpen,
         queue = Subtitle.queue and #Subtitle.queue or 0,
         t = GetTime(),
     })
@@ -19,23 +26,24 @@ local function FinishDialogueClose(reason, token)
         return
     end
 
-    -- Задание уже открыто: это закрытие предыдущего окна, реплику задания не снимаем.
-    local questId = GetQuestID and GetQuestID() or 0
-    if not Subtitle.IsSecret(questId) and type(questId) == "number" and questId ~= 0 then
+    -- Задание ещё на экране: это закрытие предыдущего окна, реплику задания не снимаем.
+    if questFrameOpen == 1 then
         -- #region agent log
         Subtitle.DebugLog("H1", "Manager.lua:FinishDialogueClose", "skip close quest open", {
             reason = reason,
-            questId = questId,
+            questId = GetQuestID and GetQuestID() or 0,
+            questFrame = questFrameOpen,
             t = GetTime(),
         })
         -- #endregion
         return
     end
 
-    -- Окно закрылось, пока первая реплика ещё должна быть на экране: даём цепочке доиграть.
-    if Subtitle.FirstLineStillPlaying() then
-        local frame = Subtitle.GetFrame()
-        local current = frame and frame.CurrentSubtitle
+    local frame = Subtitle.GetFrame()
+    local current = frame and frame.CurrentSubtitle
+    -- Разговор закрылся в начале первой реплики: даём цепочке договорить.
+    -- Текст задания после принятия не оставляем, даже если первая строка ещё не доиграла.
+    if current and current.event == "GOSSIP_SHOW" and Subtitle.FirstLineStillPlaying() then
         Subtitle.ReleaseDialogueHold()
         -- #region agent log
         Subtitle.DebugLog("H1", "Manager.lua:FinishDialogueClose", "play out", {
