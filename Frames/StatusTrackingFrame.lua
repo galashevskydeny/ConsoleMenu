@@ -9,7 +9,7 @@ local iconSize = 24
 
 local fontSize = 20
 
-local duration = 5
+local duration = 3
 local animationDuration = 0.3
 local delay = 0.5
 
