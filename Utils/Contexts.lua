@@ -720,6 +720,7 @@ function ConsoleMenu:ApplyContextUIChanges()
         ConsoleMenu:AnimatedHide(PersonalResourceDisplayFrame)
     elseif context == "combat" or context == "precombat" then
         ApplyCombatKeys(context)
+        ApplyStickOverrideKeys()
         ConsoleMenu:UpdateKeysFrame()
         ConsoleMenu:AnimatedShow(PersonalResourceDisplayFrame)
 
