@@ -27,9 +27,14 @@ local function IsAbbreviationPeriod(str, periodIndex)
     return IsAbbreviationWord(before:match("([^%s]+)$"))
 end
 
--- Убирает лишнюю точку в конце, не трогая многоточие и сокращения.
-local function TrimTrailingPeriod(line)
-    line = line:gsub("%s+$", "")
+-- Убирает пробелы по краям и лишние точку или запятую в конце.
+-- Многоточие и сокращения вроде «т.д.» не трогает.
+local function TrimLineEnding(line)
+    line = line:gsub("^%s+", ""):gsub("%s+$", "")
+    -- Запятая в конце остаётся после переноса или разреза длинной строки.
+    line = line:gsub(",+%s*>$", ">")
+    line = line:gsub(",+$", "")
+
     if line:match("%.%.+%s*>$") or line:match("…%s*>$") then
         return line
     end
@@ -272,7 +277,7 @@ function Subtitle.SplitTextIntoLines(text)
                 end
 
                 for j = 1, #pieces do
-                    local normalizedLine = TrimTrailingPeriod(pieces[j])
+                    local normalizedLine = TrimLineEnding(pieces[j])
                     if normalizedLine ~= "" then
                         lines[#lines + 1] = {
                             text = Subtitle.CapitalizeFirstLetter(normalizedLine),
